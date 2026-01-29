@@ -23,57 +23,68 @@ export default function Home() {
         </div>
       </nav>
 
-{/* Hero区 - 左文右图 */}
-<section className="py-20 px-6">
-  <div className="max-w-6xl mx-auto">
-    <div className="flex items-center gap-16">
-      {/* 左侧文字 */}
-      <div className="flex-1">
-        <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
-          探索艺术的<br/>
-          无限可能 🎨<br/>
-          与创作之美
-        </h1>
-<p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
-  汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品.与艺术家们共同探索创作的无限魅力
-</p>
-        <div className="flex gap-4">
-          <button className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
-            探索作品
-          </button>
-          <button className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
-            了解更多
-          </button>
-        </div>
-      </div>
+      {/* Hero区 - 左文右图 */}
+      <section className="py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-16">
+            {/* 左侧文字 */}
+            <div className="flex-1">
+              <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                探索艺术的<br/>
+                无限可能 🎨<br/>
+                与创作之美
+              </h1>
+              <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
+                汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品.与艺术家们共同探索创作的无限魅力
+              </p>
+              <div className="flex gap-4">
+                <button className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+                  探索作品
+                </button>
+                <button className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
+                  了解更多
+                </button>
+              </div>
+            </div>
 
-      {/* 右侧图片卡片 - 缩小到33% */}
-      <div className="relative w-1/3 flex-shrink-0">
-        <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-amber-200 to-orange-300">
-          <div className="absolute bottom-6 left-6 z-10">
-            <h3 className="text-2xl font-bold text-white mb-1">静谧时光</h3>
-            <p className="text-white/90">张艺谋</p>
+            {/* 右侧图片卡片 */}
+            <div className="relative w-1/3 flex-shrink-0">
+              <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
+                <img 
+                  src="/image/hero.jpg" 
+                  alt="静谧时光"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                <div className="absolute bottom-8 left-8 z-10">
+                  <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
+                  <p className="text-white drop-shadow-lg">张艺谋</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
+
       {/* 每日一展大块 */}
       <section id="daily" className="py-16 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold text-gray-900 mb-3">每日一展</h2>
           <p className="text-gray-600 mb-10">发现今日精选展览，感受艺术的魅力</p>
           
-          <div className="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-200">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
             <div className="grid md:grid-cols-2 gap-0">
               {/* 左侧大图 */}
               <div className="relative">
                 <div className="absolute top-6 left-6 px-4 py-2 bg-[#F59E0B] text-white text-sm font-medium rounded-full z-10">
                   今日推荐
                 </div>
-                <div className="aspect-[4/3] bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
-                  <div className="text-white text-6xl">🖼️</div>
+                <div className="aspect-[4/3]">
+                  <img 
+                    src="/image/mryz.jpg" 
+                    alt="展览"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
 
@@ -194,12 +205,12 @@ export default function Home() {
           {/* 3x2 网格 */}
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { title: '印象派的风景:感受去莫奈的花园时光', tag: null, artist: '陈文文', date: '2024年1月19日', views: '80万', likes: 24 },
-              { title: '当代摄影中的极简主义美学探索', tag: null, artist: '李摄平', date: '2024年1月21日', views: '86万', likes: 18 },
-              { title: '诗与画的对话:中国传统文人画的意境之美', tag: null, artist: '王雅芊', date: '2024年1月10日', views: '102万', likes: 32 },
-              { title: '色彩心理学:艺术作品中的情感表达', tag: '艺术推送', artist: '张画画', date: '2024年1月9日', views: '72万', likes: 21 },
-              { title: '雕塑艺术的空间叙事与古典到现代', tag: '推荐艺术', artist: '小雕塑', date: '2024年1月5日', views: '93万', likes: 15 },
-              { title: '街头艺术的崛起:从边缘到主流的文化转变', tag: '精选艺术', artist: '赵喷绘', date: '2024年1月3日', views: '66万', likes: 28 }
+              { img: 'yls1.jpg', title: '印象派的风景:感受去莫奈的花园时光', tag: null, artist: '陈文文', date: '2024年1月19日', views: '80万', likes: 24 },
+              { img: 'yls2.png', title: '当代摄影中的极简主义美学探索', tag: null, artist: '李摄平', date: '2024年1月21日', views: '86万', likes: 18 },
+              { img: 'yls3.png', title: '诗与画的对话:中国传统文人画的意境之美', tag: null, artist: '王雅芊', date: '2024年1月10日', views: '102万', likes: 32 },
+              { img: 'yls4.png', title: '色彩心理学:艺术作品中的情感表达', tag: '艺术推送', artist: '张画画', date: '2024年1月9日', views: '72万', likes: 21 },
+              { img: 'yls5.png', title: '雕塑艺术的空间叙事与古典到现代', tag: '推荐艺术', artist: '小雕塑', date: '2024年1月5日', views: '93万', likes: 15 },
+              { img: 'yls6.png', title: '街头艺术的崛起:从边缘到主流的文化转变', tag: '精选艺术', artist: '赵喷绘', date: '2024年1月3日', views: '66万', likes: 28 }
             ].map((item, i) => (
               <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                 <div className="relative">
@@ -208,14 +219,13 @@ export default function Home() {
                       {item.tag}
                     </div>
                   )}
-                  <div className={`aspect-[4/3] bg-gradient-to-br ${
-                    i === 0 ? 'from-amber-200 to-yellow-300' :
-                    i === 1 ? 'from-gray-200 to-gray-400' :
-                    i === 2 ? 'from-slate-300 to-slate-500' :
-                    i === 3 ? 'from-red-400 to-red-600' :
-                    i === 4 ? 'from-amber-300 to-orange-400' :
-                    'from-pink-400 to-purple-500'
-                  }`}></div>
+                  <div className="aspect-[4/3]">
+                    <img 
+                      src={`/image/${item.img}`}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
                 <div className="p-5">
                   <h3 className="text-base font-bold text-gray-900 mb-3 line-clamp-2">{item.title}</h3>
@@ -259,27 +269,22 @@ export default function Home() {
           {/* 4x2 网格 */}
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { title: '晨光寻曲', artist: '张安君', likes: 342 },
-              { title: '城市呼吸', artist: '李明辉', likes: 289 },
-              { title: '山水之间', artist: '王画笔', likes: 455 },
-              { title: '时光偷片', artist: '陈惠白', likes: 198 },
-              { title: '静水流年', artist: '林书意', likes: 267 },
-              { title: '抽象对话', artist: '王雨童', likes: 523 },
-              { title: '自然之息', artist: '许摄影', likes: 412 },
-              { title: '形态推拟', artist: '小雕塑', likes: 356 }
+              { img: 'zpjhh1.jpeg', title: '晨光寻曲', artist: '张安君', likes: 342 },
+              { img: 'zpjsy1.jpeg', title: '城市呼吸', artist: '李明辉', likes: 289 },
+              { img: 'zpjsw2.jpeg', title: '山水之间', artist: '王画笔', likes: 455 },
+              { img: 'zpjsy2.jpeg', title: '时光偷片', artist: '陈惠白', likes: 198 },
+              { img: 'zpjsw1.jpeg', title: '静水流年', artist: '林书意', likes: 267 },
+              { img: 'zpjsw3.jpeg', title: '抽象对话', artist: '王雨童', likes: 523 },
+              { img: 'zpjsy3.jpeg', title: '自然之息', artist: '许摄影', likes: 412 },
+              { img: 'zpjds1.jpeg', title: '形态推拟', artist: '小雕塑', likes: 356 }
             ].map((item, i) => (
               <div key={i} className="group cursor-pointer">
-                <div className={`aspect-square rounded-lg overflow-hidden mb-3 bg-gradient-to-br ${
-                  i === 0 ? 'from-amber-200 to-orange-300' :
-                  i === 1 ? 'from-gray-300 to-gray-500' :
-                  i === 2 ? 'from-slate-400 to-slate-600' :
-                  i === 3 ? 'from-rose-200 to-pink-300' :
-                  i === 4 ? 'from-amber-100 to-orange-200' :
-                  i === 5 ? 'from-yellow-300 to-red-500' :
-                  i === 6 ? 'from-green-300 to-emerald-400' :
-                  'from-gray-400 to-gray-600'
-                }`}>
-                  <div className="w-full h-full group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="aspect-square rounded-lg overflow-hidden mb-3">
+                  <img 
+                    src={`/image/${item.img}`}
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
                 </div>
                 <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
                 <p className="text-sm text-gray-500 mb-2">{item.artist}</p>
@@ -307,22 +312,21 @@ export default function Home() {
           {/* 3x2 艺术家卡片 */}
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { name: '张艺平', role: '油画家', intro: '专注于油画创作年,擅长捕捉光影与色彩的对比,艺术生态国内外展出并获奖。致力于探索当代艺术语言与传统经典的融合。' },
-              { name: '李摄影', role: '摄影师', intro: '独立摄影师,专注于城市景观与人文纪实摄影。作品以极简构图和独特视角见长,探索空间感与艺术感的碰撞。' },
-              { name: '王雅芊', role: '国画家', intro: '当代国画家,师承传统又勇于创新。作品融合东方美学思想与当代审美在传统宋明墨符号基础上的尝试,探索水墨艺术的当代表达。' },
-              { name: '陈思远', role: '摄影师', intro: '肖片摄影爱好者,热衷于捕捉日常生活中的诗意瞬间。作品以自然光影和温暖色调为特色,用镜头关注生活美好,用画面表达对美的理解。' },
-              { name: '林诗韵', role: '诗人书法家', intro: '诗人兼书法家,作品将文学之美与视觉艺术完美融合。诗作多次获奖于文学杂志刊登,致力于将传统书法与当代文化相结合,致力于传承与创新传统文化。' },
-              { name: '赵晨曦', role: '抽象画家', intro: '当代抽象艺术家,作品以大胆的色彩和自由的表现形式著称,探索情感与形式的关系。作品多次在国内外重要展览中展出,获奖无数。' }
+              { img: 'tx1.jpg', name: '张艺平', role: '油画家', intro: '专注于油画创作年,擅长捕捉光影与色彩的对比,艺术生态国内外展出并获奖。致力于探索当代艺术语言与传统经典的融合。' },
+              { img: 'tx2.jpg', name: '李摄影', role: '摄影师', intro: '独立摄影师,专注于城市景观与人文纪实摄影。作品以极简构图和独特视角见长,探索空间感与艺术感的碰撞。' },
+              { img: 'tx3.jpg', name: '王雅芊', role: '国画家', intro: '当代国画家,师承传统又勇于创新。作品融合东方美学思想与当代审美在传统宋明墨符号基础上的尝试,探索水墨艺术的当代表达。' },
+              { img: 'tx4.jpg', name: '陈思远', role: '摄影师', intro: '肖片摄影爱好者,热衷于捕捉日常生活中的诗意瞬间。作品以自然光影和温暖色调为特色,用镜头关注生活美好,用画面表达对美的理解。' },
+              { img: 'tx5.jpg', name: '林诗韵', role: '诗人书法家', intro: '诗人兼书法家,作品将文学之美与视觉艺术完美融合。诗作多次获奖于文学杂志刊登,致力于将传统书法与当代文化相结合,致力于传承与创新传统文化。' },
+              { img: 'tx6.jpg', name: '赵晨曦', role: '抽象画家', intro: '当代抽象艺术家,作品以大胆的色彩和自由的表现形式著称,探索情感与形式的关系。作品多次在国内外重要展览中展出,获奖无数。' }
             ].map((artist, i) => (
               <div key={i} className="bg-white rounded-lg p-8 text-center shadow-sm hover:shadow-md transition-shadow">
-                <div className={`w-24 h-24 rounded-full mx-auto mb-4 bg-gradient-to-br ${
-                  i === 0 ? 'from-gray-400 to-gray-600' :
-                  i === 1 ? 'from-blue-400 to-purple-500' :
-                  i === 2 ? 'from-amber-300 to-orange-400' :
-                  i === 3 ? 'from-green-400 to-teal-500' :
-                  i === 4 ? 'from-indigo-400 to-purple-600' :
-                  'from-pink-400 to-rose-500'
-                }`}></div>
+                <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden">
+                  <img 
+                    src={`/image/${artist.img}`}
+                    alt={artist.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">{artist.name}</h3>
                 <p className="text-sm text-gray-500 mb-4">{artist.role}</p>
                 <p className="text-sm text-gray-600 leading-relaxed mb-6 line-clamp-4">
@@ -348,17 +352,19 @@ export default function Home() {
           {/* 3个横向展览卡片 */}
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
-              { title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
-              { title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
+              { img: 'zlhb1.jpg', title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
+              { img: 'zlhb2.jpg', title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
+              { img: 'zlhb3.jpg', title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
             ].map((exhibit, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="flex gap-4 p-5">
-                  <div className={`w-24 h-24 rounded-lg flex-shrink-0 bg-gradient-to-br ${
-                    i === 0 ? 'from-red-300 to-orange-400' :
-                    i === 1 ? 'from-orange-300 to-yellow-400' :
-                    'from-rose-300 to-pink-400'
-                  }`}></div>
+                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                    <img 
+                      src={`/image/${exhibit.img}`}
+                      alt={exhibit.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
                     <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
@@ -379,7 +385,7 @@ export default function Home() {
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             {/* 品牌信息 */}
             <div>
