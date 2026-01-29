@@ -1,259 +1,437 @@
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#FFF8F0]">
-      {/* 导航栏 */}
-      <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-[#8B7355] z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="text-2xl font-serif font-bold text-[#3A3A3A] tracking-tight">
-            CRADLE
+      {/* 顶部导航栏 */}
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+              <span className="text-xl font-bold text-gray-900">艺术空间</span>
+            </div>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+              <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+              <li><a href="#collection" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
+            </ul>
           </div>
-          <ul className="hidden md:flex gap-8 text-sm font-medium">
-            <li><a href="#" className="text-[#5C4A3A] hover:text-[#D4745E] transition-colors">每日一展</a></li>
-            <li><a href="#" className="text-[#5C4A3A] hover:text-[#D4745E] transition-colors">文学</a></li>
-            <li><a href="#" className="text-[#5C4A3A] hover:text-[#D4745E] transition-colors">摄影</a></li>
-            <li><a href="#" className="text-[#5C4A3A] hover:text-[#D4745E] transition-colors">绘画</a></li>
-            <li><a href="#" className="text-[#5C4A3A] hover:text-[#D4745E] transition-colors">艺术家</a></li>
-          </ul>
-          <button className="px-6 py-2 bg-[#3A3A3A] text-white text-sm font-medium hover:bg-[#5C4A3A] transition-colors">
-            会员登录
-          </button>
+          <div className="flex items-center gap-4">
+            <button className="text-gray-600 hover:text-gray-900">🔍</button>
+            <button className="text-gray-600 hover:text-gray-900">👤</button>
+          </div>
         </div>
       </nav>
 
-      {/* 今日展览标题区 - 强调日期 */}
-      <main className="pt-20 px-8 max-w-7xl mx-auto">
-        <section className="py-12 border-b-2 border-[#3A3A3A] mb-12">
-          <div className="flex items-baseline gap-6 mb-4">
-            <div className="text-7xl font-bold text-[#D4745E] font-mono">
-              01/08
-            </div>
-            <div>
-              <div className="text-sm font-medium text-[#7A6F5D] uppercase tracking-wider mb-1">
-                TODAY ONLY
-              </div>
-              <div className="text-3xl font-bold text-[#3A3A3A]">
-                今日限定展览
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="px-3 py-1 bg-[#3A3A3A] text-white font-medium">
-              策展主题：偶然的相遇
-            </span>
-            <span className="text-[#7A6F5D]">
-              • 每24小时更换一次，错过不再
-            </span>
-          </div>
-        </section>
+{/* Hero区 - 左文右图 */}
+<section className="py-20 px-6">
+  <div className="max-w-6xl mx-auto">
+    <div className="flex items-center gap-16">
+      {/* 左侧文字 */}
+      <div className="flex-1">
+        <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+          探索艺术的<br/>
+          无限可能 🎨<br/>
+          与创作之美
+        </h1>
+<p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
+  汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品.与艺术家们共同探索创作的无限魅力
+</p>
+        <div className="flex gap-4">
+          <button className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+            探索作品
+          </button>
+          <button className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
+            了解更多
+          </button>
+        </div>
+      </div>
 
-        {/* 今日作品 - 片段展示 */}
-        <article className="grid md:grid-cols-2 gap-8 mb-20">
-          {/* 作品图片 */}
-          <div className="relative group cursor-pointer">
-            <div className="aspect-[4/3] bg-gradient-to-br from-[#E8B54D] to-[#D4745E] border-2 border-[#3A3A3A] overflow-hidden">
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white">
-                  <div className="text-6xl mb-4">🎨</div>
-                  <p className="text-xl font-medium">点击查看完整作品</p>
+      {/* 右侧图片卡片 - 缩小到33% */}
+      <div className="relative w-1/3 flex-shrink-0">
+        <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-amber-200 to-orange-300">
+          <div className="absolute bottom-6 left-6 z-10">
+            <h3 className="text-2xl font-bold text-white mb-1">静谧时光</h3>
+            <p className="text-white/90">张艺谋</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+      {/* 每日一展大块 */}
+      <section id="daily" className="py-16 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold text-gray-900 mb-3">每日一展</h2>
+          <p className="text-gray-600 mb-10">发现今日精选展览，感受艺术的魅力</p>
+          
+          <div className="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-200">
+            <div className="grid md:grid-cols-2 gap-0">
+              {/* 左侧大图 */}
+              <div className="relative">
+                <div className="absolute top-6 left-6 px-4 py-2 bg-[#F59E0B] text-white text-sm font-medium rounded-full z-10">
+                  今日推荐
+                </div>
+                <div className="aspect-[4/3] bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
+                  <div className="text-white text-6xl">🖼️</div>
+                </div>
+              </div>
+
+              {/* 右侧详情 */}
+              <div className="p-10 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                    光影诗篇：当代摄影艺术展
+                  </h3>
+                  
+                  <div className="flex items-center gap-3 text-gray-600 mb-6">
+                    <span>策展平</span>
+                    <span>·</span>
+                    <span>艺术空间一号展厅</span>
+                  </div>
+
+                  <p className="text-gray-700 leading-relaxed mb-8">
+                    本次展览汇集了艺术家群体近三年的摄影作品,通过独特的光影语言,探索城市与自然、传统与现代的对话。展览共展出50余幅作品,涵盖风光、人文、建筑等多个主题。
+                  </p>
+
+                  {/* 展览信息 */}
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-start gap-3">
+                      <span className="text-[#F59E0B]">📅</span>
+                      <div>
+                        <div className="text-sm text-gray-500">展期</div>
+                        <div className="font-medium text-gray-900">2024年1月15日 - 2月28日</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3">
+                      <span className="text-[#F59E0B]">🕐</span>
+                      <div>
+                        <div className="text-sm text-gray-500">开放时间</div>
+                        <div className="font-medium text-gray-900">10:00 - 18:00（周一闭馆）</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <span className="text-[#F59E0B]">🎫</span>
+                      <div>
+                        <div className="text-sm text-gray-500">门票</div>
+                        <div className="font-medium text-gray-900">免费参观</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 展览亮点 */}
+                  <div className="mb-8">
+                    <div className="text-sm text-gray-500 mb-3">展览亮点</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-[#F59E0B] rounded-full"></div>
+                        <span className="text-sm text-gray-700">50余幅精选摄影作品</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-[#F59E0B] rounded-full"></div>
+                        <span className="text-sm text-gray-700">艺术家现场导览</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-[#F59E0B] rounded-full"></div>
+                        <span className="text-sm text-gray-700">互动体验区</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-[#F59E0B] rounded-full"></div>
+                        <span className="text-sm text-gray-700">限量版画发售</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 底部按钮 */}
+                <div className="flex gap-4">
+                  <button className="flex-1 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706]">
+                    预约参观
+                  </button>
+                  <button className="px-6 py-4 text-gray-700 font-medium hover:text-gray-900">
+                    了解更多 →
+                  </button>
                 </div>
               </div>
             </div>
-            {/* 查看完整作品提示 */}
-            <div className="absolute bottom-0 left-0 right-0 bg-[#3A3A3A]/90 text-white p-4 transform translate-y-full group-hover:translate-y-0 transition-transform">
-              <p className="text-sm font-medium">👆 点击进入完整展览</p>
-            </div>
           </div>
+        </div>
+      </section>
 
-          {/* 作品信息 */}
-          <div className="flex flex-col justify-between">
+      {/* 艺术阅览室 */}
+      <section id="gallery" className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-center mb-10">
             <div>
-              <div className="flex gap-3 mb-4 text-xs uppercase tracking-wider">
-                <span className="text-[#D4745E] font-bold">水彩画</span>
-                <span className="text-[#7A6F5D]">•</span>
-                <span className="text-[#7A6F5D]">2024创作</span>
-              </div>
-              
-              <h2 className="text-4xl font-bold text-[#3A3A3A] mb-6 leading-tight">
-                晨光下的小镇
-              </h2>
+              <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术阅览室</h2>
+              <p className="text-gray-600">浏览最新艺术活动,探索创作背后的故事</p>
+            </div>
+            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部 →</a>
+          </div>
 
-              <div className="space-y-4 mb-8">
-                <p className="text-lg text-[#3A3A3A] leading-relaxed">
-                  清晨的第一缕阳光洒在小镇的屋檐上，炊烟袅袅升起。
-                  这幅作品捕捉了最平凡却最珍贵的瞬间...
-                </p>
-                <p className="text-[#7A6F5D] italic">
-                  "我想画出记忆里家的味道——那种安稳、温暖、永远等待着你的感觉。"
-                </p>
+          {/* 二级筛选栏 */}
+          <div className="flex items-center justify-between mb-8 bg-white rounded-lg p-4 shadow-sm">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+                <span className="font-medium text-gray-900">艺术空间</span>
               </div>
-
-              <div className="border-t border-[#D4D4D4] pt-4 mb-6">
-                <p className="text-xs text-[#7A6F5D] uppercase tracking-wider mb-2">
-                  策展人说
-                </p>
-                <p className="text-sm text-[#3A3A3A] font-medium">
-                  在快速变化的时代，这件作品提醒我们慢下来，感受日常中被忽略的美好。
-                </p>
+              <div className="flex gap-6 text-sm text-gray-600">
+                <a href="#" className="hover:text-gray-900">每日一展</a>
+                <a href="#" className="hover:text-gray-900">艺术阅览室</a>
+                <a href="#" className="hover:text-gray-900">作品集</a>
+                <a href="#" className="hover:text-gray-900">艺术家</a>
               </div>
             </div>
-
-            <button className="w-full py-4 bg-[#3A3A3A] text-white font-medium hover:bg-[#D4745E] transition-colors">
-              查看完整作品与创作故事 →
-            </button>
-          </div>
-        </article>
-
-        {/* 艺术家专区 */}
-        <section className="mb-20 py-12 border-t-2 border-[#3A3A3A]">
-          <div className="mb-8">
-            <h3 className="text-3xl font-bold text-[#3A3A3A] mb-2">
-              今日艺术家
-            </h3>
-            <p className="text-[#7A6F5D]">每天认识一位原创艺术家</p>
+            <div className="flex items-center gap-4">
+              <button className="text-gray-600 hover:text-gray-900">🔍</button>
+              <button className="text-gray-600 hover:text-gray-900">👤</button>
+            </div>
           </div>
 
+          {/* 3x2 网格 */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { title: '印象派的风景:感受去莫奈的花园时光', tag: null, artist: '陈文文', date: '2024年1月19日', views: '80万', likes: 24 },
+              { title: '当代摄影中的极简主义美学探索', tag: null, artist: '李摄平', date: '2024年1月21日', views: '86万', likes: 18 },
+              { title: '诗与画的对话:中国传统文人画的意境之美', tag: null, artist: '王雅芊', date: '2024年1月10日', views: '102万', likes: 32 },
+              { title: '色彩心理学:艺术作品中的情感表达', tag: '艺术推送', artist: '张画画', date: '2024年1月9日', views: '72万', likes: 21 },
+              { title: '雕塑艺术的空间叙事与古典到现代', tag: '推荐艺术', artist: '小雕塑', date: '2024年1月5日', views: '93万', likes: 15 },
+              { title: '街头艺术的崛起:从边缘到主流的文化转变', tag: '精选艺术', artist: '赵喷绘', date: '2024年1月3日', views: '66万', likes: 28 }
+            ].map((item, i) => (
+              <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                <div className="relative">
+                  {item.tag && (
+                    <div className="absolute top-3 left-3 px-3 py-1 bg-gray-700 text-white text-xs font-medium rounded">
+                      {item.tag}
+                    </div>
+                  )}
+                  <div className={`aspect-[4/3] bg-gradient-to-br ${
+                    i === 0 ? 'from-amber-200 to-yellow-300' :
+                    i === 1 ? 'from-gray-200 to-gray-400' :
+                    i === 2 ? 'from-slate-300 to-slate-500' :
+                    i === 3 ? 'from-red-400 to-red-600' :
+                    i === 4 ? 'from-amber-300 to-orange-400' :
+                    'from-pink-400 to-purple-500'
+                  }`}></div>
+                </div>
+                <div className="p-5">
+                  <h3 className="text-base font-bold text-gray-900 mb-3 line-clamp-2">{item.title}</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gray-300"></div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{item.artist}</div>
+                        <div className="text-xs text-gray-500">{item.date}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">👁 {item.views}</span>
+                      <span className="flex items-center gap-1">❤️ {item.likes}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 原创作品集 */}
+      <section id="collection" className="py-16 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-4xl font-bold text-[#0D9488] mb-3">原创作品集</h2>
+            <p className="text-gray-600">汇聚艺术家的创作灵感与才华</p>
+          </div>
+
+          {/* 分类按钮 */}
+          <div className="flex justify-center gap-3 mb-10">
+            <button className="px-6 py-2 bg-gray-900 text-white rounded-full text-sm font-medium">全部</button>
+            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">摄文</button>
+            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">绘画</button>
+            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">摄影</button>
+            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">雕塑</button>
+          </div>
+
+          {/* 4x2 网格 */}
+          <div className="grid md:grid-cols-4 gap-6">
+            {[
+              { title: '晨光寻曲', artist: '张安君', likes: 342 },
+              { title: '城市呼吸', artist: '李明辉', likes: 289 },
+              { title: '山水之间', artist: '王画笔', likes: 455 },
+              { title: '时光偷片', artist: '陈惠白', likes: 198 },
+              { title: '静水流年', artist: '林书意', likes: 267 },
+              { title: '抽象对话', artist: '王雨童', likes: 523 },
+              { title: '自然之息', artist: '许摄影', likes: 412 },
+              { title: '形态推拟', artist: '小雕塑', likes: 356 }
+            ].map((item, i) => (
+              <div key={i} className="group cursor-pointer">
+                <div className={`aspect-square rounded-lg overflow-hidden mb-3 bg-gradient-to-br ${
+                  i === 0 ? 'from-amber-200 to-orange-300' :
+                  i === 1 ? 'from-gray-300 to-gray-500' :
+                  i === 2 ? 'from-slate-400 to-slate-600' :
+                  i === 3 ? 'from-rose-200 to-pink-300' :
+                  i === 4 ? 'from-amber-100 to-orange-200' :
+                  i === 5 ? 'from-yellow-300 to-red-500' :
+                  i === 6 ? 'from-green-300 to-emerald-400' :
+                  'from-gray-400 to-gray-600'
+                }`}>
+                  <div className="w-full h-full group-hover:scale-110 transition-transform duration-300"></div>
+                </div>
+                <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
+                <p className="text-sm text-gray-500 mb-2">{item.artist}</p>
+                <div className="flex items-center gap-1 text-sm text-gray-400">
+                  <span>❤️</span>
+                  <span>{item.likes}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 艺术家 */}
+      <section id="artists" className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术家</h2>
+              <p className="text-gray-600">认识艺术社群活跃的创作者们</p>
+            </div>
+            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看所有艺术家 →</a>
+          </div>
+
+          {/* 3x2 艺术家卡片 */}
           <div className="grid md:grid-cols-3 gap-8">
-            {/* 艺术家肖像 */}
-            <div className="md:col-span-1">
-              <div className="aspect-square bg-[#E8B54D]/20 border-2 border-[#3A3A3A] mb-4 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-6xl mb-2">👤</div>
-                  <p className="text-sm text-[#7A6F5D]">艺术家肖像</p>
+            {[
+              { name: '张艺平', role: '油画家', intro: '专注于油画创作年,擅长捕捉光影与色彩的对比,艺术生态国内外展出并获奖。致力于探索当代艺术语言与传统经典的融合。' },
+              { name: '李摄影', role: '摄影师', intro: '独立摄影师,专注于城市景观与人文纪实摄影。作品以极简构图和独特视角见长,探索空间感与艺术感的碰撞。' },
+              { name: '王雅芊', role: '国画家', intro: '当代国画家,师承传统又勇于创新。作品融合东方美学思想与当代审美在传统宋明墨符号基础上的尝试,探索水墨艺术的当代表达。' },
+              { name: '陈思远', role: '摄影师', intro: '肖片摄影爱好者,热衷于捕捉日常生活中的诗意瞬间。作品以自然光影和温暖色调为特色,用镜头关注生活美好,用画面表达对美的理解。' },
+              { name: '林诗韵', role: '诗人书法家', intro: '诗人兼书法家,作品将文学之美与视觉艺术完美融合。诗作多次获奖于文学杂志刊登,致力于将传统书法与当代文化相结合,致力于传承与创新传统文化。' },
+              { name: '赵晨曦', role: '抽象画家', intro: '当代抽象艺术家,作品以大胆的色彩和自由的表现形式著称,探索情感与形式的关系。作品多次在国内外重要展览中展出,获奖无数。' }
+            ].map((artist, i) => (
+              <div key={i} className="bg-white rounded-lg p-8 text-center shadow-sm hover:shadow-md transition-shadow">
+                <div className={`w-24 h-24 rounded-full mx-auto mb-4 bg-gradient-to-br ${
+                  i === 0 ? 'from-gray-400 to-gray-600' :
+                  i === 1 ? 'from-blue-400 to-purple-500' :
+                  i === 2 ? 'from-amber-300 to-orange-400' :
+                  i === 3 ? 'from-green-400 to-teal-500' :
+                  i === 4 ? 'from-indigo-400 to-purple-600' :
+                  'from-pink-400 to-rose-500'
+                }`}></div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{artist.name}</h3>
+                <p className="text-sm text-gray-500 mb-4">{artist.role}</p>
+                <p className="text-sm text-gray-600 leading-relaxed mb-6 line-clamp-4">
+                  {artist.intro}
+                </p>
+                <button className="px-8 py-2 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50">
+                  查看作品
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 近期展览 */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
+            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
+          </div>
+
+          {/* 3个横向展览卡片 */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
+              { title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
+              { title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
+            ].map((exhibit, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="flex gap-4 p-5">
+                  <div className={`w-24 h-24 rounded-lg flex-shrink-0 bg-gradient-to-br ${
+                    i === 0 ? 'from-red-300 to-orange-400' :
+                    i === 1 ? 'from-orange-300 to-yellow-400' :
+                    'from-rose-300 to-pink-400'
+                  }`}></div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
+                    <div className="space-y-1 text-xs text-gray-500">
+                      <p>📅 {exhibit.date}</p>
+                      <p>📍 {exhibit.location}</p>
+                    </div>
+                    <button className="text-sm text-[#F59E0B] hover:underline mt-3">
+                      了解详情 →
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="text-center">
-                <h4 className="text-2xl font-bold text-[#3A3A3A] mb-1">
-                  李小雨
-                </h4>
-                <p className="text-sm text-[#7A6F5D] mb-3">水彩画家 · 90后</p>
-                <div className="flex justify-center gap-2 text-xs">
-                  <span className="px-2 py-1 bg-[#FFFBF5] border border-[#D4D4D4]">
-                    10件作品
-                  </span>
-                  <span className="px-2 py-1 bg-[#FFFBF5] border border-[#D4D4D4]">
-                    520关注
-                  </span>
-                </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 页脚 */}
+      <footer className="bg-[#1F2937] text-white py-12 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            {/* 品牌信息 */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+                <div className="text-xl font-bold">艺术空间</div>
               </div>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                汇聚全球原创艺术家的创作台探索艺术的无限可能
+              </p>
             </div>
 
-            {/* 艺术家介绍 */}
-            <div className="md:col-span-2 space-y-4">
-              <div>
-                <h5 className="text-sm font-bold text-[#3A3A3A] uppercase tracking-wider mb-2">
-                  关于艺术家
-                </h5>
-                <p className="text-[#3A3A3A] leading-relaxed">
-                  李小雨，90后水彩画家，毕业于中央美术学院。她的作品专注于捕捉日常生活中被忽略的温暖瞬间，
-                  用柔和的色彩和细腻的笔触，记录下那些平凡却珍贵的时刻。
-                </p>
-              </div>
+            {/* 关于我们 */}
+            <div>
+              <h5 className="font-bold mb-4">关于我们</h5>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">平台介绍</a></li>
+                <li><a href="#" className="hover:text-white">团队成员</a></li>
+                <li><a href="#" className="hover:text-white">联系我们</a></li>
+                <li><a href="#" className="hover:text-white">加入我们</a></li>
+              </ul>
+            </div>
 
-              <div>
-                <h5 className="text-sm font-bold text-[#3A3A3A] uppercase tracking-wider mb-2">
-                  创作理念
-                </h5>
-                <p className="text-[#3A3A3A] leading-relaxed">
-                  "艺术不应该只存在于美术馆，它应该回到生活本身。我想通过画笔，
-                  让每个人都能重新发现自己生活中的美好。"
-                </p>
-              </div>
+            {/* 艺术家服务 */}
+            <div>
+              <h5 className="font-bold mb-4">艺术家服务</h5>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">上传作品</a></li>
+                <li><a href="#" className="hover:text-white">创建展览</a></li>
+                <li><a href="#" className="hover:text-white">艺术家认证</a></li>
+                <li><a href="#" className="hover:text-white">版权保护</a></li>
+              </ul>
+            </div>
 
-              <div className="pt-4">
-                <button className="px-8 py-3 border-2 border-[#3A3A3A] text-[#3A3A3A] font-medium hover:bg-[#3A3A3A] hover:text-white transition-all">
-                  查看艺术家主页 →
+            {/* 订阅资讯 */}
+            <div>
+              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
+              <div className="space-y-3">
+                <input 
+                  type="email" 
+                  placeholder="输入您的邮箱" 
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500"
+                />
+                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">
+                  订阅
                 </button>
               </div>
             </div>
           </div>
-        </section>
 
-        {/* 为什么这样做 - 移到最后 */}
-        <section className="mb-20 py-16 bg-[#FFFBF5] -mx-8 px-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h3 className="text-4xl font-bold text-[#3A3A3A] mb-4">
-                为什么叫 CRADLE？
-              </h3>
-              <p className="text-lg text-[#7A6F5D]">
-                关于反算法与艺术生长空间的思考
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <div className="bg-white p-6 border border-[#D4D4D4]">
-                <div className="text-3xl mb-3">🚫</div>
-                <h4 className="text-xl font-bold text-[#3A3A3A] mb-3">
-                  我们拒绝算法推荐
-                </h4>
-                <p className="text-[#5C4A3A] leading-relaxed">
-                  推荐算法会让你困在舒适区。我们相信，真正的艺术发现应该充满意外和惊喜。
-                  每天随机展示作品，让每个人都能走出自己的审美茧房。
-                </p>
-              </div>
-
-              <div className="bg-white p-6 border border-[#D4D4D4]">
-                <div className="text-3xl mb-3">🌱</div>
-                <h4 className="text-xl font-bold text-[#3A3A3A] mb-3">
-                  新人艺术家的摇篮
-                </h4>
-                <p className="text-[#5C4A3A] leading-relaxed">
-                  每个艺术家都需要一个温暖的起点。在这里，没有流量焦虑，没有算法竞争，
-                  只有纯粹的创作和真诚的欣赏。
-                </p>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm text-[#7A6F5D] mb-4">
-                已有 <span className="font-bold text-[#D4745E]">127</span> 位艺术家在这里成长
-              </p>
-              <button className="px-8 py-3 bg-[#D4745E] text-white font-medium hover:bg-[#C46654] transition-colors">
-                申请成为入驻艺术家
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* 往期精选 */}
-        <section className="mb-20">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h3 className="text-3xl font-bold text-[#3A3A3A] mb-2">
-                往期展览
-              </h3>
-              <p className="text-[#7A6F5D]">回顾过去的精彩相遇</p>
-            </div>
-            <button className="text-sm text-[#3A3A3A] hover:text-[#D4745E] font-medium">
-              查看全部 →
-            </button>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="group cursor-pointer">
-                <div className="aspect-square bg-gradient-to-br from-[#9CAF88] to-[#8B7355] border border-[#D4D4D4] mb-3 group-hover:border-[#3A3A3A] transition-colors"></div>
-                <p className="text-sm text-[#7A6F5D] mb-1">01/0{i}</p>
-                <p className="text-sm font-medium text-[#3A3A3A] group-hover:text-[#D4745E] transition-colors">
-                  作品标题 #{i}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      {/* 底部信息栏 */}
-      <footer className="bg-[#3A3A3A] text-white py-8 px-8">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-sm">
-            <p className="mb-1">© 2026 Cradle. 每天，一次意外的相遇。</p>
-            <p className="text-[#A0A0A0]">反算法 · 反推荐 · 支持原创</p>
-          </div>
-          <div className="flex gap-6 text-sm">
-            <a href="#" className="hover:text-[#D4745E] transition-colors">关于我们</a>
-            <a href="#" className="hover:text-[#D4745E] transition-colors">入驻申请</a>
-            <a href="#" className="hover:text-[#D4745E] transition-colors">联系方式</a>
+          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">
+            © 2024 艺术空间. All rights reserved.
           </div>
         </div>
       </footer>
