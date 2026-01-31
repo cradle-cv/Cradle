@@ -42,38 +42,48 @@ async function getData() {
     .order('created_at', { ascending: false })
     .limit(8)
 
-  // 获取艺术家
-  const { data: artists } = await supabase
-    .from('artists')
-    .select('*, users(*)')
-    .limit(6)
+// 获取艺术家
+const { data: artists } = await supabase
+  .from('artists')
+  .select('*, users(*)')
+  .limit(6)
 
-  return {
-    exhibition,
-    articles: articles || [],
-    artworks: artworks || [],
-    artists: artists || []
-  }
+// 获取合作伙伴
+const { data: partners } = await supabase
+  .from('partners')
+  .select('*')
+  .eq('status', 'active')
+  .order('created_at', { ascending: false })
+  .limit(4)
+
+return {
+  exhibition,
+  articles: articles || [],
+  artworks: artworks || [],
+  artists: artists || [],
+  partners: partners || []
+}
 }
 
 export default async function Home() {
-  const { exhibition, articles, artworks, artists } = await getData()
+  const { exhibition, articles, artworks, artists, partners } = await getData()
 
   return (
-    <div className="min-h-screen bg-[#FFF8F0]" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       {/* 顶部导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="text-xl font-bold text-gray-900">艺术空间</span>
+              <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
             </div>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
               <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
               <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
               <li><a href="#collection" className="hover:text-gray-900">作品集</a></li>
               <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
             </ul>
           </div>
           <div className="flex items-center gap-4">
@@ -360,6 +370,101 @@ export default async function Home() {
           </div>
         </div>
       </section>
+      {/* 合作伙伴 - 新添加的 */}
+      <section id="partners" className="py-16 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-4xl font-bold text-gray-900 mb-3">合作伙伴</h2>
+            <p className="text-gray-600">与我们携手共创的艺术机构</p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-6">
+            {partners.map((partner) => (
+              <a 
+                key={partner.id} 
+                href={`/partners/${partner.id}`}
+                className="bg-white rounded-lg p-6 text-center shadow-sm hover:shadow-lg transition-all cursor-pointer group"
+              >
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {partner.logo_url ? (
+                    <img 
+                      src={partner.logo_url}
+                      alt={partner.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-3xl">🏛️</div>
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-[#F59E0B] transition-colors">
+                  {partner.name}
+                </h3>
+                {partner.name_en && (
+                  <p className="text-sm text-gray-500 mb-3">{partner.name_en}</p>
+                )}
+                <p className="text-xs text-gray-600 line-clamp-2 mb-3">
+                  {partner.description}
+                </p>
+                {partner.city && (
+                  <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    📍 {partner.city}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <a 
+              href="/partners"
+              className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+            >
+              查看全部合作伙伴 →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* 近期展览 */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
+            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { img: 'zlhb1.jpg', title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
+              { img: 'zlhb2.jpg', title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
+              { img: 'zlhb3.jpg', title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
+            ].map((exhibit, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="flex gap-4 p-5">
+                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                    <img 
+                      src={`/image/${exhibit.img}`}
+                      alt={exhibit.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
+                    <div className="space-y-1 text-xs text-gray-500">
+                      <p>📅 {exhibit.date}</p>
+                      <p>📍 {exhibit.location}</p>
+                    </div>
+                    <button className="text-sm text-[#F59E0B] hover:underline mt-3">
+                      了解详情 →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
@@ -368,7 +473,7 @@ export default async function Home() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">艺术空间</div>
+                <div className="text-xl font-bold">Cradle摇篮</div>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
                 汇聚全球原创艺术家的创作台探索艺术的无限可能
@@ -411,7 +516,7 @@ export default async function Home() {
           </div>
 
           <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">
-            © 2024 艺术空间. All rights reserved.
+            © 2026 Cradle摇篮. All rights reserved.
           </div>
         </div>
       </footer>
