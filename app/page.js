@@ -260,12 +260,12 @@ export default async function Home() {
     </div>
   </div>
   <div className="p-5 flex flex-col flex-1">
-    <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors min-h-[48px]">
-      {article.title}
-    </h3>
-    <p className="text-sm text-gray-600 mb-4 line-clamp-3 leading-relaxed flex-1">
-      {article.intro}
-    </p>
+  <h3 className="text-base font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-[#F59E0B] transition-colors min-h-[48px]">
+    {article.title}
+  </h3>
+  <p className="text-sm text-gray-600 mb-auto line-clamp-3 leading-relaxed">
+    {article.intro}
+  </p>
     <div className="flex items-center justify-between mt-auto">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-gray-300"></div>
