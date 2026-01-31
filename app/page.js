@@ -249,40 +249,40 @@ export default async function Home() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {articles.map((article) => (
-              <div key={article.id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
-                <div className="relative overflow-hidden">
-                  <div className="aspect-[4/3]">
-                    <img 
-                      src={article.cover_image}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                </div>
-                <div className="p-5">
-                  <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors">
-                    {article.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
-                    {article.intro}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-300"></div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">作者</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(article.published_at).toLocaleDateString('zh-CN')}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{article.read_time}分钟</span>
-                      <span className="flex items-center gap-1">❤️ {article.likes_count}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <div key={article.id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group flex flex-col">
+  <div className="relative overflow-hidden">
+    <div className="aspect-[4/3]">
+      <img 
+        src={article.cover_image}
+        alt={article.title}
+        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+      />
+    </div>
+  </div>
+  <div className="p-5 flex flex-col flex-1">
+    <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors min-h-[48px]">
+      {article.title}
+    </h3>
+    <p className="text-sm text-gray-600 mb-4 line-clamp-3 leading-relaxed flex-1">
+      {article.intro}
+    </p>
+    <div className="flex items-center justify-between mt-auto">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-gray-300"></div>
+        <div>
+          <div className="text-sm font-medium text-gray-900">作者</div>
+          <div className="text-xs text-gray-500">
+            {new Date(article.published_at).toLocaleDateString('zh-CN')}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-xs text-gray-500">
+        <span>{article.read_time}分钟</span>
+        <span className="flex items-center gap-1">❤️ {article.likes_count}</span>
+      </div>
+    </div>
+  </div>
+</div>
             ))}
           </div>
         </div>
