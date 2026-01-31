@@ -33,7 +33,7 @@ async function getPartner(id) {
 }
 
 export default async function PartnerDetailPage({ params }) {
-  const { id } = params
+  const { id } = await params
   const data = await getPartner(id)
 
   if (!data) {
