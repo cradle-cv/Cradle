@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 
 // 从数据库获取数据
 async function getData() {
+  console.log('🚀 开始获取数据...')
+  
   // 获取今日展览
   const { data: exhibition } = await supabase
     .from('exhibitions')
@@ -10,21 +12,7 @@ async function getData() {
     .eq('display_date', new Date().toISOString().split('T')[0])
     .single()
   
-  // 如果没有今日展览，随机选一个
-  if (!exhibition) {
-    const { data: randomExhibition } = await supabase
-      .from('exhibitions')
-      .select('*')
-      .limit(1)
-      .single()
-    
-    return {
-      exhibition: randomExhibition,
-      articles: [],
-      artworks: [],
-      artists: []
-    }
-  }
+  console.log('📅 展览:', exhibition ? '有' : '无')
 
   // 获取文章
   const { data: articles } = await supabase
@@ -34,43 +22,60 @@ async function getData() {
     .order('published_at', { ascending: false })
     .limit(6)
 
-  // 获取作品
-  const { data: artworks } = await supabase
-    .from('artworks')
+  console.log('📝 文章数量:', articles?.length || 0)
+
+  // 获取作品集（替换原来的作品）
+  const { data: collections } = await supabase
+    .from('collections')
     .select('*, artists(*)')
     .eq('status', 'published')
     .order('created_at', { ascending: false })
     .limit(8)
 
-// 获取艺术家
-const { data: artists } = await supabase
-  .from('artists')
-  .select('*, users(*)')
-  .limit(6)
+  console.log('📚 作品集数量:', collections?.length || 0)
 
-// 获取合作伙伴
-const { data: partners } = await supabase
-  .from('partners')
-  .select('*')
-  .eq('status', 'active')
-  .order('created_at', { ascending: false })
-  .limit(4)
+  // 获取艺术家
+  const { data: artists } = await supabase
+    .from('artists')
+    .select('*, users(*)')
+    .limit(6)
 
-return {
-  exhibition,
-  articles: articles || [],
-  artworks: artworks || [],
-  artists: artists || [],
-  partners: partners || []
+  console.log('👤 艺术家数量:', artists?.length || 0)
+
+  // 获取合作伙伴
+  const { data: partners } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(4)
+
+  console.log('🏢 合作伙伴数量:', partners?.length || 0)
+
+  return {
+    exhibition: exhibition || null,
+    articles: articles || [],
+    collections: collections || [],  // 改为 collections
+    artists: artists || [],
+    partners: partners || []
+  }
 }
-}
-
 export default async function Home() {
-  const { exhibition, articles, artworks, artists, partners } = await getData()
+  const data = await getData()
+  
+  console.log('🔍 getData返回的完整数据:', data)
+  
+  const { exhibition, articles, collections, artists, partners } = data  // 改为 collections
+  
+  console.log('📊 数据详情:')
+  console.log('  exhibition:', exhibition ? '有数据' : '无数据')
+  console.log('  articles:', articles?.length || 0, '条')
+  console.log('  collections:', collections?.length || 0, '个')  // 改为 collections
+  console.log('  artists:', artists?.length || 0, '条')
+  console.log('  partners:', partners?.length || 0, '条')
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 顶部导航栏 */}
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>      {/* 顶部导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
@@ -79,12 +84,12 @@ export default async function Home() {
               <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
             </div>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="#collection" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-            </ul>
+  <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
+  <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+  <li><a href="#collections" className="hover:text-gray-900">作品集</a></li>
+  <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
+  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+</ul>
           </div>
           <div className="flex items-center gap-4">
             <button className="text-gray-600 hover:text-gray-900">🔍</button>
@@ -288,88 +293,114 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 原创作品集 */}
-      <section id="collection" className="py-16 px-6 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-4xl font-bold text-[#0D9488] mb-3">原创作品集</h2>
-            <p className="text-gray-600">汇聚艺术家的创作灵感与才华</p>
-          </div>
+{/* 作品集展示 */}
+<section id="collections" className="py-16 px-6 bg-white">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-10">
+      <h2 className="text-4xl font-bold text-[#0D9488] mb-3">艺术作品集</h2>
+      <p className="text-gray-600">探索艺术家的系列创作</p>
+    </div>
 
-          <div className="flex justify-center gap-3 mb-10">
-            <button className="px-6 py-2 bg-gray-900 text-white rounded-full text-sm font-medium">全部</button>
-            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">摄文</button>
-            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">绘画</button>
-            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">摄影</button>
-            <button className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">雕塑</button>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-6">
-            {artworks.map((artwork) => (
-              <div key={artwork.id} className="group cursor-pointer">
-                <div className="aspect-square rounded-lg overflow-hidden mb-3 relative">
-                  <img 
-                    src={artwork.image_url}
-                    alt={artwork.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                    <h4 className="text-white font-bold text-lg mb-1">{artwork.title}</h4>
-                    <p className="text-white/90 text-sm mb-3">{artwork.artists?.display_name}</p>
-                    <div className="flex items-center gap-4 text-white text-sm">
-                      <span className="flex items-center gap-1">
-                        ❤️ {artwork.likes_count}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        👁️ {artwork.views_count}
-                      </span>
-                    </div>
-                  </div>
+    <div className="grid md:grid-cols-4 gap-6">
+      {collections && collections.length > 0 ? (
+        collections.map((collection) => (
+          <a 
+            key={collection.id}
+            href={`/collections/${collection.id}`}
+            className="group cursor-pointer"
+          >
+            <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
+              {collection.cover_image ? (
+                <img 
+                  src={collection.cover_image}
+                  alt={collection.title}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-4xl">
+                  📚
                 </div>
-                <h4 className="font-medium text-gray-900 mb-1 group-hover:text-[#0D9488] transition-colors">
-                  {artwork.title}
-                </h4>
-                <p className="text-sm text-gray-500">{artwork.artists?.display_name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 艺术家 */}
-      <section id="artists" className="py-16 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-10">
-            <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术家</h2>
-              <p className="text-gray-600">认识艺术社群活跃的创作者们</p>
+              )}
             </div>
-            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看所有艺术家 →</a>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {artists.map((artist) => (
-              <div key={artist.id} className="bg-white rounded-lg p-8 text-center shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden">
-                  <img 
-                    src={artist.users?.avatar_url || '/images/default-avatar.jpg'}
-                    alt={artist.display_name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{artist.display_name}</h3>
-                <p className="text-sm text-gray-500 mb-4">{artist.specialty}</p>
-                <p className="text-sm text-gray-600 leading-relaxed mb-6 line-clamp-4">
-                  {artist.intro}
-                </p>
-                <button className="px-8 py-2 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50">
-                  查看作品
-                </button>
-              </div>
-            ))}
-          </div>
+            <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-[#0D9488] transition-colors">
+              {collection.title}
+            </h3>
+            {collection.title_en && (
+              <p className="text-sm text-gray-500 mb-2">{collection.title_en}</p>
+            )}
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{collection.artists?.display_name || '未知艺术家'}</span>
+              <span>{collection.artworks_count || 0} 件作品</span>
+            </div>
+            {collection.description && (
+              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                {collection.description}
+              </p>
+            )}
+          </a>
+        ))
+      ) : (
+        <div className="col-span-4 text-center py-12">
+          <p className="text-gray-500">暂无作品集</p>
         </div>
-      </section>
+      )}
+    </div>
+  </div>
+</section>
+      {/* 艺术家 */}
+<section id="artists" className="py-16 px-6 bg-white">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-10">
+      <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术家</h2>
+      <p className="text-gray-600">认识艺术社群背后的创作者们</p>
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-8">
+      {artists && artists.length > 0 && artists.map((artist) => (
+        <div key={artist.id} className="text-center">
+          <div className="w-32 h-32 rounded-full bg-gray-300 mx-auto mb-4 overflow-hidden">
+            {artist.users?.avatar_url ? (
+              <img 
+                src={artist.users.avatar_url}
+                alt={artist.display_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-4xl">
+                👤
+              </div>
+            )}
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-1">
+            {artist.display_name}
+          </h3>
+          <p className="text-sm text-gray-600 mb-2">{artist.specialty}</p>
+          <p className="text-sm text-gray-500 line-clamp-2 mb-4">
+            {artist.intro}
+          </p>
+          
+          {/* 改为链接 */}
+          <a 
+            href={`/artists/${artist.id}`}
+            className="inline-block mt-4 px-6 py-2 border border-gray-900 text-gray-900 rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+          >
+            查看作品集
+          </a>
+        </div>
+      ))}
+    </div>
+
+    {/* 查看全部艺术家按钮 */}
+    <div className="text-center mt-10">
+      <a 
+        href="/artists"
+        className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+      >
+        查看所有艺术家 →
+      </a>
+    </div>
+  </div>
+</section>
       {/* 合作伙伴 - 新添加的 */}
       <section id="partners" className="py-16 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
@@ -379,7 +410,7 @@ export default async function Home() {
           </div>
 
           <div className="grid md:grid-cols-4 gap-6">
-            {partners.map((partner) => (
+            {partners && partners.length > 0 && partners.map((partner) => (
               <a 
                 key={partner.id} 
                 href={`/partners/${partner.id}`}
