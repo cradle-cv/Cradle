@@ -8,8 +8,9 @@ export default function NewCollectionPage() {
   const [loading, setLoading] = useState(false)
   const [artists, setArtists] = useState([])
   const [imagePreview, setImagePreview] = useState('')
-  const fileInputRef = useRef(null)
-  
+  const [userRole, setUserRole] = useState('')               // ← 添加这行
+  const [currentArtistId, setCurrentArtistId] = useState('') // ← 添加这行
+  const fileInputRef = useRef(null)  
   const [formData, setFormData] = useState({
     title: '',
     title_en: '',
@@ -18,20 +19,60 @@ export default function NewCollectionPage() {
     artist_id: '',
     status: 'published'
   })
+useEffect(() => {
+  loadUserRole()  // ← 先加载用户角色
+  loadArtists()
+}, [])
+async function loadArtists() {
+  const { data } = await supabase
+    .from('artists')
+    .select('id, display_name')
+    .order('display_name')
+  
+  if (data) setArtists(data)
+}
+async function loadArtists() {
+  const { data } = await supabase
+    .from('artists')
+    .select('id, display_name')
+    .order('display_name')
+  
+  if (data) setArtists(data)
+}
 
-  useEffect(() => {
-    loadArtists()
-  }, [])
+// ← 在这里添加新函数（loadArtists 结束后）
 
-  async function loadArtists() {
-    const { data } = await supabase
-      .from('artists')
-      .select('id, display_name')
-      .order('display_name')
-    
-    if (data) setArtists(data)
+async function loadUserRole() {
+  // 获取当前登录用户的session
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+
+  // 获取用户角色
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('auth_id', session.user.id)
+    .single()
+
+  if (userData) {
+    setUserRole(userData.role)
+
+    // 如果是艺术家，获取artist_id并自动填充
+    if (userData.role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id, display_name')
+        .eq('user_id', userData.id)
+        .single()
+
+      if (artistData) {
+        setCurrentArtistId(artistData.id)
+        // 自动设置artist_id
+        setFormData(prev => ({ ...prev, artist_id: artistData.id }))
+      }
+    }
   }
-
+}
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -159,25 +200,34 @@ export default function NewCollectionPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    艺术家 <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="artist_id"
-                    value={formData.artist_id}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                  >
-                    <option value="">请选择艺术家</option>
-                    {artists.map(artist => (
-                      <option key={artist.id} value={artist.id}>
-                        {artist.display_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    艺术家 <span className="text-red-500">*</span>
+  </label>
+  
+  {userRole === 'artist' ? (
+    // 如果是艺术家：显示灰色框，不可修改
+    <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-base">
+      {artists.find(a => a.id === currentArtistId)?.display_name || '当前艺术家'}
+    </div>
+  ) : (
+    // 如果是管理员：显示下拉框，可以选择
+    <select
+      name="artist_id"
+      value={formData.artist_id}
+      onChange={handleChange}
+      required
+      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+    >
+      <option value="">请选择艺术家</option>
+      {artists.map(artist => (
+        <option key={artist.id} value={artist.id}>
+          {artist.display_name}
+        </option>
+      ))}
+    </select>
+  )}
+</div>
               </div>
             </div>
 

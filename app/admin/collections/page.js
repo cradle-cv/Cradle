@@ -3,16 +3,45 @@ export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 
 async function getCollections() {
-  const { data: collections } = await supabase
+  // 获取当前用户session
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (!session) return []
+
+  // 获取用户信息
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('auth_id', session.user.id)
+    .single()
+
+  if (!userData) return []
+
+  let query = supabase
     .from('collections')
     .select('*, artists(*)')
     .order('created_at', { ascending: false })
 
+  // 如果是艺术家，只显示自己的作品集
+  if (userData.role === 'artist') {
+    const { data: artistData } = await supabase
+      .from('artists')
+      .select('id')
+      .eq('user_id', userData.id)
+      .single()
+
+    if (!artistData) return []
+
+    query = query.eq('artist_id', artistData.id)
+  }
+
+  const { data: collections } = await query
+
   return collections || []
 }
-
 export default async function AdminCollectionsPage() {
   const collections = await getCollections()
 

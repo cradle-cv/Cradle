@@ -5,14 +5,40 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 async function getArtworks() {
-  const { data: artworks } = await supabase
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (!session) return []
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('auth_id', session.user.id)
+    .single()
+
+  if (!userData) return []
+
+  let query = supabase
     .from('artworks')
     .select('*, artists(*)')
     .order('created_at', { ascending: false })
 
+  // 艺术家只看自己的作品
+  if (userData.role === 'artist') {
+    const { data: artistData } = await supabase
+      .from('artists')
+      .select('id')
+      .eq('user_id', userData.id)
+      .single()
+
+    if (!artistData) return []
+
+    query = query.eq('artist_id', artistData.id)
+  }
+
+  const { data: artworks } = await query
+
   return artworks || []
 }
-
 export default async function AdminArtworksPage() {
   const artworks = await getArtworks()
 
