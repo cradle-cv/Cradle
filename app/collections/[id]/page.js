@@ -1,9 +1,13 @@
+'use client'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 
+  useEffect(() => {
+    getArtworks()
+  }, [])
 async function getCollection(id) {
   const { data: collection } = await supabase
     .from('collections')

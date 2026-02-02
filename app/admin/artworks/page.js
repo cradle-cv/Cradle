@@ -1,46 +1,68 @@
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
-import { supabase } from '@/lib/supabase'
+'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'  // ← 用回客户端的
 import Link from 'next/link'
 
-async function getArtworks() {
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (!session) return []
+export default function AdminArtworksPage() {
+  const [artworks, setArtworks] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('id, role')
-    .eq('auth_id', session.user.id)
-    .single()
+  useEffect(() => {
+    getArtworks()
+  }, [])
 
-  if (!userData) return []
+  async function getArtworks() {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      setLoading(false)
+      return
+    }
 
-  let query = supabase
-    .from('artworks')
-    .select('*, artists(*)')
-    .order('created_at', { ascending: false })
-
-  // 艺术家只看自己的作品
-  if (userData.role === 'artist') {
-    const { data: artistData } = await supabase
-      .from('artists')
-      .select('id')
-      .eq('user_id', userData.id)
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('auth_id', session.user.id)
       .single()
 
-    if (!artistData) return []
+    if (!userData) {
+      setLoading(false)
+      return
+    }
 
-    query = query.eq('artist_id', artistData.id)
+    let query = supabase
+      .from('artworks')
+      .select('*, artists(*)')
+      .order('created_at', { ascending: false })
+
+    // 艺术家只看自己的作品
+    if (userData.role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single()
+
+      if (!artistData) {
+        setLoading(false)
+        return
+      }
+
+      query = query.eq('artist_id', artistData.id)
+    }
+
+    const { data: artworks } = await query
+    setArtworks(artworks || [])
+    setLoading(false)
   }
 
-  const { data: artworks } = await query
-
-  return artworks || []
-}
-export default async function AdminArtworksPage() {
-  const artworks = await getArtworks()
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-2xl text-gray-600">加载中...</div>
+      </div>
+    )
+  }
 
   return (
     <div>

@@ -1,49 +1,68 @@
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
+'use client'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
 
-async function getCollections() {
-  // 获取当前用户session
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (!session) return []
+export default function AdminCollectionsPage() {
+  const [collections, setCollections] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // 获取用户信息
-  const { data: userData } = await supabase
-    .from('users')
-    .select('id, role')
-    .eq('auth_id', session.user.id)
-    .single()
+  useEffect(() => {
+    getCollections()
+  }, [])
 
-  if (!userData) return []
+  async function getCollections() {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      setLoading(false)
+      return
+    }
 
-  let query = supabase
-    .from('collections')
-    .select('*, artists(*)')
-    .order('created_at', { ascending: false })
-
-  // 如果是艺术家，只显示自己的作品集
-  if (userData.role === 'artist') {
-    const { data: artistData } = await supabase
-      .from('artists')
-      .select('id')
-      .eq('user_id', userData.id)
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('auth_id', session.user.id)
       .single()
 
-    if (!artistData) return []
+    if (!userData) {
+      setLoading(false)
+      return
+    }
 
-    query = query.eq('artist_id', artistData.id)
+    let query = supabase
+      .from('collections')
+      .select('*, artists(*)')
+      .order('created_at', { ascending: false })
+
+    // 如果是艺术家，只显示自己的作品集
+    if (userData.role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single()
+
+      if (!artistData) {
+        setLoading(false)
+        return
+      }
+
+      query = query.eq('artist_id', artistData.id)
+    }
+
+    const { data: collections } = await query
+    setCollections(collections || [])
+    setLoading(false)
   }
 
-  const { data: collections } = await query
-
-  return collections || []
-}
-export default async function AdminCollectionsPage() {
-  const collections = await getCollections()
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-2xl text-gray-600">加载中...</div>
+      </div>
+    )
+  }
 
   return (
     <div>

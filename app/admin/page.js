@@ -10,44 +10,84 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+const handleLogin = async (e) => {
+  e.preventDefault()
+  setError('')
+  setLoading(true)
 
-    try {
-      // 使用 Supabase Auth 登录
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+  try {
+    console.log('🔐 开始登录...', { email, password: '***' })
 
-      if (authError) throw authError
+    // 1. 使用 Supabase Auth 登录
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      // 获取用户角色
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role, username')
-        .eq('auth_id', authData.user.id)
-        .single()
-
-      if (userError) throw userError
-
-      // 保存到 localStorage
-      localStorage.setItem('userRole', userData.role)
-      localStorage.setItem('username', userData.username)
-      localStorage.setItem('userId', authData.user.id)
-
-      // 跳转到管理后台
-      router.push('/admin/collections')
-    } catch (error) {
-      console.error('Login error:', error)
-      setError(error.message || '登录失败，请检查邮箱和密码')
-    } finally {
-      setLoading(false)
+    if (authError) {
+      console.error('❌ Auth 错误:', authError)
+      throw authError
     }
-  }
 
+    console.log('✅ Auth 登录成功, User ID:', authData.user.id)
+
+    // 2. 获取用户角色（改进的查询）
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role, username, id')
+      .eq('auth_id', authData.user.id)
+      .maybeSingle()  // ← 改为 maybeSingle，允许没有结果
+
+    console.log('👤 用户数据查询结果:', userData, '错误:', userError)
+
+    // 如果没有找到用户记录，尝试用 email 查找
+    let finalUserData = userData
+    
+    if (!finalUserData) {
+      console.log('⚠️ 通过 auth_id 未找到，尝试用 email 查找...')
+      
+      const { data: userByEmail } = await supabase
+        .from('users')
+        .select('role, username, id, auth_id')
+        .eq('email', email)
+        .maybeSingle()
+      
+      if (userByEmail) {
+        console.log('✅ 通过 email 找到用户:', userByEmail)
+        
+        // 更新 auth_id
+        await supabase
+          .from('users')
+          .update({ auth_id: authData.user.id })
+          .eq('id', userByEmail.id)
+        
+        console.log('🔄 已更新 auth_id')
+        finalUserData = userByEmail
+      }
+    }
+
+    if (!finalUserData) {
+      throw new Error('用户数据不存在，请联系管理员')
+    }
+
+    console.log('✅ 最终用户数据:', finalUserData)
+
+    // 保存到 localStorage
+    localStorage.setItem('userRole', finalUserData.role)
+    localStorage.setItem('username', finalUserData.username)
+    localStorage.setItem('userId', authData.user.id)
+
+    console.log('✅ 登录成功，跳转...')
+
+    // 跳转到管理后台
+    router.push('/admin/collections')
+  } catch (error) {
+    console.error('❌ Login error:', error)
+    setError(error.message || '登录失败，请检查邮箱和密码')
+  } finally {
+    setLoading(false)
+  }
+}
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
