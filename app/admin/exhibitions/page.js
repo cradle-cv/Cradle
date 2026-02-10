@@ -2,88 +2,74 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 export default function AdminExhibitionsPage() {
-  const router = useRouter()
+  const { userData, loading: authLoading } = useAuth()
   const [exhibitions, setExhibitions] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    checkPermissionAndLoad()
-  }, [])
-
-  async function checkPermissionAndLoad() {
-    // 检查权限：只有管理员能访问
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      router.push('/admin')
-      return
+    if (!authLoading && userData) {
+      loadExhibitions()
     }
+  }, [authLoading, userData])
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('auth_id', session.user.id)
-      .single()
+  async function loadExhibitions() {
+    try {
+      // 1. 获取平台展览
+      const { data: platformExhibitions } = await supabase
+        .from('exhibitions')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (userData?.role !== 'admin') {
-      alert('只有管理员可以访问此页面')
-      router.push('/admin/artworks')
-      return
-    }
-
-    await loadExhibitions()
-  }
-
-async function loadExhibitions() {
-  // 1. 先获取展览基本信息
-  const { data: exhibitions, error } = await supabase
-    .from('exhibitions')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('查询展览失败:', error)
-    setLoading(false)
-    return
-  }
-
-  if (!exhibitions) {
-    setExhibitions([])
-    setLoading(false)
-    return
-  }
-
-  // 2. 为每个展览获取关联数据
-  const exhibitionsWithDetails = await Promise.all(
-    exhibitions.map(async (exhibition) => {
-      // 获取作品数量
-      const { count: artworksCount } = await supabase
-        .from('exhibition_artworks')
-        .select('*', { count: 'exact', head: true })
-        .eq('exhibition_id', exhibition.id)
-
-      // 获取关联的合作伙伴
-      const { data: partnerLinks } = await supabase
+      // 2. 获取合作伙伴展览
+      const { data: partnerExhibitions } = await supabase
         .from('partner_exhibitions')
         .select(`
+          *,
           partners(id, name)
         `)
-        .eq('exhibition_id', exhibition.id)
+        .order('created_at', { ascending: false })
 
-      return {
+      // 3. 为平台展览添加作品数量
+      const platformWithDetails = await Promise.all(
+        (platformExhibitions || []).map(async (exhibition) => {
+          const { count: artworksCount } = await supabase
+            .from('exhibition_artworks')
+            .select('*', { count: 'exact', head: true })
+            .eq('exhibition_id', exhibition.id)
+
+          return {
+            ...exhibition,
+            artworks_count: artworksCount || 0,
+            owner_type: 'platform',
+            partner_name: null
+          }
+        })
+      )
+
+      // 4. 格式化合作伙伴展览
+      const partnerWithDetails = (partnerExhibitions || []).map(exhibition => ({
         ...exhibition,
-        artworks_count: artworksCount || 0,
-        partner_exhibitions: partnerLinks || []
-      }
-    })
-  )
+        artworks_count: 0,
+        owner_type: 'partner',
+        partner_name: exhibition.partners?.name || '未知合作伙伴'
+      }))
 
-  setExhibitions(exhibitionsWithDetails)
-  setLoading(false)
-}
-  if (loading) {
+      // 5. 合并并按创建时间排序
+      const allExhibitions = [...platformWithDetails, ...partnerWithDetails]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+      setExhibitions(allExhibitions)
+    } catch (error) {
+      console.error('加载展览失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-2xl text-gray-600">加载中...</div>
@@ -97,7 +83,7 @@ async function loadExhibitions() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">展览管理</h1>
-          <p className="text-gray-600 mt-1">管理平台展览和合作伙伴展览</p>
+          <p className="text-gray-600 mt-1">管理平台和合作伙伴的展览</p>
         </div>
         <Link
           href="/admin/exhibitions/new"
@@ -116,20 +102,20 @@ async function loadExhibitions() {
           color="blue"
         />
         <StatCard
-          label="进行中"
-          value={exhibitions.filter(e => e.status === 'published').length}
-          icon="✅"
-          color="green"
-        />
-        <StatCard
           label="每日一展"
-          value={exhibitions.filter(e => e.type === 'daily').length}
+          value={exhibitions.filter(e => e.type === 'daily' && e.owner_type === 'platform').length}
           icon="⭐"
           color="yellow"
         />
         <StatCard
+          label="平台展览"
+          value={exhibitions.filter(e => e.owner_type === 'platform').length}
+          icon="🎨"
+          color="green"
+        />
+        <StatCard
           label="合作展览"
-          value={exhibitions.filter(e => e.partner_exhibitions?.length > 0).length}
+          value={exhibitions.filter(e => e.owner_type === 'partner').length}
           icon="🤝"
           color="purple"
         />
@@ -165,34 +151,36 @@ async function loadExhibitions() {
                     <h3 className="text-lg font-bold text-gray-900">
                       {exhibition.title}
                     </h3>
+                    {exhibition.owner_type === 'partner' && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                        🤝 {exhibition.partner_name}
+                      </span>
+                    )}
                     {exhibition.type === 'daily' && (
                       <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                         ⭐ 每日一展
                       </span>
                     )}
                   </div>
-                  
+
                   {exhibition.title_en && (
                     <p className="text-sm text-gray-500 mb-2">{exhibition.title_en}</p>
                   )}
 
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    {exhibition.partner_exhibitions?.length > 0 && (
-                      <span>
-                        🤝 {exhibition.partner_exhibitions.map(pe => pe.partners?.name).filter(Boolean).join(', ')}
-                      </span>
-                    )}
-<span>🎨 {exhibition.artworks_count || 0} 件作品</span>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                     {exhibition.start_date && (
-                      <span>📅 {formatDate(exhibition.start_date)}</span>
+                      <span>📅 {new Date(exhibition.start_date).toLocaleDateString('zh-CN')}</span>
                     )}
                     {exhibition.location && (
                       <span>📍 {exhibition.location}</span>
                     )}
+                    {exhibition.owner_type === 'platform' && (
+                      <span>🎨 {exhibition.artworks_count} 件作品</span>
+                    )}
                   </div>
 
                   {exhibition.description && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                    <p className="text-sm text-gray-500 line-clamp-2">
                       {exhibition.description}
                     </p>
                   )}
@@ -201,7 +189,6 @@ async function loadExhibitions() {
                 {/* 状态和操作 */}
                 <div className="flex items-center gap-3">
                   <StatusBadge status={exhibition.status} />
-                  
                   <Link
                     href={`/admin/exhibitions/${exhibition.id}`}
                     className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -217,12 +204,12 @@ async function loadExhibitions() {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🖼️</div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">还没有展览</h3>
-              <p className="text-gray-600 mb-6">点击上方按钮添加第一个展览</p>
+              <p className="text-gray-600 mb-6">点击上方按钮创建第一个展览</p>
               <Link
                 href="/admin/exhibitions/new"
                 className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
               >
-                添加展览
+                创建展览
               </Link>
             </div>
           )}
@@ -257,26 +244,20 @@ function StatCard({ label, value, icon, color }) {
 
 function StatusBadge({ status }) {
   const styles = {
-    published: 'bg-green-100 text-green-700',
+    active: 'bg-green-100 text-green-700',
     draft: 'bg-yellow-100 text-yellow-700',
     archived: 'bg-gray-100 text-gray-700',
   }
 
   const labels = {
-    published: '进行中',
+    active: '进行中',
     draft: '草稿',
     archived: '已结束',
   }
 
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
+    <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
       {labels[status] || status}
     </span>
   )
-}
-
-function formatDate(dateString) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }

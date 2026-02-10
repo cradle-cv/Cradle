@@ -2,36 +2,45 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { uploadImage } from '@/lib/upload'
+import { useAuth } from '@/lib/auth-context'
 
 export default function NewArtworkPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const { userData, loading: authLoading } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [imagePreview, setImagePreview] = useState('')
   const [artists, setArtists] = useState([])
-  const [collections, setCollections] = useState([]) 
+  const [collections, setCollections] = useState([])
   const [tags, setTags] = useState([])
   const [selectedTags, setSelectedTags] = useState([])
-  const [imagePreview, setImagePreview] = useState('')
   const fileInputRef = useRef(null)
   
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
   title: '',
-  description: '',
   artist_id: '',
-  collection_id: '',  // ← 添加这行
+  collection_id: '',
   category: 'painting',
   medium: '',
-  size: '',
+  dimensions: '',  // 保持这个名字，提交时会映射到 size
   year: new Date().getFullYear(),
+  description: '',
   image_url: '',
-  status: 'published'
+  status: 'draft'
 })
-
-  // 加载艺术家和标签
   useEffect(() => {
-  loadArtists()
-  loadTags()
-  loadCollections()  // ← 添加这行
-}, [])
+    if (!authLoading && userData) {
+      loadInitialData()
+    }
+  }, [authLoading, userData])
+
+  async function loadInitialData() {
+    await Promise.all([
+      loadArtists(),
+      loadCollections(),
+      loadTags()
+    ])
+  }
 
   async function loadArtists() {
     const { data } = await supabase
@@ -39,146 +48,142 @@ export default function NewArtworkPage() {
       .select('id, display_name')
       .order('display_name')
     
-    if (data) setArtists(data)
-  }
-async function loadArtists() {
-  const { data } = await supabase
-    .from('artists')
-    .select('id, display_name')
-    .order('display_name')
-  
-  if (data) setArtists(data)
-}
+    setArtists(data || [])
 
-// ← 在这里添加（loadArtists 函数结束后）
-
-async function loadCollections() {
-  // 获取当前用户信息
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
-
-  const { data: userData } = await supabase
-    .from('users')
-    .select('id, role')
-    .eq('auth_id', session.user.id)
-    .single()
-
-  if (!userData) return
-
-  let query = supabase
-    .from('collections')
-    .select('id, title, artist_id, artists(display_name)')
-    .eq('status', 'published')
-    .order('title')
-
-  // 如果是艺术家，只加载自己的作品集
-  if (userData.role === 'artist') {
-    const { data: artistData } = await supabase
-      .from('artists')
-      .select('id')
-      .eq('user_id', userData.id)
-      .single()
-
-    if (artistData) {
-      query = query.eq('artist_id', artistData.id)
+    // 如果是艺术家角色，自动选择自己
+    if (userData.role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single()
+      
+      if (artistData) {
+        setFormData(prev => ({ ...prev, artist_id: artistData.id }))
+      }
     }
   }
 
-  const { data } = await query
-  if (data) setCollections(data)
-}
+  async function loadCollections() {
+    let query = supabase
+      .from('collections')
+      .select('id, title, artist_id')
+      .order('title')
+
+    // 如果是艺术家，只加载自己的作品集
+    if (userData.role === 'artist') {
+      const { data: artistData } = await supabase
+        .from('artists')
+        .select('id')
+        .eq('user_id', userData.id)
+        .single()
+      
+      if (artistData) {
+        query = query.eq('artist_id', artistData.id)
+      }
+    }
+
+    const { data } = await query
+    setCollections(data || [])
+  }
+
   async function loadTags() {
     const { data } = await supabase
       .from('tags')
       .select('*')
-      .order('category, name')
+      .order('name')
     
-    if (data) {
-      console.log('加载的标签：', data)
-      setTags(data)
+    setTags(data || [])
+  }
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件！')
+      return
+    }
+
+    // 显示预览
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target.result)
+    }
+    reader.readAsDataURL(file)
+
+    // 上传到 Supabase Storage
+    try {
+      setSaving(true)
+      const { url } = await uploadImage(file, 'artworks')
+      
+      setFormData(prev => ({ ...prev, image_url: url }))
+      
+      alert('✅ 图片上传成功！')
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert('❌ 图片上传失败：' + error.message)
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleFileSelect = (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-
-  // 检查文件类型
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件！')
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  
+  if (!formData.title || !formData.artist_id) {
+    alert('请填写标题并选择艺术家！')
     return
   }
 
-  // 直接使用原始文件名（保留用户的命名）
-  const originalFileName = file.name
-  const imagePath = `/image/${originalFileName}`
+  setSaving(true)
 
-  // 创建预览
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    setImagePreview(e.target.result)
+  try {
+    // 创建作品
+    const { data: artwork, error } = await supabase
+      .from('artworks')
+      .insert({
+        title: formData.title,
+        artist_id: formData.artist_id,
+        collection_id: formData.collection_id || null,
+        category: formData.category,
+        medium: formData.medium || null,
+        size: formData.dimensions || null,  // ← 改成 size
+        year: formData.year || null,
+        description: formData.description,
+        image_url: formData.image_url,
+        status: formData.status
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 关联标签
+    if (selectedTags.length > 0) {
+      const tagLinks = selectedTags.map(tagId => ({
+        artwork_id: artwork.id,
+        tag_id: tagId
+      }))
+
+      await supabase.from('artwork_tags').insert(tagLinks)
+    }
+
+    alert('作品创建成功！')
+    router.push('/admin/artworks')
+  } catch (error) {
+    console.error('Error:', error)
+    alert('创建失败：' + error.message)
+  } finally {
+    setSaving(false)
   }
-  reader.readAsDataURL(file)
-
-  // 设置图片路径
-  setFormData(prev => ({ ...prev, image_url: imagePath }))
-
 }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (!formData.artist_id) {
-      alert('请选择艺术家！')
-      return
-    }
-
-    if (!formData.image_url) {
-      alert('请上传图片！')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      // 插入作品
-      const { data: artwork, error } = await supabase
-        .from('artworks')
-        .insert([{
-          ...formData,
-          likes_count: Math.floor(Math.random() * 200 + 50),
-          views_count: Math.floor(Math.random() * 5000 + 1000)
-        }])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // 添加标签关联
-      if (selectedTags.length > 0 && artwork) {
-        const tagRelations = selectedTags.map(tagId => ({
-          artwork_id: artwork.id,
-          tag_id: tagId
-        }))
-
-        await supabase
-          .from('artwork_tags')
-          .insert(tagRelations)
-      }
-
-      alert('作品添加成功！')
-      router.push('/admin/artworks')
-    } catch (error) {
-      console.error('Error:', error)
-      alert('添加失败：' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
   const toggleTag = (tagId) => {
@@ -189,23 +194,16 @@ async function loadCollections() {
     )
   }
 
-  const groupedTags = tags.reduce((acc, tag) => {
-    if (!acc[tag.category]) acc[tag.category] = []
-    acc[tag.category].push(tag)
-    return acc
-  }, {})
-
-  const categoryLabels = {
-    style: '🎨 艺术风格',
-    color: '🌈 色彩标签',
-    mood: '😊 情绪标签',
-    theme: '📖 主题标签',
-    technique: '🖌️ 技法标签'
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-2xl text-gray-600">加载中...</div>
+      </div>
+    )
   }
 
   return (
     <div>
-      {/* 页头 */}
       <div className="mb-8">
         <button
           onClick={() => router.back()}
@@ -214,12 +212,11 @@ async function loadCollections() {
           ← 返回作品列表
         </button>
         <h1 className="text-3xl font-bold text-gray-900">添加新作品</h1>
-        <p className="text-gray-600 mt-1">填写作品信息并保存</p>
+        <p className="text-gray-600 mt-1">创建新的艺术作品</p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-3 gap-8">
-          {/* 左侧：基本信息 */}
           <div className="col-span-2 space-y-6">
             {/* 基本信息 */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -236,100 +233,66 @@ async function loadCollections() {
                     value={formData.title}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                    placeholder="如：夕阳下的油画"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    作品描述
+                    艺术家 <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
+                  <select
+                    name="artist_id"
+                    value={formData.artist_id}
                     onChange={handleChange}
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                    placeholder="描述作品的创作背景、灵感来源、表达的情感等..."
-                  />
+                    required
+                    disabled={userData.role === 'artist'}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  >
+                    <option value="">选择艺术家</option>
+                    {artists.map(artist => (
+                      <option key={artist.id} value={artist.id}>
+                        {artist.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    所属作品集
+                  </label>
+                  <select
+                    name="collection_id"
+                    value={formData.collection_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">不属于任何作品集</option>
+                    {collections.map(collection => (
+                      <option key={collection.id} value={collection.id}>
+                        {collection.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      艺术家 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="artist_id"
-                      value={formData.artist_id}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                    >
-                      <option value="">请选择艺术家</option>
-                      {artists.map(artist => (
-                        <option key={artist.id} value={artist.id}>
-                          {artist.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      作品分类 <span className="text-red-500">*</span>
+                      作品类别
                     </label>
                     <select
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="painting">🎨 绘画</option>
-                      <option value="photo">📷 摄影</option>
-                      <option value="literature">📝 文学</option>
-                      <option value="sculpture">🗿 雕塑</option>
+                      <option value="painting">绘画</option>
+                      <option value="photo">摄影</option>
+                      <option value="sculpture">雕塑</option>
+                      <option value="literature">文学</option>
                     </select>
-                  </div>
-                </div>
-                {/* 所属作品集 */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    📚 所属作品集
-  </label>
-  <select
-    name="collection_id"
-    value={formData.collection_id}
-    onChange={handleChange}
-    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-  >
-    <option value="">不归入作品集（可选）</option>
-    {collections.map(collection => (
-      <option key={collection.id} value={collection.id}>
-        📚 {collection.title} - {collection.artists?.display_name}
-      </option>
-    ))}
-  </select>
-  <p className="text-xs text-gray-500 mt-1">
-    💡 将作品归入某个作品集系列
-  </p>
-</div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      媒介/技法
-                    </label>
-                    <input
-                      type="text"
-                      name="medium"
-                      value={formData.medium}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                      placeholder="如：油画、水彩、数码摄影"
-                    />
                   </div>
 
                   <div>
@@ -343,30 +306,55 @@ async function loadCollections() {
                       onChange={handleChange}
                       min="1900"
                       max={new Date().getFullYear()}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
+
                 <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    作品尺寸
-  </label>
-  <input
-    type="text"
-    name="size"
-    value={formData.size}
-    onChange={handleChange}
-    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-    placeholder="如：60 × 80 cm 或 24 × 32 inch"
-  />
-  <p className="text-xs text-gray-500 mt-1">
-    填写格式示例：60 × 80 cm（绘画）、3000 × 4000 px（数码）、30 × 20 × 15 cm（雕塑）、50000字（文学）
-  </p>
-</div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    媒介/材质
+                  </label>
+                  <input
+                    type="text"
+                    name="medium"
+                    value={formData.medium}
+                    onChange={handleChange}
+                    placeholder="如：布面油画、数码摄影等"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    尺寸
+                  </label>
+                  <input
+                    type="text"
+                    name="dimensions"
+                    value={formData.dimensions}
+                    onChange={handleChange}
+                    placeholder="如：100cm x 80cm"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    作品描述
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* 图片上传 */}
+            {/* 作品图片 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 作品图片</h2>
               
@@ -386,142 +374,88 @@ async function loadCollections() {
                 >
                   <div className="text-4xl mb-2">📤</div>
                   <div className="text-base font-medium text-gray-900">
-                    点击选择图片文件
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    支持 JPG、PNG、JPEG 格式
+                    点击上传作品图片
                   </div>
                 </button>
 
-                {/* 预览区域 */}
                 {imagePreview && (
                   <div className="mt-6">
                     <p className="text-sm font-medium text-gray-700 mb-3">预览：</p>
-                    <div className="relative rounded-lg overflow-hidden border-2 border-gray-200">
+                    <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                       <img
                         src={imagePreview}
                         alt="预览"
-                        className="w-full h-auto"
+                        className="w-full h-auto object-contain"
                       />
-                    </div>
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        <strong>重要提示：</strong> 请将图片文件复制到项目的 <code className="bg-yellow-100 px-2 py-1 rounded">public/image/</code> 文件夹中！
-                      </p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        图片路径：<code className="bg-yellow-100 px-2 py-1 rounded">{formData.image_url}</code>
-                      </p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* 标签选择 */}
+            {/* 标签 */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ 标签选择</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                标签用于推荐算法和内容分类，选择3-8个最相关的标签
-              </p>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🏷️ 标签</h2>
               
-              {tags.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500">暂无标签，请先在标签管理中添加</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(groupedTags).map(([category, categoryTags]) => (
-                    <div key={category}>
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">
-                        {categoryLabels[category] || category}
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {categoryTags.map(tag => (
-                          <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() => toggleTag(tag.id)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                              selectedTags.includes(tag.id)
-                                ? 'bg-blue-500 text-white shadow-md scale-105'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {tag.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedTags.length > 0 && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    已选择 <strong>{selectedTags.length}</strong> 个标签
-                  </p>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {tags.map(tag => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleTag(tag.id)}
+                    className={`px-4 py-2 rounded-full text-sm transition-colors ${
+                      selectedTags.includes(tag.id)
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* 右侧：发布设置 */}
+          {/* 右侧：设置 */}
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6 sticky top-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 发布设置</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
               
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    发布状态 <span className="text-red-500">*</span>
+                    发布状态
                   </label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base font-medium"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="published">✅ 已发布（网站可见）</option>
-                    <option value="draft">📝 草稿（仅后台可见）</option>
-                    <option value="archived">📦 已归档（已下线）</option>
+                    <option value="draft">草稿</option>
+                    <option value="published">已发布</option>
+                    <option value="archived">已归档</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.status === 'published' && '作品将立即在网站上展示'}
-                    {formData.status === 'draft' && '保存为草稿，暂不公开'}
-                    {formData.status === 'archived' && '作品已归档，不会显示'}
-                  </p>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-base"
+                    disabled={saving}
+                    className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                   >
-                    {loading ? '保存中...' : '💾 保存作品'}
+                    {saving ? '创建中...' : '✅ 创建作品'}
                   </button>
                   
                   <button
                     type="button"
                     onClick={() => router.back()}
-                    className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors text-base"
+                    className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
                   >
                     取消
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* 提示信息 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-blue-900 mb-2">💡 使用提示</h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• 选择"已发布"后立即在网站显示</li>
-                <li>• 标签有助于推荐相似作品</li>
-                <li>• 图片建议1200x1200以上</li>
-                <li>• 建议选择3-8个相关标签</li>
-              </ul>
             </div>
           </div>
         </div>

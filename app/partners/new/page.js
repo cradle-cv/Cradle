@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
 
-export default function NewArtistPage() {
+export default function NewPartnerPage() {
   const router = useRouter()
   const { userData, loading: authLoading } = useAuth()
   const [saving, setSaving] = useState(false)
@@ -13,14 +13,17 @@ export default function NewArtistPage() {
   const fileInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
-    display_name: '',
-    specialty: '',
-    intro: '',
-    philosophy: '',
-    avatar_url: '',
-    is_verified: false,
-    email: '',
-    username: ''
+    name: '',
+    name_en: '',
+    type: 'gallery',
+    description: '',
+    city: '',
+    address: '',
+    website: '',
+    contact_email: '',
+    contact_phone: '',
+    logo_url: '',
+    status: 'active'
   })
 
   const handleFileSelect = async (e) => {
@@ -40,14 +43,14 @@ export default function NewArtistPage() {
 
     try {
       setSaving(true)
-      const { url } = await uploadImage(file, 'artists')
+      const { url } = await uploadImage(file, 'partners')
       
-      setFormData(prev => ({ ...prev, avatar_url: url }))
+      setFormData(prev => ({ ...prev, logo_url: url }))
       
-      alert('✅ 头像上传成功！')
+      alert('✅ Logo上传成功！')
     } catch (error) {
       console.error('上传失败:', error)
-      alert('❌ 头像上传失败：' + error.message)
+      alert('❌ Logo上传失败：' + error.message)
     } finally {
       setSaving(false)
     }
@@ -56,56 +59,34 @@ export default function NewArtistPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.display_name || !formData.email) {
-      alert('请填写必填项！')
+    if (!formData.name) {
+      alert('请填写合作伙伴名称！')
       return
     }
 
     setSaving(true)
 
     try {
-      // 检查邮箱是否已存在
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', formData.email)
-        .maybeSingle()
-
-      if (existingUser) {
-        throw new Error('该邮箱已存在')
-      }
-
-      // 创建 users 表记录
-      const { data: userData, error: userError } = await supabase
-        .from('users')
+      const { error } = await supabase
+        .from('partners')
         .insert({
-          email: formData.email,
-          username: formData.username || formData.email.split('@')[0],
-          role: 'artist',
-          is_verified: formData.is_verified
-        })
-        .select()
-        .single()
-
-      if (userError) throw userError
-
-      // 创建 artists 表记录
-      const { error: artistError } = await supabase
-        .from('artists')
-        .insert({
-          user_id: userData.id,
-          display_name: formData.display_name,
-          specialty: formData.specialty,
-          intro: formData.intro,
-          philosophy: formData.philosophy,
-          avatar_url: formData.avatar_url,
-          is_verified: formData.is_verified
+          name: formData.name,
+          name_en: formData.name_en,
+          type: formData.type,
+          description: formData.description,
+          city: formData.city,
+          address: formData.address,
+          website: formData.website,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+          logo_url: formData.logo_url,
+          status: formData.status
         })
 
-      if (artistError) throw artistError
+      if (error) throw error
 
-      alert('✅ 艺术家创建成功！\n\n艺术家可以访问登录页面，使用"忘记密码"功能设置登录密码。')
-      router.push('/admin/artists')
+      alert('合作伙伴创建成功！')
+      router.push('/admin/partners')
     } catch (error) {
       console.error('Error:', error)
       alert('创建失败：' + error.message)
@@ -115,10 +96,10 @@ export default function NewArtistPage() {
   }
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
+    const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }))
   }
 
@@ -145,10 +126,10 @@ export default function NewArtistPage() {
           onClick={() => router.back()}
           className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2"
         >
-          ← 返回艺术家列表
+          ← 返回合作伙伴列表
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">添加新艺术家</h1>
-        <p className="text-gray-600 mt-1">创建新的艺术家账户</p>
+        <h1 className="text-3xl font-bold text-gray-900">添加新合作伙伴</h1>
+        <p className="text-gray-600 mt-1">创建新的合作机构</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -161,66 +142,69 @@ export default function NewArtistPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    艺术家名称 <span className="text-red-500">*</span>
+                    机构名称（中文） <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="display_name"
-                    value={formData.display_name}
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
                     required
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="如：张艺谋"
+                    placeholder="如：中央美术学院"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    专长领域
+                    机构名称（英文）
                   </label>
                   <input
                     type="text"
-                    name="specialty"
-                    value={formData.specialty}
+                    name="name_en"
+                    value={formData.name_en}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="如：油画、摄影、雕塑等"
+                    placeholder="如：Central Academy of Fine Arts"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    艺术家简介
+                    机构类型
                   </label>
-                  <textarea
-                    name="intro"
-                    value={formData.intro}
+                  <select
+                    name="type"
+                    value={formData.type}
                     onChange={handleChange}
-                    rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="简要介绍艺术家的背景和经历..."
-                  />
+                  >
+                    <option value="gallery">画廊</option>
+                    <option value="museum">美术馆</option>
+                    <option value="studio">工作室</option>
+                    <option value="academy">艺术学院</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    创作理念
+                    机构简介
                   </label>
                   <textarea
-                    name="philosophy"
-                    value={formData.philosophy}
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
                     rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="艺术家的创作理念和追求..."
+                    placeholder="介绍机构的背景、特色和定位..."
                   />
                 </div>
               </div>
             </div>
 
-            {/* 头像 */}
+            {/* Logo */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">👤 头像</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🏛️ Logo</h2>
               
               <div>
                 <input
@@ -238,7 +222,7 @@ export default function NewArtistPage() {
                 >
                   <div className="text-4xl mb-2">📤</div>
                   <div className="text-base font-medium text-gray-900">
-                    点击上传头像
+                    点击上传Logo
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
                     建议尺寸：400x400 像素
@@ -249,11 +233,11 @@ export default function NewArtistPage() {
                   <div className="mt-6 flex justify-center">
                     <div className="relative">
                       <p className="text-sm font-medium text-gray-700 mb-3 text-center">预览：</p>
-                      <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-200">
+                      <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-200 bg-white">
                         <img
                           src={imagePreview}
                           alt="预览"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain p-2"
                         />
                       </div>
                     </div>
@@ -262,61 +246,81 @@ export default function NewArtistPage() {
               </div>
             </div>
 
-            {/* 账户信息 */}
+            {/* 联系信息 */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">🔐 账户信息</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">📍 联系信息</h2>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    登录邮箱 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="artist@example.com"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    艺术家将使用此邮箱登录
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      城市
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="如：北京"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      联系电话
+                    </label>
+                    <input
+                      type="tel"
+                      name="contact_phone"
+                      value={formData.contact_phone}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="如：010-12345678"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    用户名
+                    详细地址
                   </label>
                   <input
                     type="text"
-                    name="username"
-                    value={formData.username}
+                    name="address"
+                    value={formData.address}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="不填则使用邮箱前缀"
+                    placeholder="如：朝阳区望京东路8号"
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="is_verified"
-                    checked={formData.is_verified}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <label className="text-sm font-medium text-gray-700">
-                    已认证艺术家（带蓝V标志）
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    官方网站
                   </label>
+                  <input
+                    type="url"
+                    name="website"
+                    value={formData.website}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://example.com"
+                  />
                 </div>
 
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    💡 <strong>密码设置说明：</strong><br/>
-                    创建后，艺术家需要访问登录页面，点击"忘记密码"来设置自己的登录密码。系统会发送重置密码邮件到注册邮箱。
-                  </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    联系邮箱
+                  </label>
+                  <input
+                    type="email"
+                    name="contact_email"
+                    value={formData.contact_email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="contact@example.com"
+                  />
                 </div>
               </div>
             </div>
@@ -328,13 +332,28 @@ export default function NewArtistPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
               
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    状态
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="active">活跃</option>
+                    <option value="inactive">未激活</option>
+                  </select>
+                </div>
+
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     type="submit"
                     disabled={saving}
                     className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                   >
-                    {saving ? '创建中...' : '✅ 创建艺术家'}
+                    {saving ? '创建中...' : '✅ 创建合作伙伴'}
                   </button>
                   
                   <button
@@ -352,10 +371,10 @@ export default function NewArtistPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="text-sm font-medium text-blue-900 mb-2">💡 创建提示</h3>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• 系统会自动创建账户信息</li>
-                <li>• 艺术家需通过"忘记密码"设置密码</li>
-                <li>• 创建后可以添加作品和作品集</li>
-                <li>• 头像会自动上传到云存储</li>
+                <li>• Logo会自动上传到云存储</li>
+                <li>• 建议上传透明背景的Logo</li>
+                <li>• 创建后可随时编辑信息</li>
+                <li>• 可以为合作伙伴创建展览</li>
               </ul>
             </div>
           </div>

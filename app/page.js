@@ -1,16 +1,33 @@
+'use client'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // 从数据库获取数据
 async function getData() {
   console.log('🚀 开始获取数据...')
   
-  // 获取今日展览
-  const { data: exhibition } = await supabase
+  // 获取所有每日一展
+  const { data: dailyExhibitions } = await supabase
     .from('exhibitions')
     .select('*')
     .eq('type', 'daily')
-    .eq('display_date', new Date().toISOString().split('T')[0])
-    .single()
+    .eq('status', 'active')
+
+  // 基于日期的随机算法
+  let exhibition = null
+  if (dailyExhibitions && dailyExhibitions.length > 0) {
+    const today = new Date()
+    const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
+    
+    let hash = 0
+    for (let i = 0; i < dateString.length; i++) {
+      hash = ((hash << 5) - hash) + dateString.charCodeAt(i)
+      hash = hash & hash
+    }
+    
+    const index = Math.abs(hash) % dailyExhibitions.length
+    exhibition = dailyExhibitions[index]
+  }
   
   console.log('📅 展览:', exhibition ? '有' : '无')
 
@@ -24,7 +41,7 @@ async function getData() {
 
   console.log('📝 文章数量:', articles?.length || 0)
 
-  // 获取作品集（替换原来的作品）
+  // 获取作品集
   const { data: collections } = await supabase
     .from('collections')
     .select('*, artists(*)')
@@ -55,7 +72,7 @@ async function getData() {
   return {
     exhibition: exhibition || null,
     articles: articles || [],
-    collections: collections || [],  // 改为 collections
+    collections: collections || [],
     artists: artists || [],
     partners: partners || []
   }

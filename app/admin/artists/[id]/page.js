@@ -2,9 +2,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
 
 export default function EditArtistPage({ params }) {
   const router = useRouter()
+  const { userData, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState('')
@@ -12,71 +14,89 @@ export default function EditArtistPage({ params }) {
   const fileInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
-    // 用户信息
-    email: '',
-    username: '',
-    avatar_url: '',
-    is_verified: false,
-    // 艺术家信息
     display_name: '',
     specialty: '',
     intro: '',
     philosophy: '',
-    // 统计信息
-    artworks_count: 0,
+    avatar_url: '',
+    is_verified: false,
+    email: '',
+    username: ''
+  })
+
+  const [stats, setStats] = useState({
     collections_count: 0,
+    artworks_count: 0,
     followers_count: 0
   })
 
   useEffect(() => {
     async function init() {
+      if (authLoading) return
+      
+      if (!userData || userData.role !== 'admin') {
+        alert('只有管理员可以访问')
+        router.push('/admin/artworks')
+        return
+      }
+
       const { id } = await params
       setArtistId(id)
       await loadArtist(id)
     }
     init()
-  }, [params])
+  }, [params, authLoading, userData])
 
   async function loadArtist(id) {
-    const { data: artist, error } = await supabase
-      .from('artists')
-      .select(`
-        *,
-        users(id, email, username, avatar_url, is_verified)
-      `)
-      .eq('id', id)
-      .single()
+    try {
+      // 加载艺术家信息
+      const { data: artist, error } = await supabase
+        .from('artists')
+        .select(`
+          *,
+          users(id, email, username, role, is_verified)
+        `)
+        .eq('id', id)
+        .single()
 
-    if (error) {
-      console.error('Error loading artist:', error)
+      if (error) throw error
+
+      if (artist) {
+        setFormData({
+          display_name: artist.display_name || '',
+          specialty: artist.specialty || '',
+          intro: artist.intro || '',
+          philosophy: artist.philosophy || '',
+          avatar_url: artist.avatar_url || '',
+          is_verified: artist.is_verified || false,
+          email: artist.users?.email || '',
+          username: artist.users?.username || ''
+        })
+
+        if (artist.avatar_url) {
+          setImagePreview(artist.avatar_url)
+        }
+
+        // 加载统计数据
+        const [collections, artworks] = await Promise.all([
+          supabase.from('collections').select('id', { count: 'exact', head: true }).eq('artist_id', id),
+          supabase.from('artworks').select('id', { count: 'exact', head: true }).eq('artist_id', id)
+        ])
+
+        setStats({
+          collections_count: collections.count || 0,
+          artworks_count: artworks.count || 0,
+          followers_count: artist.followers_count || 0
+        })
+      }
+    } catch (error) {
+      console.error('加载艺术家失败:', error)
       alert('加载失败')
       router.push('/admin/artists')
-      return
+    } finally {
+      setLoading(false)
     }
-
-    if (artist) {
-      setFormData({
-        email: artist.users?.email || '',
-        username: artist.users?.username || '',
-        avatar_url: artist.users?.avatar_url || '',
-        is_verified: artist.users?.is_verified || false,
-        display_name: artist.display_name || '',
-        specialty: artist.specialty || '',
-        intro: artist.intro || '',
-        philosophy: artist.philosophy || '',
-        artworks_count: artist.artworks_count || 0,
-        collections_count: artist.collections_count || 0,
-        followers_count: artist.followers_count || 0
-      })
-      
-      if (artist.users?.avatar_url) {
-        setImagePreview(artist.users.avatar_url)
-      }
-    }
-
-    setLoading(false)
   }
-
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
     if (!file) return

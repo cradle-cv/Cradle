@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'  // ← 用回客户端的
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function AdminArtworksPage() {
@@ -8,12 +8,12 @@ export default function AdminArtworksPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getArtworks()
+    loadArtworks()
   }, [])
 
-  async function getArtworks() {
+  async function loadArtworks() {
     const { data: { session } } = await supabase.auth.getSession()
-    
+
     if (!session) {
       setLoading(false)
       return
@@ -52,6 +52,7 @@ export default function AdminArtworksPage() {
     }
 
     const { data: artworks } = await query
+
     setArtworks(artworks || [])
     setLoading(false)
   }

@@ -1,212 +1,109 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { AuthProvider, useAuth } from '@/lib/auth-context'
 
-export default function AdminLayout({ children }) {
+function AdminLayoutContent({ children }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [isAuth, setIsAuth] = useState(false)
-  const [userRole, setUserRole] = useState('')
-  const [username, setUsername] = useState('')
-  const [loading, setLoading] = useState(true)
+  const { user, userData, loading } = useAuth()
 
-  useEffect(() => {
-    checkAuth()
-  }, [pathname])
-
-  async function checkAuth() {
-    // 登录页不需要检查
-    if (pathname === '/admin') {
-      setLoading(false)
-      return
-    }
-
-    // 检查 Supabase Session
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
-      router.push('/admin')
-      return
-    }
-
-    // 获取用户角色
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role, username')
-      .eq('auth_id', session.user.id)
-      .single()
-
-    if (userData) {
-      setUserRole(userData.role)
-      setUsername(userData.username)
-      localStorage.setItem('userRole', userData.role)
-      localStorage.setItem('username', userData.username)
-      setIsAuth(true)
-    } else {
-      router.push('/admin')
-    }
-
-    setLoading(false)
+  // 登录页面直接返回 children，不包装任何东西
+  if (pathname === '/admin') {
+    return <>{children}</>
   }
 
-  const handleLogout = async () => {
+  async function handleLogout() {
     await supabase.auth.signOut()
-    localStorage.removeItem('userRole')
-    localStorage.removeItem('username')
-    localStorage.removeItem('userId')
     router.push('/admin')
   }
 
-  // 登录页面不显示侧边栏
-  if (pathname === '/admin') {
-    return children
-  }
-
+  // 加载中
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-2xl text-gray-600">加载中...</div>
       </div>
     )
   }
 
-  if (!isAuth) {
+  // 未认证
+  if (!user || !userData) {
     return null
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 全局样式 */}
-      <style jsx global>{`
-        input[type="text"],
-        input[type="number"],
-        input[type="email"],
-        input[type="password"],
-        input[type="file"],
-        textarea,
-        select {
-          color: #111827 !important;
-          background-color: white !important;
-        }
-
-        input::placeholder,
-        textarea::placeholder {
-          color: #9CA3AF !important;
-        }
-
-        select option {
-          color: #111827 !important;
-          background-color: white !important;
-        }
-
-        label {
-          color: #374151 !important;
-        }
-      `}</style>
-
-      {/* 顶部导航 */}
-      <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">艺术空间</h1>
-              <p className="text-xs text-gray-500">
-                {userRole === 'admin' ? '超级管理员' : '艺术家'} - {username}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <Link href="/" target="_blank" className="text-sm text-gray-600 hover:text-gray-900">
-              查看网站
+    <div className="flex min-h-screen bg-gray-100">
+      {/* 侧边栏 */}
+      <aside className="w-64 bg-white shadow-lg flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
+            <Link href="/" className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+              <div>
+                <div className="font-bold text-lg">Cradle 后台</div>
+                <div className="text-xs text-gray-500">{userData.username}</div>
+              </div>
             </Link>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              退出登录
-            </button>
+
+            <nav className="space-y-1">
+              {userData.role === 'admin' && (
+                <>
+                  <NavLink href="/admin/artworks" icon="🎨" active={pathname.startsWith('/admin/artworks')}>
+                    作品管理
+                  </NavLink>
+                  <NavLink href="/admin/collections" icon="📚" active={pathname.startsWith('/admin/collections')}>
+                    作品集管理
+                  </NavLink>
+                  <NavLink href="/admin/tags" icon="🏷️" active={pathname.startsWith('/admin/tags')}>
+                    标签管理
+                  </NavLink>
+                  <NavLink href="/admin/artists" icon="👤" active={pathname.startsWith('/admin/artists')}>
+                    艺术家管理
+                  </NavLink>
+                  <NavLink href="/admin/exhibitions" icon="🖼️" active={pathname.startsWith('/admin/exhibitions')}>
+                    展览管理
+                  </NavLink>
+                  <NavLink href="/admin/partners" icon="🤝" active={pathname.startsWith('/admin/partners')}>
+                    合作伙伴管理
+                  </NavLink>
+                </>
+              )}
+
+              {userData.role === 'artist' && (
+                <>
+                  <NavLink href="/admin/artworks" icon="🎨" active={pathname.startsWith('/admin/artworks')}>
+                    我的作品
+                  </NavLink>
+                  <NavLink href="/admin/collections" icon="📚" active={pathname.startsWith('/admin/collections')}>
+                    我的作品集
+                  </NavLink>
+                </>
+              )}
+            </nav>
           </div>
         </div>
-      </header>
 
-      <div className="flex pt-16">
-        {/* 侧边栏 */}
-        <aside className="w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto">
-<nav className="p-4">
-  <div className="space-y-1">
-    <NavItem
-      href="/admin/collections"
-      icon="📚"
-      label={userRole === 'admin' ? '作品集管理' : '我的作品集'}
-      active={pathname === '/admin/collections'}
-    />
-    <NavItem
-      href="/admin/artworks"
-      icon="🎨"
-      label={userRole === 'admin' ? '作品管理' : '我的作品'}
-      active={pathname === '/admin/artworks'}
-    />
-    
-    {/* 只有管理员能看到 */}
-    {userRole === 'admin' && (
-      <>
-        <NavItem
-          href="/admin/artists"
-          icon="👤"
-          label="艺术家管理"
-          active={pathname === '/admin/artists'}
-        />
-        <NavItem
-          href="/admin/articles"
-          icon="📝"
-          label="文章管理"
-          active={pathname === '/admin/articles'}
-        />
-        <NavItem
-          href="/admin/exhibitions"
-          icon="🖼️"
-          label="展览管理"
-          active={pathname === '/admin/exhibitions'}
-        />
-        <NavItem
-          href="/admin/partners"
-          icon="🏢"
-          label="合作伙伴"
-          active={pathname === '/admin/partners'}
-        />
-        <NavItem
-          href="/admin/tags"
-          icon="🏷️"
-          label="标签管理"
-          active={pathname === '/admin/tags'}
-        />
-        <div className="border-t border-gray-200 my-4"></div>
-        <NavItem
-          href="/admin/analytics"
-          icon="📊"
-          label="数据分析"
-          active={pathname === '/admin/analytics'}
-        />
-      </>
-    )}
-  </div>
-</nav>
-        </aside>
+        <div className="p-6 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            退出登录
+          </button>
+        </div>
+      </aside>
 
-        {/* 主内容区 */}
-        <main className="flex-1 ml-64 p-8">
-          {children}
-        </main>
-      </div>
+      {/* 主内容区 */}
+      <main className="flex-1 p-8 overflow-y-auto">
+        {children}
+      </main>
     </div>
   )
 }
 
-function NavItem({ href, icon, label, active }) {
+function NavLink({ href, icon, children, active }) {
   return (
     <Link
       href={href}
@@ -217,7 +114,22 @@ function NavItem({ href, icon, label, active }) {
       }`}
     >
       <span className="text-xl">{icon}</span>
-      <span>{label}</span>
+      <span>{children}</span>
     </Link>
+  )
+}
+
+export default function AdminLayout({ children }) {
+  const pathname = usePathname()
+  
+  // 登录页不使用 AuthProvider
+  if (pathname === '/admin') {
+    return <>{children}</>
+  }
+
+  return (
+    <AuthProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </AuthProvider>
   )
 }

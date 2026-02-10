@@ -8,10 +8,10 @@ export default function AdminCollectionsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getCollections()
+    loadCollections()
   }, [])
 
-  async function getCollections() {
+  async function loadCollections() {
     const { data: { session } } = await supabase.auth.getSession()
     
     if (!session) {
@@ -35,7 +35,6 @@ export default function AdminCollectionsPage() {
       .select('*, artists(*)')
       .order('created_at', { ascending: false })
 
-    // 如果是艺术家，只显示自己的作品集
     if (userData.role === 'artist') {
       const { data: artistData } = await supabase
         .from('artists')
@@ -70,7 +69,7 @@ export default function AdminCollectionsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">作品集管理</h1>
-          <p className="text-gray-600 mt-1">管理艺术家的作品集系列</p>
+          <p className="text-gray-600 mt-1">管理艺术家的作品集</p>
         </div>
         <Link
           href="/admin/collections/new"
@@ -83,7 +82,7 @@ export default function AdminCollectionsPage() {
       {/* 统计卡片 */}
       <div className="grid grid-cols-4 gap-6 mb-8">
         <StatCard
-          label="总作品集数"
+          label="总作品集"
           value={collections.length}
           icon="📚"
           color="blue"
@@ -101,24 +100,24 @@ export default function AdminCollectionsPage() {
           color="yellow"
         />
         <StatCard
-          label="总作品数"
-          value={collections.reduce((sum, c) => sum + (c.artworks_count || 0), 0)}
-          icon="🎨"
-          color="purple"
+          label="已归档"
+          value={collections.filter(c => c.status === 'archived').length}
+          icon="📦"
+          color="gray"
         />
       </div>
 
       {/* 作品集列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-6">
             {collections.map((collection) => (
               <div
                 key={collection.id}
-                className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
               >
                 {/* 封面图 */}
-                <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                <div className="aspect-video bg-gray-100">
                   {collection.cover_image ? (
                     <img
                       src={collection.cover_image}
@@ -126,43 +125,47 @@ export default function AdminCollectionsPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl">
+                    <div className="w-full h-full flex items-center justify-center text-6xl">
                       📚
                     </div>
                   )}
                 </div>
 
                 {/* 信息 */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">
-                    {collection.title}
-                  </h3>
-                  {collection.title_en && (
-                    <p className="text-sm text-gray-500 mb-2">{collection.title_en}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {collection.title}
+                      </h3>
+                      {collection.title_en && (
+                        <p className="text-sm text-gray-500 mb-2">
+                          {collection.title_en}
+                        </p>
+                      )}
+                    </div>
+                    <StatusBadge status={collection.status} />
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                     <span>👤 {collection.artists?.display_name || '未知艺术家'}</span>
                     <span>🎨 {collection.artworks_count || 0} 件作品</span>
-                    <span>👁️ {collection.views_count || 0}</span>
-                    <span>❤️ {collection.likes_count || 0}</span>
                   </div>
+
                   {collection.description && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-1">
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                       {collection.description}
                     </p>
                   )}
-                </div>
 
-                {/* 状态和操作 */}
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={collection.status} />
-                  
-                  <Link
-                    href={`/admin/collections/${collection.id}`}
-                    className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    编辑
-                  </Link>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/admin/collections/${collection.id}`}
+                      className="flex-1 px-4 py-2 text-sm text-center bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      编辑
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -172,12 +175,12 @@ export default function AdminCollectionsPage() {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📚</div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">还没有作品集</h3>
-              <p className="text-gray-600 mb-6">点击上方按钮添加第一个作品集</p>
+              <p className="text-gray-600 mb-6">点击上方按钮创建第一个作品集</p>
               <Link
                 href="/admin/collections/new"
                 className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
               >
-                添加作品集
+                创建作品集
               </Link>
             </div>
           )}
@@ -192,7 +195,7 @@ function StatCard({ label, value, icon, color }) {
     blue: 'bg-blue-50 text-blue-600',
     green: 'bg-green-50 text-green-600',
     yellow: 'bg-yellow-50 text-yellow-600',
-    purple: 'bg-purple-50 text-purple-600',
+    gray: 'bg-gray-50 text-gray-600',
   }
 
   return (
