@@ -1,5 +1,3 @@
-'use client'
-import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // 从数据库获取数据
@@ -80,16 +78,7 @@ async function getData() {
 export default async function Home() {
   const data = await getData()
   
-  console.log('🔍 getData返回的完整数据:', data)
-  
-  const { exhibition, articles, collections, artists, partners } = data  // 改为 collections
-  
-  console.log('📊 数据详情:')
-  console.log('  exhibition:', exhibition ? '有数据' : '无数据')
-  console.log('  articles:', articles?.length || 0, '条')
-  console.log('  collections:', collections?.length || 0, '个')  // 改为 collections
-  console.log('  artists:', artists?.length || 0, '条')
-  console.log('  partners:', partners?.length || 0, '条')
+  const { exhibition, articles, collections, artists, partners } = data
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>      {/* 顶部导航栏 */}
@@ -201,56 +190,27 @@ export default async function Home() {
                           <div>
                             <div className="text-sm text-gray-500">展期</div>
                             <div className="font-medium text-gray-900">
-                              {new Date(exhibition.start_date).toLocaleDateString('zh-CN')} - {new Date(exhibition.end_date).toLocaleDateString('zh-CN')}
+                              {new Date(exhibition.start_date).toLocaleDateString('zh-CN')}
+                              {exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}
                             </div>
                           </div>
                         </div>
                       )}
-                      
-                      {exhibition.opening_hours && (
+                      {exhibition.location && (
                         <div className="flex items-start gap-3">
-                          <span className="text-[#F59E0B]">🕐</span>
+                          <span className="text-[#F59E0B]">📍</span>
                           <div>
-                            <div className="text-sm text-gray-500">开放时间</div>
-                            <div className="font-medium text-gray-900">{exhibition.opening_hours}</div>
+                            <div className="text-sm text-gray-500">地点</div>
+                            <div className="font-medium text-gray-900">{exhibition.location}</div>
                           </div>
                         </div>
                       )}
-
-                      <div className="flex items-start gap-3">
-                        <span className="text-[#F59E0B]">🎫</span>
-                        <div>
-                          <div className="text-sm text-gray-500">门票</div>
-                          <div className="font-medium text-gray-900">
-                            {exhibition.is_free ? '免费参观' : `¥${exhibition.ticket_price}`}
-                          </div>
-                        </div>
-                      </div>
                     </div>
-
-                    {exhibition.highlights && (
-                      <div className="mb-8">
-                        <div className="text-sm text-gray-500 mb-3">展览亮点</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {exhibition.highlights.map((highlight, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-[#F59E0B] rounded-full"></div>
-                              <span className="text-sm text-gray-700">{highlight}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  <div className="flex gap-4">
-                    <button className="flex-1 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706]">
-                      预约参观
-                    </button>
-                    <button className="px-6 py-4 text-gray-700 font-medium hover:text-gray-900">
-                      了解更多 →
-                    </button>
-                  </div>
+                  <button className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start">
+                    了解更多 →
+                  </button>
                 </div>
               </div>
             </div>
@@ -258,114 +218,53 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 艺术阅览室 */}
-      <section id="gallery" className="py-16 px-6">
+      {/* 作品集 */}
+      <section id="collections" className="py-16 px-6 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-10">
             <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术阅览室</h2>
-              <p className="text-gray-600">浏览最新艺术活动,探索创作背后的故事</p>
+              <h2 className="text-4xl font-bold text-gray-900 mb-3">作品集</h2>
+              <p className="text-gray-600">浏览精选艺术作品集</p>
             </div>
-            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部 →</a>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {articles.map((article) => (
-              <div key={article.id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
-                <div className="relative overflow-hidden">
-                  <div className="aspect-[4/3]">
+          <div className="grid md:grid-cols-4 gap-6">
+            {collections && collections.length > 0 && collections.map((collection) => (
+              <a
+                key={collection.id}
+                href={`/collections/${collection.id}`}
+                className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group"
+              >
+                <div className="aspect-square bg-gray-100">
+                  {collection.cover_image ? (
                     <img 
-                      src={article.cover_image}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      src={collection.cover_image}
+                      alt={collection.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                  </div>
-                </div>
-                <div className="p-5">
-                  <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors">
-                    {article.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-3 leading-relaxed min-h-[60px]">
-  {article.intro}
-</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-300"></div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">作者</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(article.published_at).toLocaleDateString('zh-CN')}
-                        </div>
-                      </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl">
+                      📚
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{article.read_time}分钟</span>
-                      <span className="flex items-center gap-1">❤️ {article.likes_count}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
+                <div className="p-4">
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{collection.title}</h3>
+                  {collection.title_en && (
+                    <p className="text-xs text-gray-500 mb-2 line-clamp-1">{collection.title_en}</p>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    {collection.artists?.display_name || '未知艺术家'}
+                  </p>
+                </div>
+              </a>
             ))}
           </div>
         </div>
       </section>
 
-{/* 作品集展示 */}
-<section id="collections" className="py-16 px-6 bg-white">
-  <div className="max-w-6xl mx-auto">
-    <div className="text-center mb-10">
-      <h2 className="text-4xl font-bold text-[#0D9488] mb-3">艺术作品集</h2>
-      <p className="text-gray-600">探索艺术家的系列创作</p>
-    </div>
-
-    <div className="grid md:grid-cols-4 gap-6">
-      {collections && collections.length > 0 ? (
-        collections.map((collection) => (
-          <a 
-            key={collection.id}
-            href={`/collections/${collection.id}`}
-            className="group cursor-pointer"
-          >
-            <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
-              {collection.cover_image ? (
-                <img 
-                  src={collection.cover_image}
-                  alt={collection.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl">
-                  📚
-                </div>
-              )}
-            </div>
-            <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-[#0D9488] transition-colors">
-              {collection.title}
-            </h3>
-            {collection.title_en && (
-              <p className="text-sm text-gray-500 mb-2">{collection.title_en}</p>
-            )}
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>{collection.artists?.display_name || '未知艺术家'}</span>
-              <span>{collection.artworks_count || 0} 件作品</span>
-            </div>
-            {collection.description && (
-              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                {collection.description}
-              </p>
-            )}
-          </a>
-        ))
-      ) : (
-        <div className="col-span-4 text-center py-12">
-          <p className="text-gray-500">暂无作品集</p>
-        </div>
-      )}
-    </div>
-  </div>
-</section>
       {/* 艺术家 */}
-<section id="artists" className="py-16 px-6 bg-white">
+      <section id="artists" className="py-16 px-6 bg-white">
   <div className="max-w-6xl mx-auto">
     <div className="text-center mb-10">
       <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术家</h2>
@@ -396,7 +295,6 @@ export default async function Home() {
             {artist.intro}
           </p>
           
-          {/* 改为链接 */}
           <a 
             href={`/artists/${artist.id}`}
             className="inline-block mt-4 px-6 py-2 border border-gray-900 text-gray-900 rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
@@ -418,7 +316,7 @@ export default async function Home() {
     </div>
   </div>
 </section>
-      {/* 合作伙伴 - 新添加的 */}
+      {/* 合作伙伴 */}
       <section id="partners" className="py-16 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">

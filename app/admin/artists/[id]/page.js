@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
 
 export default function EditArtistPage({ params }) {
@@ -97,7 +98,8 @@ export default function EditArtistPage({ params }) {
       setLoading(false)
     }
   }
-  const handleFileSelect = (e) => {
+
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0]
     if (!file) return
 
@@ -106,18 +108,27 @@ export default function EditArtistPage({ params }) {
       return
     }
 
-    const originalFileName = file.name
-    const imagePath = `/image/${originalFileName}`
-
+    // 显示预览
     const reader = new FileReader()
     reader.onload = (e) => {
       setImagePreview(e.target.result)
     }
     reader.readAsDataURL(file)
 
-    setFormData(prev => ({ ...prev, avatar_url: imagePath }))
+    // 上传到 Supabase Storage
+    try {
+      setSaving(true)
+      const { url } = await uploadImage(file, 'artists')
 
-    alert(`✅ 图片已选择！\n\n请将文件复制到：\nD:\\cradle\\public\\image\\${originalFileName}\n\n路径已自动填写为：${imagePath}`)
+      setFormData(prev => ({ ...prev, avatar_url: url }))
+
+      alert('✅ 头像上传成功！')
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert('❌ 头像上传失败：' + error.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -131,14 +142,16 @@ export default function EditArtistPage({ params }) {
     setSaving(true)
 
     try {
-      // 1. 更新艺术家信息
+      // 1. 更新艺术家信息（包含 avatar_url）
       const { error: artistError } = await supabase
         .from('artists')
         .update({
           display_name: formData.display_name,
           specialty: formData.specialty,
           intro: formData.intro,
-          philosophy: formData.philosophy
+          philosophy: formData.philosophy,
+          avatar_url: formData.avatar_url,
+          is_verified: formData.is_verified
         })
         .eq('id', artistId)
 
@@ -234,15 +247,15 @@ export default function EditArtistPage({ params }) {
               <h2 className="text-xl font-bold text-gray-900 mb-4">📊 统计信息</h2>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-600">{formData.collections_count}</div>
+                  <div className="text-3xl font-bold text-blue-600">{stats.collections_count}</div>
                   <div className="text-sm text-gray-600 mt-1">作品集</div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-3xl font-bold text-purple-600">{formData.artworks_count}</div>
+                  <div className="text-3xl font-bold text-purple-600">{stats.artworks_count}</div>
                   <div className="text-sm text-gray-600 mt-1">作品</div>
                 </div>
                 <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-3xl font-bold text-red-600">{formData.followers_count}</div>
+                  <div className="text-3xl font-bold text-red-600">{stats.followers_count}</div>
                   <div className="text-sm text-gray-600 mt-1">关注者</div>
                 </div>
               </div>
@@ -371,6 +384,9 @@ export default function EditArtistPage({ params }) {
                   <div className="text-base font-medium text-gray-900">
                     点击更换头像
                   </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    自动上传到云存储，建议尺寸：400x400 像素
+                  </div>
                 </button>
 
                 {imagePreview && (
@@ -443,6 +459,7 @@ export default function EditArtistPage({ params }) {
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• 修改后立即生效</li>
                 <li>• 邮箱不可修改</li>
+                <li>• 头像自动上传到云存储</li>
                 <li>• 删除后作品不会被删除</li>
                 <li>• 建议通知艺术家重要修改</li>
               </ul>

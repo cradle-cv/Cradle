@@ -1,13 +1,9 @@
-'use client'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 
-  useEffect(() => {
-    getArtworks()
-  }, [])
 async function getCollection(id) {
   const { data: collection } = await supabase
     .from('collections')
@@ -84,7 +80,7 @@ export default async function CollectionDetailPage({ params }) {
                 <span>•</span>
                 <span>{artworks.length} 件作品</span>
                 <span>•</span>
-                <span>👁️ {collection.views_count || 0}</span>
+                <span>👁 {collection.views_count || 0}</span>
                 <span>❤️ {collection.likes_count || 0}</span>
               </div>
 
@@ -127,7 +123,7 @@ export default async function CollectionDetailPage({ params }) {
                     </p>
                   )}
                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
-                    <span>👁️ {artwork.views_count || 0}</span>
+                    <span>👁 {artwork.views_count || 0}</span>
                     <span>❤️ {artwork.likes_count || 0}</span>
                   </div>
                 </div>

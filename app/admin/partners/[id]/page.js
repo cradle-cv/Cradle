@@ -1,352 +1,524 @@
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { uploadImage } from '@/lib/upload'
+import { useAuth } from '@/lib/auth-context'
 
-// 获取机构详细信息
-async function getPartner(id) {
-  const { data: partner } = await supabase
-    .from('partners')
-    .select('*')
-    .eq('id', id)
-    .single()
+export default function EditPartnerPage({ params }) {
+  const router = useRouter()
+  const { userData, loading: authLoading } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [imagePreview, setImagePreview] = useState('')
+  const [partnerId, setPartnerId] = useState(null)
+  const fileInputRef = useRef(null)
 
-  if (!partner) return null
+  const [formData, setFormData] = useState({
+    name: '',
+    name_en: '',
+    type: 'gallery',
+    description: '',
+    city: '',
+    address: '',
+    website: '',
+    contact_email: '',
+    contact_phone: '',
+    logo_url: '',
+    status: 'active'
+  })
 
-  // 获取旗下艺术家
-  const { data: partnerArtists } = await supabase
-    .from('partner_artists')
-    .select('*, artists(*, users(*))')
-    .eq('partner_id', id)
+  const [stats, setStats] = useState({
+    exhibitions_count: 0
+  })
 
-  // 获取代理作品
-  const { data: partnerArtworks } = await supabase
-    .from('partner_artworks')
-    .select('*, artworks(*, artists(*))')
-    .eq('partner_id', id)
-    .limit(8)
+  useEffect(() => {
+    async function init() {
+      if (authLoading) return
 
-  return {
-    partner,
-    artists: partnerArtists?.map(pa => pa.artists).filter(Boolean) || [],
-    artworks: partnerArtworks?.map(pa => pa.artworks).filter(Boolean) || []
+      if (!userData || userData.role !== 'admin') {
+        alert('只有管理员可以访问')
+        router.push('/admin/partners')
+        return
+      }
+
+      const { id } = await params
+      setPartnerId(id)
+      await loadPartner(id)
+    }
+    init()
+  }, [params, authLoading, userData])
+
+  async function loadPartner(id) {
+    try {
+      const { data: partner, error } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      if (partner) {
+        setFormData({
+          name: partner.name || '',
+          name_en: partner.name_en || '',
+          type: partner.type || 'gallery',
+          description: partner.description || '',
+          city: partner.city || '',
+          address: partner.address || '',
+          website: partner.website || '',
+          contact_email: partner.contact_email || '',
+          contact_phone: partner.contact_phone || '',
+          logo_url: partner.logo_url || '',
+          status: partner.status || 'active'
+        })
+
+        if (partner.logo_url) {
+          setImagePreview(partner.logo_url)
+        }
+
+        // 加载合作伙伴展览数量
+        const { count } = await supabase
+          .from('partner_exhibitions')
+          .select('*', { count: 'exact', head: true })
+          .eq('partner_id', id)
+
+        setStats({
+          exhibitions_count: count || 0
+        })
+      }
+    } catch (error) {
+      console.error('加载合作伙伴失败:', error)
+      alert('加载失败')
+      router.push('/admin/partners')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
-export default async function PartnerDetailPage({ params }) {
-  const { id } = await params
-  const data = await getPartner(id)
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
 
-  if (!data) {
-    notFound()
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件！')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target.result)
+    }
+    reader.readAsDataURL(file)
+
+    try {
+      setSaving(true)
+      const { url } = await uploadImage(file, 'partners')
+
+      setFormData(prev => ({ ...prev, logo_url: url }))
+
+      alert('✅ Logo上传成功！')
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert('❌ Logo上传失败：' + error.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const { partner, artists, artworks } = data
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!formData.name) {
+      alert('请填写合作伙伴名称！')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const { error } = await supabase
+        .from('partners')
+        .update({
+          name: formData.name,
+          name_en: formData.name_en,
+          type: formData.type,
+          description: formData.description,
+          city: formData.city,
+          address: formData.address,
+          website: formData.website,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+          logo_url: formData.logo_url,
+          status: formData.status
+        })
+        .eq('id', partnerId)
+
+      if (error) throw error
+
+      alert('合作伙伴信息更新成功！')
+      router.push('/admin/partners')
+    } catch (error) {
+      console.error('Error:', error)
+      alert('更新失败：' + error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('确定要删除这个合作伙伴吗？\n\n注意：\n- 关联的合作展览也会受到影响\n- 此操作不可恢复！')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('partners')
+        .delete()
+        .eq('id', partnerId)
+
+      if (error) throw error
+
+      alert('合作伙伴已删除！')
+      router.push('/admin/partners')
+    } catch (error) {
+      console.error('Error:', error)
+      alert('删除失败：' + error.message)
+    }
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  if (loading || authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-2xl text-gray-600">加载中...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 导航栏 */}
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-12">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
-            </Link>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><Link href="/#daily" className="hover:text-gray-900">每日一展</Link></li>
-              <li><Link href="/#gallery" className="hover:text-gray-900">艺术阅览室</Link></li>
-              <li><Link href="/#collection" className="hover:text-gray-900">作品集</Link></li>
-              <li><Link href="/#artists" className="hover:text-gray-900">艺术家</Link></li>
-              <li><Link href="/partners" className="hover:text-gray-900">合作伙伴</Link></li>
-            </ul>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-gray-600 hover:text-gray-900">🔍</button>
-            <button className="text-gray-600 hover:text-gray-900">👤</button>
-          </div>
-        </div>
-      </nav>
+    <div>
+      {/* 页头 */}
+      <div className="mb-8">
+        <button
+          onClick={() => router.back()}
+          className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2"
+        >
+          ← 返回合作伙伴列表
+        </button>
+        <h1 className="text-3xl font-bold text-gray-900">编辑合作伙伴</h1>
+        <p className="text-gray-600 mt-1">修改合作机构信息</p>
+      </div>
 
-      {/* 封面区 */}
-      <section className="relative">
-        <div className="aspect-[21/9] bg-gray-100">
-          {partner.cover_image ? (
-            <img 
-              src={partner.cover_image}
-              alt={partner.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-9xl">
-              🏛️
-            </div>
-          )}
-        </div>
-        
-        {/* Logo悬浮 */}
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-white shadow-xl border-4 border-white flex items-center justify-center">
-            {partner.logo_url ? (
-              <img 
-                src={partner.logo_url}
-                alt={partner.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-5xl">🏛️</div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 机构信息 */}
-      <section className="pt-24 pb-12 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">{partner.name}</h1>
-          {partner.name_en && (
-            <p className="text-xl text-gray-500 mb-6">{partner.name_en}</p>
-          )}
-          
-          {/* 标签 */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            {partner.type && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
-                {partner.type === 'gallery' ? '画廊' : 
-                 partner.type === 'bookstore' ? '书店' :
-                 partner.type === 'museum' ? '美术馆' : '工作室'}
-              </span>
-            )}
-            {partner.city && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
-                📍 {partner.city}
-              </span>
-            )}
-            {partner.is_verified && (
-              <span className="px-4 py-2 bg-blue-50 text-blue-600 text-sm rounded-full">
-                ✓ 认证合作伙伴
-              </span>
-            )}
-            {partner.established_year && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
-                成立于 {partner.established_year}
-              </span>
-            )}
-          </div>
-
-          {/* 简介 */}
-          <p className="text-lg text-gray-700 leading-relaxed mb-8">
-            {partner.description}
-          </p>
-
-          {/* 联系方式 */}
-          <div className="flex items-center justify-center gap-6 text-sm">
-            {partner.website && (
-              <a href={partner.website} target="_blank" rel="noopener noreferrer" className="text-[#F59E0B] hover:underline">
-                🌐 官网
-              </a>
-            )}
-            {partner.contact_email && (
-              <a href={`mailto:${partner.contact_email}`} className="text-[#F59E0B] hover:underline">
-                ✉️ 邮箱
-              </a>
-            )}
-            {partner.contact_phone && (
-              <a href={`tel:${partner.contact_phone}`} className="text-[#F59E0B] hover:underline">
-                📞 电话
-              </a>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 品牌故事 */}
-      {partner.story && (
-        <section className="py-12 px-6 bg-gray-50">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">品牌故事</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-              {partner.story}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* 旗下艺术家 */}
-      {artists.length > 0 && (
-        <section className="py-16 px-6">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">旗下艺术家</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              {artists.map((artist) => (
-                <div key={artist.id} className="bg-white rounded-lg p-6 text-center shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden bg-gray-100">
-                    {artist.users?.avatar_url ? (
-                      <img 
-                        src={artist.users.avatar_url}
-                        alt={artist.display_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl">
-                        👤
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{artist.display_name}</h3>
-                  <p className="text-sm text-gray-500 mb-4">{artist.specialty}</p>
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">
-                    {artist.intro}
-                  </p>
-                  <button className="px-6 py-2 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50">
-                    查看作品
-                  </button>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-3 gap-8">
+          <div className="col-span-2 space-y-6">
+            {/* 统计信息 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">📊 统计信息</h2>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-3xl font-bold text-purple-600">{stats.exhibitions_count}</div>
+                  <div className="text-sm text-gray-600 mt-1">合作展览</div>
                 </div>
-              ))}
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600">
+                    {formData.status === 'active' ? '✓' : '—'}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {formData.status === 'active' ? '活跃中' : '未激活'}
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-3xl font-bold text-green-600">
+                    {getTypeIcon(formData.type)}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">{getTypeLabel(formData.type)}</div>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
-      )}
 
-      {/* 代理作品 */}
-      {artworks.length > 0 && (
-        <section className="py-16 px-6 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">代理作品</h2>
-            <div className="grid md:grid-cols-4 gap-6">
-              {artworks.map((artwork) => (
-                <div key={artwork.id} className="group cursor-pointer">
-                  <div className="aspect-square rounded-lg overflow-hidden mb-3 relative">
-                    <img 
-                      src={artwork.image_url}
-                      alt={artwork.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                      <h4 className="text-white font-bold text-lg mb-1">{artwork.title}</h4>
-                      <p className="text-white/90 text-sm">{artwork.artists?.display_name}</p>
+            {/* 基本信息 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    机构名称（中文） <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="如：中央美术学院"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    机构名称（英文）
+                  </label>
+                  <input
+                    type="text"
+                    name="name_en"
+                    value={formData.name_en}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="如：Central Academy of Fine Arts"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    机构类型
+                  </label>
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="gallery">画廊</option>
+                    <option value="museum">美术馆</option>
+                    <option value="studio">工作室</option>
+                    <option value="academy">艺术学院</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    机构简介
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="介绍机构的背景、特色和定位..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🏛️ Logo</h2>
+
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <div className="text-4xl mb-2">📤</div>
+                  <div className="text-base font-medium text-gray-900">
+                    点击更换Logo
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    建议尺寸：400x400 像素
+                  </div>
+                </button>
+
+                {imagePreview && (
+                  <div className="mt-6 flex justify-center">
+                    <div className="relative">
+                      <p className="text-sm font-medium text-gray-700 mb-3 text-center">当前Logo：</p>
+                      <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-200 bg-white">
+                        <img
+                          src={imagePreview}
+                          alt="预览"
+                          className="w-full h-full object-contain p-2"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <h4 className="font-medium text-gray-900 mb-1 group-hover:text-[#F59E0B] transition-colors">
-                    {artwork.title}
-                  </h4>
-                  <p className="text-sm text-gray-500">{artwork.artists?.display_name}</p>
+                )}
+              </div>
+            </div>
+
+            {/* 联系信息 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">📍 联系信息</h2>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      城市
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="如：北京"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      联系电话
+                    </label>
+                    <input
+                      type="tel"
+                      name="contact_phone"
+                      value={formData.contact_phone}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="如：010-12345678"
+                    />
+                  </div>
                 </div>
-              ))}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    详细地址
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="如：朝阳区望京东路8号"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    官方网站
+                  </label>
+                  <input
+                    type="url"
+                    name="website"
+                    value={formData.website}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    联系邮箱
+                  </label>
+                  <input
+                    type="email"
+                    name="contact_email"
+                    value={formData.contact_email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="contact@example.com"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </section>
-      )}
 
-      {/* 联系信息 */}
-      <section className="py-16 px-6">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">联系方式</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {partner.address && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">📍</div>
-                <h3 className="font-bold text-gray-900 mb-2">地址</h3>
-                <p className="text-gray-600">{partner.address}</p>
-              </div>
-            )}
-            
-            {partner.opening_hours && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">🕐</div>
-                <h3 className="font-bold text-gray-900 mb-2">营业时间</h3>
-                <p className="text-gray-600">{partner.opening_hours}</p>
-              </div>
-            )}
-            
-            {partner.contact_email && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">✉️</div>
-                <h3 className="font-bold text-gray-900 mb-2">邮箱</h3>
-                <a href={`mailto:${partner.contact_email}`} className="text-[#F59E0B] hover:underline">
-                  {partner.contact_email}
-                </a>
-              </div>
-            )}
-            
-            {partner.contact_phone && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">📞</div>
-                <h3 className="font-bold text-gray-900 mb-2">电话</h3>
-                <a href={`tel:${partner.contact_phone}`} className="text-[#F59E0B] hover:underline">
-                  {partner.contact_phone}
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+          {/* 右侧：设置 */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6 sticky top-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
 
-      {/* 返回按钮 */}
-      <section className="py-8 px-6 border-t border-gray-200">
-        <div className="max-w-6xl mx-auto text-center">
-          <Link 
-            href="/partners"
-            className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
-          >
-            ← 返回合作伙伴列表
-          </Link>
-        </div>
-      </section>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    状态
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="active">活跃</option>
+                    <option value="inactive">未激活</option>
+                  </select>
+                </div>
 
-      {/* 页脚 */}
-      <footer className="bg-[#1F2937] text-white py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">Cradle摇篮</div>
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving ? '保存中...' : '💾 保存修改'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    取消
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="w-full mt-2 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                  >
+                    🗑️ 删除合作伙伴
+                  </button>
+                </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                汇聚全球原创艺术家的创作台探索艺术的无限可能
-              </p>
             </div>
 
-            <div>
-              <h5 className="font-bold mb-4">关于我们</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">平台介绍</Link></li>
-                <li><Link href="#" className="hover:text-white">团队成员</Link></li>
-                <li><Link href="#" className="hover:text-white">联系我们</Link></li>
-                <li><Link href="#" className="hover:text-white">加入我们</Link></li>
+            {/* 提示信息 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-900 mb-2">💡 编辑提示</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• 修改后立即生效</li>
+                <li>• Logo会自动上传到云存储</li>
+                <li>• 删除后关联展览会受影响</li>
+                <li>• 建议通知对方重要修改</li>
               </ul>
             </div>
-
-            <div>
-              <h5 className="font-bold mb-4">艺术家服务</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">上传作品</Link></li>
-                <li><Link href="#" className="hover:text-white">创建展览</Link></li>
-                <li><Link href="#" className="hover:text-white">艺术家认证</Link></li>
-                <li><Link href="#" className="hover:text-white">版权保护</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
-              <div className="space-y-3">
-                <input 
-                  type="email" 
-                  placeholder="输入您的邮箱" 
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500"
-                />
-                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">
-                  订阅
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">
-            © 2026 Cradle摇篮. All rights reserved.
           </div>
         </div>
-      </footer>
+      </form>
     </div>
   )
+}
+
+function getTypeLabel(type) {
+  const labels = {
+    gallery: '画廊',
+    museum: '美术馆',
+    studio: '工作室',
+    academy: '艺术学院',
+  }
+  return labels[type] || type
+}
+
+function getTypeIcon(type) {
+  const icons = {
+    gallery: '🖼️',
+    museum: '🏛️',
+    studio: '🎨',
+    academy: '🎓',
+  }
+  return icons[type] || '🏢'
 }
