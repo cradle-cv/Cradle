@@ -1,191 +1,16 @@
-'use client'
-import { useEffect, useState } from 'react'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 
-export default function AdminPartnersPage() {
-  const [partners, setPartners] = useState([])
-  const [loading, setLoading] = useState(true)
+async function getPartners() {
+  const { data: partners } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
 
-  useEffect(() => {
-    loadPartners()
-  }, [])
-
-  async function loadPartners() {
-    const { data } = await supabase
-      .from('partners')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    setPartners(data || [])
-    setLoading(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-2xl text-gray-600">加载中...</div>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {/* 页头 */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">合作伙伴管理</h1>
-          <p className="text-gray-600 mt-1">管理平台的合作机构</p>
-        </div>
-        <Link
-          href="/admin/partners/new"
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
-        >
-          + 添加新合作伙伴
-        </Link>
-      </div>
-
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        <StatCard
-          label="总合作伙伴"
-          value={partners.length}
-          icon="🤝"
-          color="blue"
-        />
-        <StatCard
-          label="活跃中"
-          value={partners.filter(p => p.status === 'active').length}
-          icon="✅"
-          color="green"
-        />
-        <StatCard
-          label="画廊"
-          value={partners.filter(p => p.type === 'gallery').length}
-          icon="🖼️"
-          color="purple"
-        />
-        <StatCard
-          label="工作室"
-          value={partners.filter(p => p.type === 'studio').length}
-          icon="🎨"
-          color="yellow"
-        />
-      </div>
-
-      {/* 合作伙伴列表 */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <div className="space-y-4">
-            {partners.map((partner) => (
-              <div
-                key={partner.id}
-                className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-              >
-                {/* Logo */}
-                <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                  {partner.logo_url ? (
-                    <img
-                      src={partner.logo_url}
-                      alt={partner.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl">
-                      🏛️
-                    </div>
-                  )}
-                </div>
-
-                {/* 信息 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {partner.name}
-                    </h3>
-                    {partner.status === 'active' && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        ✓ 活跃
-                      </span>
-                    )}
-                  </div>
-                  {partner.name_en && (
-                    <p className="text-sm text-gray-500 mb-2">{partner.name_en}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>🏢 {getTypeLabel(partner.type)}</span>
-                    {partner.city && <span>📍 {partner.city}</span>}
-                    {partner.website && (
-                      <a 
-                        href={partner.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        🔗 官网
-                      </a>
-                    )}
-                  </div>
-                  {partner.description && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">
-                      {partner.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* 操作按钮 */}
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={`/admin/partners/${partner.id}`}
-                    className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    编辑
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {partners.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🤝</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">还没有合作伙伴</h3>
-              <p className="text-gray-600 mb-6">点击上方按钮添加第一个合作伙伴</p>
-              <Link
-                href="/admin/partners/new"
-                className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
-              >
-                添加合作伙伴
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StatCard({ label, value, icon, color }) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${colors[color]}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  )
+  return partners || []
 }
 
 function getTypeLabel(type) {
@@ -196,4 +21,111 @@ function getTypeLabel(type) {
     academy: '艺术学院',
   }
   return labels[type] || type
+}
+
+export default async function PartnersPage() {
+  const partners = await getPartners()
+
+  return (
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+      {/* 导航栏 */}
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+              <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
+            </a>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+              <li><a href="/#daily" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="/#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+              <li><a href="/#collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/#artists" className="hover:text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="text-gray-900 font-medium">合作伙伴</a></li>
+            </ul>
+          </div>
+          <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
+        </div>
+      </nav>
+
+      {/* 页面头部 */}
+      <section className="py-16 px-6 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">合作伙伴</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            与我们携手共创的艺术机构，共同推动艺术的发展与传播
+          </p>
+        </div>
+      </section>
+
+      {/* 合作伙伴列表 */}
+      <section className="py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          {partners.length > 0 ? (
+            <div className="grid md:grid-cols-3 gap-8">
+              {partners.map((partner) => (
+                <a
+                  key={partner.id}
+                  href={`/partners/${partner.id}`}
+                  className="bg-white rounded-xl p-8 text-center shadow-sm hover:shadow-xl transition-all group border border-gray-100"
+                >
+                  {/* Logo */}
+                  <div className="w-28 h-28 mx-auto mb-6 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center border-2 border-gray-100 group-hover:border-[#F59E0B] transition-colors">
+                    {partner.logo_url ? (
+                      <img
+                        src={partner.logo_url}
+                        alt={partner.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-4xl">🏛️</div>
+                    )}
+                  </div>
+
+                  {/* 名称 */}
+                  <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-[#F59E0B] transition-colors">
+                    {partner.name}
+                  </h3>
+                  {partner.name_en && (
+                    <p className="text-sm text-gray-500 mb-3">{partner.name_en}</p>
+                  )}
+
+                  {/* 类型标签 */}
+                  <div className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-full mb-4">
+                    🏢 {getTypeLabel(partner.type)}
+                  </div>
+
+                  {/* 描述 */}
+                  {partner.description && (
+                    <p className="text-sm text-gray-600 line-clamp-3 mb-4 leading-relaxed">
+                      {partner.description}
+                    </p>
+                  )}
+
+                  {/* 城市 */}
+                  {partner.city && (
+                    <div className="inline-flex items-center gap-1 text-xs text-gray-500">
+                      📍 {partner.city}
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">🤝</div>
+              <p className="text-xl text-gray-500">暂无合作伙伴信息</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 页脚 */}
+      <footer className="bg-[#1F2937] text-white py-8 px-6 mt-12">
+        <div className="max-w-6xl mx-auto text-center text-sm text-gray-500">
+          © 2026 Cradle摇篮. All rights reserved.
+        </div>
+      </footer>
+    </div>
+  )
 }

@@ -67,18 +67,29 @@ async function getData() {
 
   console.log('🏢 合作伙伴数量:', partners?.length || 0)
 
+  // 获取近期展览（非每日一展，按开始时间倒序）
+  const { data: recentExhibitions } = await supabase
+    .from('exhibitions')
+    .select('*')
+    .eq('status', 'active')
+    .order('start_date', { ascending: false })
+    .limit(3)
+
+  console.log('🖼️ 近期展览数量:', recentExhibitions?.length || 0)
+
   return {
     exhibition: exhibition || null,
     articles: articles || [],
     collections: collections || [],
     artists: artists || [],
-    partners: partners || []
+    partners: partners || [],
+    recentExhibitions: recentExhibitions || []
   }
 }
 export default async function Home() {
   const data = await getData()
   
-  const { exhibition, articles, collections, artists, partners } = data
+  const { exhibition, articles, collections, artists, partners, recentExhibitions } = data
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>      {/* 顶部导航栏 */}
@@ -104,41 +115,67 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero区 */}
-      <section className="py-20 px-6">
+      {/* Hero区 - 艺术阅览室入口 */}
+      <section id="gallery" className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-16">
             <div className="flex-1">
-              <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                探索艺术的<br/>
-                无限可能 🎨<br/>
-                与创作之美
-              </h1>
-              <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
-                汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品.与艺术家们共同探索创作的无限魅力
-              </p>
+              {articles && articles.length > 0 ? (
+                <>
+                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight max-w-md">
+                    {articles[0].title}
+                  </h1>
+                  {articles[0].title_en && (
+                    <p className="text-xl text-gray-500 mb-10 leading-relaxed max-w-xl italic">
+                      {articles[0].title_en}
+                    </p>
+                  )}
+                  {!articles[0].title_en && articles[0].intro && (
+                    <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
+                      {articles[0].intro}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    探索艺术的<br/>
+                    无限可能 🎨<br/>
+                    与创作之美
+                  </h1>
+                  <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
+                    走进艺术阅览室，沉浸于跨越时代的艺术鉴赏与创作思考
+                  </p>
+                </>
+              )}
               <div className="flex gap-4">
-                <button className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+                <a href={articles && articles.length > 0 ? `/gallery/${articles[0].id}` : '/gallery'} className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors">
                   探索作品
-                </button>
-                <button className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
-                  了解更多
-                </button>
+                </a>
+                <a href="/gallery" className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                  进入阅览室
+                </a>
               </div>
             </div>
 
+            {/* 右侧：文章封面图 */}
             <div className="relative w-1/3 flex-shrink-0">
               <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                <img 
-                  src="/image/hero.jpg" 
-                  alt="静谧时光"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-8 left-8 z-10">
-                  <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
-                  <p className="text-white drop-shadow-lg">张艺谋</p>
-                </div>
+                {articles && articles.length > 0 && articles[0].cover_image ? (
+                  <a href={`/gallery/${articles[0].id}`} className="block w-full h-full group">
+                    <img 
+                      src={articles[0].cover_image}
+                      alt={articles[0].title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </a>
+                ) : (
+                  <img 
+                    src="/image/hero.jpg" 
+                    alt="艺术阅览室"
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -208,9 +245,9 @@ export default async function Home() {
                     </div>
                   </div>
 
-                  <button className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start">
+                  <a href={`/exhibitions/${exhibition.id}`} className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start inline-block">
                     了解更多 →
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -259,6 +296,15 @@ export default async function Home() {
                 </div>
               </a>
             ))}
+          </div>
+
+          <div className="text-center mt-10">
+            <a 
+              href="/collections"
+              className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+            >
+              查看所有作品集 →
+            </a>
           </div>
         </div>
       </section>
@@ -372,45 +418,62 @@ export default async function Home() {
       </section>
 
       {/* 近期展览 */}
+      {recentExhibitions && recentExhibitions.length > 0 && (
       <section className="py-16 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
-            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { img: 'zlhb1.jpg', title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
-              { img: 'zlhb2.jpg', title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
-              { img: 'zlhb3.jpg', title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
-            ].map((exhibit, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+            {recentExhibitions.map((exhibit) => (
+              <a 
+                key={exhibit.id} 
+                href={`/exhibitions/${exhibit.id}`}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow group"
+              >
                 <div className="flex gap-4 p-5">
-                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                    <img 
-                      src={`/image/${exhibit.img}`}
-                      alt={exhibit.title}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden bg-gray-100">
+                    {exhibit.cover_image ? (
+                      <img 
+                        src={exhibit.cover_image}
+                        alt={exhibit.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl">
+                        🖼️
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors">
+                      {exhibit.title}
+                    </h3>
+                    {exhibit.curator_name && (
+                      <p className="text-sm text-gray-600 mb-3">{exhibit.curator_name}</p>
+                    )}
                     <div className="space-y-1 text-xs text-gray-500">
-                      <p>📅 {exhibit.date}</p>
-                      <p>📍 {exhibit.location}</p>
+                      {exhibit.start_date && (
+                        <p>📅 {new Date(exhibit.start_date).toLocaleDateString('zh-CN')}
+                          {exhibit.end_date && ` - ${new Date(exhibit.end_date).toLocaleDateString('zh-CN')}`}
+                        </p>
+                      )}
+                      {exhibit.location && (
+                        <p>📍 {exhibit.location}</p>
+                      )}
                     </div>
-                    <button className="text-sm text-[#F59E0B] hover:underline mt-3">
+                    <span className="text-sm text-[#F59E0B] hover:underline mt-3 inline-block">
                       了解详情 →
-                    </button>
+                    </span>
                   </div>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
