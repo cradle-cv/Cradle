@@ -14,7 +14,6 @@ export default function AdminArtistsPage() {
   }, [])
 
   async function checkPermissionAndLoad() {
-    // 检查权限：只有管理员能访问
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       router.push('/admin')
@@ -41,7 +40,7 @@ export default function AdminArtistsPage() {
       .from('artists')
       .select(`
         *,
-        users(id, email, username, role, is_verified)
+        users(id, email, username, role)
       `)
       .order('created_at', { ascending: false })
 
@@ -83,7 +82,7 @@ export default function AdminArtistsPage() {
         />
         <StatCard
           label="已认证"
-          value={artists.filter(a => a.users?.is_verified).length}
+          value={artists.filter(a => !!a.verified_at).length}
           icon="✓"
           color="green"
         />
@@ -112,9 +111,9 @@ export default function AdminArtistsPage() {
               >
                 {/* 头像 */}
                 <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                  {artist.users?.avatar_url ? (
+                  {artist.avatar_url ? (
                     <img
-                      src={artist.users.avatar_url}
+                      src={artist.avatar_url}
                       alt={artist.display_name}
                       className="w-full h-full object-cover"
                     />
@@ -131,7 +130,7 @@ export default function AdminArtistsPage() {
                     <h3 className="text-lg font-bold text-gray-900">
                       {artist.display_name}
                     </h3>
-                    {artist.users?.is_verified && (
+                    {artist.verified_at && (
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                         ✓ 已认证
                       </span>

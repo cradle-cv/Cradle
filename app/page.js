@@ -122,7 +122,7 @@ export default async function Home() {
             <div className="flex-1">
               {articles && articles.length > 0 ? (
                 <>
-                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight max-w-md">
+                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight" style={{ maxWidth: '520px', textWrap: 'balance' }}>
                     {articles[0].title}
                   </h1>
                   {articles[0].title_en && (

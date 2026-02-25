@@ -20,7 +20,7 @@ export default function EditArtistPage({ params }) {
     intro: '',
     philosophy: '',
     avatar_url: '',
-    is_verified: false,
+    verified_at: null,
     email: '',
     username: ''
   })
@@ -55,7 +55,7 @@ export default function EditArtistPage({ params }) {
         .from('artists')
         .select(`
           *,
-          users(id, email, username, role, is_verified)
+          users(id, email, username, role)
         `)
         .eq('id', id)
         .single()
@@ -69,7 +69,7 @@ export default function EditArtistPage({ params }) {
           intro: artist.intro || '',
           philosophy: artist.philosophy || '',
           avatar_url: artist.avatar_url || '',
-          is_verified: artist.is_verified || false,
+          verified_at: artist.verified_at || null,
           email: artist.users?.email || '',
           username: artist.users?.username || ''
         })
@@ -151,7 +151,7 @@ export default function EditArtistPage({ params }) {
           intro: formData.intro,
           philosophy: formData.philosophy,
           avatar_url: formData.avatar_url,
-          is_verified: formData.is_verified
+          verified_at: formData.verified_at
         })
         .eq('id', artistId)
 
@@ -169,8 +169,7 @@ export default function EditArtistPage({ params }) {
           .from('users')
           .update({
             username: formData.username || formData.display_name,
-            avatar_url: formData.avatar_url,
-            is_verified: formData.is_verified
+            avatar_url: formData.avatar_url
           })
           .eq('id', artistData.user_id)
 
@@ -414,13 +413,13 @@ export default function EditArtistPage({ params }) {
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    name="is_verified"
-                    id="is_verified"
-                    checked={formData.is_verified}
-                    onChange={handleChange}
+                    name="verified_at"
+                    id="verified_at"
+                    checked={!!formData.verified_at}
+                    onChange={(e) => setFormData(prev => ({ ...prev, verified_at: e.target.checked ? new Date().toISOString() : null }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="is_verified" className="ml-2 text-sm font-medium text-gray-700">
+                  <label htmlFor="verified_at" className="ml-2 text-sm font-medium text-gray-700">
                     艺术家认证
                   </label>
                 </div>

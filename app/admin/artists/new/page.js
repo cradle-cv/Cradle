@@ -18,7 +18,7 @@ export default function NewArtistPage() {
     intro: '',
     philosophy: '',
     avatar_url: '',
-    is_verified: false,
+    verified_at: null,
     email: '',
     username: ''
   })
@@ -81,8 +81,7 @@ export default function NewArtistPage() {
         .insert({
           email: formData.email,
           username: formData.username || formData.email.split('@')[0],
-          role: 'artist',
-          is_verified: formData.is_verified
+          role: 'artist'
         })
         .select()
         .single()
@@ -99,7 +98,7 @@ export default function NewArtistPage() {
           intro: formData.intro,
           philosophy: formData.philosophy,
           avatar_url: formData.avatar_url,
-          is_verified: formData.is_verified
+          verified_at: formData.verified_at
         })
 
       if (artistError) throw artistError
@@ -302,9 +301,9 @@ export default function NewArtistPage() {
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    name="is_verified"
-                    checked={formData.is_verified}
-                    onChange={handleChange}
+                    name="verified_at"
+                    checked={!!formData.verified_at}
+                    onChange={(e) => setFormData(prev => ({ ...prev, verified_at: e.target.checked ? new Date().toISOString() : null }))}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                   />
                   <label className="text-sm font-medium text-gray-700">
