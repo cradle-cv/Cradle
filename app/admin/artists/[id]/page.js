@@ -274,7 +274,7 @@ export default function EditArtistPage({ params }) {
                     name="email"
                     value={formData.email}
                     disabled
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-gray-100 text-gray-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">邮箱不可修改</p>
                 </div>
@@ -288,7 +288,7 @@ export default function EditArtistPage({ params }) {
                     name="username"
                     value={formData.username}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -315,7 +315,7 @@ export default function EditArtistPage({ params }) {
                     value={formData.display_name}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -328,7 +328,7 @@ export default function EditArtistPage({ params }) {
                     name="specialty"
                     value={formData.specialty}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="如：油画、摄影、书法"
                   />
                 </div>
@@ -342,7 +342,7 @@ export default function EditArtistPage({ params }) {
                     value={formData.intro}
                     onChange={handleChange}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -355,7 +355,7 @@ export default function EditArtistPage({ params }) {
                     value={formData.philosophy}
                     onChange={handleChange}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>

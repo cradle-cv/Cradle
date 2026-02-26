@@ -67,15 +67,15 @@ async function getData() {
 
   console.log('🏢 合作伙伴数量:', partners?.length || 0)
 
-  // 获取近期展览（非每日一展，按开始时间倒序）
-  const { data: recentExhibitions } = await supabase
-    .from('exhibitions')
+  // 获取阅览室推荐作品（最新发布的3件）
+  const { data: galleryWorks } = await supabase
+    .from('gallery_works')
     .select('*')
-    .eq('status', 'active')
-    .order('start_date', { ascending: false })
+    .eq('status', 'published')
+    .order('display_order', { ascending: true })
     .limit(3)
 
-  console.log('🖼️ 近期展览数量:', recentExhibitions?.length || 0)
+  console.log('🖼️ 阅览室作品数量:', galleryWorks?.length || 0)
 
   return {
     exhibition: exhibition || null,
@@ -83,13 +83,13 @@ async function getData() {
     collections: collections || [],
     artists: artists || [],
     partners: partners || [],
-    recentExhibitions: recentExhibitions || []
+    galleryWorks: galleryWorks || []
   }
 }
 export default async function Home() {
   const data = await getData()
   
-  const { exhibition, articles, collections, artists, partners, recentExhibitions } = data
+  const { exhibition, articles, collections, artists, partners, galleryWorks } = data
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>      {/* 顶部导航栏 */}
@@ -115,26 +115,37 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero区 - 艺术阅览室入口 */}
-      <section id="gallery" className="py-20 px-6">
+      {/* Hero区 */}
+      <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-16">
             <div className="flex-1">
-              {articles && articles.length > 0 ? (
+              {galleryWorks.length > 0 ? (
                 <>
-                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight" style={{ maxWidth: '520px', textWrap: 'balance' }}>
-                    {articles[0].title}
+                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    {galleryWorks[0].title.match(/.{1,7}/g).map((line, i) => (
+                      <span key={i}>{line}{i < galleryWorks[0].title.match(/.{1,7}/g).length - 1 && <br/>}</span>
+                    ))}
                   </h1>
-                  {articles[0].title_en && (
-                    <p className="text-xl text-gray-500 mb-10 leading-relaxed max-w-xl italic">
-                      {articles[0].title_en}
+                  {galleryWorks[0].title_en && (
+                    <p className="text-xl text-gray-500 mb-4 italic">{galleryWorks[0].title_en}</p>
+                  )}
+                  {galleryWorks[0].artist_name && (
+                    <p className="text-lg text-gray-600 mb-4">{galleryWorks[0].artist_name}{galleryWorks[0].year ? ` · ${galleryWorks[0].year}` : ''}</p>
+                  )}
+                  {galleryWorks[0].description && (
+                    <p className="text-base text-gray-500 leading-relaxed max-w-xl" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {galleryWorks[0].description}
                     </p>
                   )}
-                  {!articles[0].title_en && articles[0].intro && (
-                    <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
-                      {articles[0].intro}
-                    </p>
-                  )}
+                  <div className="flex gap-4 mt-6">
+                    <a href={`/gallery/${galleryWorks[0].id}`} className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+                      探索作品
+                    </a>
+                    <a href="/gallery" className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
+                      进入阅览室
+                    </a>
+                  </div>
                 </>
               ) : (
                 <>
@@ -144,39 +155,52 @@ export default async function Home() {
                     与创作之美
                   </h1>
                   <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-xl">
-                    走进艺术阅览室，沉浸于跨越时代的艺术鉴赏与创作思考
+                    汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品.与艺术家们共同探索创作的无限魅力
                   </p>
+                  <div className="flex gap-4">
+                    <a href="/gallery" className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+                      进入阅览室
+                    </a>
+                    <a href="#collections" className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50">
+                      浏览作品集
+                    </a>
+                  </div>
                 </>
               )}
-              <div className="flex gap-4">
-                <a href={articles && articles.length > 0 ? `/gallery/${articles[0].id}` : '/gallery'} className="px-8 py-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors">
-                  探索作品
-                </a>
-                <a href="/gallery" className="px-8 py-4 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                  进入阅览室
-                </a>
-              </div>
             </div>
 
-            {/* 右侧：文章封面图 */}
+            {/* 右侧：作品图片 */}
             <div className="relative w-1/3 flex-shrink-0">
-              <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                {articles && articles.length > 0 && articles[0].cover_image ? (
-                  <a href={`/gallery/${articles[0].id}`} className="block w-full h-full group">
-                    <img 
-                      src={articles[0].cover_image}
-                      alt={articles[0].title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </a>
-                ) : (
+              {galleryWorks.length > 0 ? (
+                <a href={`/gallery/${galleryWorks[0].id}`} className="block group">
+                  <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
+                    {galleryWorks[0].cover_image && galleryWorks[0].cover_image.length > 0 ? (
+                      <img 
+                        src={galleryWorks[0].cover_image} 
+                        alt={galleryWorks[0].title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                        <span className="text-6xl">🖼️</span>
+                      </div>
+                    )}
+                  </div>
+                </a>
+              ) : (
+                <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
                   <img 
                     src="/image/hero.jpg" 
-                    alt="艺术阅览室"
+                    alt="静谧时光"
                     className="w-full h-full object-cover"
                   />
-                )}
-              </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                  <div className="absolute bottom-8 left-8 z-10">
+                    <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
+                    <p className="text-white drop-shadow-lg">张艺谋</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -245,9 +269,9 @@ export default async function Home() {
                     </div>
                   </div>
 
-                  <a href={`/exhibitions/${exhibition.id}`} className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start inline-block">
+                  <button className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start">
                     了解更多 →
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -418,62 +442,45 @@ export default async function Home() {
       </section>
 
       {/* 近期展览 */}
-      {recentExhibitions && recentExhibitions.length > 0 && (
       <section className="py-16 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
+            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {recentExhibitions.map((exhibit) => (
-              <a 
-                key={exhibit.id} 
-                href={`/exhibitions/${exhibit.id}`}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow group"
-              >
+            {[
+              { img: 'zlhb1.jpg', title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
+              { img: 'zlhb2.jpg', title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
+              { img: 'zlhb3.jpg', title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
+            ].map((exhibit, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="flex gap-4 p-5">
-                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden bg-gray-100">
-                    {exhibit.cover_image ? (
-                      <img 
-                        src={exhibit.cover_image}
-                        alt={exhibit.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl">
-                        🖼️
-                      </div>
-                    )}
+                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                    <img 
+                      src={`/image/${exhibit.img}`}
+                      alt={exhibit.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#F59E0B] transition-colors">
-                      {exhibit.title}
-                    </h3>
-                    {exhibit.curator_name && (
-                      <p className="text-sm text-gray-600 mb-3">{exhibit.curator_name}</p>
-                    )}
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
                     <div className="space-y-1 text-xs text-gray-500">
-                      {exhibit.start_date && (
-                        <p>📅 {new Date(exhibit.start_date).toLocaleDateString('zh-CN')}
-                          {exhibit.end_date && ` - ${new Date(exhibit.end_date).toLocaleDateString('zh-CN')}`}
-                        </p>
-                      )}
-                      {exhibit.location && (
-                        <p>📍 {exhibit.location}</p>
-                      )}
+                      <p>📅 {exhibit.date}</p>
+                      <p>📍 {exhibit.location}</p>
                     </div>
-                    <span className="text-sm text-[#F59E0B] hover:underline mt-3 inline-block">
+                    <button className="text-sm text-[#F59E0B] hover:underline mt-3">
                       了解详情 →
-                    </span>
+                    </button>
                   </div>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         </div>
       </section>
-      )}
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">

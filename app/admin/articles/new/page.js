@@ -19,9 +19,51 @@ export default function NewArticlePage() {
     intro: '',
     content: '',
     cover_image: '',
-    category: 'appreciation',
+    category: 'puzzle',
+    artwork_id: '',
     status: 'draft',
-    author_type: 'admin'
+    author_type: 'admin',
+    group_id: '',
+    group_title: '',
+    group_cover: ''
+  })
+
+  const [existingGroups, setExistingGroups] = useState([])
+  const [artworks, setArtworks] = useState([])
+
+  // 加载已有分组
+  useState(() => {
+    async function loadGroups() {
+      const { data } = await supabase
+        .from('articles')
+        .select('group_id, group_title')
+        .not('group_id', 'is', null)
+        .order('created_at', { ascending: false })
+      if (data) {
+        const unique = []
+        const seen = new Set()
+        data.forEach(d => {
+          if (d.group_id && !seen.has(d.group_id)) {
+            seen.add(d.group_id)
+            unique.push({ group_id: d.group_id, group_title: d.group_title })
+          }
+        })
+        setExistingGroups(unique)
+      }
+    }
+    loadGroups()
+  })
+
+  // 加载阅览室作品列表
+  useState(() => {
+    async function loadGalleryWorks() {
+      const { data } = await supabase
+        .from('gallery_works')
+        .select('id, title, artist_name, cover_image')
+        .order('created_at', { ascending: false })
+      if (data) setArtworks(data)
+    }
+    loadGalleryWorks()
   })
 
   // 题目列表
@@ -207,6 +249,23 @@ export default function NewArticlePage() {
       }
 
       alert(`文章创建成功！${questions.length > 0 ? `（含 ${questions.length} 道题目）` : ''}`)
+
+      // 3. 关联到阅览室作品
+      if (formData.artwork_id && article.id) {
+        const fieldMap = {
+          puzzle: 'puzzle_article_id',
+          rike: 'rike_article_id',
+          fengshang: 'fengshang_article_id'
+        }
+        const field = fieldMap[formData.category]
+        if (field) {
+          await supabase
+            .from('gallery_works')
+            .update({ [field]: article.id })
+            .eq('id', formData.artwork_id)
+        }
+      }
+
       router.push('/admin/articles')
     } catch (error) {
       console.error('Error:', error)
@@ -219,6 +278,15 @@ export default function NewArticlePage() {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+
+    // 选择关联作品时自动填充封面图
+    if (name === 'artwork_id' && value) {
+      const work = artworks.find(w => w.id === value)
+      if (work && work.cover_image) {
+        setFormData(prev => ({ ...prev, [name]: value, cover_image: work.cover_image }))
+        setImagePreview(work.cover_image)
+      }
+    }
   }
 
   if (authLoading) {
@@ -278,7 +346,7 @@ export default function NewArticlePage() {
                       value={formData.title}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="如：从莫奈到梵高——印象派的光影革命"
                     />
                   </div>
@@ -290,7 +358,7 @@ export default function NewArticlePage() {
                       name="title_en"
                       value={formData.title_en}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
@@ -301,7 +369,7 @@ export default function NewArticlePage() {
                       value={formData.intro}
                       onChange={handleChange}
                       rows={2}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="简要介绍文章主题..."
                     />
                   </div>
@@ -313,7 +381,7 @@ export default function NewArticlePage() {
                       value={formData.content}
                       onChange={handleChange}
                       rows={15}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
                       placeholder="在这里编写文章内容，支持 Markdown 格式..."
                     />
                   </div>
@@ -358,14 +426,31 @@ export default function NewArticlePage() {
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="appreciation">艺术鉴赏</option>
-                      <option value="history">艺术历史</option>
-                      <option value="technique">创作技法</option>
-                      <option value="interview">艺术家访谈</option>
-                      <option value="news">艺术资讯</option>
+                      <option value="puzzle">谜题</option>
+                      <option value="fengshang">风赏</option>
+                      <option value="rike">日课</option>
                     </select>
+                  </div>
+
+                  {/* 关联阅览室作品 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">关联作品</label>
+                    <select
+                      name="artwork_id"
+                      value={formData.artwork_id}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">-- 暂不关联 --</option>
+                      {artworks.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.title}{w.artist_name ? ` (${w.artist_name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">选择后保存，文章将自动关联到该作品对应的分类槽位</p>
                   </div>
 
                   <div>
@@ -374,7 +459,7 @@ export default function NewArticlePage() {
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="draft">草稿</option>
                       <option value="published">立即发布</option>
@@ -387,7 +472,7 @@ export default function NewArticlePage() {
                       name="author_type"
                       value={formData.author_type}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="admin">管理员</option>
                       <option value="artist">艺术家投稿</option>
@@ -455,7 +540,7 @@ export default function NewArticlePage() {
                     value={q.question_text}
                     onChange={(e) => updateQuestion(q.id, 'question_text', e.target.value)}
                     rows={2}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="如：印象派画家莫奈最著名的系列作品是什么？"
                   />
                 </div>
@@ -539,7 +624,7 @@ export default function NewArticlePage() {
                     value={q.explanation}
                     onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)}
                     rows={2}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="解释为什么这个答案是正确的..."
                   />
                 </div>

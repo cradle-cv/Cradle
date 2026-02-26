@@ -68,6 +68,14 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/partners" icon="🤝" active={pathname.startsWith('/admin/partners')}>
                     合作伙伴管理
                   </NavLink>
+
+                  {/* 艺术阅览室分组 */}
+                  <div className="pt-4 pb-2">
+                    <div className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">📚 艺术阅览室</div>
+                  </div>
+                  <NavLink href="/admin/gallery" icon="🖼️" active={pathname.startsWith('/admin/gallery')}>
+                    作品管理
+                  </NavLink>
                   <NavLink href="/admin/articles" icon="📝" active={pathname.startsWith('/admin/articles')}>
                     文章管理
                   </NavLink>

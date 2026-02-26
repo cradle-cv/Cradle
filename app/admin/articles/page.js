@@ -15,7 +15,7 @@ export default function AdminArticlesPage() {
   async function loadArticles() {
     const { data } = await supabase
       .from('articles')
-      .select('*, artists(display_name)')
+      .select('*')
       .order('created_at', { ascending: false })
 
     setArticles(data || [])
@@ -28,11 +28,9 @@ export default function AdminArticlesPage() {
 
   const getCategoryLabel = (cat) => {
     const labels = {
-      appreciation: '艺术鉴赏',
-      history: '艺术历史',
-      technique: '创作技法',
-      interview: '艺术家访谈',
-      news: '艺术资讯'
+      puzzle: '谜题',
+      rike: '日课',
+      fengshang: '风赏'
     }
     return labels[cat] || cat
   }

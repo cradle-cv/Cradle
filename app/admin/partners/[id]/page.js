@@ -247,24 +247,24 @@ export default function EditPartnerPage({ params }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">机构名称（中文） <span className="text-red-500">*</span></label>
-                  <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：中央美术学院" />
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：中央美术学院" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">机构名称（英文）</label>
-                  <input type="text" name="name_en" value={formData.name_en} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：Central Academy of Fine Arts" />
+                  <input type="text" name="name_en" value={formData.name_en} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：Central Academy of Fine Arts" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">机构类型</label>
-                  <select name="type" value={formData.type} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select name="type" value={formData.type} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="gallery">画廊</option>
                     <option value="museum">美术馆</option>
                     <option value="studio">工作室</option>
-                    <option value="academy">艺术学院</option>
+                    <option value="bookstore">书店</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">机构简介</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="介绍机构的背景、特色和定位..." />
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="介绍机构的背景、特色和定位..." />
                 </div>
               </div>
             </div>
@@ -277,17 +277,17 @@ export default function EditPartnerPage({ params }) {
                 <button
                   type="button"
                   onClick={() => bannerInputRef.current?.click()}
-                  className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
+                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
                 >
-                  <div className="text-4xl mb-2">🖼️</div>
-                  <div className="text-base font-medium text-gray-900">点击上传 Banner 封面图</div>
-                  <div className="text-sm text-gray-500 mt-1">建议尺寸：1400x600 像素，宽幅横图效果最佳</div>
+                  <div className="text-2xl mb-1">🖼️</div>
+                  <div className="text-sm font-medium text-gray-900">点击上传 Banner 封面图</div>
+                  <div className="text-xs text-gray-500 mt-1">建议尺寸：1400x600 像素</div>
                 </button>
 
                 {bannerPreview && (
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <p className="text-sm font-medium text-gray-700 mb-2">当前 Banner：</p>
-                    <div className="aspect-[21/9] rounded-lg overflow-hidden bg-gray-100">
+                    <div className="aspect-[21/9] rounded-lg overflow-hidden bg-gray-100 max-w-md">
                       <img src={bannerPreview} alt="Banner预览" className="w-full h-full object-cover" />
                     </div>
                   </div>
@@ -330,24 +330,24 @@ export default function EditPartnerPage({ params }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">城市</label>
-                    <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：北京" />
+                    <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：北京" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">联系电话</label>
-                    <input type="tel" name="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：010-12345678" />
+                    <input type="tel" name="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：010-12345678" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">详细地址</label>
-                  <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：朝阳区望京东路8号" />
+                  <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：朝阳区望京东路8号" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">官方网站</label>
-                  <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="https://example.com" />
+                  <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="https://example.com" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">联系邮箱</label>
-                  <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="contact@example.com" />
+                  <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="contact@example.com" />
                 </div>
               </div>
             </div>
@@ -360,7 +360,7 @@ export default function EditPartnerPage({ params }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">状态</label>
-                  <select name="status" value={formData.status} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select name="status" value={formData.status} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="active">活跃</option>
                     <option value="inactive">未激活</option>
                   </select>
@@ -395,11 +395,11 @@ export default function EditPartnerPage({ params }) {
 }
 
 function getTypeLabel(type) {
-  const labels = { gallery: '画廊', museum: '美术馆', studio: '工作室', academy: '艺术学院' }
+  const labels = { gallery: '画廊', museum: '美术馆', studio: '工作室', bookstore: '书店' }
   return labels[type] || type
 }
 
 function getTypeIcon(type) {
-  const icons = { gallery: '🖼️', museum: '🏛️', studio: '🎨', academy: '🎓' }
+  const icons = { gallery: '🖼️', museum: '🏛️', studio: '🎨', bookstore: '📚' }
   return icons[type] || '🏢'
 }
