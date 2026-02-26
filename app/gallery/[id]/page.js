@@ -364,7 +364,7 @@ export default function GalleryDetailPage() {
                   <div className="text-5xl mb-4">🔒</div>
                   <h2 className="text-xl font-bold text-gray-900 mb-2">登录后开始答题</h2>
                   <p className="text-gray-500 mb-6">完成三步阅览可获得 ⭐ {work.total_points} 积分</p>
-                  <Link href="/login" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
+                  <Link href={`/login?redirect=/gallery/${id}`} className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
                 </div>
               )}
 

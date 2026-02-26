@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import UserNav from '@/components/UserNav'
 
 // 从数据库获取数据
 async function getData() {
@@ -109,8 +110,7 @@ export default async function Home() {
 </ul>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-gray-600 hover:text-gray-900">🔍</button>
-            <button className="text-gray-600 hover:text-gray-900">👤</button>
+            <UserNav />
           </div>
         </div>
       </nav>
