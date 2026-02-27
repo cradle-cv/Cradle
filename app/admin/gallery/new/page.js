@@ -10,6 +10,7 @@ export default function AdminGalleryNewPage() {
   const fileRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
 
   // 作品基本信息
@@ -32,6 +33,20 @@ export default function AdminGalleryNewPage() {
   function handleChange(e) {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  async function handleAvatarUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const { url } = await uploadImage(file, 'artist-avatars')
+      setForm(prev => ({ ...prev, artist_avatar: url }))
+    } catch (err) {
+      alert('头像上传失败: ' + err.message)
+    } finally {
+      setAvatarUploading(false)
+    }
   }
 
   async function handleCover(e) {
@@ -291,11 +306,26 @@ export default function AdminGalleryNewPage() {
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家头像</label>
                   <div className="flex items-center gap-4">
-                    {form.artist_avatar && (
-                      <img src={form.artist_avatar} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" alt="" />
-                    )}
-                    <input name="artist_avatar" value={form.artist_avatar} onChange={handleChange} className={inputCls}
-                      placeholder="头像图片URL（可粘贴链接或上传后填入）" />
+                    <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                      style={{ backgroundColor: '#F3F4F6', border: '2px solid #E5E7EB' }}>
+                      {form.artist_avatar ? (
+                        <img src={form.artist_avatar} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <span style={{ color: '#9CA3AF', fontSize: '28px' }}>👤</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="px-4 py-2 rounded-lg text-sm font-medium border cursor-pointer hover:bg-gray-50 inline-block text-center"
+                        style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                        {avatarUploading ? '上传中...' : form.artist_avatar ? '更换头像' : '上传头像'}
+                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={avatarUploading} />
+                      </label>
+                      {form.artist_avatar && (
+                        <button type="button" onClick={() => setForm(prev => ({ ...prev, artist_avatar: '' }))}
+                          className="text-xs hover:underline" style={{ color: '#DC2626' }}>移除头像</button>
+                      )}
+                      <p className="text-xs" style={{ color: '#9CA3AF' }}>建议 200×200，支持 JPG/PNG</p>
+                    </div>
                   </div>
                 </div>
                 <div>
