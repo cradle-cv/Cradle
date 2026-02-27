@@ -51,6 +51,39 @@ export default function AdminGalleryListPage() {
     }
   }
 
+  // 排序：上移/下移
+  async function moveWork(index, direction) {
+    const newIndex = index + direction
+    if (newIndex < 0 || newIndex >= works.length) return
+
+    const updated = [...works]
+    const temp = updated[index]
+    updated[index] = updated[newIndex]
+    updated[newIndex] = temp
+
+    // 更新所有 display_order
+    const updates = updated.map((w, i) => ({ id: w.id, order: i }))
+    setWorks(updated)
+
+    // 批量更新数据库
+    for (const u of updates) {
+      await supabase.from('gallery_works').update({ display_order: u.order }).eq('id', u.id)
+    }
+  }
+
+  // 置顶（推到首页）
+  async function moveToTop(index) {
+    if (index === 0) return
+    const updated = [...works]
+    const [item] = updated.splice(index, 1)
+    updated.unshift(item)
+
+    setWorks(updated)
+    for (let i = 0; i < updated.length; i++) {
+      await supabase.from('gallery_works').update({ display_order: i }).eq('id', updated[i].id)
+    }
+  }
+
   function getCompleteness(work) {
     let count = 0
     if (work.puzzle_article) count++
@@ -105,6 +138,7 @@ export default function AdminGalleryListPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase w-16">排序</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">作品</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">艺术家</th>
                   <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">文章关联</th>
@@ -114,10 +148,23 @@ export default function AdminGalleryListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {works.map((work) => {
+                {works.map((work, index) => {
                   const completeness = getCompleteness(work)
+                  const isFirst = index === 0 && work.status === 'published'
                   return (
-                    <tr key={work.id} className="hover:bg-gray-50">
+                    <tr key={work.id} className="hover:bg-gray-50" style={isFirst ? { backgroundColor: '#FFFBEB' } : {}}>
+                      {/* 排序 */}
+                      <td className="px-3 py-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <button onClick={() => moveWork(index, -1)} disabled={index === 0}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs hover:bg-gray-200 disabled:opacity-20"
+                            style={{ color: '#6B7280' }}>▲</button>
+                          <span className="text-xs font-mono" style={{ color: '#9CA3AF' }}>{index + 1}</span>
+                          <button onClick={() => moveWork(index, 1)} disabled={index === works.length - 1}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs hover:bg-gray-200 disabled:opacity-20"
+                            style={{ color: '#6B7280' }}>▼</button>
+                        </div>
+                      </td>
                       {/* 作品 */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -129,7 +176,15 @@ export default function AdminGalleryListPage() {
                             )}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{work.title}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{work.title}</span>
+                              {isFirst && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                  style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                                  🏠 首页推荐
+                                </span>
+                              )}
+                            </div>
                             {work.title_en && <div className="text-xs text-gray-500">{work.title_en}</div>}
                           </div>
                         </div>
@@ -167,6 +222,12 @@ export default function AdminGalleryListPage() {
                       {/* 操作 */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-3">
+                          {index !== 0 && (
+                            <button onClick={() => moveToTop(index)}
+                              className="text-amber-600 hover:text-amber-800 text-sm" title="置顶推荐到首页">
+                              📌 置顶
+                            </button>
+                          )}
                           <Link
                             href={`/admin/gallery/${work.id}`}
                             className="text-blue-600 hover:text-blue-800 text-sm"
