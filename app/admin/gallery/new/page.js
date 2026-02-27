@@ -16,7 +16,7 @@ export default function AdminGalleryNewPage() {
   const [form, setForm] = useState({
     title: '', title_en: '', cover_image: '',
     description: '', artist_name: '', artist_name_en: '',
-    year: '', medium: '', dimensions: '',
+    year: '', medium: '', dimensions: '', artist_avatar: '', collection_location: '',
     total_points: 50, display_order: 0, status: 'draft'
   })
 
@@ -192,6 +192,8 @@ export default function AdminGalleryNewPage() {
         year: form.year.trim() || null,
         medium: form.medium.trim() || null,
         dimensions: form.dimensions.trim() || null,
+        artist_avatar: form.artist_avatar.trim() || null,
+        collection_location: form.collection_location.trim() || null,
         puzzle_article_id: puzzleArticleId,
         rike_article_id: rikeArticleId,
         fengshang_article_id: null,
@@ -286,9 +288,23 @@ export default function AdminGalleryNewPage() {
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家英文名</label>
                   <input name="artist_name_en" value={form.artist_name_en} onChange={handleChange} className={inputCls} placeholder="Vincent van Gogh" />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家头像</label>
+                  <div className="flex items-center gap-4">
+                    {form.artist_avatar && (
+                      <img src={form.artist_avatar} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" alt="" />
+                    )}
+                    <input name="artist_avatar" value={form.artist_avatar} onChange={handleChange} className={inputCls}
+                      placeholder="头像图片URL（可粘贴链接或上传后填入）" />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>创作年份</label>
                   <input name="year" value={form.year} onChange={handleChange} className={inputCls} placeholder="1889" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>收藏地点</label>
+                  <input name="collection_location" value={form.collection_location} onChange={handleChange} className={inputCls} placeholder="巴黎奥赛博物馆" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>媒介/材质</label>

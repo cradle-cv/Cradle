@@ -17,7 +17,7 @@ export default function AdminGalleryEditPage() {
   const [form, setForm] = useState({
     title: '', title_en: '', cover_image: '',
     description: '', artist_name: '', artist_name_en: '',
-    year: '', medium: '', dimensions: '',
+    year: '', medium: '', dimensions: '', artist_avatar: '', collection_location: '',
     puzzle_article_id: '', rike_article_id: '', fengshang_article_id: '',
     total_points: 50, display_order: 0, status: 'draft'
   })
@@ -67,6 +67,8 @@ export default function AdminGalleryEditPage() {
         year: work.year || '',
         medium: work.medium || '',
         dimensions: work.dimensions || '',
+        artist_avatar: work.artist_avatar || '',
+        collection_location: work.collection_location || '',
         puzzle_article_id: work.puzzle_article_id || '',
         rike_article_id: work.rike_article_id || '',
         fengshang_article_id: work.fengshang_article_id || '',
@@ -118,6 +120,8 @@ export default function AdminGalleryEditPage() {
         year: form.year.trim() || null,
         medium: form.medium.trim() || null,
         dimensions: form.dimensions.trim() || null,
+        artist_avatar: form.artist_avatar.trim() || null,
+        collection_location: form.collection_location.trim() || null,
         puzzle_article_id: form.puzzle_article_id || null,
         rike_article_id: form.rike_article_id || null,
         fengshang_article_id: form.fengshang_article_id || null,
@@ -173,9 +177,25 @@ export default function AdminGalleryEditPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">艺术家英文名</label>
               <input name="artist_name_en" value={form.artist_name_en} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">艺术家头像</label>
+              <div className="flex items-center gap-4">
+                {form.artist_avatar && (
+                  <img src={form.artist_avatar} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" alt="" />
+                )}
+                <input name="artist_avatar" value={form.artist_avatar} onChange={handleChange}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+                  placeholder="头像图片URL（可粘贴链接或上传后填入）" />
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">创作年份</label>
               <input name="year" value={form.year} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">收藏地点</label>
+              <input name="collection_location" value={form.collection_location} onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" placeholder="巴黎奥赛博物馆" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">媒介/材质</label>

@@ -345,7 +345,19 @@ export default function GalleryDetailPage() {
               <div className="mb-4">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
                 {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "4px" }}>{work.title_en}</p>}
-                {work.artist_name && <p style={{ color: "#6B7280", fontSize: "14px" }}>{work.artist_name}{work.year ? ` · ${work.year}` : ''}</p>}
+                {work.artist_name && (
+                  <div className="flex items-center gap-3 mt-2">
+                    {work.artist_avatar && (
+                      <img src={work.artist_avatar} alt={work.artist_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid #E5E7EB' }} />
+                    )}
+                    <div>
+                      <p style={{ color: "#374151", fontSize: "14px", fontWeight: "500" }}>{work.artist_name}</p>
+                      <p style={{ color: "#9CA3AF", fontSize: "13px" }}>
+                        {work.year}{work.collection_location ? ` · 📍${work.collection_location}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               {puzzleArticle && puzzleArticle.intro && (
                 <p className="mb-3" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{puzzleArticle.intro}</p>
@@ -453,7 +465,15 @@ export default function GalleryDetailPage() {
               )}
               <div className="mb-4">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
-                {work.artist_name && <p style={{ color: "#6B7280", fontSize: "14px" }}>{work.artist_name}{work.year ? ` · ${work.year}` : ''}</p>}
+                {work.artist_name && (
+                  <div className="flex items-center gap-3 mt-2">
+                    {work.artist_avatar && <img src={work.artist_avatar} alt={work.artist_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid #E5E7EB' }} />}
+                    <div>
+                      <p style={{ color: "#374151", fontSize: "14px", fontWeight: "500" }}>{work.artist_name}</p>
+                      <p style={{ color: "#9CA3AF", fontSize: "13px" }}>{work.year}{work.collection_location ? ` · 📍${work.collection_location}` : ''}</p>
+                    </div>
+                  </div>
+                )}
               </div>
               {/* 计时器 */}
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
@@ -511,7 +531,15 @@ export default function GalleryDetailPage() {
               )}
               <div className="mb-4">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
-                {work.artist_name && <p style={{ color: "#6B7280", fontSize: "14px" }}>{work.artist_name}{work.year ? ` · ${work.year}` : ''}</p>}
+                {work.artist_name && (
+                  <div className="flex items-center gap-3 mt-2">
+                    {work.artist_avatar && <img src={work.artist_avatar} alt={work.artist_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid #E5E7EB' }} />}
+                    <div>
+                      <p style={{ color: "#374151", fontSize: "14px", fontWeight: "500" }}>{work.artist_name}</p>
+                      <p style={{ color: "#9CA3AF", fontSize: "13px" }}>{work.year}{work.collection_location ? ` · 📍${work.collection_location}` : ''}</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
                 <span className="text-sm text-gray-500">已阅读</span>
@@ -689,7 +717,15 @@ export default function GalleryDetailPage() {
                   <ZoomableImage src={work.cover_image} alt={work.title} />
                 )}
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
-                {work.artist_name && <p style={{ color: "#6B7280", fontSize: "14px" }}>{work.artist_name}{work.year ? ` · ${work.year}` : ''}</p>}
+                {work.artist_name && (
+                  <div className="flex items-center gap-3 mt-2 mb-2">
+                    {work.artist_avatar && <img src={work.artist_avatar} alt={work.artist_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid #E5E7EB' }} />}
+                    <div>
+                      <p style={{ color: "#374151", fontSize: "14px", fontWeight: "500" }}>{work.artist_name}</p>
+                      <p style={{ color: "#9CA3AF", fontSize: "13px" }}>{work.year}{work.collection_location ? ` · 📍${work.collection_location}` : ''}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-3 px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full inline-block">✓ 已完成 · 积分已到账</div>
               </div>
 
