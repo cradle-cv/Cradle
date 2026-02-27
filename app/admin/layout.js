@@ -100,6 +100,17 @@ function AdminLayoutContent({ children }) {
                   </NavLink>
                 </>
               )}
+
+              {userData.role === 'partner' && (
+                <>
+                  <NavLink href="/admin/partners" icon="🤝" active={pathname.startsWith('/admin/partners')}>
+                    合作信息
+                  </NavLink>
+                  <NavLink href="/admin/exhibitions" icon="🖼️" active={pathname.startsWith('/admin/exhibitions')}>
+                    展览管理
+                  </NavLink>
+                </>
+              )}
             </nav>
           </div>
         </div>

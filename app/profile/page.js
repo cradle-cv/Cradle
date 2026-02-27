@@ -84,6 +84,15 @@ export default function ProfilePage() {
           </div>
           <div className="flex items-center gap-4">
             <Link href="/gallery" className="text-sm" style={{ color: '#6B7280' }}>阅览室</Link>
+            {(userData.role === 'admin' || userData.user_type === 'admin') && (
+              <Link href="/admin/dashboard" className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>⚙️ 后台管理</Link>
+            )}
+            {(userData.role === 'artist' || userData.user_type === 'artist') && (
+              <Link href="/admin/artworks" className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>🎨 后台管理</Link>
+            )}
+            {(userData.role === 'partner' || userData.user_type === 'partner') && (
+              <Link href="/admin/partner-dashboard" className="text-sm px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#0891B2', color: '#FFFFFF' }}>🤝 后台管理</Link>
+            )}
             <Link href="/profile/edit" className="text-sm px-3 py-1.5 rounded-lg border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>编辑资料</Link>
           </div>
         </div>

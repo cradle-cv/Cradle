@@ -150,6 +150,18 @@ export default function UserNav() {
                 <span>⚙️</span> 后台管理
               </a>
             )}
+            {userData?.role === 'artist' && (
+              <a href="/admin/artworks" onClick={() => setShowMenu(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                <span>🎨</span> 后台管理
+              </a>
+            )}
+            {userData?.role === 'partner' && (
+              <a href="/admin/partner-dashboard" onClick={() => setShowMenu(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                <span>🤝</span> 后台管理
+              </a>
+            )}
           </div>
 
           <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>

@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import UserNav from '@/components/UserNav'
 
+// 禁止缓存，每次访问都重新查询
+export const dynamic = 'force-dynamic'
+
 // 从数据库获取数据
 async function getData() {
   console.log('🚀 开始获取数据...')
