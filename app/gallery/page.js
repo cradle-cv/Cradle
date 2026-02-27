@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import UserNav from '@/components/UserNav'
+
+// 禁止缓存，每次访问都重新查询
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 async function getWorks() {
   const { data } = await supabase
@@ -33,8 +39,7 @@ export default async function GalleryPage() {
             </ul>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-gray-600 hover:text-gray-900">🔍</button>
-            <button className="text-gray-600 hover:text-gray-900">👤</button>
+            <UserNav />
           </div>
         </div>
       </nav>

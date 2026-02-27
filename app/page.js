@@ -3,6 +3,8 @@ import UserNav from '@/components/UserNav'
 
 // 禁止缓存，每次访问都重新查询
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 // 从数据库获取数据
 async function getData() {
