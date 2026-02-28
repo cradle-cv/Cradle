@@ -238,29 +238,38 @@ export default function GalleryDetailPage() {
     { key: 'fengshang', icon: '🎐', label: '风赏', done: fengshangDone }
   ]
 
-  function WorkInfo() {
-    return (
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
-        {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "4px" }}>{work.title_en}</p>}
-        {work.artist_name && (
-          <div className="flex items-center gap-3 mt-2">
-            {work.artist_avatar && <img src={work.artist_avatar} alt={work.artist_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid #E5E7EB' }} />}
-            <div>
-              <p style={{ color: "#374151", fontSize: "14px", fontWeight: "500" }}>{work.artist_name}</p>
-              <p style={{ color: "#9CA3AF", fontSize: "13px" }}>{work.year}{work.collection_location ? ` · 📍${work.collection_location}` : ''}</p>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   function LeftPanel({ children }) {
     return (
       <div className="md:sticky md:top-28 md:self-start">
         {work.cover_image && work.cover_image.length > 0 && <ZoomableImage src={work.cover_image} alt={work.title} />}
-        <WorkInfo />
+        {/* 作品信息 */}
+        <div className="mb-5">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
+          {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "8px" }}>{work.title_en}</p>}
+          {work.artist_name && (
+            <div className="flex items-center gap-4 mt-3">
+              {work.artist_avatar && (
+                <img src={work.artist_avatar} alt={work.artist_name}
+                  className="object-cover rounded-full shadow-md flex-shrink-0"
+                  style={{ width: '90px', height: '90px', border: '3px solid #E5E7EB' }} />
+              )}
+              <div>
+                <p style={{ color: "#111827", fontSize: "18px", fontWeight: "600", marginBottom: "2px" }}>{work.artist_name}</p>
+                {work.artist_name_en && (
+                  <p style={{ color: "#9CA3AF", fontSize: "13px", fontStyle: "italic", marginBottom: "6px" }}>{work.artist_name_en}</p>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {work.year && (
+                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>
+                  )}
+                  {work.collection_location && (
+                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {work.collection_location}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         {children}
       </div>
     )
