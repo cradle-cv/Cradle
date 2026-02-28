@@ -251,7 +251,7 @@ export default function GalleryDetailPage() {
               {work.artist_avatar && (
                 <img src={work.artist_avatar} alt={work.artist_name}
                   className="object-cover rounded-full shadow-md flex-shrink-0"
-                  style={{ width: '120px', height: '120px', border: '3px solid #E5E7EB' }} />
+                  style={{ width: '90px', height: '90px', border: '3px solid #E5E7EB' }} />
               )}
               <div>
                 <p style={{ color: "#111827", fontSize: "18px", fontWeight: "600", marginBottom: "2px" }}>{work.artist_name}</p>
@@ -687,9 +687,8 @@ function ZoomableImage({ src, alt }) {
   }
   return (
     <div ref={imgRef} className="rounded-2xl overflow-hidden cursor-zoom-in relative mb-4"
-      style={{ backgroundColor: '#FFFFFF' }}
       onMouseEnter={() => setZooming(true)} onMouseLeave={() => setZooming(false)} onMouseMove={handleMouseMove}>
-      <img src={src} alt={alt || ''} className="w-full h-auto" style={{ display: 'block', maxHeight: '600px', objectFit: 'contain', margin: '0 auto' }} />
+      <img src={src} alt={alt || ''} className="w-full h-auto" style={{ display: 'block' }} />
       {zooming && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${src})`, backgroundSize: '250%', backgroundPosition: `${position.x}% ${position.y}%`, backgroundRepeat: 'no-repeat' }} />}
       {!zooming && <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full">🔍 悬停放大</div>}
     </div>
