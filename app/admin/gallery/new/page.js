@@ -64,16 +64,30 @@ export default function AdminGalleryNewPage() {
     }
   }
 
-  function addQuestion() {
+  function addQuestion(type = 'single') {
+    const templates = {
+      single: [
+        { label: 'A', text: '', is_correct: true },
+        { label: 'B', text: '', is_correct: false }
+      ],
+      multiple: [
+        { label: 'A', text: '', is_correct: true },
+        { label: 'B', text: '', is_correct: true },
+        { label: 'C', text: '', is_correct: false },
+        { label: 'D', text: '', is_correct: false }
+      ],
+      truefalse: [
+        { label: 'A', text: '正确', is_correct: true },
+        { label: 'B', text: '错误', is_correct: false }
+      ]
+    }
     setQuestions(prev => [...prev, {
       id: Date.now(),
       question_text: '',
+      question_type: type,
       points: 20,
       explanation: '',
-      options: [
-        { label: 'A', text: '', is_correct: true },
-        { label: 'B', text: '', is_correct: false }
-      ]
+      options: templates[type] || templates.single
     }])
   }
 
@@ -90,7 +104,13 @@ export default function AdminGalleryNewPage() {
       if (q.id !== qId) return q
       const newOptions = [...q.options]
       if (field === 'is_correct') {
-        newOptions.forEach((o, i) => { o.is_correct = i === optIndex })
+        if (q.question_type === 'multiple') {
+          // 多选题：切换单个选项
+          newOptions[optIndex] = { ...newOptions[optIndex], is_correct: value }
+        } else {
+          // 单选/判断：只允许一个正确
+          newOptions.forEach((o, i) => { o.is_correct = i === optIndex })
+        }
       } else {
         newOptions[optIndex] = { ...newOptions[optIndex], [field]: value }
       }
@@ -170,6 +190,7 @@ export default function AdminGalleryNewPage() {
           const qData = questions.map((q, i) => ({
             article_id: pa.id,
             question_text: q.question_text,
+            question_type: q.question_type || 'single',
             display_order: i,
             points: q.points,
             options: q.options,
@@ -410,10 +431,14 @@ export default function AdminGalleryNewPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold" style={{ color: '#111827' }}>📝 答题设置（共 {questions.length} 题）</h2>
-                <button type="button" onClick={addQuestion}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-                  + 添加题目
-                </button>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => addQuestion('single')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">+ 单选题</button>
+                  <button type="button" onClick={() => addQuestion('multiple')}
+                    className="px-3 py-2 text-white rounded-lg text-xs font-medium" style={{ backgroundColor: '#7C3AED' }}>+ 多选题</button>
+                  <button type="button" onClick={() => addQuestion('truefalse')}
+                    className="px-3 py-2 text-white rounded-lg text-xs font-medium" style={{ backgroundColor: '#B45309' }}>+ 判断题</button>
+                </div>
               </div>
 
               {questions.length === 0 && (
@@ -423,26 +448,47 @@ export default function AdminGalleryNewPage() {
                 </div>
               )}
 
-              {questions.map((q, qi) => (
+              {questions.map((q, qi) => {
+                const qType = q.question_type || 'single'
+                const typeColors = { single: '#2563EB', multiple: '#7C3AED', truefalse: '#B45309' }
+                const typeBgs = { single: '#EFF6FF', multiple: '#F5F3FF', truefalse: '#FEF3C7' }
+                const typeLabels = { single: '单选', multiple: '多选', truefalse: '判断' }
+                return (
                 <div key={q.id} className="border border-gray-200 rounded-xl p-5 mb-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="font-bold" style={{ color: '#111827' }}>第 {qi + 1} 题</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold" style={{ color: '#111827' }}>第 {qi + 1} 题</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: typeBgs[qType], color: typeColors[qType] }}>
+                        {typeLabels[qType]}
+                      </span>
+                      {qType === 'multiple' && <span className="text-xs" style={{ color: '#9CA3AF' }}>（可勾选多个正确答案）</span>}
+                    </div>
                     <button type="button" onClick={() => removeQuestion(q.id)} className="text-red-500 text-sm hover:text-red-700">删除</button>
                   </div>
 
                   <input value={q.question_text} onChange={e => updateQuestion(q.id, 'question_text', e.target.value)}
-                    className={inputCls + " mb-3"} placeholder="题目内容" />
+                    className={inputCls + " mb-3"} placeholder={qType === 'truefalse' ? '请输入判断题题目（用户判断对/错）' : '题目内容'} />
 
                   <div className="space-y-2 mb-3">
                     {q.options.map((opt, oi) => (
                       <div key={oi} className="flex items-center gap-2">
-                        <input type="radio" name={`correct-${q.id}`} checked={opt.is_correct}
-                          onChange={() => updateOption(q.id, oi, 'is_correct', true)}
-                          className="w-4 h-4 text-green-600" />
+                        {qType === 'multiple' ? (
+                          <input type="checkbox" checked={opt.is_correct}
+                            onChange={e => updateOption(q.id, oi, 'is_correct', e.target.checked)}
+                            className="w-4 h-4 text-green-600 rounded" />
+                        ) : (
+                          <input type="radio" name={`correct-${q.id}`} checked={opt.is_correct}
+                            onChange={() => updateOption(q.id, oi, 'is_correct', true)}
+                            className="w-4 h-4 text-green-600" />
+                        )}
                         <span className="w-6 font-bold text-sm" style={{ color: '#6B7280' }}>{opt.label}</span>
-                        <input value={opt.text} onChange={e => updateOption(q.id, oi, 'text', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm" placeholder="选项内容" />
-                        {q.options.length > 2 && (
+                        {qType === 'truefalse' ? (
+                          <span className="flex-1 px-3 py-2 text-gray-900 text-sm font-medium">{opt.text}</span>
+                        ) : (
+                          <input value={opt.text} onChange={e => updateOption(q.id, oi, 'text', e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm" placeholder="选项内容" />
+                        )}
+                        {qType !== 'truefalse' && q.options.length > 2 && (
                           <button type="button" onClick={() => removeOption(q.id, oi)} className="text-red-400 text-sm">✕</button>
                         )}
                       </div>
@@ -450,7 +496,7 @@ export default function AdminGalleryNewPage() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    {q.options.length < 4 && (
+                    {qType !== 'truefalse' && q.options.length < 4 && (
                       <button type="button" onClick={() => addOption(q.id)} className="text-blue-600 text-sm hover:text-blue-800">+ 添加选项</button>
                     )}
                     <div className="flex items-center gap-2 ml-auto">
@@ -465,7 +511,8 @@ export default function AdminGalleryNewPage() {
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 text-sm" placeholder="答案解析（可选）" />
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
