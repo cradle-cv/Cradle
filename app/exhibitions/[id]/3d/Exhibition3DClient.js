@@ -21,20 +21,20 @@ export default function Exhibition3DPage() {
   const rendererRef = useRef(null)
   const controlsRef = useRef(null)
   const paintingsRef = useRef([])
-  const moveState = useRef({ forward: false, backward: false, left: false, right: false })
+  const moveState = useRef({ forward:false, backward:false, left:false, right:false })
   const velocity = useRef(new THREE.Vector3())
   const direction = useRef(new THREE.Vector3())
   const raycasterRef = useRef(new THREE.Raycaster())
   const clockRef = useRef(new THREE.Clock())
   const animFrameRef = useRef(null)
-  const boundsRef = useRef({ minX: -5, maxX: 5, minZ: -10, maxZ: 10 })
-  const touchRef = useRef({ startX: 0, startY: 0, lastX: 0, lastY: 0, moving: false })
+  const boundsRef = useRef({ minX:-5, maxX:5, minZ:-10, maxZ:10 })
+  const touchRef = useRef({ startX:0, startY:0, lastX:0, lastY:0, moving:false })
   const styleRef = useRef('classic')
 
   useEffect(() => {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
     loadData()
-    return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current) }
+    return () => { if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current) }
   }, [id])
 
   async function loadData() {
@@ -54,36 +54,35 @@ export default function Exhibition3DPage() {
       })).filter(a => a && a.id) || []
 
       if (works.length === 0) {
-        const { data: fallback } = await supabase
-          .from('artworks').select('*, artists(display_name)')
-          .eq('status', 'published').order('created_at', { ascending: false }).limit(20)
-        const fb = (fallback || []).map((a, i) => ({ ...a, wall_side: i % 2 === 0 ? 'left' : 'right', wall_position: Math.floor(i / 2) + 1 }))
+        const { data: fallback } = await supabase.from('artworks').select('*, artists(display_name)')
+          .eq('status','published').order('created_at',{ascending:false}).limit(20)
+        const fb = (fallback||[]).map((a,i)=>({...a, wall_side:i%2===0?'left':'right', wall_position:Math.floor(i/2)+1}))
         setArtworks(fb)
       } else {
         setArtworks(works)
       }
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    } catch(err){console.error(err)}
+    finally{setLoading(false)}
   }
 
-  function startExperience() { setStarted(true); setTimeout(() => initThreeJS(), 100) }
+  function startExperience() { setStarted(true); setTimeout(()=>initThreeJS(),100) }
 
   function initThreeJS() {
-    if (!mountRef.current || artworks.length === 0) return
+    if (!mountRef.current || artworks.length===0) return
     const W = mountRef.current.clientWidth, H = mountRef.current.clientHeight
     const style = styleRef.current
 
     const scene = new THREE.Scene()
     sceneRef.current = scene
-    const camera = new THREE.PerspectiveCamera(70, W / H, 0.1, 200)
+    const camera = new THREE.PerspectiveCamera(70, W/H, 0.1, 200)
     camera.position.set(0, 1.6, 0)
     cameraRef.current = camera
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(W, H)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.BasicShadowMap
+    // 关键修复：关闭shadowMap，减少纹理单元占用
+    renderer.shadowMap.enabled = false
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.0
     mountRef.current.appendChild(renderer.domElement)
@@ -96,22 +95,22 @@ export default function Exhibition3DPage() {
     const tl = new THREE.TextureLoader()
     tl.crossOrigin = 'anonymous'
 
-    const leftW = artworks.filter(w => w.wall_side === 'left').sort((a, b) => a.wall_position - b.wall_position)
-    const rightW = artworks.filter(w => w.wall_side === 'right').sort((a, b) => a.wall_position - b.wall_position)
+    const leftW = artworks.filter(w=>w.wall_side==='left').sort((a,b)=>a.wall_position-b.wall_position)
+    const rightW = artworks.filter(w=>w.wall_side==='right').sort((a,b)=>a.wall_position-b.wall_position)
 
     paintingsRef.current = []
-    if (style === 'whitebox') buildWhitebox(scene, tl, leftW, rightW)
-    else if (style === 'lshape') buildLShape(scene, tl, leftW, rightW)
-    else if (style === 'circular') buildCircular(scene, tl, leftW)
-    else buildClassic(scene, tl, leftW, rightW)
+    if (style==='whitebox') buildWhitebox(scene, camera, tl, leftW, rightW)
+    else if (style==='lshape') buildLShape(scene, camera, tl, leftW, rightW)
+    else if (style==='circular') buildCircular(scene, camera, tl, leftW)
+    else buildClassic(scene, camera, tl, leftW, rightW)
 
-    // Events
-    const onKD = e => { const m = moveState.current; if (e.code==='KeyW'||e.code==='ArrowUp') m.forward=true; if (e.code==='KeyS'||e.code==='ArrowDown') m.backward=true; if (e.code==='KeyA'||e.code==='ArrowLeft') m.left=true; if (e.code==='KeyD'||e.code==='ArrowRight') m.right=true }
-    const onKU = e => { const m = moveState.current; if (e.code==='KeyW'||e.code==='ArrowUp') m.forward=false; if (e.code==='KeyS'||e.code==='ArrowDown') m.backward=false; if (e.code==='KeyA'||e.code==='ArrowLeft') m.left=false; if (e.code==='KeyD'||e.code==='ArrowRight') m.right=false }
+    // === Events ===
+    const onKD = e => { const m=moveState.current; if(e.code==='KeyW'||e.code==='ArrowUp')m.forward=true; if(e.code==='KeyS'||e.code==='ArrowDown')m.backward=true; if(e.code==='KeyA'||e.code==='ArrowLeft')m.left=true; if(e.code==='KeyD'||e.code==='ArrowRight')m.right=true }
+    const onKU = e => { const m=moveState.current; if(e.code==='KeyW'||e.code==='ArrowUp')m.forward=false; if(e.code==='KeyS'||e.code==='ArrowDown')m.backward=false; if(e.code==='KeyA'||e.code==='ArrowLeft')m.left=false; if(e.code==='KeyD'||e.code==='ArrowRight')m.right=false }
     function checkPainting() {
-      raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera)
+      raycasterRef.current.setFromCamera(new THREE.Vector2(0,0), camera)
       const hits = raycasterRef.current.intersectObjects(paintingsRef.current)
-      if (hits.length > 0 && hits[0].distance < 4) setViewingArtwork(hits[0].object.userData.artworkData)
+      if (hits.length>0 && hits[0].distance<4) setViewingArtwork(hits[0].object.userData.artworkData)
     }
     const onClick = () => {
       if (!isMobile && controlsRef.current && !controlsRef.current.isLocked) { controlsRef.current.lock(); return }
@@ -121,44 +120,44 @@ export default function Exhibition3DPage() {
     const onTM = e => {
       e.preventDefault(); const t=e.touches[0]; const dx=t.clientX-touchRef.current.lastX; const dy=t.clientY-touchRef.current.lastY
       touchRef.current.lastX=t.clientX; touchRef.current.lastY=t.clientY; touchRef.current.moving=true
-      if (touchRef.current.startX>W/2) { camera.rotation.y-=dx*0.005; camera.rotation.x=Math.max(-Math.PI/3,Math.min(Math.PI/3,camera.rotation.x-dy*0.005)) }
-      else { moveState.current.forward=dy<-2; moveState.current.backward=dy>2; moveState.current.left=dx<-2; moveState.current.right=dx>2 }
+      if(touchRef.current.startX>W/2){camera.rotation.y-=dx*0.005;camera.rotation.x=Math.max(-Math.PI/3,Math.min(Math.PI/3,camera.rotation.x-dy*0.005))}
+      else{moveState.current.forward=dy<-2;moveState.current.backward=dy>2;moveState.current.left=dx<-2;moveState.current.right=dx>2}
     }
     const onTE = () => { moveState.current.forward=moveState.current.backward=moveState.current.left=moveState.current.right=false; if(!touchRef.current.moving)checkPainting() }
 
-    document.addEventListener('keydown', onKD); document.addEventListener('keyup', onKU)
-    renderer.domElement.addEventListener('click', onClick)
-    if (isMobile) {
-      renderer.domElement.addEventListener('touchstart', onTS, {passive:false})
-      renderer.domElement.addEventListener('touchmove', onTM, {passive:false})
-      renderer.domElement.addEventListener('touchend', onTE)
+    document.addEventListener('keydown',onKD); document.addEventListener('keyup',onKU)
+    renderer.domElement.addEventListener('click',onClick)
+    if(isMobile){
+      renderer.domElement.addEventListener('touchstart',onTS,{passive:false})
+      renderer.domElement.addEventListener('touchmove',onTM,{passive:false})
+      renderer.domElement.addEventListener('touchend',onTE)
     }
     const onR = () => { if(!mountRef.current)return; camera.aspect=mountRef.current.clientWidth/mountRef.current.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(mountRef.current.clientWidth,mountRef.current.clientHeight) }
-    window.addEventListener('resize', onR)
+    window.addEventListener('resize',onR)
 
-    // Animate
+    // === Animate ===
     const spd = 4.0
     function animate() {
       animFrameRef.current = requestAnimationFrame(animate)
       const dt = clockRef.current.getDelta()
       const b = boundsRef.current
 
-      if (!isMobile && controlsRef.current?.isLocked) {
-        velocity.current.x -= velocity.current.x*8*dt; velocity.current.z -= velocity.current.z*8*dt
-        direction.current.z = Number(moveState.current.forward)-Number(moveState.current.backward)
-        direction.current.x = Number(moveState.current.right)-Number(moveState.current.left)
+      if(!isMobile && controlsRef.current?.isLocked){
+        velocity.current.x-=velocity.current.x*8*dt; velocity.current.z-=velocity.current.z*8*dt
+        direction.current.z=Number(moveState.current.forward)-Number(moveState.current.backward)
+        direction.current.x=Number(moveState.current.right)-Number(moveState.current.left)
         direction.current.normalize()
-        if (moveState.current.forward||moveState.current.backward) velocity.current.z -= direction.current.z*spd*dt
-        if (moveState.current.left||moveState.current.right) velocity.current.x -= direction.current.x*spd*dt
+        if(moveState.current.forward||moveState.current.backward)velocity.current.z-=direction.current.z*spd*dt
+        if(moveState.current.left||moveState.current.right)velocity.current.x-=direction.current.x*spd*dt
         controlsRef.current.moveRight(-velocity.current.x); controlsRef.current.moveForward(-velocity.current.z)
       }
-      if (isMobile) {
+      if(isMobile){
         const ms=spd*dt
         if(moveState.current.forward)camera.translateZ(-ms); if(moveState.current.backward)camera.translateZ(ms)
         if(moveState.current.left)camera.translateX(-ms); if(moveState.current.right)camera.translateX(ms)
       }
 
-      if (style === 'circular') {
+      if(style==='circular'){
         const r=b.maxX-0.5; const d=Math.sqrt(camera.position.x**2+camera.position.z**2)
         if(d>r){camera.position.x*=r/d;camera.position.z*=r/d}
       } else {
@@ -166,71 +165,94 @@ export default function Exhibition3DPage() {
         camera.position.z=Math.max(b.minZ,Math.min(b.maxZ,camera.position.z))
       }
       camera.position.y=1.6
-      renderer.render(scene, camera)
+      renderer.render(scene,camera)
     }
     animate()
   }
 
-  // ===== Painting Builder =====
+  // ===== Shared helpers =====
   function makePainting(work, tl) {
     const pW=2.0, pH=1.5, fW=0.08, fD=0.05
-    const isWB = styleRef.current === 'whitebox'
+    const isWB = styleRef.current==='whitebox'
     const fColor = isWB ? 0x222222 : 0xc9a96e
     const group = new THREE.Group()
     const fm = new THREE.MeshStandardMaterial({color:fColor,metalness:0.3,roughness:0.5})
 
-    const t=new THREE.Mesh(new THREE.BoxGeometry(pW+fW*2,fW,fD),fm); t.position.y=pH/2+fW/2; group.add(t)
-    const b=new THREE.Mesh(new THREE.BoxGeometry(pW+fW*2,fW,fD),fm); b.position.y=-pH/2-fW/2; group.add(b)
-    const l=new THREE.Mesh(new THREE.BoxGeometry(fW,pH,fD),fm); l.position.x=-pW/2-fW/2; group.add(l)
-    const r=new THREE.Mesh(new THREE.BoxGeometry(fW,pH,fD),fm); r.position.x=pW/2+fW/2; group.add(r)
+    // Frame
+    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(pW+fW*2,fW,fD),fm),{position:new THREE.Vector3(0,pH/2+fW/2,0)}))
+    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(pW+fW*2,fW,fD),fm),{position:new THREE.Vector3(0,-pH/2-fW/2,0)}))
+    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(fW,pH,fD),fm),{position:new THREE.Vector3(-pW/2-fW/2,0,0)}))
+    group.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(fW,pH,fD),fm),{position:new THREE.Vector3(pW/2+fW/2,0,0)}))
 
+    // Canvas - 关键：加载纹理时使用回调确认
     let cm
     if (work.image_url) {
-      const tx=tl.load(work.image_url); tx.colorSpace=THREE.SRGBColorSpace
-      cm=new THREE.MeshStandardMaterial({map:tx,roughness:0.6})
-    } else { cm=new THREE.MeshStandardMaterial({color:0x888888}) }
-    const cv=new THREE.Mesh(new THREE.PlaneGeometry(pW,pH),cm)
-    cv.position.z=fD/2-0.005; cv.userData={artworkId:work.id,artworkData:work}
-    group.add(cv); paintingsRef.current.push(cv)
+      const tex = tl.load(work.image_url)
+      tex.colorSpace = THREE.SRGBColorSpace
+      cm = new THREE.MeshStandardMaterial({ map:tex, roughness:0.6 })
+    } else {
+      cm = new THREE.MeshStandardMaterial({ color:0x888888 })
+    }
+    const cv = new THREE.Mesh(new THREE.PlaneGeometry(pW,pH), cm)
+    cv.position.z = fD/2-0.005
+    cv.userData = { artworkId:work.id, artworkData:work }
+    group.add(cv)
+    paintingsRef.current.push(cv)
 
     // Label
     const lc=document.createElement('canvas'); lc.width=512; lc.height=128
     const ctx=lc.getContext('2d')
     ctx.fillStyle=isWB?'#f5f5f5':'#1a1a2e'; ctx.fillRect(0,0,512,128)
-    ctx.fillStyle=isWB?'#222222':'#c9a96e'; ctx.fillRect(0,0,512,2)
+    ctx.fillStyle=isWB?'#222':'#c9a96e'; ctx.fillRect(0,0,512,2)
     ctx.font='bold 28px serif'; ctx.fillStyle=isWB?'#333':'#fff'; ctx.textAlign='center'
     ctx.fillText(work.title||'无题',256,48)
     ctx.font='20px serif'; ctx.fillStyle=isWB?'#888':'#aac'
     ctx.fillText((work.artists?.display_name||'')+(work.year?` · ${work.year}`:''),256,82)
     const lt=new THREE.CanvasTexture(lc)
     const lb=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.2),new THREE.MeshStandardMaterial({map:lt,roughness:0.5}))
-    lb.position.set(0,-(pH/2+0.25),fD/2); group.add(lb)
+    lb.position.set(0,-(pH/2+0.25),fD/2)
+    group.add(lb)
     return group
   }
 
-  function ptLight(scene, positions, color=0xfff5e6, int=0.8) {
-    positions.forEach(([x,y,z]) => {
-      const p=new THREE.PointLight(color,int,10,1.5); p.position.set(x,y,z); scene.add(p)
-      const f=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.07,0.12,8),new THREE.MeshStandardMaterial({color:0x888888,metalness:0.8}))
-      f.position.set(x,y+0.06,z); scene.add(f)
-    })
+  function addPlane(scene,w,h,mat,pos,rot){
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat)
+    m.position.set(...pos); m.rotation.set(...rot); scene.add(m)
   }
 
-  function addPlane(scene,w,h,mat,pos,rot) {
-    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat); m.position.set(...pos); m.rotation.set(...rot); m.receiveShadow=true; scene.add(m)
-  }
-
-  function addBench(scene, pos, color) {
+  function addBench(scene,pos,color){
     const g=new THREE.Group(); const m=new THREE.MeshStandardMaterial({color,roughness:0.7})
-    const s=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,0.5),m); s.position.y=0.45; g.add(s)
+    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,0.5),m),{position:new THREE.Vector3(0,0.45,0)}))
     ;[[-0.65,-0.18],[0.65,-0.18],[-0.65,0.18],[0.65,0.18]].forEach(([x,z])=>{
-      const lg=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.45,0.06),m); lg.position.set(x,0.225,z); g.add(lg)
+      g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.06,0.45,0.06),m),{position:new THREE.Vector3(x,0.225,z)}))
     })
     g.position.set(...pos); scene.add(g)
   }
 
+  // 关键修复：共享灯光方案 - 最多6盏灯，均匀分布
+  function addSharedLights(scene, rH, rL, rW, style) {
+    if (style === 'whitebox') {
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8))
+      scene.add(Object.assign(new THREE.DirectionalLight(0xffffff, 0.6), { position: new THREE.Vector3(0, rH-0.3, 0) }))
+      scene.add(Object.assign(new THREE.DirectionalLight(0xffffff, 0.3), { position: new THREE.Vector3(-rW/2, rH-0.5, 0) }))
+      scene.add(Object.assign(new THREE.DirectionalLight(0xffffff, 0.3), { position: new THREE.Vector3(rW/2, rH-0.5, 0) }))
+    } else {
+      scene.add(new THREE.AmbientLight(0x404060, 0.6))
+      scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6, 0.5), { position: new THREE.Vector3(-rW/3, rH-0.5, -rL/4) }))
+      scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6, 0.5), { position: new THREE.Vector3(rW/3, rH-0.5, rL/4) }))
+      // 最多加4盏PointLight（间隔分布）
+      const segments = Math.min(4, Math.ceil(rL / 12))
+      for (let i=0; i<segments; i++) {
+        const z = -rL/2 + rL*(i+0.5)/segments
+        const pl = new THREE.PointLight(0xfff5e6, 0.5, rL/segments*1.5, 1.5)
+        pl.position.set(0, rH-0.3, z)
+        scene.add(pl)
+      }
+    }
+  }
+
   // ===== CLASSIC =====
-  function buildClassic(scene, tl, leftW, rightW) {
+  function buildClassic(scene, camera, tl, leftW, rightW) {
     const sp=4.5, rW=12, rH=5
     const mx=Math.max(leftW.length,rightW.length,2), rL=mx*sp+6
     scene.background=new THREE.Color(0x1a1a2e); scene.fog=new THREE.Fog(0x1a1a2e,1,50)
@@ -245,12 +267,7 @@ export default function Exhibition3DPage() {
     addPlane(scene,rW,rH,wM,[0,rH/2,-rL/2],[0,0,0])
     addPlane(scene,rW,rH,wM,[0,rH/2,rL/2],[0,Math.PI,0])
 
-    scene.add(new THREE.AmbientLight(0x404060,0.5))
-    const dl1=new THREE.DirectionalLight(0xfff5e6,0.4);dl1.position.set(-3,rH-0.5,0);scene.add(dl1)
-    const dl2=new THREE.DirectionalLight(0xfff5e6,0.4);dl2.position.set(3,rH-0.5,0);scene.add(dl2)
-    const lp=[]
-    for(let i=0;i<mx;i++){const z=-rL/2+3+i*sp; lp.push([-rW/2+1.2,rH-0.5,z],[rW/2-1.2,rH-0.5,z])}
-    ptLight(scene,lp)
+    addSharedLights(scene, rH, rL, rW, 'classic')
 
     leftW.forEach((w,i)=>{const g=makePainting(w,tl);g.position.set(-rW/2+0.06,1.7,-rL/2+3+i*sp);g.rotation.y=Math.PI/2;scene.add(g)})
     rightW.forEach((w,i)=>{const g=makePainting(w,tl);g.position.set(rW/2-0.06,1.7,-rL/2+3+i*sp);g.rotation.y=-Math.PI/2;scene.add(g)})
@@ -258,7 +275,7 @@ export default function Exhibition3DPage() {
   }
 
   // ===== WHITEBOX =====
-  function buildWhitebox(scene, tl, leftW, rightW) {
+  function buildWhitebox(scene, camera, tl, leftW, rightW) {
     const sp=5.0, rW=14, rH=6
     const mx=Math.max(leftW.length,rightW.length,2), rL=mx*sp+8
     scene.background=new THREE.Color(0xf5f5f5); scene.fog=new THREE.Fog(0xf5f5f5,1,60)
@@ -273,11 +290,7 @@ export default function Exhibition3DPage() {
     addPlane(scene,rW,rH,wM,[0,rH/2,-rL/2],[0,0,0])
     addPlane(scene,rW,rH,wM,[0,rH/2,rL/2],[0,Math.PI,0])
 
-    scene.add(new THREE.AmbientLight(0xffffff,0.6))
-    const dl=new THREE.DirectionalLight(0xffffff,0.5);dl.position.set(0,rH-0.2,0);scene.add(dl)
-    const lp=[]
-    for(let i=0;i<mx;i++){const z=-rL/2+4+i*sp; lp.push([-rW/2+1.5,rH-0.4,z],[rW/2-1.5,rH-0.4,z])}
-    ptLight(scene,lp,0xffffff,0.6)
+    addSharedLights(scene, rH, rL, rW, 'whitebox')
 
     leftW.forEach((w,i)=>{const g=makePainting(w,tl);g.position.set(-rW/2+0.06,1.8,-rL/2+4+i*sp);g.rotation.y=Math.PI/2;scene.add(g)})
     rightW.forEach((w,i)=>{const g=makePainting(w,tl);g.position.set(rW/2-0.06,1.8,-rL/2+4+i*sp);g.rotation.y=-Math.PI/2;scene.add(g)})
@@ -285,15 +298,15 @@ export default function Exhibition3DPage() {
   }
 
   // ===== L-SHAPE =====
-  function buildLShape(scene, tl, leftW, rightW) {
+  function buildLShape(scene, camera, tl, leftW, rightW) {
     const sp=4.5, rW=12, rH=5
     const all=[...leftW,...rightW]
     const half=Math.ceil(all.length/2)
     const seg1=all.slice(0,half), seg2=all.slice(half)
-    const s1left=seg1.filter((_,i)=>i%2===0), s1right=seg1.filter((_,i)=>i%2===1)
-    const s2top=seg2.filter((_,i)=>i%2===0), s2bot=seg2.filter((_,i)=>i%2===1)
-    const len1=Math.max(s1left.length,s1right.length,2)*sp+6
-    const len2=Math.max(s2top.length,s2bot.length,2)*sp+6
+    const s1l=seg1.filter((_,i)=>i%2===0), s1r=seg1.filter((_,i)=>i%2===1)
+    const s2t=seg2.filter((_,i)=>i%2===0), s2b=seg2.filter((_,i)=>i%2===1)
+    const len1=Math.max(s1l.length,s1r.length,2)*sp+6
+    const len2=Math.max(s2t.length,s2b.length,2)*sp+6
 
     scene.background=new THREE.Color(0x1a1a2e); scene.fog=new THREE.Fog(0x1a1a2e,1,60)
     boundsRef.current={minX:-rW/2+0.5,maxX:len2+rW/2-0.5,minZ:-len1+rW/2+0.5,maxZ:rW/2-0.5}
@@ -302,58 +315,66 @@ export default function Exhibition3DPage() {
     const fM=new THREE.MeshStandardMaterial({color:0x2a2a3a,roughness:0.4})
     const cM=new THREE.MeshStandardMaterial({color:0x222233})
 
-    // Segment 1 (north-south)
     addPlane(scene,rW,len1,fM,[0,0,-len1/2+rW/2],[-Math.PI/2,0,0])
     addPlane(scene,rW,len1,cM,[0,rH,-len1/2+rW/2],[Math.PI/2,0,0])
     addPlane(scene,len1,rH,wM,[-rW/2,rH/2,-len1/2+rW/2],[0,Math.PI/2,0])
     addPlane(scene,rW,rH,wM,[0,rH/2,-len1+rW/2],[0,0,0])
 
-    // Segment 2 (east-west)
     addPlane(scene,len2,rW,fM,[len2/2,0,0],[-Math.PI/2,0,0])
     addPlane(scene,len2,rW,cM,[len2/2,rH,0],[Math.PI/2,0,0])
     addPlane(scene,len2,rH,wM,[len2/2,rH/2,rW/2],[0,Math.PI,0])
     addPlane(scene,len2,rH,wM,[len2/2,rH/2,-rW/2],[0,0,0])
     addPlane(scene,rW,rH,wM,[len2,rH/2,0],[0,-Math.PI/2,0])
 
-    scene.add(new THREE.AmbientLight(0x404060,0.5))
-    const dl=new THREE.DirectionalLight(0xfff5e6,0.4);dl.position.set(0,rH-0.5,0);scene.add(dl)
+    // 共享灯光：只用ambient + 2个directional + 2个point
+    scene.add(new THREE.AmbientLight(0x404060, 0.6))
+    scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6,0.5),{position:new THREE.Vector3(-rW/3,rH-0.5,-len1/3)}))
+    scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6,0.5),{position:new THREE.Vector3(len2/2,rH-0.5,0)}))
+    const p1=new THREE.PointLight(0xfff5e6,0.6,len1*0.8,1.5); p1.position.set(0,rH-0.3,-len1/3); scene.add(p1)
+    const p2=new THREE.PointLight(0xfff5e6,0.6,len2*0.8,1.5); p2.position.set(len2/2,rH-0.3,0); scene.add(p2)
 
-    s1left.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w,tl);g.position.set(-rW/2+0.06,1.7,z);g.rotation.y=Math.PI/2;scene.add(g);ptLight(scene,[[-rW/2+1.2,rH-0.5,z]])})
-    s1right.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w,tl);g.position.set(rW/2-0.06,1.7,z);g.rotation.y=-Math.PI/2;scene.add(g);ptLight(scene,[[rW/2-1.2,rH-0.5,z]])})
-    s2top.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w,tl);g.position.set(x,1.7,-rW/2+0.06);g.rotation.y=0;scene.add(g);ptLight(scene,[[x,rH-0.5,-rW/2+1.2]])})
-    s2bot.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w,tl);g.position.set(x,1.7,rW/2-0.06);g.rotation.y=Math.PI;scene.add(g);ptLight(scene,[[x,rH-0.5,rW/2-1.2]])})
+    s1l.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w,tl);g.position.set(-rW/2+0.06,1.7,z);g.rotation.y=Math.PI/2;scene.add(g)})
+    s1r.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w,tl);g.position.set(rW/2-0.06,1.7,z);g.rotation.y=-Math.PI/2;scene.add(g)})
+    s2t.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w,tl);g.position.set(x,1.7,-rW/2+0.06);g.rotation.y=0;scene.add(g)})
+    s2b.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w,tl);g.position.set(x,1.7,rW/2-0.06);g.rotation.y=Math.PI;scene.add(g)})
   }
 
   // ===== CIRCULAR =====
-  function buildCircular(scene, tl, allW) {
+  function buildCircular(scene, camera, tl, allW) {
     const count=allW.length||1, radius=Math.max(count*1.2,8), rH=5
     scene.background=new THREE.Color(0x12121e); scene.fog=new THREE.Fog(0x12121e,1,radius*2.5)
     boundsRef.current={minX:-radius,maxX:radius,minZ:-radius,maxZ:radius}
 
-    const wallGeo=new THREE.CylinderGeometry(radius,radius,rH,64,1,true)
-    const wallMesh=new THREE.Mesh(wallGeo,new THREE.MeshStandardMaterial({color:0x28283a,roughness:0.8,side:THREE.BackSide}));wallMesh.position.set(0,rH/2,0);scene.add(wallMesh)
+    scene.add(Object.assign(new THREE.Mesh(
+      new THREE.CylinderGeometry(radius,radius,rH,64,1,true),
+      new THREE.MeshStandardMaterial({color:0x28283a,roughness:0.8,side:THREE.BackSide})),
+      {position:new THREE.Vector3(0,rH/2,0)}))
 
     const floor=new THREE.Mesh(new THREE.CircleGeometry(radius,64),new THREE.MeshStandardMaterial({color:0x2a2a3a,roughness:0.4}))
     floor.rotation.x=-Math.PI/2; scene.add(floor)
     const ceil=new THREE.Mesh(new THREE.CircleGeometry(radius,64),new THREE.MeshStandardMaterial({color:0x222233}))
     ceil.rotation.x=Math.PI/2; ceil.position.y=rH; scene.add(ceil)
 
-    scene.add(new THREE.AmbientLight(0x404060,0.4))
+    // 共享灯光：ambient + 1个中心PointLight + 2个DirectionalLight
+    scene.add(new THREE.AmbientLight(0x404060,0.6))
     const cl=new THREE.PointLight(0xfff5e6,1.0,radius*2,1); cl.position.set(0,rH-0.5,0); scene.add(cl)
+    scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6,0.4),{position:new THREE.Vector3(radius/2,rH-0.5,0)}))
+    scene.add(Object.assign(new THREE.DirectionalLight(0xfff5e6,0.4),{position:new THREE.Vector3(-radius/2,rH-0.5,0)}))
 
     allW.forEach((w,i)=>{
       const a=(i/count)*Math.PI*2-Math.PI/2
       const x=Math.cos(a)*(radius-0.06), z=Math.sin(a)*(radius-0.06)
       const g=makePainting(w,tl); g.position.set(x,1.7,z); g.rotation.y=-a+Math.PI; scene.add(g)
-      ptLight(scene,[[Math.cos(a)*(radius-1.5),rH-0.5,Math.sin(a)*(radius-1.5)]],0xfff5e6,0.6)
     })
 
-    // Center pedestal
-    const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,0.8,16),new THREE.MeshStandardMaterial({color:0x3a3a4a,roughness:0.6}));ped.position.set(0,0.4,0);scene.add(ped)
+    scene.add(Object.assign(new THREE.Mesh(
+      new THREE.CylinderGeometry(0.4,0.5,0.8,16),
+      new THREE.MeshStandardMaterial({color:0x3a3a4a,roughness:0.6})),
+      {position:new THREE.Vector3(0,0.4,0)}))
   }
 
   // ===== UI =====
-  if (loading) return <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center"><div className="text-4xl animate-pulse">🏛️</div></div>
+  if(loading) return <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center"><div className="text-4xl animate-pulse">🏛️</div></div>
 
   const sn={classic:'经典长廊',whitebox:'白盒子',lshape:'L型转角',circular:'环形展厅'}
 
