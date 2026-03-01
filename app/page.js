@@ -274,9 +274,9 @@ export default async function Home() {
                     </div>
                   </div>
 
-                  <button className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start">
+                  <a href={`/exhibitions/${exhibition.id}`} className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start inline-block">
                     了解更多 →
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>

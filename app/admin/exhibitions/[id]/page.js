@@ -3,16 +3,24 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+const GALLERY_STYLES = [
+  { id: 'classic', name: '🏛️ 经典长廊', desc: '深色墙壁 + 金色画框 + 射灯' },
+  { id: 'whitebox', name: '⬜ 白盒子', desc: '现代美术馆，白墙 + 大空间' },
+  { id: 'lshape', name: '↰ L型转角', desc: '走到尽头转弯，两段展廊' },
+  { id: 'circular', name: '⭕ 环形展厅', desc: '圆形空间，画挂在四周' },
+]
+
 export default function EditExhibitionPage({ params }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState('')
   const [exhibitionId, setExhibitionId] = useState(null)
-  const [ownerType, setOwnerType] = useState('platform') // platform 或 partner
+  const [ownerType, setOwnerType] = useState('platform')
   const [partners, setPartners] = useState([])
   const [artworks, setArtworks] = useState([])
   const [selectedArtworks, setSelectedArtworks] = useState([])
+  const [galleryStyle, setGalleryStyle] = useState('classic')
   const fileInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
@@ -41,7 +49,6 @@ export default function EditExhibitionPage({ params }) {
 
   async function loadExhibition(id) {
     try {
-      // 1. 先尝试从 exhibitions 表加载（平台展览）
       const { data: platformExhibition, error: error1 } = await supabase
         .from('exhibitions')
         .select('*')
@@ -49,7 +56,6 @@ export default function EditExhibitionPage({ params }) {
         .single()
 
       if (platformExhibition) {
-        // 是平台展览
         setOwnerType('platform')
         setFormData({
           title: platformExhibition.title || '',
@@ -63,12 +69,12 @@ export default function EditExhibitionPage({ params }) {
           location: platformExhibition.location || '',
           status: platformExhibition.status || 'draft'
         })
+        setGalleryStyle(platformExhibition.gallery_style || 'classic')
 
         if (platformExhibition.cover_image) {
           setImagePreview(platformExhibition.cover_image)
         }
 
-        // 加载关联的作品
         const { data: artworkLinks } = await supabase
           .from('exhibition_artworks')
           .select('artwork_id')
@@ -82,18 +88,13 @@ export default function EditExhibitionPage({ params }) {
         return
       }
 
-      // 2. 如果不是平台展览，从 partner_exhibitions 表加载
       const { data: partnerExhibition, error: error2 } = await supabase
         .from('partner_exhibitions')
-        .select(`
-          *,
-          partners(id, name)
-        `)
+        .select(`*, partners(id, name)`)
         .eq('id', id)
         .single()
 
       if (partnerExhibition) {
-        // 是合作伙伴展览
         setOwnerType('partner')
         setFormData({
           title: partnerExhibition.title || '',
@@ -116,7 +117,6 @@ export default function EditExhibitionPage({ params }) {
         return
       }
 
-      // 3. 都找不到
       alert('展览不存在')
       router.push('/admin/exhibitions')
     } catch (error) {
@@ -131,7 +131,6 @@ export default function EditExhibitionPage({ params }) {
       .from('partners')
       .select('id, name')
       .order('name')
-    
     setPartners(data || [])
   }
 
@@ -141,7 +140,6 @@ export default function EditExhibitionPage({ params }) {
       .select('id, title, image_url, artists(display_name)')
       .eq('status', 'published')
       .order('title')
-    
     setArtworks(data || [])
   }
 
@@ -180,7 +178,6 @@ export default function EditExhibitionPage({ params }) {
 
     try {
       if (ownerType === 'platform') {
-        // 更新平台展览
         const { error: updateError } = await supabase
           .from('exhibitions')
           .update({
@@ -192,20 +189,18 @@ export default function EditExhibitionPage({ params }) {
             start_date: formData.start_date || null,
             end_date: formData.end_date || null,
             location: formData.location,
-            status: formData.status
+            status: formData.status,
+            gallery_style: galleryStyle
           })
           .eq('id', exhibitionId)
 
         if (updateError) throw updateError
 
-        // 更新作品关联
-        // 1. 先删除所有旧关联
         await supabase
           .from('exhibition_artworks')
           .delete()
           .eq('exhibition_id', exhibitionId)
 
-        // 2. 插入新关联
         if (selectedArtworks.length > 0) {
           const artworkLinks = selectedArtworks.map((artworkId, index) => ({
             exhibition_id: exhibitionId,
@@ -221,7 +216,6 @@ export default function EditExhibitionPage({ params }) {
         }
 
       } else {
-        // 更新合作伙伴展览
         const { error: updateError } = await supabase
           .from('partner_exhibitions')
           .update({
@@ -297,6 +291,8 @@ export default function EditExhibitionPage({ params }) {
     )
   }
 
+  const currentStyle = GALLERY_STYLES.find(s => s.id === galleryStyle)
+
   return (
     <div>
       {/* 页头 */}
@@ -327,7 +323,6 @@ export default function EditExhibitionPage({ params }) {
               <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
               
               <div className="space-y-4">
-                {/* 合作伙伴信息（只读） */}
                 {ownerType === 'partner' && (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <p className="text-sm text-purple-800">
@@ -535,7 +530,7 @@ export default function EditExhibitionPage({ params }) {
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
               
               <div className="space-y-4">
-                {/* 展览类型（只有平台展览才有） */}
+                {/* 展览类型 */}
                 {ownerType === 'platform' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -569,6 +564,67 @@ export default function EditExhibitionPage({ params }) {
                     <option value="archived">已结束</option>
                   </select>
                 </div>
+
+                {/* ========== 新增：展厅风格 ========== */}
+                {ownerType === 'platform' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      3D展厅风格
+                    </label>
+                    <div className="space-y-2">
+                      {GALLERY_STYLES.map(style => (
+                        <label
+                          key={style.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            galleryStyle === style.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="gallery_style"
+                            value={style.id}
+                            checked={galleryStyle === style.id}
+                            onChange={() => setGalleryStyle(style.id)}
+                            className="hidden"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                            galleryStyle === style.id ? 'border-blue-500' : 'border-gray-300'
+                          }`}>
+                            {galleryStyle === style.id && (
+                              <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{style.name}</p>
+                            <p className="text-xs text-gray-500">{style.desc}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ========== 新增：布展管理 + 3D预览 ========== */}
+                {ownerType === 'platform' && exhibitionId && (
+                  <div className="pt-2 space-y-2">
+                    <a
+                      href={`/admin/exhibitions/${exhibitionId}/layout`}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-white text-sm transition-all hover:opacity-90"
+                      style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }}
+                    >
+                      🏛️ 进入布展管理
+                    </a>
+                    <a
+                      href={`/exhibitions/${exhibitionId}/3d`}
+                      target="_blank"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-gray-600 text-sm border border-gray-300 hover:bg-gray-50 transition-all"
+                    >
+                      👁️ 预览3D展厅
+                    </a>
+                  </div>
+                )}
 
                 <div className="pt-4 border-t border-gray-200">
                   <button

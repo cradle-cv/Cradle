@@ -55,13 +55,6 @@ export default async function ExhibitionDetailPage({ params }) {
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
               <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
             </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="/#daily" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="/#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-            </ul>
           </div>
           <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
         </div>
@@ -103,6 +96,11 @@ export default async function ExhibitionDetailPage({ params }) {
             {exhibition.title_en && (
               <p className="text-xl text-white/80 drop-shadow-lg">{exhibition.title_en}</p>
             )}
+            <a href={`/exhibitions/${exhibition.id}/3d`}
+              className="inline-flex items-center gap-2 mt-4 px-6 py-3 rounded-xl font-medium text-white transition-all hover:scale-105 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #c9a96e, #b08d4f)', boxShadow: '0 4px 20px rgba(201,169,110,0.4)' }}>
+              🏛️ 进入3D展厅
+            </a>
           </div>
         </div>
       </div>
