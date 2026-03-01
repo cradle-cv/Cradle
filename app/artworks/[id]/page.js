@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 // 图标路径（R2 CDN）
-const COIN_GOLD = 'https://cdn.cradle.art/assets/gold-coin-100.png'
-const COIN_SILVER = 'https://cdn.cradle.art/assets/silver-coin-50.png'
-const CRADLE_IMG = 'https://cdn.cradle.art/assets/cradle.png'
+const COIN_GOLD = 'https://cdn.cradle.art/assets/gold-coin-100.png?v=2'
+const COIN_SILVER = 'https://cdn.cradle.art/assets/silver-coin-50.png?v=2'
+const CRADLE_IMG = 'https://cdn.cradle.art/assets/cradle.png?v=2'
 
 // 小金币图标组件（行内使用）
 function CoinIcon({ size = 18 }) {
@@ -313,7 +313,7 @@ export default function ArtworkDetailPage() {
           <div className="flex flex-col items-center">
             {/* 摇篮+金币 居中对齐 */}
             <div className="cradle-swing" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-              <img src={CRADLE_IMG} alt="摇篮" style={{ width: '180px', height: '180px', objectFit: 'contain', mixBlendMode: 'screen', filter: 'brightness(1.2)' }} />
+              <img src={CRADLE_IMG} alt="摇篮" style={{ width: '180px', height: '180px', objectFit: 'contain' }} />
               {/* 金币落入摇篮中央 */}
               <div className="coin-drop" style={{ position: 'absolute', top: '30px', left: '50%', marginLeft: '-30px' }}>
                 <img src={tipCoinImg} alt="金币" style={{ width: '60px', height: '60px', objectFit: 'contain', borderRadius: '50%' }} />
