@@ -311,23 +311,23 @@ export default function ArtworkDetailPage() {
       {showCradleAnim && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <div className="flex flex-col items-center">
-            <div className="relative" style={{ width: '240px', height: '280px' }}>
-              {/* 摇篮主体 */}
-              <div className="cradle-swing" style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)' }}>
-                <img src={CRADLE_IMG} alt="摇篮" style={{ width: '180px', height: '180px', objectFit: 'contain' }} />
-                {/* 金币落入摇篮 */}
-                <div className="coin-drop" style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)' }}>
-                  <img src={tipCoinImg} alt="金币" style={{ width: '60px', height: '60px', objectFit: 'contain', borderRadius: '50%' }} />
-                </div>
+            {/* 摇篮+金币 居中对齐 */}
+            <div className="cradle-swing" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+              <img src={CRADLE_IMG} alt="摇篮" style={{ width: '180px', height: '180px', objectFit: 'contain', mixBlendMode: 'screen', filter: 'brightness(1.2)' }} />
+              {/* 金币落入摇篮中央 */}
+              <div className="coin-drop" style={{ position: 'absolute', top: '30px', left: '50%', marginLeft: '-30px' }}>
+                <img src={tipCoinImg} alt="金币" style={{ width: '60px', height: '60px', objectFit: 'contain', borderRadius: '50%' }} />
               </div>
-              {/* 星星 */}
-              <div className="sparkle-1" style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '22px' }}>✨</div>
-              <div className="sparkle-2" style={{ position: 'absolute', top: '5px', right: '10px', fontSize: '18px' }}>⭐</div>
-              <div className="sparkle-3" style={{ position: 'absolute', bottom: '50px', left: '15px', fontSize: '16px' }}>✨</div>
-              <div className="sparkle-4" style={{ position: 'absolute', bottom: '60px', right: '15px', fontSize: '20px' }}>🌟</div>
             </div>
-            {/* 文字 */}
-            <div className="text-center mt-0">
+            {/* 星星 */}
+            <div style={{ position: 'relative', width: '240px', height: '0' }}>
+              <div className="sparkle-1" style={{ position: 'absolute', top: '-180px', left: '0', fontSize: '22px' }}>✨</div>
+              <div className="sparkle-2" style={{ position: 'absolute', top: '-190px', right: '0', fontSize: '18px' }}>⭐</div>
+              <div className="sparkle-3" style={{ position: 'absolute', top: '-80px', left: '10px', fontSize: '16px' }}>✨</div>
+              <div className="sparkle-4" style={{ position: 'absolute', top: '-90px', right: '10px', fontSize: '20px' }}>🌟</div>
+            </div>
+            {/* 金币数字+文字，居中对齐 */}
+            <div className="text-center mt-4">
               <div className="coin-drop flex items-center justify-center gap-2">
                 <span className="text-3xl font-bold" style={{ color: '#FCD34D' }}>+{tipAmount}</span>
                 <span className="text-lg" style={{ color: '#FCD34D' }}>金币</span>
