@@ -4,10 +4,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-// 图标路径（放在 public/images/ 下）
-const COIN_GOLD = '/images/gold-coin-100.png'   // 梵高金币 100
-const COIN_SILVER = '/images/silver-coin-50.png' // 高更银币 50
-const CRADLE_IMG = '/images/cradle.png'          // 摇篮
+// 图标路径（R2 CDN）
+const COIN_GOLD = 'https://cdn.cradle.art/assets/gold-coin-100.png'
+const COIN_SILVER = 'https://cdn.cradle.art/assets/silver-coin-50.png'
+const CRADLE_IMG = 'https://cdn.cradle.art/assets/cradle.png'
 
 // 小金币图标组件（行内使用）
 function CoinIcon({ size = 18 }) {
@@ -358,9 +358,7 @@ export default function ArtworkDetailPage() {
                 disabled={(currentUser?.total_points || 0) < 50}
                 className="coin-hover-anim flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
                 style={{ borderColor: '#94A3B8', backgroundColor: '#F8FAFC', width: '150px' }}>
-                <div className="glow-pulse rounded-full overflow-hidden" style={{ width: '90px', height: '90px' }}>
-                  <img src={COIN_SILVER} alt="高更银币" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
+                <img src={COIN_SILVER} alt="高更银币" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%', display: 'block', margin: '0 auto' }} />
                 <div>
                   <p className="text-lg font-bold text-gray-700">50 金币</p>
                   <p className="text-xs text-gray-400 mt-0.5">高更银币</p>
@@ -371,9 +369,7 @@ export default function ArtworkDetailPage() {
                 disabled={(currentUser?.total_points || 0) < 100}
                 className="coin-hover-anim-delay flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
                 style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB', width: '150px' }}>
-                <div className="glow-pulse rounded-full overflow-hidden" style={{ width: '90px', height: '90px' }}>
-                  <img src={COIN_GOLD} alt="梵高金币" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
+                <img src={COIN_GOLD} alt="梵高金币" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%', display: 'block', margin: '0 auto' }} />
                 <div>
                   <p className="text-lg font-bold" style={{ color: '#B45309' }}>100 金币</p>
                   <p className="text-xs text-gray-400 mt-0.5">梵高金币</p>
