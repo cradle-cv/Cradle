@@ -41,13 +41,6 @@ export default async function CollectionDetailPage({ params }) {
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
               <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
             </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="/#daily" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="/#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-            </ul>
           </div>
           <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
         </div>
@@ -107,7 +100,7 @@ export default async function CollectionDetailPage({ params }) {
           {artworks.length > 0 ? (
             <div className="grid md:grid-cols-4 gap-6">
               {artworks.map((artwork) => (
-                <div key={artwork.id} className="group">
+                <a key={artwork.id} href={`/artworks/${artwork.id}`} className="group">
                   <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
                     {artwork.image_url ? (
                       <img 
@@ -133,7 +126,7 @@ export default async function CollectionDetailPage({ params }) {
                     <span>👁 {artwork.views_count || 0}</span>
                     <span>❤️ {artwork.likes_count || 0}</span>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           ) : (
