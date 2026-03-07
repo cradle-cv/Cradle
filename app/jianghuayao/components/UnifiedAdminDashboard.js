@@ -55,8 +55,6 @@ export default function AdminDashboard() {
     type: 'heritage',
   });
 
-  const API_URL = process.env.NEXT_PUBLIC_WORKER_URL;
-
   useEffect(() => {
     loadArticles();
   }, []);
@@ -64,7 +62,7 @@ export default function AdminDashboard() {
   const loadArticles = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/articles`);
+      const response = await fetch(`/api/jianghuayao/articles`);
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
       setArticles(data);
@@ -84,7 +82,7 @@ export default function AdminDashboard() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/articles`, {
+      const response = await fetch(`/api/jianghuayao/articles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -105,7 +103,7 @@ export default function AdminDashboard() {
   const handleUpdateArticle = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/articles/${editingArticle.id}`, {
+      const response = await fetch(`/api/jianghuayao/articles/${editingArticle.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -128,7 +126,7 @@ export default function AdminDashboard() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/articles/${id}`, {
+      const response = await fetch(`/api/jianghuayao/articles/${id}`, {
         method: 'DELETE',
       });
 
@@ -151,7 +149,7 @@ export default function AdminDashboard() {
       const formDataObj = new FormData();
       formDataObj.append('file', file);
 
-      const response = await fetch(`${API_URL}/api/upload`, {
+      const response = await fetch(`/api/jianghuayao/upload`, {
         method: 'POST',
         body: formDataObj,
       });
@@ -221,7 +219,7 @@ export default function AdminDashboard() {
             <span className="text-3xl">⚙️</span>
             后台管理
           </h1>
-          <p className="text-xs text-gray-400 mt-2">Cloudflare Workers</p>
+          <p className="text-xs text-gray-400 mt-2">Supabase</p>
         </div>
 
         <nav className="p-4 space-y-2">

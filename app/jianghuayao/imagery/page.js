@@ -55,10 +55,9 @@ export default function ImageryPage() {
     loadArticles();
   }, []);
 
-  const loadArticles = async () => {
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_WORKER_URL;
-      const response = await fetch(`${API_URL}/api/articles`);
+const loadArticles = async () => {
+  try {
+    const response = await fetch(`/api/jianghuayao/articles`);
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
       setArticles(data);

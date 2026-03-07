@@ -127,10 +127,8 @@ export default function JianghuayaoPage() {
   }, []);
 
   const loadArticles = async () => {
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_WORKER_URL;
-      console.log('API_URL:', API_URL);
-      const response = await fetch(`${API_URL}/api/articles`);
+  try {
+    const response = await fetch(`/api/jianghuayao/articles`);
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
       console.log('加载的文章:', data);
