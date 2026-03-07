@@ -140,36 +140,28 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleImageUpload = async (e) => {
+ const handleImageUpload = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
 
   setUploading(true);
   try {
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(7);
-    const ext = file.name.split('.').pop();
-    const fileName = `jianghuayao/images/${timestamp}-${randomStr}.${ext}`;
+    const formDataObj = new FormData();
+    formDataObj.append('file', file);
 
-    // R2 直接上传（CORS PUT 请求）
-    const r2Url = `${process.env.NEXT_PUBLIC_R2_ENDPOINT}/${process.env.NEXT_PUBLIC_R2_BUCKET_NAME}/${fileName}`;
-    
-    const buffer = await file.arrayBuffer();
-
-    const response = await fetch(r2Url, {
-      method: 'PUT',
-      body: buffer,
-      headers: {
-        'Content-Type': file.type,
-      },
+    // 调用主站的上传 API
+    const response = await fetch(`/api/upload`, {
+      method: 'POST',
+      body: formDataObj,
     });
 
     if (!response.ok) {
-      throw new Error('R2 上传失败');
+      const error = await response.json();
+      throw new Error(error.error || '上传失败');
     }
 
-    const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileName}`;
-    setFormData(prev => ({ ...prev, image: publicUrl }));
+    const data = await response.json();
+    setFormData(prev => ({ ...prev, image: data.url }));
     alert('上传成功！');
   } catch (error) {
     alert('上传失败: ' + error.message);
