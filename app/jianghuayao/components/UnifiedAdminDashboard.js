@@ -141,33 +141,39 @@ export default function AdminDashboard() {
   };
 
   const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    setUploading(true);
-    try {
-      const formDataObj = new FormData();
-      formDataObj.append('file', file);
+  setUploading(true);
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
-      const response = await fetch(`/api/jianghuayao/upload`, {
-        method: 'POST',
-        body: formDataObj,
-      });
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(7);
+    const fileName = `${timestamp}-${randomStr}-${file.name}`;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '上传失败');
-      }
+    const { data, error } = await supabase.storage
+      .from('jianghuayao')
+      .upload(fileName, file);
 
-      const data = await response.json();
-      setFormData(prev => ({ ...prev, image: data.url }));
-      alert('上传成功！');
-    } catch (error) {
-      alert('上传失败: ' + error.message);
-    } finally {
-      setUploading(false);
-    }
-  };
+    if (error) throw new Error(error.message);
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('jianghuayao')
+      .getPublicUrl(fileName);
+
+    setFormData(prev => ({ ...prev, image: publicUrl }));
+    alert('上传成功！');
+  } catch (error) {
+    alert('上传失败: ' + error.message);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleEditArticle = (article) => {
     setEditingArticle(article);
