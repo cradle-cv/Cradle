@@ -146,26 +146,29 @@ export default function AdminDashboard() {
 
   setUploading(true);
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(7);
-    const fileName = `${timestamp}-${randomStr}-${file.name}`;
+    const ext = file.name.split('.').pop();
+    const fileName = `jianghuayao/images/${timestamp}-${randomStr}.${ext}`;
 
-    const { data, error } = await supabase.storage
-      .from('jianghuayao')
-      .upload(fileName, file);
+    // R2 直接上传（CORS PUT 请求）
+    const r2Url = `${process.env.NEXT_PUBLIC_R2_ENDPOINT}/${process.env.NEXT_PUBLIC_R2_BUCKET_NAME}/${fileName}`;
+    
+    const buffer = await file.arrayBuffer();
 
-    if (error) throw new Error(error.message);
+    const response = await fetch(r2Url, {
+      method: 'PUT',
+      body: buffer,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('jianghuayao')
-      .getPublicUrl(fileName);
+    if (!response.ok) {
+      throw new Error('R2 上传失败');
+    }
 
+    const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileName}`;
     setFormData(prev => ({ ...prev, image: publicUrl }));
     alert('上传成功！');
   } catch (error) {
