@@ -1,10 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function POST(request) {
   try {
     const formData = await request.formData();
@@ -16,23 +9,37 @@ export async function POST(request) {
 
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(7);
-    const ext = file.name.split('.').pop();
-    const fileName = `${timestamp}-${randomStr}.${ext}`;
+    const fileName = `jianghuayao/images/${timestamp}-${randomStr}-${file.name}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { data, error } = await supabase.storage
-      .from('jianghuayao')
-      .upload(fileName, buffer);
+    // R2 信息
+    const endpoint = new URL(process.env.R2_ENDPOINT);
+    const bucket = process.env.R2_BUCKET_NAME;
+    const key = fileName;
 
-    if (error) throw new Error(error.message);
+    // 上传 URL
+    const uploadUrl = `${process.env.R2_ENDPOINT}/${bucket}/${key}`;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('jianghuayao')
-      .getPublicUrl(fileName);
+    // 直接上传到 R2（用简单的 PUT 请求）
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: buffer,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`R2 上传失败: ${response.statusText}`);
+    }
+
+    // 构建公开 URL
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
 
     return Response.json({ url: publicUrl });
   } catch (error) {
+    console.error('上传错误:', error);
     return Response.json(
       { error: error.message || '上传失败' },
       { status: 500 }

@@ -140,7 +140,7 @@ export default function AdminDashboard() {
     }
   };
 
- const handleImageUpload = async (e) => {
+const handleImageUpload = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
 
@@ -149,8 +149,7 @@ export default function AdminDashboard() {
     const formDataObj = new FormData();
     formDataObj.append('file', file);
 
-    // 调用主站的上传 API
-    const response = await fetch(`/api/upload`, {
+    const response = await fetch(`/api/jianghuayao/upload`, {
       method: 'POST',
       body: formDataObj,
     });
