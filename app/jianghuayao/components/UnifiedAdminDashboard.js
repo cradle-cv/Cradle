@@ -12,10 +12,10 @@ import {
   Trash2,
   LogOut,
   ChevronRight,
-  X as IconX
+  X as IconX,
+  Loader2
 } from 'lucide-react';
 
-// 非遗项目（固定的6个）
 const HERITAGE_PROJECTS = [
   { id: 'folk', name: '民俗', icon: '🏮', color: 'blue' },
   { id: 'music', name: '曲艺', icon: '🎵', color: 'purple' },
@@ -25,7 +25,6 @@ const HERITAGE_PROJECTS = [
   { id: 'craft', name: '手工', icon: '🎨', color: 'orange' },
 ];
 
-// 江华映象（固定的3种）
 const IMAGERY_TYPES = [
   { id: 'people', name: '人物', icon: '👥', color: 'blue' },
   { id: 'story', name: '故事', icon: '📖', color: 'purple' },
@@ -38,12 +37,35 @@ const MENU_ITEMS = [
   { id: 'content', label: '内容管理', icon: BookOpen },
 ];
 
+// API 返回 related_type（下划线），前端用 relatedType（驼峰），需要转换
+function apiToFront(article) {
+  return {
+    ...article,
+    relatedType: article.related_type || article.relatedType,
+  };
+}
+
+function frontToApi(formData) {
+  return {
+    title: formData.title,
+    subtitle: formData.subtitle || '',
+    excerpt: formData.excerpt || '',
+    content: formData.content || '',
+    image: formData.image || '',
+    year: formData.year || new Date().getFullYear().toString(),
+    relatedType: formData.relatedType,
+    type: formData.type,
+  };
+}
+
 export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState('heritage');
   const [selectedHeritageName, setSelectedHeritageName] = useState('');
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [articles, setArticles] = useState([]);
   const [editingArticle, setEditingArticle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     subtitle: '',
@@ -55,45 +77,108 @@ export default function AdminDashboard() {
     type: 'heritage',
   });
 
+  // ======= 从 API 加载文章 =======
   useEffect(() => {
-    const saved = localStorage.getItem('jianghuayao_articles');
-    if (saved) setArticles(JSON.parse(saved));
+    loadArticles();
   }, []);
 
-  const saveArticles = (data) => {
-    localStorage.setItem('jianghuayao_articles', JSON.stringify(data));
+  const loadArticles = async () => {
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/jianghuayao/articles');
+      if (!resp.ok) throw new Error('加载失败');
+      const data = await resp.json();
+      // 转换字段名
+      setArticles(data.map(apiToFront));
+    } catch (err) {
+      console.error('加载文章失败:', err);
+      alert('加载文章失败: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddArticle = () => {
+  // ======= 新建文章 → POST API =======
+  const handleAddArticle = async () => {
     if (!formData.title.trim() || !formData.relatedType) {
       alert('请填写文章标题和选择关联项目');
       return;
     }
-    const newArticle = {
-      id: `article-${Date.now()}`,
-      ...formData,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...articles, newArticle];
-    setArticles(updated);
-    saveArticles(updated);
-    resetForm();
+
+    setSaving(true);
+    try {
+      const resp = await fetch('/api/jianghuayao/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(frontToApi(formData)),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || '创建失败');
+      }
+
+      const newArticle = await resp.json();
+      setArticles(prev => [apiToFront(newArticle), ...prev]);
+      resetForm();
+      alert('✅ 文章发布成功！');
+    } catch (err) {
+      console.error('创建文章失败:', err);
+      alert('❌ 创建失败: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUpdateArticle = () => {
-    const updated = articles.map(a =>
-      a.id === editingArticle.id ? { ...a, ...formData } : a
-    );
-    setArticles(updated);
-    saveArticles(updated);
-    resetForm();
+  // ======= 更新文章 → PUT API =======
+  const handleUpdateArticle = async () => {
+    if (!editingArticle) return;
+
+    setSaving(true);
+    try {
+      const resp = await fetch(`/api/jianghuayao/articles/${editingArticle.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(frontToApi(formData)),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || '更新失败');
+      }
+
+      const updated = await resp.json();
+      setArticles(prev => prev.map(a =>
+        a.id === editingArticle.id ? apiToFront(updated) : a
+      ));
+      resetForm();
+      alert('✅ 文章更新成功！');
+    } catch (err) {
+      console.error('更新文章失败:', err);
+      alert('❌ 更新失败: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteArticle = (id) => {
-    if (confirm('确定要删除这篇文章吗？')) {
-      const updated = articles.filter(a => a.id !== id);
-      setArticles(updated);
-      saveArticles(updated);
+  // ======= 删除文章 → DELETE API =======
+  const handleDeleteArticle = async (id) => {
+    if (!confirm('确定要删除这篇文章吗？')) return;
+
+    try {
+      const resp = await fetch(`/api/jianghuayao/articles/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || '删除失败');
+      }
+
+      setArticles(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error('删除文章失败:', err);
+      alert('❌ 删除失败: ' + err.message);
     }
   };
 
@@ -114,14 +199,8 @@ export default function AdminDashboard() {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      subtitle: '',
-      excerpt: '',
-      content: '',
-      image: '',
-      year: new Date().getFullYear().toString(),
-      relatedType: '',
-      type: 'heritage',
+      title: '', subtitle: '', excerpt: '', content: '', image: '',
+      year: new Date().getFullYear().toString(), relatedType: '', type: 'heritage',
     });
     setEditingArticle(null);
     setShowArticleForm(false);
@@ -159,8 +238,7 @@ export default function AdminDashboard() {
         </nav>
         <div className="absolute bottom-4 left-4 w-56">
           <button className="w-full flex items-center gap-2 text-gray-400 hover:text-red-500 transition py-2">
-            <LogOut size={20} />
-            退出登录
+            <LogOut size={20} /> 退出登录
           </button>
         </div>
       </aside>
@@ -177,20 +255,27 @@ export default function AdminDashboard() {
                 onClick={() => {
                   resetForm();
                   setShowArticleForm(true);
-                  setFormData({ ...formData, type: activeMenu === 'heritage' ? 'heritage' : 'imagery' });
+                  setFormData(prev => ({ ...prev, type: activeMenu === 'heritage' ? 'heritage' : 'imagery' }));
                 }}
                 className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition"
               >
-                <Plus size={18} />
-                新建文章
+                <Plus size={18} /> 新建文章
               </button>
             )}
           </div>
         </div>
 
         <div className="flex-1 overflow-auto p-6">
+          {/* 加载中 */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={32} className="animate-spin text-orange-500" />
+              <span className="ml-3 text-gray-500">加载中...</span>
+            </div>
+          )}
+
           {/* 非遗项目管理 */}
-          {activeMenu === 'heritage' && !selectedHeritageName && (
+          {!loading && activeMenu === 'heritage' && !selectedHeritageName && (
             <div className="space-y-6">
               <h3 className="text-lg font-bold text-gray-800 mb-4">六大非遗项目</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -219,7 +304,7 @@ export default function AdminDashboard() {
           )}
 
           {/* 非遗项目详情 */}
-          {activeMenu === 'heritage' && selectedHeritageName && (
+          {!loading && activeMenu === 'heritage' && selectedHeritageName && (
             <div>
               <button onClick={() => setSelectedHeritageName('')} className="mb-6 text-blue-600 hover:text-blue-700 flex items-center gap-2">← 返回</button>
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -228,7 +313,7 @@ export default function AdminDashboard() {
                 </h3>
                 <div className="space-y-4">
                   {getRelatedArticles(selectedHeritageName).length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">暂无文章</p>
+                    <p className="text-gray-500 text-center py-8">暂无文章，点击右上角"新建文章"开始添加</p>
                   ) : (
                     getRelatedArticles(selectedHeritageName).map(article => (
                       <div key={article.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -251,7 +336,7 @@ export default function AdminDashboard() {
           )}
 
           {/* 江华映象管理 */}
-          {activeMenu === 'imagery' && !selectedHeritageName && (
+          {!loading && activeMenu === 'imagery' && !selectedHeritageName && (
             <div className="space-y-6">
               <h3 className="text-lg font-bold text-gray-800 mb-4">江华映象（3 种）</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -280,7 +365,7 @@ export default function AdminDashboard() {
           )}
 
           {/* 江华映象详情 */}
-          {activeMenu === 'imagery' && selectedHeritageName && (
+          {!loading && activeMenu === 'imagery' && selectedHeritageName && (
             <div>
               <button onClick={() => setSelectedHeritageName('')} className="mb-6 text-blue-600 hover:text-blue-700 flex items-center gap-2">← 返回</button>
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -289,7 +374,7 @@ export default function AdminDashboard() {
                 </h3>
                 <div className="space-y-4">
                   {getRelatedArticles(selectedHeritageName).length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">暂无文章</p>
+                    <p className="text-gray-500 text-center py-8">暂无文章，点击右上角"新建文章"开始添加</p>
                   ) : (
                     getRelatedArticles(selectedHeritageName).map(article => (
                       <div key={article.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -312,7 +397,7 @@ export default function AdminDashboard() {
           )}
 
           {/* 内容管理 */}
-          {activeMenu === 'content' && (
+          {!loading && activeMenu === 'content' && (
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-6">所有文章</h3>
               {getAllArticles().length === 0 ? (
@@ -392,7 +477,6 @@ export default function AdminDashboard() {
                 <DocxEditor value={formData.content} onChange={(html) => setFormData({ ...formData, content: html })} />
               </div>
 
-              {/* ✅ 改用 ImageUploader 替代 URL 输入框 */}
               <div>
                 <label className="block text-sm font-medium mb-1">文章封面图</label>
                 <ImageUploader
@@ -409,9 +493,13 @@ export default function AdminDashboard() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button onClick={editingArticle ? handleUpdateArticle : handleAddArticle}
-                  className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium">
-                  {editingArticle ? '更新' : '发布'}
+                <button
+                  onClick={editingArticle ? handleUpdateArticle : handleAddArticle}
+                  disabled={saving}
+                  className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving && <Loader2 size={18} className="animate-spin" />}
+                  {saving ? '保存中...' : (editingArticle ? '更新' : '发布')}
                 </button>
                 <button onClick={resetForm}
                   className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition font-medium">
