@@ -6,9 +6,9 @@ const supabase = createClient(
 );
 
 // PUT - 更新文章
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
-    const { id } = params;
+    const { id } = await context.params;  // ✅ Next.js 15+ 需要 await
     console.log('更新文章 ID:', id);
 
     const body = await request.json();
@@ -35,27 +35,21 @@ export async function PUT(request, { params }) {
     }
 
     if (!data || data.length === 0) {
-      return Response.json(
-        { error: '文章不存在' },
-        { status: 404 }
-      );
+      return Response.json({ error: '文章不存在' }, { status: 404 });
     }
 
     console.log('文章更新成功');
     return Response.json(data[0]);
   } catch (error) {
     console.error('PUT /api/jianghuayao/articles/[id] 错误:', error);
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 
 // DELETE - 删除文章
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
-    const { id } = params;
+    const { id } = await context.params;  // ✅ Next.js 15+ 需要 await
     console.log('删除文章 ID:', id);
 
     const { error } = await supabase
@@ -72,9 +66,6 @@ export async function DELETE(request, { params }) {
     return Response.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/jianghuayao/articles/[id] 错误:', error);
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
