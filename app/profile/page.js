@@ -112,7 +112,7 @@ export default function ProfilePage() {
         {/* 用户信息卡 - 豆瓣风格 */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-8">
           {/* 封面背景 */}
-          <div className="h-32 relative" style={{
+          <div className="h-24 relative" style={{
             background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
           }}>
             <div className="absolute inset-0" style={{
@@ -122,7 +122,7 @@ export default function ProfilePage() {
 
           <div className="px-8 pb-8">
             {/* 头像 + 基本信息 */}
-            <div className="flex items-end gap-6 -mt-12 mb-6">
+            <div className="flex items-end gap-6 -mt-12 mb-6 relative z-10">
               <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0"
                 style={{ border: '4px solid #FFFFFF', backgroundColor: '#F3F4F6' }}>
                 {userData.avatar_url ? (

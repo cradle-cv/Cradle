@@ -11,16 +11,14 @@ function LoginForm() {
   const initialMode = searchParams.get('mode') || 'login'
 
   const [mode, setMode] = useState(initialMode) // login | register
-  const [method, setMethod] = useState('email') // email | phone
+  const [method, setMethod] = useState('email') // email | username
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [otpSent, setOtpSent] = useState(false) // 手机验证码已发送
-  const [countdown, setCountdown] = useState(0) // 倒计时
 
   const [form, setForm] = useState({
     email: '', password: '', confirmPassword: '',
-    username: '', phone: '', otp: ''
+    username: '', loginUsername: '', loginPassword: ''
   })
 
   function handleChange(e) {
@@ -29,7 +27,7 @@ function LoginForm() {
   }
 
   function switchMode(m) {
-    setMode(m); setError(''); setSuccess(''); setOtpSent(false)
+    setMode(m); setError(''); setSuccess('')
   }
 
   // ============ 邮箱登录 ============
@@ -42,7 +40,45 @@ function LoginForm() {
       if (error) throw error
       router.push(redirect)
     } catch (err) {
-      setError(err.message.includes('Invalid login') ? '邮箱或密码错误' : err.message)
+      setError(err.message.includes('Invalid login') ? '邮箱或密码错误' : err.message.includes('Email not confirmed') ? '请先验证邮箱，查看收件箱中的验证链接' : err.message)
+    } finally { setLoading(false) }
+  }
+
+  // ============ 用户名登录 ============
+  async function handleUsernameLogin(e) {
+    e?.preventDefault()
+    if (!form.loginUsername || !form.loginPassword) { setError('请输入用户名和密码'); return }
+    setLoading(true); setError('')
+    try {
+      // 通过用户名查找对应的邮箱
+      const { data: user, error: findError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('username', form.loginUsername)
+        .maybeSingle()
+
+      if (findError) throw findError
+      if (!user || !user.email) {
+        setError('用户名不存在')
+        setLoading(false)
+        return
+      }
+
+      // 用找到的邮箱 + 输入的密码登录
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: form.loginPassword
+      })
+      if (error) throw error
+      router.push(redirect)
+    } catch (err) {
+      if (err.message.includes('Invalid login')) {
+        setError('密码错误')
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('请先验证邮箱，查看收件箱中的验证链接')
+      } else {
+        setError(err.message)
+      }
     } finally { setLoading(false) }
   }
 
@@ -56,6 +92,19 @@ function LoginForm() {
 
     setLoading(true); setError('')
     try {
+      // 检查用户名是否已被使用
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', form.username)
+        .maybeSingle()
+
+      if (existing) {
+        setError('该用户名已被使用，请换一个')
+        setLoading(false)
+        return
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email, password: form.password,
         options: { data: { username: form.username } }
@@ -72,7 +121,6 @@ function LoginForm() {
       }
 
       if (authData.session) {
-        // 直接登录，跳转填写资料
         router.push('/profile/edit?new=1')
       } else {
         setSuccess('注册成功！请检查邮箱完成验证后登录。')
@@ -80,68 +128,6 @@ function LoginForm() {
       }
     } catch (err) {
       setError(err.message.includes('already registered') ? '该邮箱已注册，请直接登录' : err.message)
-    } finally { setLoading(false) }
-  }
-
-  // ============ 发送手机验证码 ============
-  async function sendOtp() {
-    const phone = form.phone.trim()
-    if (!phone) { setError('请输入手机号'); return }
-    // 格式化为国际格式
-    const intlPhone = phone.startsWith('+') ? phone : `+86${phone}`
-
-    setLoading(true); setError('')
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ phone: intlPhone })
-      if (error) throw error
-      setOtpSent(true)
-      setSuccess('验证码已发送到手机')
-      // 开始倒计时
-      setCountdown(60)
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) { clearInterval(timer); return 0 }
-          return prev - 1
-        })
-      }, 1000)
-    } catch (err) {
-      if (err.message.includes('not enabled') || err.message.includes('provider')) {
-        setError('手机号登录暂未开放，请使用邮箱登录')
-      } else {
-        setError(err.message)
-      }
-    } finally { setLoading(false) }
-  }
-
-  // ============ 验证码登录 ============
-  async function handlePhoneLogin() {
-    if (!form.otp) { setError('请输入验证码'); return }
-    const intlPhone = form.phone.startsWith('+') ? form.phone : `+86${form.phone.trim()}`
-
-    setLoading(true); setError('')
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: intlPhone, token: form.otp, type: 'sms'
-      })
-      if (error) throw error
-
-      // 检查是否已有 users 记录，没有则创建（手机号新用户）
-      if (data.user) {
-        const { data: existing } = await supabase.from('users')
-          .select('id').eq('auth_id', data.user.id).maybeSingle()
-        if (!existing) {
-          await supabase.from('users').insert({
-            auth_id: data.user.id, phone: intlPhone,
-            username: `用户${intlPhone.slice(-4)}`,
-            role: 'user', total_points: 0, level: 1, profile_completed: false
-          })
-          router.push('/profile/edit?new=1')
-          return
-        }
-      }
-      router.push(redirect)
-    } catch (err) {
-      setError(err.message.includes('invalid') ? '验证码错误或已过期' : err.message)
     } finally { setLoading(false) }
   }
 
@@ -174,9 +160,8 @@ function LoginForm() {
           <div className="space-y-5">
             {[
               { icon: '🧩', text: '谜题挑战 · 趣味答题探索艺术知识' },
-              { icon: '📖', text: '日课导读 · 深度了解作品背后故事' },
-              { icon: '🎐', text: '风赏评说 · 与千人共赏一幅佳作' },
-              { icon: '⭐', text: '积分成长 · 记录你的艺术探索历程' }
+              { icon: '📖', text: '日课学习 · 每日一课深入了解作品' },
+              { icon: '🎐', text: '风赏体验 · 沉浸式感受艺术之美' }
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-4">
                 <span className="text-2xl">{item.icon}</span>
@@ -211,11 +196,11 @@ function LoginForm() {
             ))}
           </div>
 
-          {/* 邮箱/手机号 切换（仅登录模式） */}
+          {/* 邮箱/用户名 切换（仅登录模式） */}
           {mode === 'login' && (
             <div className="flex gap-4 mb-6">
-              {[{ key: 'email', label: '📧 邮箱登录' }, { key: 'phone', label: '📱 手机号登录' }].map(t => (
-                <button key={t.key} onClick={() => { setMethod(t.key); setError(''); setOtpSent(false) }}
+              {[{ key: 'email', label: '📧 邮箱登录' }, { key: 'username', label: '👤 用户名登录' }].map(t => (
+                <button key={t.key} onClick={() => { setMethod(t.key); setError('') }}
                   className="text-sm pb-2 transition-colors"
                   style={{
                     color: method === t.key ? '#111827' : '#9CA3AF',
@@ -240,7 +225,7 @@ function LoginForm() {
 
           {/* ====== 邮箱登录 ====== */}
           {mode === 'login' && method === 'email' && (
-            <div className="space-y-4">
+            <form onSubmit={handleEmailLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邮箱</label>
                 <input name="email" type="email" value={form.email} onChange={handleChange}
@@ -253,67 +238,43 @@ function LoginForm() {
                   placeholder="输入密码"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
-              <button onClick={handleEmailLogin} disabled={loading}
+              <button type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-xl font-medium text-white"
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '登录中...' : '登录'}
               </button>
-            </div>
+            </form>
           )}
 
-          {/* ====== 手机号登录 ====== */}
-          {mode === 'login' && method === 'phone' && (
-            <div className="space-y-4">
+          {/* ====== 用户名登录 ====== */}
+          {mode === 'login' && method === 'username' && (
+            <form onSubmit={handleUsernameLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>手机号</label>
-                <div className="flex gap-2">
-                  <span className="flex items-center px-3 rounded-xl border text-sm" style={{ ...inputStyle, backgroundColor: '#F9FAFB', color: '#6B7280' }}>
-                    +86
-                  </span>
-                  <input name="phone" value={form.phone} onChange={handleChange}
-                    placeholder="13800138000"
-                    className="flex-1 px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
-                </div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>用户名</label>
+                <input name="loginUsername" value={form.loginUsername} onChange={handleChange}
+                  placeholder="输入你的用户名"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
-
-              {otpSent && (
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>验证码</label>
-                  <input name="otp" value={form.otp} onChange={handleChange}
-                    placeholder="6位数字验证码" maxLength={6}
-                    className="w-full px-4 py-3 rounded-xl border outline-none tracking-widest text-center text-lg" style={inputStyle} />
-                </div>
-              )}
-
-              {!otpSent ? (
-                <button onClick={sendOtp} disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-medium text-white"
-                  style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
-                  {loading ? '发送中...' : '获取验证码'}
-                </button>
-              ) : (
-                <div className="flex gap-3">
-                  <button onClick={handlePhoneLogin} disabled={loading || !form.otp}
-                    className="flex-1 py-3.5 rounded-xl font-medium text-white"
-                    style={{ backgroundColor: loading || !form.otp ? '#9CA3AF' : '#111827' }}>
-                    {loading ? '验证中...' : '登录'}
-                  </button>
-                  <button onClick={sendOtp} disabled={countdown > 0}
-                    className="px-4 py-3.5 rounded-xl border text-sm"
-                    style={{ color: countdown > 0 ? '#9CA3AF' : '#374151', borderColor: '#D1D5DB' }}>
-                    {countdown > 0 ? `${countdown}s` : '重发'}
-                  </button>
-                </div>
-              )}
-            </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>密码</label>
+                <input name="loginPassword" type="password" value={form.loginPassword} onChange={handleChange}
+                  placeholder="输入密码"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-xl font-medium text-white"
+                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
+                {loading ? '登录中...' : '登录'}
+              </button>
+            </form>
           )}
 
           {/* ====== 邮箱注册 ====== */}
           {mode === 'register' && (
-            <div className="space-y-4">
+            <form onSubmit={handleEmailRegister} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>用户名 *</label>
-                <input name="username" value={form.username} onChange={handleChange} placeholder="你的昵称"
+                <input name="username" value={form.username} onChange={handleChange} placeholder="你的昵称（登录时也可以用）"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
               <div>
@@ -331,13 +292,13 @@ function LoginForm() {
                 <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} placeholder="再次输入密码"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
-              <button onClick={handleEmailRegister} disabled={loading}
+              <button type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-xl font-medium text-white"
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '注册中...' : '注册'}
               </button>
               <p className="text-center text-xs" style={{ color: '#9CA3AF' }}>注册即表示你同意我们的服务条款和隐私政策</p>
-            </div>
+            </form>
           )}
 
           <div className="mt-8 text-center">
