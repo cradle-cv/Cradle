@@ -183,7 +183,7 @@ function PageRenderer({ page, totalPages, currentPage }) {
         )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%)' }} />
         <div className="relative z-10 flex items-end justify-end min-h-[calc(100vh-120px)] p-6 md:p-10">
-          <div className="max-w-sm w-full rounded-2xl p-6 md:p-8 shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)' }}>
+          <div className="max-w-2xl w-full rounded-2xl p-8 md:p-12 shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)' }}>
             {page.title && (
               <h2 className="text-lg md:text-xl font-bold mb-3" style={{ color: '#111827', lineHeight: 1.4 }}>
                 {page.title}
