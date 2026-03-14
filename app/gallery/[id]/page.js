@@ -3,6 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import InspirationToast from '@/components/InspirationToast'
+import LevelBadge from '@/components/LevelBadge'
+import RikeMagazineReader from '@/components/RikeMagazineReader'
 
 export default function GalleryDetailPage() {
   const { id } = useParams()
@@ -22,6 +25,8 @@ export default function GalleryDetailPage() {
   const [rikeArticle, setRikeArticle] = useState(null)
   const [rikeSeconds, setRikeSeconds] = useState(0)
   const rikeTimer = useRef(null)
+  const [rikePages, setRikePages] = useState([])
+  const [showRikeMagazine, setShowRikeMagazine] = useState(false)
 
   const [fengshangComments, setFengshangComments] = useState([])
   const [userComment, setUserComment] = useState('')
@@ -31,6 +36,15 @@ export default function GalleryDetailPage() {
 
   const [tab, setTab] = useState('puzzle')
   const [showPointsBanner, setShowPointsBanner] = useState(false)
+
+  const [toastMessage, setToastMessage] = useState('')
+  const [showToast, setShowToast] = useState(false)
+
+  function showInspirationToast(msg) {
+    setToastMessage(msg)
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 3000)
+  }
 
   useEffect(() => {
     loadData()
@@ -55,6 +69,12 @@ export default function GalleryDetailPage() {
       if (w.rike_article_id) {
         const { data: ra } = await supabase.from('articles').select('*').eq('id', w.rike_article_id).single()
         setRikeArticle(ra)
+        // 加载杂志页面
+        try {
+          const rpResp = await fetch(`/api/rike-pages?articleId=${w.rike_article_id}`)
+          const rpData = await rpResp.json()
+          if (Array.isArray(rpData) && rpData.length > 0) setRikePages(rpData)
+        } catch (e) { console.error('加载日课页面失败:', e) }
       }
       const { data: commentsData } = await supabase.from('gallery_comments').select('*').eq('work_id', w.id)
         .order('is_featured', { ascending: false }).order('display_order', { ascending: true })
@@ -62,7 +82,7 @@ export default function GalleryDetailPage() {
 
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        const { data: user } = await supabase.from('users').select('id, username, total_points').eq('auth_id', session.user.id).single()
+        const { data: user } = await supabase.from('users').select('id, username, total_points, level').eq('auth_id', session.user.id).single()
         if (user) {
           setCurrentUser(user)
           const { data: prog } = await supabase.from('user_gallery_progress').select('*').eq('user_id', user.id).eq('gallery_work_id', id).single()
@@ -70,7 +90,6 @@ export default function GalleryDetailPage() {
             setProgress(prog)
             setRikeSeconds(prog.rike_read_seconds || 0)
             setFengshangSeconds(prog.fengshang_read_seconds || 0)
-            // 已完成 → 默认进入日课
             if (prog.points_settled) {
               setTab('rike')
             } else {
@@ -91,6 +110,34 @@ export default function GalleryDetailPage() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ========== 灵感值 API 调用 ==========
+  async function awardInspirationPoints(type, points, description, referenceId) {
+    if (!currentUser) return null
+    try {
+      const resp = await fetch('/api/inspiration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id, type, points, description,
+          referenceId: referenceId || work?.id,
+        }),
+      })
+      const data = await resp.json()
+      if (data.success) {
+        setCurrentUser(prev => ({ ...prev, total_points: data.totalPoints, level: data.level }))
+        showInspirationToast(`+${data.points} ${description}`)
+        if (data.leveledUp) {
+          setTimeout(() => showInspirationToast('🎉 升级了！'), 2000)
+        }
+        return data
+      }
+      return null
+    } catch (err) {
+      console.error('灵感值奖励失败:', err)
+      return null
     }
   }
 
@@ -116,15 +163,11 @@ export default function GalleryDetailPage() {
   async function checkAndSettlePoints(prog) {
     if (!prog || prog.points_settled) return
     if (prog.puzzle_completed && prog.rike_completed && prog.fengshang_completed) {
-      const points = work.total_points || 50
-      await supabase.from('user_points').insert({
-        user_id: currentUser.id, points, type: 'gallery',
-        description: `完成阅览：${work.title}`, reference_id: work.id
-      })
-      await supabase.from('users').update({ total_points: (currentUser.total_points || 0) + points }).eq('id', currentUser.id)
-      setCurrentUser(prev => ({ ...prev, total_points: (prev.total_points || 0) + points }))
+      await awardInspirationPoints('all_steps_complete', 15, '完成全部三步（额外奖励）')
+      const puzzlePoints = work.total_points || 100
+      const totalEarned = puzzlePoints + 20 + 20 + 15
       const { data } = await supabase.from('user_gallery_progress').update({
-        current_step: 'completed', points_earned: points, points_settled: true,
+        current_step: 'completed', points_earned: totalEarned, points_settled: true,
         settled_at: new Date().toISOString(), updated_at: new Date().toISOString()
       }).eq('id', prog.id).select().single()
       if (data) setProgress(data)
@@ -174,6 +217,8 @@ export default function GalleryDetailPage() {
 
   async function completePuzzle() {
     const cc = Object.values(userAnswers).filter(a => a.is_correct).length
+    const puzzlePoints = work.total_points || 100
+    await awardInspirationPoints('puzzle_complete', puzzlePoints, `完成谜题「${work.title}」(${cc}/${questions.length})`)
     const newProg = await saveProgress({ puzzle_completed: true, puzzle_correct_count: cc, puzzle_total_count: questions.length, current_step: 'rike' })
     if (newProg) checkAndSettlePoints(newProg)
   }
@@ -186,6 +231,7 @@ export default function GalleryDetailPage() {
 
   async function completeRike() {
     if (rikeTimer.current) { clearInterval(rikeTimer.current); rikeTimer.current = null }
+    await awardInspirationPoints('rike_complete', 20, `完成日课「${work.title}」`)
     const newProg = await saveProgress({ rike_completed: true, rike_read_seconds: rikeSeconds, rike_completed_at: new Date().toISOString(), current_step: 'fengshang' })
     if (newProg) checkAndSettlePoints(newProg)
   }
@@ -211,6 +257,7 @@ export default function GalleryDetailPage() {
 
   async function completeFengshang() {
     if (fengshangTimer.current) { clearInterval(fengshangTimer.current); fengshangTimer.current = null }
+    await awardInspirationPoints('fengshang_complete', 20, `完成风赏「${work.title}」`)
     const newProg = await saveProgress({ fengshang_completed: true, fengshang_read_seconds: fengshangSeconds, fengshang_completed_at: new Date().toISOString(), current_step: 'fengshang' })
     if (newProg) checkAndSettlePoints(newProg)
   }
@@ -232,6 +279,9 @@ export default function GalleryDetailPage() {
   const allDone = progress?.points_settled
   const currentQ = questions[puzzlePage]
 
+  const puzzlePoints = work.total_points || 100
+  const totalPossible = puzzlePoints + 20 + 20 + 15
+
   const tabs = [
     { key: 'puzzle', icon: '🧩', label: '谜题', done: puzzleDone },
     { key: 'rike', icon: '📖', label: '日课', done: rikeDone },
@@ -242,7 +292,6 @@ export default function GalleryDetailPage() {
     return (
       <div className="md:sticky md:top-28 md:self-start">
         {work.cover_image && work.cover_image.length > 0 && <ZoomableImage src={work.cover_image} alt={work.title} />}
-        {/* 作品信息 */}
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
           {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "8px" }}>{work.title_en}</p>}
@@ -259,12 +308,8 @@ export default function GalleryDetailPage() {
                   <p style={{ color: "#9CA3AF", fontSize: "13px", fontStyle: "italic", marginBottom: "6px" }}>{work.artist_name_en}</p>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {work.year && (
-                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>
-                  )}
-                  {work.collection_location && (
-                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {work.collection_location}</span>
-                  )}
+                  {work.year && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>}
+                  {work.collection_location && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {work.collection_location}</span>}
                 </div>
               </div>
             </div>
@@ -277,6 +322,8 @@ export default function GalleryDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+      <InspirationToast message={toastMessage} show={showToast} />
+
       {/* 顶栏 */}
       <nav className="sticky top-0 bg-white border-b border-gray-200 z-50">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -285,7 +332,12 @@ export default function GalleryDetailPage() {
             <span className="text-gray-300">|</span>
             <span className="font-bold text-gray-900">{work.title}</span>
           </div>
-          {currentUser && <span className="text-sm text-amber-600 font-medium">⭐ {currentUser.total_points || 0} 积分</span>}
+          {currentUser && (
+            <div className="flex items-center gap-2">
+              <LevelBadge level={currentUser.level} size="xs" />
+              <span className="text-sm text-amber-600 font-medium">✨ {currentUser.total_points || 0}</span>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -294,7 +346,7 @@ export default function GalleryDetailPage() {
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
           <div className="px-8 py-4 rounded-2xl shadow-2xl text-center" style={{ backgroundColor: '#FEF3C7', border: '2px solid #F59E0B' }}>
             <div className="text-3xl mb-1">🎉</div>
-            <div className="text-lg font-bold" style={{ color: '#B45309' }}>+{progress?.points_earned || work.total_points} 积分</div>
+            <div className="text-lg font-bold" style={{ color: '#B45309' }}>+{progress?.points_earned || totalPossible} 灵感值</div>
             <div className="text-xs" style={{ color: '#92400E' }}>三步阅览全部完成！</div>
           </div>
         </div>
@@ -313,14 +365,17 @@ export default function GalleryDetailPage() {
                 }}>
                 <span>{t.done ? '✓' : t.icon}</span>
                 <span>{t.label}</span>
+                <span className="text-xs opacity-60">
+                  {t.key === 'puzzle' ? `+${puzzlePoints}` : '+20'}
+                </span>
               </button>
             ))}
             <div className="ml-auto">
               {allDone ? (
-                <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>✅ 已完成 · +{progress?.points_earned}⭐</span>
+                <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>✅ 已完成 · +{progress?.points_earned}✨</span>
               ) : currentUser && (
                 <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                  {[puzzleDone, rikeDone, fengshangDone].filter(Boolean).length}/3 · 完成全部可获 ⭐{work.total_points}
+                  {[puzzleDone, rikeDone, fengshangDone].filter(Boolean).length}/3 · 最多可获 ✨{totalPossible}
                 </span>
               )}
             </div>
@@ -346,7 +401,7 @@ export default function GalleryDetailPage() {
                 <div className="text-center bg-white rounded-2xl p-10 shadow-sm">
                   <div className="text-5xl mb-4">🔒</div>
                   <h2 className="text-xl font-bold text-gray-900 mb-2">登录后开始答题</h2>
-                  <p className="text-gray-500 mb-6">完成三步阅览可获得 ⭐ {work.total_points} 积分</p>
+                  <p className="text-gray-500 mb-6">完成三步阅览可获得 ✨ {totalPossible} 灵感值</p>
                   <Link href={`/login?redirect=/gallery/${id}`} className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
                 </div>
               )}
@@ -354,7 +409,7 @@ export default function GalleryDetailPage() {
               {currentUser && questions.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">🧩 谜题挑战</h2>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">🧩 谜题挑战 <span className="text-sm font-normal text-amber-600">+{puzzlePoints}✨</span></h2>
                     <div className="flex items-center gap-3">
                       <span className="text-sm" style={{ color: '#9CA3AF' }}>第 {puzzlePage + 1}/{questions.length} 题</span>
                       <div className="flex items-center gap-1">
@@ -424,7 +479,7 @@ export default function GalleryDetailPage() {
           </div>
         )}
 
-        {/* ====== 日课 ====== */}
+        {/* ====== 日课（杂志化） ====== */}
         {tab === 'rike' && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
@@ -441,12 +496,52 @@ export default function GalleryDetailPage() {
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-3xl">📖</span>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">日课 · 作品导读</h2>
+                  <h2 className="text-xl font-bold text-gray-900">日课 · 作品导读 <span className="text-sm font-normal text-amber-600">+20✨</span></h2>
                   <p className="text-sm text-gray-500">{rikeDone ? '已完成阅读' : '阅读至少 15 秒后可标记完成'}</p>
                 </div>
               </div>
 
-              {rikeArticle ? (
+              {/* 有杂志页面 → 显示杂志入口 */}
+              {rikePages.length > 0 ? (
+                <div>
+                  {/* 日课正文 */}
+                  {rikeArticle?.intro && (
+                    <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>{rikeArticle.intro}</p>
+                  )}
+                  {rikeArticle?.content && (
+                    <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: "#374151", lineHeight: "1.8", fontSize: "15px" }}
+                      dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />
+                  )}
+
+                  {/* 打开杂志按钮 - 紫色风格 */}
+                  <button onClick={() => setShowRikeMagazine(true)}
+                    className="w-full flex items-center gap-4 rounded-2xl p-5 hover:opacity-90 transition text-left"
+                    style={{ backgroundColor: '#7C3AED' }}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                      <span className="text-2xl">📖</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-white">打开杂志阅读</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{rikePages.length} 页</span>
+                      </div>
+                      <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p>
+                    </div>
+                    <span className="text-lg text-white">→</span>
+                  </button>
+
+                  {!rikeDone && (
+                    <button onClick={completeRike} disabled={rikeSeconds < 15}
+                      className={`mt-4 px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                      {rikeSeconds >= 15 ? '✓ 完成日课 (+20✨)' : `继续阅读 (${15 - rikeSeconds}s)`}
+                    </button>
+                  )}
+                  {rikeDone && !fengshangDone && (
+                    <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>
+                  )}
+                </div>
+              ) : rikeArticle ? (
+                /* 没有杂志页面 → 保持原来的纯文字展示 */
                 <div>
                   {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{rikeArticle.intro}</p>}
                   {rikeArticle.content && (
@@ -456,11 +551,11 @@ export default function GalleryDetailPage() {
                   {!rikeDone && (
                     <button onClick={completeRike} disabled={rikeSeconds < 15}
                       className={`px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                      {rikeSeconds >= 15 ? '✓ 完成日课' : `继续阅读 (${15 - rikeSeconds}s)`}
+                      {rikeSeconds >= 15 ? '✓ 完成日课 (+20✨)' : `继续阅读 (${15 - rikeSeconds}s)`}
                     </button>
                   )}
                   {rikeDone && !fengshangDone && (
-                    <button onClick={() => setTab('fengshang')} className="px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>
+                    <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>
                   )}
                 </div>
               ) : (
@@ -487,7 +582,7 @@ export default function GalleryDetailPage() {
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-3xl">🎐</span>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">风赏 · 评论鉴赏</h2>
+                  <h2 className="text-xl font-bold text-gray-900">风赏 · 评论鉴赏 <span className="text-sm font-normal text-amber-600">+20✨</span></h2>
                   <p className="text-sm text-gray-500">{fengshangDone ? '已完成鉴赏' : '阅读名家短评，也留下你的看法'}</p>
                 </div>
               </div>
@@ -515,7 +610,7 @@ export default function GalleryDetailPage() {
                 )}
               </div>
 
-              {currentUser && (
+              {currentUser && !fengshangComments.some(c => c.user_id === currentUser.id) && (
                 <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="font-medium text-sm" style={{ color: '#111827' }}>写下你的看法</span>
@@ -535,19 +630,19 @@ export default function GalleryDetailPage() {
               {!fengshangDone && (
                 <button onClick={completeFengshang} disabled={fengshangSeconds < 15}
                   className={`px-8 py-3 rounded-xl font-medium text-sm ${fengshangSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                  {fengshangSeconds >= 15 ? '✓ 完成风赏' : `继续浏览 (${15 - fengshangSeconds}s)`}
+                  {fengshangSeconds >= 15 ? '✓ 完成风赏 (+20✨)' : `继续浏览 (${15 - fengshangSeconds}s)`}
                 </button>
               )}
 
               {fengshangDone && !puzzleDone && (
                 <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-                  <p className="text-sm" style={{ color: '#92400E' }}>🧩 还没完成谜题，完成全部三步可获得 ⭐{work.total_points} 积分</p>
+                  <p className="text-sm" style={{ color: '#92400E' }}>🧩 还没完成谜题，完成全部三步可获得额外 ✨15 灵感值</p>
                   <button onClick={() => setTab('puzzle')} className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>去做谜题 →</button>
                 </div>
               )}
               {fengshangDone && puzzleDone && !rikeDone && (
                 <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-                  <p className="text-sm" style={{ color: '#92400E' }}>📖 还没完成日课，完成全部三步可获得 ⭐{work.total_points} 积分</p>
+                  <p className="text-sm" style={{ color: '#92400E' }}>📖 还没完成日课，完成全部三步可获得额外 ✨15 灵感值</p>
                   <button onClick={() => setTab('rike')} className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>去看日课 →</button>
                 </div>
               )}
@@ -555,6 +650,20 @@ export default function GalleryDetailPage() {
           </div>
         )}
       </div>
+
+      {/* 杂志阅读器弹窗 */}
+      {showRikeMagazine && (
+        <RikeMagazineReader
+          pages={rikePages}
+          articleTitle={rikeArticle?.title || work.title}
+          onClose={() => setShowRikeMagazine(false)}
+          onComplete={async () => {
+            await completeRike()
+            setShowRikeMagazine(false)
+          }}
+          completed={rikeDone}
+        />
+      )}
     </div>
   )
 }
@@ -576,7 +685,6 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
         </span>
       </div>
 
-      {/* 判断题 */}
       {qType === 'truefalse' && (
         <div className="grid grid-cols-2 gap-4">
           {question.options?.map(opt => {
@@ -599,7 +707,6 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
         </div>
       )}
 
-      {/* 单选题 */}
       {qType === 'single' && (
         <div className="space-y-2.5">
           {question.options?.map(opt => {
@@ -627,7 +734,6 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
         </div>
       )}
 
-      {/* 多选题 */}
       {qType === 'multiple' && (
         <div>
           {!answer && <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>可选择多个答案，选完后点击「确认」</p>}

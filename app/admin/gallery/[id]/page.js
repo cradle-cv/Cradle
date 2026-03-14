@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
+import RikePageEditor from '@/components/RikePageEditor'
 
 export default function AdminGalleryEditPage() {
   const { id } = useParams()
@@ -280,7 +281,24 @@ export default function AdminGalleryEditPage() {
               ))}
             </select>
           </div>
-
+{/* 日课杂志编辑器 */}
+          {form.rike_article_id && (
+            <div className="mb-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+              <h3 className="text-sm font-bold text-purple-800 mb-3">📖 日课杂志化编辑</h3>
+              <RikePageEditor
+                articleId={form.rike_article_id}
+                workInfo={{
+                  title: form.title,
+                  artist_name: form.artist_name,
+                  year: form.year,
+                  medium: form.medium,
+                  description: form.description,
+                  cover_image: form.cover_image,
+                  artist_avatar: form.artist_avatar,
+                }}
+              />
+            </div>
+          )}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">🎐 风赏（赏析评论）</label>
             <select name="fengshang_article_id" value={form.fengshang_article_id} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">

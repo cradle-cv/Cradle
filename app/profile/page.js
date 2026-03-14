@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import InspirationPanel from '@/components/InspirationPanel'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -26,7 +27,6 @@ export default function ProfilePage() {
       if (!ud) { router.push('/login?redirect=/profile'); return }
       setUserData(ud)
 
-      // 作品进度
       const { data: pg } = await supabase
         .from('user_gallery_progress')
         .select('*, gallery_works(title, cover_image, artist_name)')
@@ -34,7 +34,6 @@ export default function ProfilePage() {
         .order('updated_at', { ascending: false })
       if (pg) setProgress(pg)
 
-      // 积分记录
       const { data: pts } = await supabase
         .from('user_points')
         .select('*')
@@ -43,7 +42,6 @@ export default function ProfilePage() {
         .limit(20)
       if (pts) setPoints(pts)
 
-      // 用户短评
       const { data: cm } = await supabase
         .from('gallery_comments')
         .select('*, gallery_works:work_id(title, cover_image)')
@@ -65,15 +63,11 @@ export default function ProfilePage() {
 
   const completedCount = progress.filter(p => p.points_settled).length
   const inProgressCount = progress.filter(p => !p.points_settled).length
-
-  // 注册天数
   const daysSince = Math.floor((Date.now() - new Date(userData.created_at).getTime()) / 86400000)
-
   const genderLabels = { male: '♂', female: '♀', other: '⚧', private: '' }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F5F4', fontFamily: '"Noto Serif SC", serif' }}>
-      {/* 导航 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -98,9 +92,7 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      {/* 主体 */}
       <div className="max-w-4xl mx-auto px-6 py-10">
-        {/* 资料未完善提醒 */}
         {!userData.profile_completed && (
           <Link href="/profile/edit?new=1"
             className="block rounded-2xl p-5 mb-6 transition-colors hover:opacity-90"
@@ -109,9 +101,8 @@ export default function ProfilePage() {
           </Link>
         )}
 
-        {/* 用户信息卡 - 豆瓣风格 */}
+        {/* 用户信息卡 */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-8">
-          {/* 封面背景 */}
           <div className="h-24 relative" style={{
             background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
           }}>
@@ -121,7 +112,6 @@ export default function ProfilePage() {
           </div>
 
           <div className="px-8 pb-8">
-            {/* 头像 + 基本信息 */}
             <div className="flex items-end gap-6 -mt-12 mb-6 relative z-10">
               <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0"
                 style={{ border: '4px solid #FFFFFF', backgroundColor: '#F3F4F6' }}>
@@ -148,36 +138,27 @@ export default function ProfilePage() {
                   {userData.location && (
                     <span className="text-sm" style={{ color: '#9CA3AF' }}>📍 {userData.location}</span>
                   )}
-                  <span className="text-sm" style={{ color: '#9CA3AF' }}>
-                    加入 {daysSince} 天
-                  </span>
+                  <span className="text-sm" style={{ color: '#9CA3AF' }}>加入 {daysSince} 天</span>
                 </div>
               </div>
             </div>
 
-            {/* 简介 */}
             {userData.bio && (
-              <p className="mb-6 leading-relaxed" style={{ color: '#4B5563', fontSize: '15px' }}>
-                {userData.bio}
-              </p>
+              <p className="mb-6 leading-relaxed" style={{ color: '#4B5563', fontSize: '15px' }}>{userData.bio}</p>
             )}
 
-            {/* 兴趣标签 */}
             {userData.interests && userData.interests.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 {userData.interests.map(tag => (
                   <span key={tag} className="px-3 py-1 rounded-full text-xs"
-                    style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
-                    {tag}
-                  </span>
+                    style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{tag}</span>
                 ))}
               </div>
             )}
 
-            {/* 数据卡片 */}
             <div className="grid grid-cols-4 gap-3">
               {[
-                { value: userData.total_points || 0, label: '积分', color: '#B45309', bg: '#FEF3C7' },
+                { value: userData.total_points || 0, label: '灵感值', color: '#B45309', bg: '#FEF3C7' },
                 { value: completedCount, label: '已完成', color: '#059669', bg: '#ECFDF5' },
                 { value: inProgressCount, label: '进行中', color: '#2563EB', bg: '#EFF6FF' },
                 { value: comments.length, label: '短评', color: '#7C3AED', bg: '#F5F3FF' }
@@ -189,7 +170,6 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {/* 网站链接 */}
             {userData.website && (
               <div className="mt-4">
                 <a href={userData.website} target="_blank" rel="noopener noreferrer"
@@ -201,12 +181,20 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* 灵感值面板 */}
+        <InspirationPanel
+          userId={userData.id}
+          totalPoints={userData.total_points}
+          level={userData.level}
+          onUpdate={(pts, lv) => setUserData(prev => ({ ...prev, total_points: pts, level: lv }))}
+        />
+
         {/* Tab 切换 */}
-        <div className="flex gap-6 mb-6 border-b" style={{ borderColor: '#E5E7EB' }}>
+        <div className="flex gap-6 mb-6 border-b mt-8" style={{ borderColor: '#E5E7EB' }}>
           {[
             { key: 'works', label: '作品探索', count: progress.length },
             { key: 'comments', label: '我的短评', count: comments.length },
-            { key: 'points', label: '积分记录', count: points.length }
+            { key: 'points', label: '灵感值记录', count: points.length }
           ].map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className="pb-3 text-sm font-medium transition-colors"
@@ -219,7 +207,6 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Tab: 作品探索 */}
         {activeTab === 'works' && (
           <div>
             {progress.length === 0 ? (
@@ -265,7 +252,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Tab: 我的短评 */}
         {activeTab === 'comments' && (
           <div>
             {comments.length === 0 ? (
@@ -277,7 +263,6 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 {comments.map(c => (
                   <div key={c.id} className="bg-white rounded-xl p-5 shadow-sm">
-                    {/* 作品信息 */}
                     <div className="flex items-center gap-3 mb-3">
                       {c.gallery_works?.cover_image && (
                         <img src={c.gallery_works.cover_image} className="w-10 h-10 rounded-lg object-cover" />
@@ -302,13 +287,12 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Tab: 积分记录 */}
         {activeTab === 'points' && (
           <div>
             {points.length === 0 ? (
               <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
-                <div className="text-4xl mb-3">⭐</div>
-                <p style={{ color: '#9CA3AF' }}>暂无积分记录</p>
+                <div className="text-4xl mb-3">✨</div>
+                <p style={{ color: '#9CA3AF' }}>暂无灵感值记录</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -319,7 +303,9 @@ export default function ProfilePage() {
                       <p className="text-sm" style={{ color: '#374151' }}>{p.description || p.type}</p>
                       <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{new Date(p.created_at).toLocaleDateString('zh-CN')}</p>
                     </div>
-                    <span className="font-bold" style={{ color: '#B45309' }}>+{p.points}</span>
+                    <span className="font-bold" style={{ color: p.points >= 0 ? '#B45309' : '#DC2626' }}>
+                      {p.points >= 0 ? '+' : ''}{p.points}
+                    </span>
                   </div>
                 ))}
               </div>
