@@ -9,6 +9,7 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
   const initialMode = searchParams.get('mode') || 'login'
+  const inviteCodeFromUrl = searchParams.get('invite') || ''
 
   const [mode, setMode] = useState(initialMode) // login | register
   const [method, setMethod] = useState('email') // email | username
@@ -18,7 +19,8 @@ function LoginForm() {
 
   const [form, setForm] = useState({
     email: '', password: '', confirmPassword: '',
-    username: '', loginUsername: '', loginPassword: ''
+  username: '', loginUsername: '', loginPassword: '',
+  inviteCode: inviteCodeFromUrl
   })
 
   function handleChange(e) {
@@ -119,7 +121,19 @@ function LoginForm() {
         })
         if (ue && !ue.message.includes('duplicate')) throw ue
       }
-
+if (form.inviteCode && authData.user) {
+        try {
+          const { data: newUser } = await supabase
+            .from('users').select('id').eq('auth_id', authData.user.id).single()
+          if (newUser) {
+            await fetch('/api/invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ inviteCode: form.inviteCode, newUserId: newUser.id }),
+            })
+          }
+        } catch (e) { console.error('邀请处理失败:', e) }
+      }
       if (authData.session) {
         router.push('/profile/edit?new=1')
       } else {
@@ -297,6 +311,12 @@ function LoginForm() {
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '注册中...' : '注册'}
               </button>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码（可选）</label>
+                <input name="inviteCode" value={form.inviteCode} onChange={handleChange}
+                  placeholder="如有好友邀请码，填写可获额外奖励"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
               <p className="text-center text-xs" style={{ color: '#9CA3AF' }}>注册即表示你同意我们的服务条款和隐私政策</p>
             </form>
           )}

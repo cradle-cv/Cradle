@@ -23,6 +23,8 @@ function ProfileEditForm() {
   const [uploading, setUploading] = useState(false)
   const [userId, setUserId] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState('')
+  const [wasProfileCompleted, setWasProfileCompleted] = useState(false)
+  const [inviteCode, setInviteCode] = useState('')
 
   const [form, setForm] = useState({
     username: '', bio: '', location: '', gender: 'private',
@@ -45,6 +47,8 @@ function ProfileEditForm() {
 
       if (!ud) { router.push('/login'); return }
       setUserId(ud.id)
+      setWasProfileCompleted(ud.profile_completed || false)
+      setInviteCode(ud.invite_code || '')
       setForm({
         username: ud.username || '',
         bio: ud.bio || '',
@@ -83,12 +87,9 @@ function ProfileEditForm() {
   async function handleAvatarUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // 预览
     const reader = new FileReader()
     reader.onload = (e) => setAvatarPreview(e.target.result)
     reader.readAsDataURL(file)
-
     setUploading(true)
     try {
       const { url } = await uploadImage(file, 'avatars')
@@ -122,6 +123,22 @@ function ProfileEditForm() {
 
       if (error) throw error
 
+      // ✅ 首次完善资料 +30 灵感值
+      if (!wasProfileCompleted) {
+        try {
+          await fetch('/api/inspiration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              type: 'complete_profile',
+              points: 30,
+              description: '完善个人资料',
+            }),
+          })
+        } catch (e) { console.error('灵感值奖励失败:', e) }
+      }
+
       if (isNew) {
         router.push('/profile')
       } else {
@@ -133,6 +150,16 @@ function ProfileEditForm() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // 复制邀请链接
+  function copyInviteLink() {
+    const link = `${window.location.origin}/login?mode=register&invite=${inviteCode}`
+    navigator.clipboard.writeText(link).then(() => {
+      alert('✅ 邀请链接已复制！分享给好友注册可获得 30 灵感值')
+    }).catch(() => {
+      prompt('复制此链接分享给好友：', link)
+    })
   }
 
   if (loading) {
@@ -148,7 +175,6 @@ function ProfileEditForm() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAFAFA', fontFamily: '"Noto Serif SC", serif' }}>
-      {/* 顶部导航 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -167,11 +193,10 @@ function ProfileEditForm() {
 
       <div className="max-w-2xl mx-auto px-6 py-10">
 
-        {/* 新用户欢迎 */}
         {isNew && (
           <div className="rounded-2xl p-6 mb-8" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
             <h2 className="text-lg font-bold mb-1" style={{ color: '#1E40AF' }}>🎉 注册成功！欢迎来到 Cradle</h2>
-            <p className="text-sm" style={{ color: '#3B82F6' }}>花一分钟完善你的个人资料，让其他艺术爱好者认识你</p>
+            <p className="text-sm" style={{ color: '#3B82F6' }}>花一分钟完善你的个人资料，可获得 ✨30 灵感值</p>
           </div>
         )}
 
@@ -218,7 +243,6 @@ function ProfileEditForm() {
                 className="w-full px-4 py-3 rounded-xl border outline-none"
                 style={{ borderColor: '#D1D5DB', color: '#111827' }} />
             </div>
-
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>个人简介</label>
               <textarea name="bio" value={form.bio} onChange={handleChange} rows={3}
@@ -229,7 +253,6 @@ function ProfileEditForm() {
                 {form.bio.length}/200
               </p>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>性别</label>
@@ -255,7 +278,6 @@ function ProfileEditForm() {
                   style={{ borderColor: '#D1D5DB', color: '#111827' }} />
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>所在地</label>
@@ -272,7 +294,6 @@ function ProfileEditForm() {
                   style={{ borderColor: '#D1D5DB', color: '#111827' }} />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>个人网站</label>
               <input name="website" value={form.website} onChange={handleChange}
@@ -307,6 +328,25 @@ function ProfileEditForm() {
             })}
           </div>
         </div>
+
+        {/* ✅ 邀请好友 */}
+        {!isNew && inviteCode && (
+          <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
+            <h2 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>👥 邀请好友</h2>
+            <p className="text-sm mb-4" style={{ color: '#9CA3AF' }}>分享你的邀请链接，好友注册后你可获得 ✨30 灵感值</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 px-4 py-3 rounded-xl text-sm truncate" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                {typeof window !== 'undefined' ? `${window.location.origin}/login?mode=register&invite=${inviteCode}` : `...?invite=${inviteCode}`}
+              </div>
+              <button onClick={copyInviteLink}
+                className="px-5 py-3 rounded-xl text-sm font-medium text-white flex-shrink-0"
+                style={{ backgroundColor: '#7C3AED' }}>
+                复制链接
+              </button>
+            </div>
+            <p className="text-xs mt-3" style={{ color: '#9CA3AF' }}>你的邀请码：<span className="font-mono font-bold" style={{ color: '#7C3AED' }}>{inviteCode}</span></p>
+          </div>
+        )}
 
         {/* 保存按钮 */}
         <div className="flex items-center gap-4">

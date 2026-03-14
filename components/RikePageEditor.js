@@ -240,7 +240,11 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">正文</label>
                     <textarea value={page.content || ''} onChange={e => updatePage(index, 'content', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm" rows={4} placeholder="正文内容..." />
+                      className="w-full px-3 py-2 border rounded-lg text-sm" rows={page.layout === 'interleave' ? 8 : 4}
+                      placeholder={page.layout === 'interleave' ? '用换行分隔段落，图片会自动插入段落之间...\n\n第一段文字...\n\n第二段文字...\n\n第三段文字...' : '正文内容...'} />
+                    {page.layout === 'interleave' && (
+                      <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>💡 每段之间用换行分隔，主图插在第一段后，第二张图插在中间位置</p>
+                    )}
                   </div>
 
                   {/* 图片 */}
@@ -280,9 +284,11 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
                         </div>
                       )}
                     </div>
-                    {(page.layout === 'compare') && (
+                    {(page.layout === 'compare' || page.layout === 'interleave') && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">对比图</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          {page.layout === 'compare' ? '对比图' : '第二张图'}
+                        </label>
                         {page.image_url_2 ? (
                           <div className="relative">
                             <img src={page.image_url_2} className="w-full h-32 object-cover rounded-lg" />

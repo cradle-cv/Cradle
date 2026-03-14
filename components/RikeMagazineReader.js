@@ -181,23 +181,23 @@ function PageRenderer({ page, totalPages, currentPage }) {
         {page.image_url && (
           <img src={page.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%)' }} />
-        <div className="relative z-10 flex items-end justify-end min-h-[calc(100vh-120px)] p-6 md:p-10">
-          <div className="max-w-2xl w-full rounded-2xl p-8 md:p-12 shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)' }}>
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)' }} />
+        <div className="relative z-10 flex items-center justify-end min-h-[calc(100vh-120px)] p-6 md:p-10">
+          <div className="rounded-2xl p-8 md:p-12 shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.93)', backdropFilter: 'blur(16px)', width: '55%', minWidth: '320px', maxWidth: '720px', minHeight: '50vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {page.title && (
-              <h2 className="text-lg md:text-xl font-bold mb-3" style={{ color: '#111827', lineHeight: 1.4 }}>
+              <h2 className="text-xl md:text-3xl font-bold mb-5" style={{ color: '#111827', lineHeight: 1.4 }}>
                 {page.title}
               </h2>
             )}
             {page.content && (
-              <div className="text-sm leading-relaxed" style={{ color: '#4B5563', lineHeight: '1.9' }}>
+              <div className="text-sm md:text-base leading-relaxed" style={{ color: '#4B5563', lineHeight: '2' }}>
                 {page.content.split('\n').map((p, i) => (
-                  <p key={i} className="mb-2">{p}</p>
+                  <p key={i} className="mb-3">{p}</p>
                 ))}
               </div>
             )}
             {page.image_caption && (
-              <p className="text-xs mt-3 pt-3" style={{ color: '#9CA3AF', borderTop: '1px solid #E5E7EB' }}>{page.image_caption}</p>
+              <p className="text-xs mt-5 pt-4" style={{ color: '#9CA3AF', borderTop: '1px solid #E5E7EB' }}>{page.image_caption}</p>
             )}
           </div>
         </div>
@@ -262,6 +262,8 @@ function PageRenderer({ page, totalPages, currentPage }) {
   // === 图文交错：图片和文字段落交替排列 ===
   if (layout === 'interleave') {
     const paragraphs = (page.content || '').split('\n').filter(p => p.trim())
+    // 计算第二张图插入的位置（在段落中间）
+    const midPoint = Math.max(1, Math.ceil(paragraphs.length / 2))
     return (
       <div className="min-h-[calc(100vh-120px)] py-8 md:py-12 px-6 md:px-12" style={bgStyle}>
         <div className="max-w-3xl mx-auto">
@@ -289,19 +291,26 @@ function PageRenderer({ page, totalPages, currentPage }) {
             </div>
           )}
 
-          {/* 剩余段落 */}
-          {paragraphs.slice(1).map((p, i) => (
-            <p key={i} className="text-sm md:text-base mb-5 leading-relaxed" style={{ color: page.text_color || '#374151', lineHeight: '2' }}>
+          {/* 中间段落（第2段到midPoint） */}
+          {paragraphs.slice(1, midPoint).map((p, i) => (
+            <p key={`mid-${i}`} className="text-sm md:text-base mb-5 leading-relaxed" style={{ color: page.text_color || '#374151', lineHeight: '2' }}>
               {p}
             </p>
           ))}
 
-          {/* 第二张图（如果有） */}
+          {/* 第二张图（插在中间） */}
           {page.image_url_2 && (
-            <div className="mt-6 rounded-xl overflow-hidden shadow-sm">
-              <img src={page.image_url_2} alt="" className="w-full object-cover" style={{ maxHeight: '40vh' }} />
+            <div className="my-6 rounded-xl overflow-hidden shadow-sm">
+              <img src={page.image_url_2} alt="" className="w-full object-cover" style={{ maxHeight: '45vh' }} />
             </div>
           )}
+
+          {/* 剩余段落 */}
+          {paragraphs.slice(midPoint).map((p, i) => (
+            <p key={`end-${i}`} className="text-sm md:text-base mb-5 leading-relaxed" style={{ color: page.text_color || '#374151', lineHeight: '2' }}>
+              {p}
+            </p>
+          ))}
         </div>
       </div>
     )
