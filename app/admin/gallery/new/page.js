@@ -12,6 +12,7 @@ export default function AdminGalleryNewPage() {
   const [preview, setPreview] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   // 作品基本信息
   const [form, setForm] = useState({
@@ -64,6 +65,68 @@ export default function AdminGalleryNewPage() {
     }
   }
 
+  // ========== AI 生成日课内容 ==========
+  async function handleAiGenerateRike() {
+    if (!form.title.trim()) {
+      alert('请先在「作品信息」Tab 填写作品标题')
+      return
+    }
+    if (!confirm('AI 将根据作品信息生成日课内容，会覆盖当前已填写的日课内容，继续？')) return
+
+    setAiGenerating(true)
+    try {
+      const resp = await fetch('/api/rike-pages/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workInfo: {
+            title: form.title,
+            artist_name: form.artist_name,
+            year: form.year,
+            medium: form.medium,
+            description: form.description,
+            cover_image: form.cover_image,
+            artist_avatar: form.artist_avatar,
+          },
+          generateTextOnly: true,
+        }),
+      })
+      const data = await resp.json()
+
+      if (data.intro || data.content) {
+        setRikeData(prev => ({
+          ...prev,
+          title: prev.title || `${form.title} - 日课`,
+          intro: data.intro || prev.intro,
+          content: data.content || prev.content,
+        }))
+        alert('✅ AI 日课内容生成成功！')
+      } else if (data.pages && data.pages.length > 0) {
+        // 如果API返回的是pages格式，拼接成文章内容
+        const intro = data.pages[0]?.content || ''
+        const content = data.pages.slice(1).map(p => {
+          let text = ''
+          if (p.title) text += p.title + '\n\n'
+          if (p.content) text += p.content
+          return text
+        }).filter(Boolean).join('\n\n')
+        setRikeData(prev => ({
+          ...prev,
+          title: prev.title || `${form.title} - 日课`,
+          intro: intro,
+          content: content,
+        }))
+        alert('✅ AI 日课内容生成成功！')
+      } else {
+        alert('AI 生成返回为空，请检查作品信息是否完整')
+      }
+    } catch (err) {
+      alert('AI 生成失败: ' + err.message)
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   function addQuestion(type = 'single') {
     const templates = {
       single: [
@@ -105,10 +168,8 @@ export default function AdminGalleryNewPage() {
       const newOptions = [...q.options]
       if (field === 'is_correct') {
         if (q.question_type === 'multiple') {
-          // 多选题：切换单个选项
           newOptions[optIndex] = { ...newOptions[optIndex], is_correct: value }
         } else {
-          // 单选/判断：只允许一个正确
           newOptions.forEach((o, i) => { o.is_correct = i === optIndex })
         }
       } else {
@@ -519,20 +580,38 @@ export default function AdminGalleryNewPage() {
 
         {/* ========== TAB: 日课 ========== */}
         {activeTab === 'rike' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>📖 日课文章</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>文章标题</label>
-                <input value={rikeData.title} onChange={e => setRikeData(prev => ({ ...prev, title: e.target.value }))} className={inputCls} placeholder="留空自动填充「作品名 - 日课」" />
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold" style={{ color: '#111827' }}>📖 日课文章</h2>
+                <button type="button" onClick={handleAiGenerateRike} disabled={aiGenerating}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-50"
+                  style={{ backgroundColor: '#7C3AED' }}>
+                  {aiGenerating ? '🤖 生成中...' : '🤖 AI 生成日课内容'}
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>简介</label>
-                <textarea value={rikeData.intro} onChange={e => setRikeData(prev => ({ ...prev, intro: e.target.value }))} rows={2} className={inputCls} placeholder="简要介绍..." />
+
+              {/* AI 提示 */}
+              <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#F5F3FF', border: '1px solid #E9D5FF' }}>
+                <p className="text-xs" style={{ color: '#7C3AED' }}>
+                  💡 点击「AI 生成日课内容」可根据作品信息自动生成导读文章。请先在「作品信息」Tab 填写标题、艺术家、年代等基本信息，信息越完整生成效果越好。
+                  保存作品后，可在「编辑作品」中进一步生成杂志化页面。
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>正文内容</label>
-                <textarea value={rikeData.content} onChange={e => setRikeData(prev => ({ ...prev, content: e.target.value }))} rows={12} className={inputCls + " font-mono text-sm"} placeholder="作品导读正文，用户需阅读至少15秒..." />
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>文章标题</label>
+                  <input value={rikeData.title} onChange={e => setRikeData(prev => ({ ...prev, title: e.target.value }))} className={inputCls} placeholder="留空自动填充「作品名 - 日课」" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>简介</label>
+                  <textarea value={rikeData.intro} onChange={e => setRikeData(prev => ({ ...prev, intro: e.target.value }))} rows={2} className={inputCls} placeholder="简要介绍..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>正文内容</label>
+                  <textarea value={rikeData.content} onChange={e => setRikeData(prev => ({ ...prev, content: e.target.value }))} rows={12} className={inputCls + " font-mono text-sm"} placeholder="作品导读正文，用户需阅读至少15秒..." />
+                </div>
               </div>
             </div>
           </div>

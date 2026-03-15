@@ -69,7 +69,6 @@ export default function GalleryDetailPage() {
       if (w.rike_article_id) {
         const { data: ra } = await supabase.from('articles').select('*').eq('id', w.rike_article_id).single()
         setRikeArticle(ra)
-        // 加载杂志页面
         try {
           const rpResp = await fetch(`/api/rike-pages?articleId=${w.rike_article_id}`)
           const rpData = await rpResp.json()
@@ -268,8 +267,8 @@ export default function GalleryDetailPage() {
   }
 
   useEffect(() => {
-    if (tab === 'rike' && !progress?.rike_completed) startRikeTimer()
-    if (tab === 'fengshang' && !progress?.fengshang_completed) startFengshangTimer()
+    if (tab === 'rike' && currentUser && !progress?.rike_completed) startRikeTimer()
+    if (tab === 'fengshang' && currentUser && !progress?.fengshang_completed) startFengshangTimer()
   }, [tab])
 
   // ========== 渲染 ==========
@@ -321,6 +320,18 @@ export default function GalleryDetailPage() {
           )}
         </div>
         {children}
+      </div>
+    )
+  }
+
+  // 未登录锁定面板
+  function LoginLock({ icon, title, desc }) {
+    return (
+      <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-10 shadow-sm">
+        <div className="text-5xl mb-4">🔒</div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+        <p className="text-gray-500 mb-6">{desc}</p>
+        <Link href={`/login?redirect=/gallery/${id}`} className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
       </div>
     )
   }
@@ -484,8 +495,13 @@ export default function GalleryDetailPage() {
           </div>
         )}
 
-        {/* ====== 日课（杂志化） ====== */}
-        {tab === 'rike' && (
+        {/* ====== 日课（杂志化）— 未登录锁定 ====== */}
+        {tab === 'rike' && !currentUser && (
+          <LoginLock title="登录后查看日课" desc="阅读作品导读，获得 ✨20 灵感值" />
+        )}
+
+        {/* ====== 日课（杂志化）— 已登录 ====== */}
+        {tab === 'rike' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
@@ -509,7 +525,6 @@ export default function GalleryDetailPage() {
               {/* 有杂志页面 → 显示杂志入口 */}
               {rikePages.length > 0 ? (
                 <div>
-                  {/* 日课正文 */}
                   {rikeArticle?.intro && (
                     <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>{rikeArticle.intro}</p>
                   )}
@@ -518,7 +533,6 @@ export default function GalleryDetailPage() {
                       dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />
                   )}
 
-                  {/* 打开杂志按钮 - 紫色风格 */}
                   <button onClick={() => setShowRikeMagazine(true)}
                     className="w-full flex items-center gap-4 rounded-2xl p-5 hover:opacity-90 transition text-left"
                     style={{ backgroundColor: '#7C3AED' }}>
@@ -546,7 +560,6 @@ export default function GalleryDetailPage() {
                   )}
                 </div>
               ) : rikeArticle ? (
-                /* 没有杂志页面 → 保持原来的纯文字展示 */
                 <div>
                   {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{rikeArticle.intro}</p>}
                   {rikeArticle.content && (
@@ -570,8 +583,13 @@ export default function GalleryDetailPage() {
           </div>
         )}
 
-        {/* ====== 风赏 ====== */}
-        {tab === 'fengshang' && (
+        {/* ====== 风赏 — 未登录锁定 ====== */}
+        {tab === 'fengshang' && !currentUser && (
+          <LoginLock title="登录后查看风赏" desc="阅读名家短评，留下你的看法，获得 ✨20 灵感值" />
+        )}
+
+        {/* ====== 风赏 — 已登录 ====== */}
+        {tab === 'fengshang' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">

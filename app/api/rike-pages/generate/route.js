@@ -3,10 +3,77 @@ import { NextResponse } from 'next/server'
 // POST - AI 生成日课杂志页面（DeepSeek）
 export async function POST(request) {
   try {
-    const { workTitle, artistName, year, medium, description, style, pageCount = 5, focusAreas = [] } = await request.json()
+    const body = await request.json()
+
+    // 支持两种传参方式
+    const workTitle = body.workTitle || body.workInfo?.title
+    const artistName = body.artistName || body.workInfo?.artist_name
+    const year = body.year || body.workInfo?.year
+    const medium = body.medium || body.workInfo?.medium
+    const description = body.description || body.workInfo?.description
+    const style = body.style
+    const pageCount = body.pageCount || 5
+    const focusAreas = body.focusAreas || []
+    const generateTextOnly = body.generateTextOnly || false
 
     if (!workTitle) {
       return NextResponse.json({ error: '缺少作品信息' }, { status: 400 })
+    }
+
+    // ========== 纯文本模式：生成日课文章 intro + content ==========
+    if (generateTextOnly) {
+      const textPrompt = `你是一位资深的艺术杂志编辑，请为以下作品撰写一篇日课导读文章。
+
+作品信息：
+- 标题：${workTitle}
+- 艺术家：${artistName || '未知'}
+- 年代：${year || '未知'}
+- 媒介：${medium || '未知'}
+- 简介：${description || '无'}
+
+要求：
+1. 文章分为"简介"和"正文"两部分
+2. 简介：1-2句话概括作品的核心看点，吸引读者阅读
+3. 正文：500-800字，包含创作背景、技法分析、细节解读、艺术价值等
+4. 语言优美、专业但通俗易懂，适合艺术爱好者阅读
+5. 正文用段落分隔，每段之间空一行
+
+请严格只返回 JSON，不要包含任何其他文字、markdown标记或代码块：
+{
+  "intro": "简介内容",
+  "content": "正文内容（段落之间用\\n\\n分隔）"
+}`
+
+      const resp = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: textPrompt }],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      })
+
+      if (!resp.ok) {
+        const errText = await resp.text()
+        console.error('DeepSeek API error:', errText)
+        return NextResponse.json({ error: 'AI 服务调用失败' }, { status: 500 })
+      }
+
+      const result = await resp.json()
+      let content = result.choices?.[0]?.message?.content || ''
+      content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+
+      try {
+        const parsed = JSON.parse(content)
+        return NextResponse.json({ intro: parsed.intro || '', content: parsed.content || '' })
+      } catch (e) {
+        return NextResponse.json({ intro: '', content: content })
+      }
     }
 
     const focusText = focusAreas.length > 0
