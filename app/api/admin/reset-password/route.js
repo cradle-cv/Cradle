@@ -30,10 +30,10 @@ export async function POST(request) {
     }
 
     // 用 admin API 重置密码
-    const { error } = await supabase.auth.admin.updateUserById(user.auth_id, {
+const { error } = await supabase.auth.admin.updateUserById(user.auth_id, {
       password: newPassword,
+      email_confirm: true,
     })
-
     if (error) throw error
 
     return NextResponse.json({ success: true })
