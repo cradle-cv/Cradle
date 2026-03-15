@@ -196,6 +196,31 @@ export default function AdminUserDetailPage() {
         <div className="space-y-6">
           {/* 头像 */}
           <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>🔑 重置密码</h2>
+            <p className="text-sm mb-3" style={{ color: '#6B7280' }}>为用户设置新密码，重置后用户需用新密码登录</p>
+            <div className="flex gap-3">
+              <input id="newPassword" type="text" placeholder="输入新密码（至少6位）"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900" />
+              <button onClick={async () => {
+                const pwd = document.getElementById('newPassword').value
+                if (!pwd || pwd.length < 6) { alert('密码至少6位'); return }
+                if (!confirm(`确定将此用户密码重置为「${pwd}」？`)) return
+                const resp = await fetch('/api/admin/reset-password', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: id, newPassword: pwd }),
+                })
+                const data = await resp.json()
+                if (data.success) { alert('✅ 密码已重置'); document.getElementById('newPassword').value = '' }
+                else alert('❌ ' + (data.error || '重置失败'))
+              }}
+                className="px-6 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#B45309' }}>
+                重置密码
+              </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>头像</h2>
             <div className="flex items-center gap-6">
               <div className="relative group cursor-pointer" onClick={() => avatarRef.current?.click()}>

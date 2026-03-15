@@ -220,6 +220,22 @@ export default function AdminUsersPage() {
                               style={{ color: u.status === 'banned' ? '#059669' : '#DC2626' }}>
                               {u.status === 'banned' ? '解除封禁' : '封禁用户'}
                             </button>
+                            <button onClick={async () => {
+                              const pwd = prompt('输入新密码（至少6位）：')
+                              if (!pwd || pwd.length < 6) { if (pwd) alert('密码至少6位'); return }
+                              const resp = await fetch('/api/admin/reset-password', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ userId: u.id, newPassword: pwd }),
+                              })
+                              const data = await resp.json()
+                              if (data.success) alert('✅ 密码已重置')
+                              else alert('❌ ' + (data.error || '重置失败'))
+                            }}
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50"
+                              style={{ color: '#B45309' }}>
+                              重置密码
+                            </button>
                           </div>
                         </div>
                       </div>
