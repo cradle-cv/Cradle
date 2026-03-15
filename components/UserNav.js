@@ -44,7 +44,7 @@ export default function UserNav() {
   async function loadUserData(authId) {
     const { data } = await supabase
       .from('users')
-      .select('id, username, avatar_url, total_points, role')
+.select('id, username, avatar_url, total_points, role, user_type, level')
       .eq('auth_id', authId)
       .maybeSingle()
     setUserData(data)
@@ -92,10 +92,10 @@ export default function UserNav() {
             </span>
           )}
         </div>
-        <span className="hidden md:inline text-sm font-medium" style={{ color: '#374151' }}>
-          {userData?.username || '用户'}
+<span className="hidden md:inline text-sm font-medium" style={{ color: '#374151' }}>
+          {userData?.username || user?.email?.split('@')[0] || ''}
         </span>
-        {userData?.total_points > 0 && (
+                {userData?.total_points > 0 && (
           <span className="hidden md:inline text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
             ⭐ {userData.total_points}
           </span>
