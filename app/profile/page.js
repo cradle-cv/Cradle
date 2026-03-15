@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import InspirationPanel from '@/components/InspirationPanel'
+import BadgePanel from '@/components/BadgePanel'
+import { EquippedBadges } from '@/components/BadgeIcon'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -126,7 +128,10 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1 pt-14">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>{userData.username}</h1>
+<h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: '#111827' }}>
+  {userData.username}
+  <EquippedBadges userId={userData.id} size="xs" />
+</h1>
                   {userData.gender && userData.gender !== 'private' && (
                     <span className="text-lg">{genderLabels[userData.gender]}</span>
                   )}
@@ -188,7 +193,9 @@ export default function ProfilePage() {
           level={userData.level}
           onUpdate={(pts, lv) => setUserData(prev => ({ ...prev, total_points: pts, level: lv }))}
         />
-
+<div className="mt-6">
+          <BadgePanel userId={userData.id} userLevel={userData.level} />
+        </div>
         {/* Tab 切换 */}
         <div className="flex gap-6 mb-6 border-b mt-8" style={{ borderColor: '#E5E7EB' }}>
           {[

@@ -233,8 +233,9 @@ function getCategoryLabel(category) {
   const labels = {
     painting: '绘画',
     photo: '摄影',
-    literature: '文学',
-    sculpture: '雕塑',
+    sculpture: '立体造型',
+    calligraphy: '手迹',
+    vibeart: 'VIBEART',
   }
   return labels[category] || category
 }

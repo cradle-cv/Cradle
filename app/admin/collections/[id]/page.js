@@ -23,6 +23,7 @@ export default function EditCollectionPage({ params }) {
     artist_id: '',
     description: '',
     cover_image: '',
+    ategory: 'painting',
     status: 'draft'
   })
 
@@ -65,6 +66,7 @@ export default function EditCollectionPage({ params }) {
           artist_id: collection.artist_id || '',
           description: collection.description || '',
           cover_image: collection.cover_image || '',
+          category: collection.category || 'painting',
           status: collection.status || 'draft'
         })
 
@@ -168,6 +170,7 @@ export default function EditCollectionPage({ params }) {
           title_en: formData.title_en,
           artist_id: formData.artist_id,
           description: formData.description,
+          category: formData.category,
           cover_image: formData.cover_image,
           status: formData.status
         })
@@ -343,17 +346,22 @@ export default function EditCollectionPage({ params }) {
                   </select>
                 </div>
 
-                <div>
+<div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    作品集描述
+                    作品集类别
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
+                  <select
+                    name="category"
+                    value={formData.category}
                     onChange={handleChange}
-                    rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="painting">绘画</option>
+                    <option value="photo">摄影</option>
+                    <option value="sculpture">立体造型</option>
+                    <option value="calligraphy">手迹</option>
+                    <option value="vibeart">VIBEART</option>
+                  </select>
                 </div>
               </div>
             </div>

@@ -150,6 +150,7 @@ export default function AdminCollectionsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                     <span>👤 {collection.artists?.display_name || '未知艺术家'}</span>
                     <span>🎨 {collection.artworks_count || 0} 件作品</span>
+                    <span>📁 {getCategoryLabel(collection.category)}</span>
                   </div>
 
                   {collection.description && (
@@ -231,4 +232,14 @@ function StatusBadge({ status }) {
       {labels[status] || status}
     </span>
   )
+}
+function getCategoryLabel(category) {
+  const labels = {
+    painting: '绘画',
+    photo: '摄影',
+    sculpture: '立体造型',
+    calligraphy: '手迹',
+    vibeart: 'VIBEART',
+  }
+  return labels[category] || category || '未分类'
 }

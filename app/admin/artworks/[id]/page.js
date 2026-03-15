@@ -347,11 +347,11 @@ export default function EditArtworkPage({ params }) {
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="painting">绘画</option>
-                      <option value="photo">摄影</option>
-                      <option value="sculpture">雕塑</option>
-                      <option value="literature">文学</option>
-                    </select>
+<option value="painting">绘画</option>
+<option value="photo">摄影</option>
+<option value="sculpture">立体造型</option>
+<option value="calligraphy">手迹</option>
+<option value="vibeart">VIBEART</option>                    </select>
                   </div>
 
                   <div>

@@ -132,12 +132,29 @@ const handleSubmit = async (e) => {
   e.preventDefault()
   
   if (!formData.title || !formData.artist_id) {
-    alert('请填写标题并选择艺术家！')
-    return
-  }
+      alert('请填写标题并选择艺术家！')
+      return
+    }
 
-  setSaving(true)
+    // 非管理员需要 Lv6 + 消耗灵感值
+    if (userData.role !== 'admin') {
+      if ((userData.level || 1) < 6) {
+        alert('需要达到 Lv.6「创作者」才能发布作品')
+        return
+      }
+      const costResp = await fetch('/api/inspiration/spend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.id, type: 'publish_artwork' }),
+      })
+      const costData = await costResp.json()
+      if (!costResp.ok) {
+        alert(costData.error || '灵感值不足')
+        return
+      }
+    }
 
+    setSaving(true)
   try {
     // 创建作品
     const { data: artwork, error } = await supabase
@@ -288,11 +305,11 @@ const handleSubmit = async (e) => {
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="painting">绘画</option>
-                      <option value="photo">摄影</option>
-                      <option value="sculpture">雕塑</option>
-                      <option value="literature">文学</option>
-                    </select>
+<option value="painting">绘画</option>
+<option value="photo">摄影</option>
+<option value="sculpture">立体造型</option>
+<option value="calligraphy">手迹</option>
+<option value="vibeart">VIBEART</option>                    </select>
                   </div>
 
                   <div>
@@ -439,6 +456,11 @@ const handleSubmit = async (e) => {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
+                  {userData.role !== 'admin' && (
+                  <div className="mb-3 p-3 rounded-lg text-xs" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
+                    ✨ 发布作品将消耗 50 灵感值（当前 Lv.{userData.level || 1}）
+                  </div>
+                )}
                   <button
                     type="submit"
                     disabled={saving}

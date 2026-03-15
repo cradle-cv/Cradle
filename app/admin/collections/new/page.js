@@ -19,6 +19,7 @@ export default function NewCollectionPage() {
     artist_id: '',
     description: '',
     cover_image: '',
+    category: 'painting',
     status: 'draft'
   })
 
@@ -88,8 +89,25 @@ export default function NewCollectionPage() {
       return
     }
 
-    setSaving(true)
+    // 非管理员需要 Lv6 + 消耗灵感值
+    if (userData.role !== 'admin') {
+      if ((userData.level || 1) < 6) {
+        alert('需要达到 Lv.6「创作者」才能发布作品集')
+        return
+      }
+      const costResp = await fetch('/api/inspiration/spend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.id, type: 'create_collection' }),
+      })
+      const costData = await costResp.json()
+      if (!costResp.ok) {
+        alert(costData.error || '灵感值不足')
+        return
+      }
+    }
 
+    setSaving(true)
     try {
       const { error } = await supabase
         .from('collections')
@@ -98,6 +116,7 @@ export default function NewCollectionPage() {
           title_en: formData.title_en,
           artist_id: formData.artist_id,
           description: formData.description,
+          category: formData.category,
           cover_image: formData.cover_image,
           status: formData.status
         })
@@ -201,20 +220,23 @@ export default function NewCollectionPage() {
                   </select>
                 </div>
 
-                <div>
+<div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    作品集描述
+                    作品集类别
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
+                  <select
+                    name="category"
+                    value={formData.category}
                     onChange={handleChange}
-                    rows={4}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="描述这个作品集的主题、特色等..."
-                  />
-                </div>
-              </div>
+                  >
+                    <option value="painting">绘画</option>
+                    <option value="photo">摄影</option>
+                    <option value="sculpture">立体造型</option>
+                    <option value="calligraphy">手迹</option>
+                    <option value="vibeart">VIBEART</option>
+                  </select>
+                </div>              </div>
             </div>
 
             {/* 封面图 */}
@@ -283,6 +305,11 @@ export default function NewCollectionPage() {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
+                  {userData.role !== 'admin' && (
+                  <div className="mb-3 p-3 rounded-lg text-xs" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
+                    ✨ 创建作品集将消耗 200 灵感值（当前 Lv.{userData.level || 1}）
+                  </div>
+                )}
                   <button
                     type="submit"
                     disabled={saving}

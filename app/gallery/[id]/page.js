@@ -218,6 +218,11 @@ export default function GalleryDetailPage() {
   async function completePuzzle() {
     const cc = Object.values(userAnswers).filter(a => a.is_correct).length
     const puzzlePoints = work.total_points || 100
+    if (cc === questions.length && questions.length > 0) {
+      await supabase.from('users').update({
+        perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1
+      }).eq('id', currentUser.id)
+    }
     await awardInspirationPoints('puzzle_complete', puzzlePoints, `完成谜题「${work.title}」(${cc}/${questions.length})`)
     const newProg = await saveProgress({ puzzle_completed: true, puzzle_correct_count: cc, puzzle_total_count: questions.length, current_step: 'rike' })
     if (newProg) checkAndSettlePoints(newProg)
