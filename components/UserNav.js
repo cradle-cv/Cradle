@@ -144,6 +144,34 @@ export default function UserNav() {
               className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
               <span>🖼️</span> 艺术阅览室
             </a>
+            <a href="/studio" onClick={() => setShowMenu(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+              <span>🎨</span> 艺术家工作台
+            </a>
+```
+
+---
+
+**完整用户流程：**
+```
+用户升到 Lv6
+  → 点右上角菜单「艺术家工作台」
+  → 进入 /studio 页面
+  → 看到"上传作品"和"创建作品集"按钮
+  → 上传第一幅作品
+  → 点击"申请艺术家认证"
+  → 状态变为"⏳ 认证审核中"
+
+管理员
+  → 后台侧边栏「艺术家审核」
+  → 看到待审核列表
+  → 点击"通过认证"
+  → 用户自动升级为 artist 角色
+
+用户认证通过后
+  → 工作台显示 ✅ 认证艺术家 标签
+  → 解锁完整工作台：我的作品、我的作品集、观展邀请
+  → 可以管理自己的所有作品和作品集
             {userData?.role === 'admin' && (
               <a href="/admin/dashboard" onClick={() => setShowMenu(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
