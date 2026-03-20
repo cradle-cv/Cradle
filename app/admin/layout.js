@@ -79,6 +79,12 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/articles" icon="📝" active={pathname.startsWith('/admin/articles')}>
                     文章管理
                   </NavLink>
+                  <NavLink href="/admin/museums" icon="🏛️" active={pathname.startsWith('/admin/museums')}>
+                    博物馆管理
+                  </NavLink>
+                  <NavLink href="/admin/gallery-artists" icon="🎭" active={pathname.startsWith('/admin/gallery-artists')}>
+                    阅览室艺术家
+                  </NavLink>
 
                   {/* 用户管理分组 */}
                   <div className="pt-4 pb-2">

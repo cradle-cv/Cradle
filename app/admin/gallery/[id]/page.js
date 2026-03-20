@@ -15,19 +15,29 @@ export default function AdminGalleryEditPage() {
   const [preview, setPreview] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [articles, setArticles] = useState({ puzzle: [], rike: [], fengshang: [] })
-
+const [museums, setMuseums] = useState([])
+  const [galleryArtists, setGalleryArtists] = useState([])
   const [form, setForm] = useState({
     title: '', title_en: '', cover_image: '',
     description: '', artist_name: '', artist_name_en: '',
     year: '', medium: '', dimensions: '', artist_avatar: '', collection_location: '',
     puzzle_article_id: '', rike_article_id: '', fengshang_article_id: '',
+museum_id: '', gallery_artist_id: '',
     total_points: 50, display_order: 0, status: 'draft'
   })
-
   useEffect(() => {
     loadArticles()
     loadWork()
   }, [id])
+useEffect(() => {
+    async function loadDropdownData() {
+      const { data: m } = await supabase.from('museums').select('id, name, name_en, city, country').eq('status', 'active').order('sort_order')
+      if (m) setMuseums(m)
+      const { data: a } = await supabase.from('gallery_artists').select('id, name, name_en, avatar_url, nationality, art_movement').eq('status', 'active').order('sort_order')
+      if (a) setGalleryArtists(a)
+    }
+    loadDropdownData()
+  }, [])
 
   async function loadArticles() {
     const { data } = await supabase
@@ -70,7 +80,9 @@ export default function AdminGalleryEditPage() {
         medium: work.medium || '',
         dimensions: work.dimensions || '',
         artist_avatar: work.artist_avatar || '',
-        collection_location: work.collection_location || '',
+collection_location: work.collection_location || '',
+        museum_id: work.museum_id || '',
+        gallery_artist_id: work.gallery_artist_id || '',
         puzzle_article_id: work.puzzle_article_id || '',
         rike_article_id: work.rike_article_id || '',
         fengshang_article_id: work.fengshang_article_id || '',
@@ -137,9 +149,10 @@ export default function AdminGalleryEditPage() {
         medium: form.medium.trim() || null,
         dimensions: form.dimensions.trim() || null,
         artist_avatar: form.artist_avatar.trim() || null,
-        collection_location: form.collection_location.trim() || null,
-        puzzle_article_id: form.puzzle_article_id || null,
-        rike_article_id: form.rike_article_id || null,
+collection_location: form.collection_location.trim() || null,
+museum_id: form.museum_id || null,
+        gallery_artist_id: form.gallery_artist_id || null,
+        puzzle_article_id: form.puzzle_article_id || null,        rike_article_id: form.rike_article_id || null,
         fengshang_article_id: form.fengshang_article_id || null,
         total_points: parseInt(form.total_points) || 50,
         display_order: parseInt(form.display_order) || 0,
@@ -185,15 +198,39 @@ export default function AdminGalleryEditPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">英文标题</label>
               <input name="title_en" value={form.title_en} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
             </div>
+<div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">选择艺术家（从数据库）</label>
+              <select name="gallery_artist_id" value={form.gallery_artist_id}
+                onChange={e => {
+                  const val = e.target.value
+                  setForm(prev => ({ ...prev, gallery_artist_id: val }))
+                  if (val) {
+                    const artist = galleryArtists.find(a => a.id === val)
+                    if (artist) {
+                      setForm(prev => ({
+                        ...prev, gallery_artist_id: val,
+                        artist_name: artist.name, artist_name_en: artist.name_en || '',
+                        artist_avatar: artist.avatar_url || prev.artist_avatar,
+                      }))
+                    }
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
+                <option value="">-- 手动输入或从列表选择 --</option>
+                {galleryArtists.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}{a.name_en ? ` (${a.name_en})` : ''} · {a.nationality || ''} · {a.art_movement || ''}</option>
+                ))}
+              </select>
+            </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">艺术家</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">艺术家名称</label>
               <input name="artist_name" value={form.artist_name} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">艺术家英文名</label>
               <input name="artist_name_en" value={form.artist_name_en} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
             </div>
-            <div className="md:col-span-2">
+              <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">艺术家头像</label>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
@@ -224,10 +261,24 @@ export default function AdminGalleryEditPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">收藏地点</label>
+              <select name="museum_id" value={form.museum_id}
+                onChange={e => {
+                  const val = e.target.value
+                  setForm(prev => ({ ...prev, museum_id: val }))
+                  if (val) {
+                    const museum = museums.find(m => m.id === val)
+                    if (museum) setForm(prev => ({ ...prev, museum_id: val, collection_location: museum.name }))
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
+                <option value="">-- 选择博物馆/美术馆 --</option>
+                {museums.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}{m.city ? ` · ${m.city}` : ''}</option>
+                ))}
+              </select>
               <input name="collection_location" value={form.collection_location} onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" placeholder="巴黎奥赛博物馆" />
-            </div>
-            <div>
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 mt-2" placeholder="或手动输入收藏地点" />
+            </div>            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">媒介/材质</label>
               <input name="medium" value={form.medium} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" />
             </div>

@@ -19,8 +19,8 @@ export default function AdminGalleryNewPage() {
     title: '', title_en: '', cover_image: '',
     description: '', artist_name: '', artist_name_en: '',
     year: '', medium: '', dimensions: '', artist_avatar: '', collection_location: '',
-    total_points: 50, display_order: 0, status: 'draft'
-  })
+museum_id: '', gallery_artist_id: '',
+    total_points: 50, display_order: 0, status: 'draft'  })
 
   // 三篇文章
   const [puzzleData, setPuzzleData] = useState({ title: '', intro: '', content: '' })
@@ -30,6 +30,18 @@ export default function AdminGalleryNewPage() {
 
   // 谜题题目
   const [questions, setQuestions] = useState([])
+  const [museums, setMuseums] = useState([])
+  const [galleryArtists, setGalleryArtists] = useState([])
+
+  useEffect(() => {
+    async function loadDropdownData() {
+      const { data: m } = await supabase.from('museums').select('id, name, name_en, city, country').eq('status', 'active').order('sort_order')
+      if (m) setMuseums(m)
+      const { data: a } = await supabase.from('gallery_artists').select('id, name, name_en, avatar_url, nationality, art_movement').eq('status', 'active').order('sort_order')
+      if (a) setGalleryArtists(a)
+    }
+    loadDropdownData()
+  }, [])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -290,9 +302,11 @@ export default function AdminGalleryNewPage() {
         medium: form.medium.trim() || null,
         dimensions: form.dimensions.trim() || null,
         artist_avatar: form.artist_avatar.trim() || null,
-        collection_location: form.collection_location.trim() || null,
+collection_location: form.collection_location.trim() || null,
+        museum_id: form.museum_id || null,
+        gallery_artist_id: form.gallery_artist_id || null,
         puzzle_article_id: puzzleArticleId,
-        rike_article_id: rikeArticleId,
+                rike_article_id: rikeArticleId,
         fengshang_article_id: null,
         total_points: parseInt(form.total_points) || 50,
         display_order: parseInt(form.display_order) || 0,
@@ -377,15 +391,39 @@ export default function AdminGalleryNewPage() {
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>英文标题</label>
                   <input name="title_en" value={form.title_en} onChange={handleChange} className={inputCls} placeholder="The Starry Night" />
                 </div>
+<div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>选择艺术家（从数据库）</label>
+                  <select name="gallery_artist_id" value={form.gallery_artist_id}
+                    onChange={e => {
+                      const val = e.target.value
+                      setForm(prev => ({ ...prev, gallery_artist_id: val }))
+                      if (val) {
+                        const artist = galleryArtists.find(a => a.id === val)
+                        if (artist) {
+                          setForm(prev => ({
+                            ...prev, gallery_artist_id: val,
+                            artist_name: artist.name, artist_name_en: artist.name_en || '',
+                            artist_avatar: artist.avatar_url || prev.artist_avatar,
+                          }))
+                        }
+                      }
+                    }}
+                    className={inputCls}>
+                    <option value="">-- 手动输入或从列表选择 --</option>
+                    {galleryArtists.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}{a.name_en ? ` (${a.name_en})` : ''} · {a.nationality || ''} · {a.art_movement || ''}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家</label>
+                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家名称</label>
                   <input name="artist_name" value={form.artist_name} onChange={handleChange} className={inputCls} placeholder="文森特·梵高" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家英文名</label>
                   <input name="artist_name_en" value={form.artist_name_en} onChange={handleChange} className={inputCls} placeholder="Vincent van Gogh" />
                 </div>
-                <div className="md:col-span-2">
+                                <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术家头像</label>
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
@@ -416,9 +454,23 @@ export default function AdminGalleryNewPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>收藏地点</label>
-                  <input name="collection_location" value={form.collection_location} onChange={handleChange} className={inputCls} placeholder="巴黎奥赛博物馆" />
-                </div>
-                <div>
+                  <select name="museum_id" value={form.museum_id}
+                    onChange={e => {
+                      const val = e.target.value
+                      setForm(prev => ({ ...prev, museum_id: val }))
+                      if (val) {
+                        const museum = museums.find(m => m.id === val)
+                        if (museum) setForm(prev => ({ ...prev, museum_id: val, collection_location: museum.name }))
+                      }
+                    }}
+                    className={inputCls}>
+                    <option value="">-- 选择博物馆/美术馆 --</option>
+                    {museums.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}{m.city ? ` · ${m.city}` : ''}</option>
+                    ))}
+                  </select>
+                  <input name="collection_location" value={form.collection_location} onChange={handleChange} className={inputCls + " mt-2"} placeholder="或手动输入收藏地点" />
+                </div>                <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>媒介/材质</label>
                   <input name="medium" value={form.medium} onChange={handleChange} className={inputCls} placeholder="布面油画" />
                 </div>

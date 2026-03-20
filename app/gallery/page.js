@@ -1,25 +1,72 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import GalleryClient from './GalleryClient'
 
-// 禁止缓存，每次访问都重新查询
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-async function getWorks() {
-  const { data } = await supabase
+async function getData() {
+  const { data: works } = await supabase
     .from('gallery_works')
-    .select('*')
+    .select('*, museums(id, name, name_en, city, country, cover_image, region)')
     .eq('status', 'published')
     .order('display_order', { ascending: true })
 
-  return data || []
-}
+  const { data: museums } = await supabase
+    .from('museums')
+    .select('*')
+    .eq('status', 'active')
+    .order('sort_order')
+
+  // 统计每个博物馆的作品数
+  const museumWorkCounts = {}
+  ;(works || []).forEach(w => {
+    if (w.museum_id) {
+      museumWorkCounts[w.museum_id] = (museumWorkCounts[w.museum_id] || 0) + 1
+    }
+  })
+
+  // 只显示有作品的博物馆
+  const museumsWithWorks = (museums || [])
+    .filter(m => museumWorkCounts[m.id] > 0)
+    .map(m => ({ ...m, works_count: museumWorkCounts[m.id] || 0 }))
+
+// 统计每个艺术家的作品数
+  const artistWorkCounts = {}
+  ;(works || []).forEach(w => {
+    if (w.gallery_artist_id) {
+      artistWorkCounts[w.gallery_artist_id] = (artistWorkCounts[w.gallery_artist_id] || 0) + 1
+    }
+  })
+
+  // 获取有作品的艺术家
+  const { data: galleryArtists } = await supabase
+    .from('gallery_artists')
+    .select('*')
+    .eq('status', 'active')
+    .order('sort_order')
+
+// 从作品中回填艺术家头像（如果艺术家表里没有）
+  const artistAvatarFromWorks = {}
+  ;(works || []).forEach(w => {
+    if (w.gallery_artist_id && w.artist_avatar && !artistAvatarFromWorks[w.gallery_artist_id]) {
+      artistAvatarFromWorks[w.gallery_artist_id] = w.artist_avatar
+    }
+  })
+
+  const artistsWithWorks = (galleryArtists || [])
+    .filter(a => artistWorkCounts[a.id] > 0)
+    .map(a => ({
+      ...a,
+      works_count: artistWorkCounts[a.id] || 0,
+      avatar_url: a.avatar_url || artistAvatarFromWorks[a.id] || null,
+    }))
+  return { works: works || [], museums: museumsWithWorks, galleryArtists: artistsWithWorks }}
 
 export default async function GalleryPage() {
-  const works = await getWorks()
-
+const { works, museums, galleryArtists } = await getData()
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       {/* 导航栏 */}
@@ -63,70 +110,8 @@ export default async function GalleryPage() {
         </div>
       </section>
 
-      {/* 作品网格 */}
-      {works.length > 0 ? (
-        <section className="px-6 pb-20 pt-8">
-          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
-            {works.map((work) => (
-              <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-                <article className="h-full flex flex-col">
-                  {/* 封面 */}
-                  <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '280px' }}>
-                    {work.cover_image && work.cover_image.length > 0 ? (
-                      <img
-                        src={work.cover_image}
-                        alt={work.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                        <span className="text-6xl">🖼️</span>
-                      </div>
-                    )}
-                    {/* 悬浮遮罩 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    {/* 积分标签 */}
-                    <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-amber-700">
-                      ⭐ {work.total_points} 积分
-                    </div>
-                    {/* 底部三步图标 */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🧩</span>
-                      <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">📖</span>
-                      <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🎐</span>
-                    </div>
-                  </div>
-
-                  {/* 标题 */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-1 leading-snug group-hover:text-gray-600 transition-colors line-clamp-2">
-                    {work.title}
-                  </h3>
-                  {work.title_en && (
-                    <p className="text-sm text-gray-400 italic mb-2">{work.title_en}</p>
-                  )}
-
-                  {/* 艺术家 + 年份 */}
-                  <div className="flex items-center gap-3 text-sm text-gray-500 mt-auto pt-2">
-                    {work.artist_name && <span>{work.artist_name}</span>}
-                    {work.year && <span className="text-gray-300">|</span>}
-                    {work.year && <span>{work.year}</span>}
-                  </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section className="px-6 py-20">
-          <div className="max-w-6xl mx-auto text-center">
-            <div className="text-8xl mb-6">🖼️</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">阅览室正在准备中</h2>
-            <p className="text-gray-600 mb-8">精彩的艺术作品即将上线，敬请期待</p>
-            <Link href="/" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors">返回首页</Link>
-          </div>
-        </section>
-      )}
-
+      {/* 客户端交互部分 */}
+<GalleryClient works={works} museums={museums} galleryArtists={galleryArtists} />
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
         <div className="max-w-6xl mx-auto">
