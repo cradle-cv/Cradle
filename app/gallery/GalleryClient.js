@@ -16,8 +16,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [] }) {
   const [selectedArtist, setSelectedArtist] = useState(null)
   const [regionFilter, setRegionFilter] = useState('all')
   const [artistSearch, setArtistSearch] = useState('')
-  const [viewMode, setViewMode] = useState('museums') // museums | artists | all
-
+const [viewMode, setViewMode] = useState('all') // all | museums | artists
   // 按博物馆筛选作品
   const museumWorks = selectedMuseum
     ? works.filter(w => w.museum_id === selectedMuseum)
@@ -65,6 +64,14 @@ export default function GalleryClient({ works, museums, galleryArtists = [] }) {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
+<button onClick={() => switchView('all')}
+                className="px-5 py-2.5 rounded-full text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: viewMode === 'all' ? '#111827' : '#F3F4F6',
+                  color: viewMode === 'all' ? '#FFFFFF' : '#6B7280'
+                }}>
+                🎨 全部作品
+              </button>
               <button onClick={() => switchView('museums')}
                 className="px-5 py-2.5 rounded-full text-sm font-medium transition-all"
                 style={{
@@ -80,14 +87,6 @@ export default function GalleryClient({ works, museums, galleryArtists = [] }) {
                   color: viewMode === 'artists' ? '#FFFFFF' : '#6B7280'
                 }}>
                 🎭 按艺术家
-              </button>
-              <button onClick={() => switchView('all')}
-                className="px-5 py-2.5 rounded-full text-sm font-medium transition-all"
-                style={{
-                  backgroundColor: viewMode === 'all' ? '#111827' : '#F3F4F6',
-                  color: viewMode === 'all' ? '#FFFFFF' : '#6B7280'
-                }}>
-                🎨 全部作品
               </button>
             </div>
             <span className="text-sm" style={{ color: '#9CA3AF' }}>
