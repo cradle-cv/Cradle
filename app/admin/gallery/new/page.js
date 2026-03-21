@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
@@ -33,7 +33,7 @@ museum_id: '', gallery_artist_id: '',
   const [museums, setMuseums] = useState([])
   const [galleryArtists, setGalleryArtists] = useState([])
 
-  useEffect(() => {
+useEffect(() => {
     async function loadDropdownData() {
       const { data: m } = await supabase.from('museums').select('id, name, name_en, city, country').eq('status', 'active').order('sort_order')
       if (m) setMuseums(m)
@@ -42,7 +42,6 @@ museum_id: '', gallery_artist_id: '',
     }
     loadDropdownData()
   }, [])
-
   function handleChange(e) {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
