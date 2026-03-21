@@ -65,9 +65,14 @@ export default function GalleryDetailPage() {
       if (w.puzzle_article_id) {
         const { data: pa } = await supabase.from('articles').select('*').eq('id', w.puzzle_article_id).single()
         setPuzzleArticle(pa)
-        const { data: qs } = await supabase.from('article_questions').select('*').eq('article_id', w.puzzle_article_id).order('display_order')
-        setQuestions(qs || [])
-      }
+const { data: qs } = await supabase.from('article_questions').select('*').eq('article_id', w.puzzle_article_id).order('display_order')
+        // 确保 options 是数组
+        const parsed = (qs || []).map(q => ({
+          ...q,
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+        }))
+        setQuestions(parsed)
+        }
       if (w.rike_article_id) {
         const { data: ra } = await supabase.from('articles').select('*').eq('id', w.rike_article_id).single()
         setRikeArticle(ra)
