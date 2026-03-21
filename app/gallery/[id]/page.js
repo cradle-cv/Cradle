@@ -712,9 +712,10 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
 
 // ========== 题目卡片 ==========
 function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer, onToggleMulti, onSubmitMulti }) {
-  const qType = question.question_type || 'single'
-
-  return (
+  // 根据正确答案数量强制判断题型
+  const correctCount = (question.options || []).filter(o => o.is_correct).length
+  const qType = question.question_type === 'truefalse' ? 'truefalse' : (correctCount > 1 ? 'multiple' : 'single')
+    return (
     <div className="bg-white rounded-2xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
         <span className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold">{index + 1}</span>
