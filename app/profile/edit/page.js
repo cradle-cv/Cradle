@@ -178,10 +178,10 @@ function ProfileEditForm() {
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="font-bold" style={{ color: '#111827' }}>Cradle摇篮</span>
-            </Link>
+<a href="/" className="flex items-center gap-3">
+              <div className="w-0 h-10 flex-shrink-0"></div>
+              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px' }} className="object-contain" />
+            </a>
             <span style={{ color: '#D1D5DB' }}>/</span>
             <span className="font-medium" style={{ color: '#6B7280' }}>{isNew ? '完善资料' : '编辑资料'}</span>
           </div>

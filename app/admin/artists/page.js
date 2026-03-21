@@ -42,8 +42,7 @@ export default function AdminArtistsPage() {
         *,
         users(id, email, username, role)
       `)
-      .order('created_at', { ascending: false })
-
+.order('display_order', { ascending: true })
     setArtists(data || [])
     setLoading(false)
   }
@@ -151,6 +150,27 @@ export default function AdminArtistsPage() {
 
                 {/* 操作按钮 */}
                 <div className="flex items-center gap-3">
+                  {/* 首页展示开关 */}
+                  <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                    <input type="checkbox" checked={artist.show_on_homepage || false}
+                      onChange={async (e) => {
+                        const checked = e.target.checked
+                        await supabase.from('artists').update({ show_on_homepage: checked }).eq('id', artist.id)
+                        setArtists(prev => prev.map(a => a.id === artist.id ? { ...a, show_on_homepage: checked } : a))
+                      }}
+                      className="w-4 h-4 rounded" />
+                    <span className="text-xs" style={{ color: artist.show_on_homepage ? '#059669' : '#9CA3AF' }}>首页</span>
+                  </label>
+                  {/* 排序 */}
+                  <input type="number" value={artist.display_order || 0}
+                    onChange={async (e) => {
+                      const val = parseInt(e.target.value) || 0
+                      await supabase.from('artists').update({ display_order: val }).eq('id', artist.id)
+                      setArtists(prev => prev.map(a => a.id === artist.id ? { ...a, display_order: val } : a))
+                    }}
+                    className="w-14 px-2 py-1.5 border rounded-lg text-xs text-center text-gray-900"
+                    style={{ borderColor: '#D1D5DB' }}
+                    title="排序权重（数字越小越靠前）" />
                   <Link
                     href={`/admin/artists/${artist.id}`}
                     className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -158,7 +178,7 @@ export default function AdminArtistsPage() {
                     编辑
                   </Link>
                 </div>
-              </div>
+                </div>
             ))}
           </div>
 

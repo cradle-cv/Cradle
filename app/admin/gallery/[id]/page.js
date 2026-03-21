@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 import RikePageEditor from '@/components/RikePageEditor'
+import GalleryImageManager from '@/components/GalleryImageManager'
 
 export default function AdminGalleryEditPage() {
   const { id } = useParams()
@@ -307,7 +308,8 @@ museum_id: form.museum_id || null,
             </div>
           )}
         </div>
-
+{/* 组图管理 */}
+        <GalleryImageManager workId={id} />
         {/* 关联文章 */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-2">📚 关联文章</h2>

@@ -56,12 +56,13 @@ async function getData() {
   console.log('📚 作品集数量:', collections?.length || 0)
 
   // 获取艺术家
-  const { data: artists } = await supabase
+const { data: artists } = await supabase
     .from('artists')
     .select('*, users(*)')
+    .eq('show_on_homepage', true)
+    .order('display_order', { ascending: true })
     .limit(6)
-
-  console.log('👤 艺术家数量:', artists?.length || 0)
+    console.log('👤 艺术家数量:', artists?.length || 0)
 
   // 获取合作伙伴
   const { data: partners } = await supabase
@@ -100,18 +101,21 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>      {/* 顶部导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-6 py-1 flex justify-between items-center">
           <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="text-xl font-bold text-gray-900">Cradle摇篮</span>
-            </div>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-  <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
-  <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+<a href="/" className="flex items-center gap-3">
+              <div className="w-0 h-10 flex-shrink-0"></div>
+<div style={{ height: '69px', overflow: 'hidden' }}>
+  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+</div>
+            </a>
+             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+  
+  <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+    <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
   <li><a href="#collections" className="hover:text-gray-900">作品集</a></li>
   <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
-  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+  <li><a href="#partners" className="hover:text-gray-900">合作伙伴</a></li>
 </ul>
           </div>
           <div className="flex items-center gap-4">
@@ -213,8 +217,8 @@ export default async function Home() {
 
       {/* 每日一展 */}
       {exhibition && (
-        <section id="daily" className="py-16 px-6 bg-white">
-          <div className="max-w-6xl mx-auto">
+<section id="daily" className="py-16 px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
+            <div className="max-w-6xl mx-auto">
             <h2 className="text-4xl font-bold text-gray-900 mb-3">每日一展</h2>
             <p className="text-gray-600 mb-10">发现今日精选展览，感受艺术的魅力</p>
             
@@ -285,8 +289,8 @@ export default async function Home() {
       )}
 
       {/* 作品集 */}
-      <section id="collections" className="py-16 px-6 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
+      <section id="collections" className="py-16 px-6 bg-gray-50" style={{ scrollMarginTop: '80px' }}>
+                <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-10">
             <div>
               <h2 className="text-4xl font-bold text-gray-900 mb-3">作品集</h2>
@@ -339,7 +343,7 @@ export default async function Home() {
       </section>
 
       {/* 艺术家 */}
-      <section id="artists" className="py-16 px-6 bg-white">
+      <section id="artists" className="py-16 px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
   <div className="max-w-6xl mx-auto">
     <div className="text-center mb-10">
       <h2 className="text-4xl font-bold text-gray-900 mb-3">艺术家</h2>
@@ -350,9 +354,9 @@ export default async function Home() {
       {artists && artists.length > 0 && artists.map((artist) => (
         <div key={artist.id} className="text-center">
           <div className="w-32 h-32 rounded-full bg-gray-300 mx-auto mb-4 overflow-hidden">
-            {artist.users?.avatar_url ? (
+            {(artist.avatar_url || artist.users?.avatar_url) ? (
               <img 
-                src={artist.users.avatar_url}
+                src={artist.avatar_url || artist.users?.avatar_url}
                 alt={artist.display_name}
                 className="w-full h-full object-cover"
               />
@@ -392,7 +396,7 @@ export default async function Home() {
   </div>
 </section>
       {/* 合作伙伴 */}
-      <section id="partners" className="py-16 px-6 bg-white">
+      <section id="partners" className="py-16 px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-4xl font-bold text-gray-900 mb-3">合作伙伴</h2>

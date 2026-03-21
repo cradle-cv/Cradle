@@ -6,6 +6,7 @@ import Link from 'next/link'
 import InspirationToast from '@/components/InspirationToast'
 import LevelBadge from '@/components/LevelBadge'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
+import ImageGallery from '@/components/ImageGallery'
 
 export default function GalleryDetailPage() {
   const { id } = useParams()
@@ -27,6 +28,7 @@ export default function GalleryDetailPage() {
   const rikeTimer = useRef(null)
   const [rikePages, setRikePages] = useState([])
   const [showRikeMagazine, setShowRikeMagazine] = useState(false)
+  const [workImages, setWorkImages] = useState([])
 
   const [fengshangComments, setFengshangComments] = useState([])
   const [userComment, setUserComment] = useState('')
@@ -75,6 +77,13 @@ export default function GalleryDetailPage() {
           if (Array.isArray(rpData) && rpData.length > 0) setRikePages(rpData)
         } catch (e) { console.error('加载日课页面失败:', e) }
       }
+     // 加载组图
+      const { data: workImages } = await supabase
+        .from('gallery_work_images')
+        .select('*')
+        .eq('work_id', w.id)
+        .order('display_order')
+      setWorkImages(workImages || [])
       const { data: commentsData } = await supabase.from('gallery_comments').select('*').eq('work_id', w.id)
         .order('is_featured', { ascending: false }).order('display_order', { ascending: true })
       if (commentsData) setFengshangComments(commentsData)
@@ -295,8 +304,7 @@ export default function GalleryDetailPage() {
   function LeftPanel({ children }) {
     return (
       <div className="md:sticky md:top-28 md:self-start">
-        {work.cover_image && work.cover_image.length > 0 && <ZoomableImage src={work.cover_image} alt={work.title} />}
-        <div className="mb-5">
+<ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} />        <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
           {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "8px" }}>{work.title_en}</p>}
           {work.artist_name && (
