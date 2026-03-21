@@ -67,10 +67,16 @@ export default function GalleryDetailPage() {
         setPuzzleArticle(pa)
 const { data: qs } = await supabase.from('article_questions').select('*').eq('article_id', w.puzzle_article_id).order('display_order')
         // 确保 options 是数组
-        const parsed = (qs || []).map(q => ({
-          ...q,
-          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
-        }))
+        const parsed = (qs || []).map(q => {
+          const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+          // 如果 question_type 为空，根据正确答案数量自动判断
+          let qType = q.question_type || 'single'
+          if (!q.question_type && Array.isArray(opts)) {
+            const correctCount = opts.filter(o => o.is_correct).length
+            if (correctCount > 1) qType = 'multiple'
+          }
+          return { ...q, question_type: qType, options: opts }
+        })
         setQuestions(parsed)
         }
       if (w.rike_article_id) {
