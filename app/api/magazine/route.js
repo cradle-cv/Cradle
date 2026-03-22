@@ -94,6 +94,7 @@ export async function POST(request) {
       if (coverImage !== undefined) updates.cover_image = coverImage
       if (status !== undefined) updates.status = status
       if (tags !== undefined) updates.tags = tags
+      if (body.showOnHomepage !== undefined) updates.show_on_homepage = body.showOnHomepage
 
       const { error } = await supabase.from('magazines').update(updates).eq('id', magazineId)
       if (error) throw error

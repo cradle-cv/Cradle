@@ -153,6 +153,17 @@ export default function AdminMagazinesPage() {
                           <input type="checkbox" checked={m.is_featured || false} onChange={() => toggleFeatured(m.id, m.is_featured)} className="w-3 h-3" />
                           精选
                         </label>
+                        <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: m.show_on_homepage ? '#059669' : '#9CA3AF' }}>
+                          <input type="checkbox" checked={m.show_on_homepage || false} onChange={async () => {
+                            await fetch('/api/magazine', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'update', magazineId: m.id, showOnHomepage: !m.show_on_homepage })
+                            })
+                            loadMagazines()
+                          }} className="w-3 h-3" />
+                          首页
+                        </label>
                         <Link href={`/admin/magazines/${m.id}`} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>编辑</Link>
                         <button onClick={() => deleteMagazine(m.id)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>删除</button>
                       </div>
