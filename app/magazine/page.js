@@ -47,6 +47,7 @@ async function getData() {
   const { data: selectList } = await supabase
     .from('magazines')
     .select('*, users:author_id(id, username, avatar_url)')
+    .eq('source_type', 'user')
     .in('status', ['published', 'featured'])
     .order('is_featured', { ascending: false })
     .order('created_at', { ascending: false })
