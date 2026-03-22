@@ -244,6 +244,7 @@ export default function StudioPage() {
                 { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
                 { key: 'collections', label: '📚 我的作品集', count: stats.collections },
                 { key: 'exhibitions', label: '🏛️ 观展邀请' },
+                { key: 'magazines', label: '📖 自制杂志', locked: (user?.level || 1) < 7 && user?.role !== 'admin' },
               ].map(t => (
                 <button key={t.key} onClick={() => setActiveTab(t.key)}
                   className={`px-5 py-2.5 rounded-full text-sm font-medium transition ${
@@ -383,7 +384,40 @@ export default function StudioPage() {
                 )}
               </div>
             )}
-          </>
+          {/* 自制杂志 */}
+                {activeTab === 'magazines' && (
+                  <div>
+                    {(user?.level || 1) < 7 && user?.role !== 'admin' ? (
+                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                        <div className="text-4xl mb-3">🔒</div>
+                        <p className="font-bold mb-1" style={{ color: '#111827' }}>Lv.7 解锁自制杂志</p>
+                        <p className="text-sm" style={{ color: '#9CA3AF' }}>当前等级：Lv.{user?.level || 1}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的杂志</h2>
+                          <button onClick={async () => {
+                            const resp = await fetch('/api/magazine', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'create', title: '未命名杂志', authorId: user.id, sourceType: 'user' })
+                            })
+                            const data = await resp.json()
+                            if (data.magazine) window.location.href = `/studio/magazine/${data.magazine.id}`
+                          }}
+                            className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#7C3AED' }}>
+                            + 创建杂志
+                          </button>
+                        </div>
+                        <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                          <div className="text-4xl mb-3">📖</div>
+                          <p style={{ color: '#9CA3AF' }}>开始创作你的第一本杂志</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}</>
         )}
       </div>
     </div>
