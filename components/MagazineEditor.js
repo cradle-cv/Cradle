@@ -552,7 +552,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
               <div key={el.id} className="absolute" style={{
                 left: l, top: t, width: w, height: h,
                 outline: isSel ? '2px solid #7C3AED' : 'none', outlineOffset: '1px',
-                zIndex: isSel ? 100 : (elIdx + 1),
+                zIndex: elIdx + 1,
                 cursor: el.locked ? 'not-allowed' : (dragging?.elId === el.id ? 'grabbing' : 'grab'),
                 opacity: el.locked && !isSel ? 0.8 : 1,
               }}
