@@ -35,7 +35,7 @@ export default function AdminMagazineEditPage() {
         setStatus(data.magazine.status || 'draft')
       } else {
         alert('杂志不存在')
-        router.push('/admin/magazines')
+        router.push('/admin/magazine')
       }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
@@ -68,7 +68,7 @@ export default function AdminMagazineEditPage() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/admin/magazines" style={{ color: '#6B7280' }}>← 返回杂志列表</Link>
+        <Link href="/admin/magazine" style={{ color: '#6B7280' }}>← 返回杂志列表</Link>
         <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>编辑杂志</h1>
       </div>
 

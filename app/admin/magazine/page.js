@@ -37,7 +37,7 @@ export default function AdminMagazinesPage() {
       })
       const data = await resp.json()
       if (data.magazine) {
-        window.location.href = `/admin/magazines/${data.magazine.id}`
+        window.location.href = `/admin/magazine/${data.magazine.id}`
       }
     } catch (err) { alert('创建失败: ' + err.message) }
     finally { setCreating(false) }
