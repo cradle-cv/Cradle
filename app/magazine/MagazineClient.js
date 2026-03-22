@@ -8,7 +8,6 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
 
   return (
     <>
-      {/* Tab切换 */}
       <section className="px-6 pb-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
@@ -32,7 +31,6 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
         </div>
       </section>
 
-      {/* 摇篮Daily */}
       {viewTab === 'daily' && (
         <section className="px-6 pb-20">
           <div className="max-w-6xl mx-auto">
@@ -41,8 +39,8 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
             </div>
             {dailyList.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {dailyList.map(work => (
-                  <DailyCard key={work.id} work={work} />
+                {dailyList.map(mag => (
+                  <MagazineCard key={mag.id} magazine={mag} badge="📖 摇篮 Daily" badgeColor="#7C3AED" label="官方日课杂志" labelColor="#7C3AED" />
                 ))}
               </div>
             ) : (
@@ -52,7 +50,6 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
         </section>
       )}
 
-      {/* 摇篮Select */}
       {viewTab === 'select' && (
         <section className="px-6 pb-20">
           <div className="max-w-6xl mx-auto">
@@ -62,7 +59,7 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
             {selectList.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {selectList.map(mag => (
-                  <SelectCard key={mag.id} magazine={mag} />
+                  <MagazineCard key={mag.id} magazine={mag} badge="⭐ 摇篮 Select" badgeColor="#F59E0B" showAuthor={true} />
                 ))}
               </div>
             ) : (
@@ -75,83 +72,25 @@ export default function MagazineClient({ dailyList = [], selectList = [] }) {
   )
 }
 
-// 摇篮Daily卡片 - 日课杂志
-function DailyCard({ work }) {
+function MagazineCard({ magazine, badge, badgeColor, label, labelColor, showAuthor }) {
   return (
-    <Link href={`/magazine/${work.id}`} className="group">
+    <Link href={`/magazine/view/${magazine.id}`} className="group">
       <article className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
         <div className="relative h-64 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
-          {work.cover_image ? (
-            <img src={work.cover_image} alt={work.title}
+          {magazine.cover_image ? (
+            <img src={magazine.cover_image} alt={magazine.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}>
-              <span className="text-5xl">📖</span>
+            <div className="w-full h-full flex items-center justify-center"
+              style={{ background: badgeColor === '#7C3AED' ? 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' : 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
+              <span className="text-5xl">{badgeColor === '#7C3AED' ? '📖' : '⭐'}</span>
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
           <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium"
-            style={{ backgroundColor: 'rgba(124,58,237,0.9)', color: '#FFFFFF' }}>
-            {work.pageCount > 0 ? `📖 ${work.pageCount} 页` : '📝 导读'}
-          </div>
-
-          {work.museums?.name && (
-            <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs"
-              style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FFFFFF' }}>
-              🏛️ {work.museums.name}
-            </div>
-          )}
-
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h3 className="text-xl font-bold text-white mb-1 leading-snug line-clamp-2">{work.title}</h3>
-            {work.title_en && <p className="text-xs text-white/70 italic mb-2">{work.title_en}</p>}
-            <div className="flex items-center gap-3">
-              {work.artist_avatar && (
-                <img src={work.artist_avatar} alt="" className="w-7 h-7 rounded-full object-cover" style={{ border: '2px solid rgba(255,255,255,0.5)' }} />
-              )}
-              <div className="flex items-center gap-2 text-sm text-white/80">
-                {work.artist_name && <span>{work.artist_name}</span>}
-                {work.year && <><span className="text-white/40">·</span><span>{work.year}</span></>}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {work.article?.intro && (
-          <div className="px-5 py-4">
-            <p className="text-sm line-clamp-2" style={{ color: '#6B7280', lineHeight: '1.7' }}>{work.article.intro}</p>
-          </div>
-        )}
-
-        <div className="px-5 pb-4 flex items-center justify-between">
-          <span className="text-xs" style={{ color: '#9CA3AF' }}>摇篮 Daily</span>
-          <span className="text-xs font-medium group-hover:translate-x-1 transition-transform" style={{ color: '#7C3AED' }}>阅读 →</span>
-        </div>
-      </article>
-    </Link>
-  )
-}
-
-// 摇篮Select卡片 - 用户自创杂志
-function SelectCard({ magazine }) {
-  return (
-    <Link href={`/magazine/view/${magazine.id}`} className="group">
-      <article className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-        <div className="relative h-56 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
-          {magazine.cover_image ? (
-            <img src={magazine.cover_image} alt={magazine.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
-              <span className="text-5xl">⭐</span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-          <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium"
-            style={{ backgroundColor: 'rgba(245,158,11,0.9)', color: '#FFFFFF' }}>
-            ⭐ 精选
+            style={{ backgroundColor: badgeColor, color: '#FFFFFF' }}>
+            {badge}
           </div>
 
           {magazine.pages_count > 0 && (
@@ -162,24 +101,27 @@ function SelectCard({ magazine }) {
           )}
 
           <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h3 className="text-lg font-bold text-white mb-1 line-clamp-2">{magazine.title}</h3>
+            <h3 className="text-xl font-bold text-white mb-1 leading-snug line-clamp-2">{magazine.title}</h3>
             {magazine.subtitle && <p className="text-xs text-white/70">{magazine.subtitle}</p>}
           </div>
         </div>
 
         <div className="px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {magazine.users?.avatar_url ? (
-              <img src={magazine.users.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-            ) : (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
+            {showAuthor && magazine.users && (
+              <>
+                {magazine.users.avatar_url ? (
+                  <img src={magazine.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
+                )}
+                <span className="text-xs" style={{ color: '#6B7280' }}>{magazine.users.username || '匿名'}</span>
+              </>
             )}
-            <span className="text-sm" style={{ color: '#6B7280' }}>{magazine.users?.username || '匿名'}</span>
+            {label && <span className="text-xs" style={{ color: labelColor || '#9CA3AF' }}>{label}</span>}
+            {!showAuthor && !label && <span className="text-xs" style={{ color: '#9CA3AF' }}>摇篮杂志社</span>}
           </div>
-          <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
-            <span>👁 {magazine.views_count || 0}</span>
-            <span>❤️ {magazine.likes_count || 0}</span>
-          </div>
+          <span className="text-xs font-medium group-hover:translate-x-1 transition-transform" style={{ color: badgeColor }}>阅读 →</span>
         </div>
       </article>
     </Link>
