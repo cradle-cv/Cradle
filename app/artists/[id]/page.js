@@ -58,7 +58,8 @@ export default async function ArtistDetailPage({ params }) {
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
               <li><a href="/#daily" className="hover:text-gray-900">每日一展</a></li>
               <li><a href="/#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+            <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
               <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
               <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
             </ul>

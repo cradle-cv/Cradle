@@ -4,13 +4,13 @@ import { useState, useEffect, useRef } from 'react'
 
 export default function MagazineViewer({ magazine, spreads = [], onClose }) {
   const [currentSpread, setCurrentSpread] = useState(0)
+  const [zoom, setZoom] = useState(1)
   const containerRef = useRef(null)
   const [scale, setScale] = useState(1)
 
   const cw = magazine?.canvas_width || 800
   const ch = magazine?.canvas_height || 450
 
-  // 计算实际渲染尺寸的缩放比
   useEffect(() => {
     function updateScale() {
       if (!containerRef.current) return
@@ -20,7 +20,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
     updateScale()
     window.addEventListener('resize', updateScale)
     return () => window.removeEventListener('resize', updateScale)
-  }, [cw, currentSpread])
+  }, [cw, currentSpread, zoom])
 
   useEffect(() => {
     function handleKey(e) {
@@ -47,22 +47,34 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
           {magazine?.subtitle && <span className="text-white/50 text-sm">{magazine.subtitle}</span>}
         </div>
         <div className="flex items-center gap-4">
+          {/* 放大按钮 */}
+          <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+            {[1, 1.5, 2].map(z => (
+              <button key={z} onClick={() => setZoom(z)}
+                className="px-3 py-1 rounded text-xs font-medium transition"
+                style={{ backgroundColor: zoom === z ? 'rgba(255,255,255,0.25)' : 'transparent', color: '#FFFFFF' }}>
+                {z}×
+              </button>
+            ))}
+          </div>
           <span className="text-white/50 text-sm">{currentSpread + 1} / {spreads.length}</span>
           {onClose && <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 text-lg">✕</button>}
         </div>
       </div>
 
       {/* 主内容区 */}
-      <div className="flex items-center gap-4 w-full px-16" style={{ maxHeight: '80vh' }}>
+      <div className="flex items-center gap-4 w-full px-16 overflow-auto" style={{ maxHeight: '85vh' }}>
         <button onClick={() => setCurrentSpread(prev => Math.max(0, prev - 1))} disabled={currentSpread === 0}
           className="w-12 h-12 rounded-full flex items-center justify-center text-white text-2xl flex-shrink-0 disabled:opacity-20 hover:bg-white/10 transition">‹</button>
 
-        <div className="flex-1 flex justify-center">
-          <div ref={containerRef} className="relative w-full shadow-2xl rounded-lg overflow-hidden"
+        <div className="flex-1 flex justify-center overflow-auto">
+          <div ref={containerRef} className="relative shadow-2xl rounded-lg overflow-hidden"
             style={{
-              maxWidth: cw + 'px',
+              width: zoom > 1 ? (cw * zoom) + 'px' : '100%',
+              maxWidth: (cw * zoom) + 'px',
               aspectRatio: `${cw}/${ch}`,
               backgroundColor: spread?.background_color || '#FFFFFF',
+              flexShrink: 0,
             }}>
             {elements.map(el => {
               const leftPct = (el.x / cw * 100) + '%'
@@ -96,11 +108,10 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
               )
             })}
 
-            {/* Logo 水印 - 右下角 */}
+            {/* Logo 水印 */}
             <div className="absolute pointer-events-none" style={{
               bottom: '12px', right: '12px', zIndex: 30,
-              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))',
-              opacity: 0.4,
+              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))', opacity: 0.4,
             }}>
               <img src="/image/logo.png" alt="" style={{ height: `${Math.max(20, 30 * scale)}px` }} className="object-contain" />
             </div>
