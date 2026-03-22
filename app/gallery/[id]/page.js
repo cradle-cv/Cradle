@@ -41,6 +41,7 @@ export default function GalleryDetailPage() {
 
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
+  const [linkedMagazine, setLinkedMagazine] = useState(null)
 
   function showInspirationToast(msg) {
     setToastMessage(msg)
@@ -87,6 +88,19 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
           const rpData = await rpResp.json()
           if (Array.isArray(rpData) && rpData.length > 0) setRikePages(rpData)
         } catch (e) { console.error('加载日课页面失败:', e) }
+      // 检查是否有关联的新版杂志
+      try {
+        const { data: mag } = await supabase
+          .from('magazines')
+          .select('id, title, pages_count')
+          .eq('source_work_id', w.id)
+          .eq('source_type', 'official')
+          .in('status', ['published', 'featured'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (mag) setLinkedMagazine(mag)
+      } catch (e) { console.error('加载关联杂志失败:', e) }
       }
      // 加载组图
       const { data: workImages } = await supabase
@@ -542,6 +556,26 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
               </div>
 
               {/* 有杂志页面 → 显示杂志入口 */}
+              {/* 新版杂志入口 */}
+              {linkedMagazine && (
+                <a href={`/magazine/view/${linkedMagazine.id}`} target="_blank"
+                  className="w-full flex items-center gap-4 rounded-2xl p-5 mb-6 hover:opacity-90 transition text-left"
+                  style={{ backgroundColor: '#7C3AED' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                    <span className="text-2xl">📖</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-white">打开杂志阅读</span>
+                      {linkedMagazine.pages_count > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{linkedMagazine.pages_count} 页</span>
+                      )}
+                    </div>
+                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p>
+                  </div>
+                  <span className="text-lg text-white">→</span>
+                </a>
+              )}
               {rikePages.length > 0 ? (
                 <div>
                   {rikeArticle?.intro && (

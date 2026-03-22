@@ -23,31 +23,30 @@ async function getData() {
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
-  // 首页杂志
-  const { data: homepageMags } = await supabase
-    .from('magazines')
-    .select('*, users:author_id(id, username, avatar_url)')
-    .eq('show_on_homepage', true)
-    .in('status', ['published', 'featured'])
-    .order('created_at', { ascending: false })
-
+  // 首页杂志：随机从已发布中选取
   let homepageDaily = null
   let homepageSelect = null
 
-  if (homepageMags && homepageMags.length > 0) {
-    homepageDaily = homepageMags.find(m => m.source_type === 'official') || null
-    homepageSelect = homepageMags.find(m => m.source_type === 'user') || null
-  }
+  const { data: officialMags } = await supabase
+    .from('magazines')
+    .select('*, users:author_id(id, username, avatar_url)')
+    .eq('source_type', 'official')
+    .in('status', ['published', 'featured'])
 
-  if (!homepageDaily) {
-    const { data: d } = await supabase.from('magazines').select('*, users:author_id(id, username, avatar_url)')
-      .eq('source_type', 'official').in('status', ['published', 'featured']).order('created_at', { ascending: false }).limit(1)
-    homepageDaily = d?.[0] || null
+  const { data: userMags } = await supabase
+    .from('magazines')
+    .select('*, users:author_id(id, username, avatar_url)')
+    .eq('source_type', 'user')
+    .in('status', ['published', 'featured'])
+
+  // 基于日期的随机选取（每天换一个）
+  const today = new Date()
+  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
+  if (officialMags && officialMags.length > 0) {
+    homepageDaily = officialMags[seed % officialMags.length]
   }
-  if (!homepageSelect) {
-    const { data: s } = await supabase.from('magazines').select('*, users:author_id(id, username, avatar_url)')
-      .eq('source_type', 'user').in('status', ['published', 'featured']).order('created_at', { ascending: false }).limit(1)
-    homepageSelect = s?.[0] || null
+  if (userMags && userMags.length > 0) {
+    homepageSelect = userMags[(seed + 7) % userMags.length]
   }
 
   return {
@@ -200,7 +199,7 @@ export default async function Home() {
       {(homepageDaily || homepageSelect) && (
         <section id="magazine" className="py-16 px-6 bg-gray-50" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10">
+            <div className="mb-10">
               <h2 className="text-4xl font-bold text-gray-900 mb-3">杂志社</h2>
               <p className="text-gray-600">沉浸式图文导读 · 用户原创精选</p>
             </div>
@@ -210,7 +209,7 @@ export default async function Home() {
               {homepageDaily ? (
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-72 overflow-hidden">
+                    <div className="relative h-80 overflow-hidden">
                       {homepageDaily.cover_image ? (
                         <img src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
@@ -233,7 +232,7 @@ export default async function Home() {
                   </div>
                 </a>
               ) : (
-                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '360px' }}>
+                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '400px' }}>
                   <div className="text-center py-12">
                     <div className="text-4xl mb-3">📖</div>
                     <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p>
@@ -246,7 +245,7 @@ export default async function Home() {
               {homepageSelect ? (
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-72 overflow-hidden">
+                    <div className="relative h-80 overflow-hidden">
                       {homepageSelect.cover_image ? (
                         <img src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
@@ -274,7 +273,7 @@ export default async function Home() {
                   </div>
                 </a>
               ) : (
-                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '360px' }}>
+                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '400px' }}>
                   <div className="text-center py-12">
                     <div className="text-4xl mb-3">⭐</div>
                     <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p>
