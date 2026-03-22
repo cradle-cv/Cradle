@@ -18,13 +18,12 @@ async function getData() {
     exhibition = dailyExhibitions[Math.abs(hash) % dailyExhibitions.length]
   }
 
-  const { data: articles } = await supabase.from('articles').select('*').eq('status', 'published').order('published_at', { ascending: false }).limit(6)
   const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').order('created_at', { ascending: false }).limit(8)
   const { data: artists } = await supabase.from('artists').select('*, users(*)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
-  // 首页杂志：管理员勾选 show_on_homepage 的
+  // 首页杂志
   const { data: homepageMags } = await supabase
     .from('magazines')
     .select('*, users:author_id(id, username, avatar_url)')
@@ -32,7 +31,6 @@ async function getData() {
     .in('status', ['published', 'featured'])
     .order('created_at', { ascending: false })
 
-  // 如果没有手动设置，自动选最新的
   let homepageDaily = null
   let homepageSelect = null
 
@@ -41,33 +39,26 @@ async function getData() {
     homepageSelect = homepageMags.find(m => m.source_type === 'user') || null
   }
 
-  // 如果没有手动设置的，fallback 取最新的
   if (!homepageDaily) {
-    const { data: latestDaily } = await supabase
-      .from('magazines').select('*, users:author_id(id, username, avatar_url)')
-      .eq('source_type', 'official').in('status', ['published', 'featured'])
-      .order('created_at', { ascending: false }).limit(1)
-    homepageDaily = latestDaily?.[0] || null
+    const { data: d } = await supabase.from('magazines').select('*, users:author_id(id, username, avatar_url)')
+      .eq('source_type', 'official').in('status', ['published', 'featured']).order('created_at', { ascending: false }).limit(1)
+    homepageDaily = d?.[0] || null
   }
   if (!homepageSelect) {
-    const { data: latestSelect } = await supabase
-      .from('magazines').select('*, users:author_id(id, username, avatar_url)')
-      .eq('source_type', 'user').in('status', ['published', 'featured'])
-      .order('created_at', { ascending: false }).limit(1)
-    homepageSelect = latestSelect?.[0] || null
+    const { data: s } = await supabase.from('magazines').select('*, users:author_id(id, username, avatar_url)')
+      .eq('source_type', 'user').in('status', ['published', 'featured']).order('created_at', { ascending: false }).limit(1)
+    homepageSelect = s?.[0] || null
   }
 
   return {
-    exhibition: exhibition || null,
-    articles: articles || [], collections: collections || [],
-    artists: artists || [], partners: partners || [],
-    galleryWorks: galleryWorks || [],
+    exhibition, collections: collections || [], artists: artists || [],
+    partners: partners || [], galleryWorks: galleryWorks || [],
     homepageDaily, homepageSelect,
   }
 }
 
 export default async function Home() {
-  const { exhibition, articles, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect } = await getData()
+  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect } = await getData()
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -90,9 +81,7 @@ export default async function Home() {
               <li><a href="#partners" className="hover:text-gray-900">合作伙伴</a></li>
             </ul>
           </div>
-          <div className="flex items-center gap-4">
-            <UserNav />
-          </div>
+          <div className="flex items-center gap-4"><UserNav /></div>
         </div>
       </nav>
 
@@ -184,10 +173,7 @@ export default async function Home() {
                           <span className="text-[#F59E0B]">📅</span>
                           <div>
                             <div className="text-sm text-gray-500">展期</div>
-                            <div className="font-medium text-gray-900">
-                              {new Date(exhibition.start_date).toLocaleDateString('zh-CN')}
-                              {exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}
-                            </div>
+                            <div className="font-medium text-gray-900">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
                           </div>
                         </div>
                       )}
@@ -210,38 +196,28 @@ export default async function Home() {
         </section>
       )}
 
-      {/* ========== 杂志社精选 ========== */}
+      {/* ========== 杂志社 ========== */}
       {(homepageDaily || homepageSelect) && (
         <section id="magazine" className="py-16 px-6 bg-gray-50" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-10">
-              <div>
-                <h2 className="text-4xl font-bold text-gray-900 mb-3">摇篮杂志社</h2>
-                <p className="text-gray-600">沉浸式图文导读 · 用户原创精选</p>
-              </div>
-              <a href="/magazine" className="px-6 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors text-sm">
-                进入杂志社 →
-              </a>
+            <div className="text-center mb-10">
+              <h2 className="text-4xl font-bold text-gray-900 mb-3">杂志社</h2>
+              <p className="text-gray-600">沉浸式图文导读 · 用户原创精选</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
               {/* 摇篮Daily */}
-              {homepageDaily && (
+              {homepageDaily ? (
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-56 overflow-hidden">
+                    <div className="relative h-72 overflow-hidden">
                       {homepageDaily.cover_image ? (
-                        <img src={homepageDaily.cover_image} alt={homepageDaily.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <img src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}>
-                          <span className="text-5xl">📖</span>
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <div className="absolute top-4 left-4 px-4 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>
-                        📖 摇篮 Daily
-                      </div>
+                      <div className="absolute top-4 left-4 px-4 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>📖 摇篮 Daily</div>
                       <div className="absolute bottom-4 left-5 right-5">
                         <h3 className="text-xl font-bold text-white mb-1 line-clamp-2">{homepageDaily.title}</h3>
                         {homepageDaily.subtitle && <p className="text-sm text-white/70">{homepageDaily.subtitle}</p>}
@@ -256,25 +232,28 @@ export default async function Home() {
                     </div>
                   </div>
                 </a>
+              ) : (
+                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '360px' }}>
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-3">📖</div>
+                    <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p>
+                    <p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p>
+                  </div>
+                </a>
               )}
 
               {/* 摇篮Select */}
-              {homepageSelect && (
+              {homepageSelect ? (
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-56 overflow-hidden">
+                    <div className="relative h-72 overflow-hidden">
                       {homepageSelect.cover_image ? (
-                        <img src={homepageSelect.cover_image} alt={homepageSelect.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <img src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
-                          <span className="text-5xl">⭐</span>
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <div className="absolute top-4 left-4 px-4 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>
-                        ⭐ 摇篮 Select
-                      </div>
+                      <div className="absolute top-4 left-4 px-4 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>⭐ 摇篮 Select</div>
                       <div className="absolute bottom-4 left-5 right-5">
                         <h3 className="text-xl font-bold text-white mb-1 line-clamp-2">{homepageSelect.title}</h3>
                         {homepageSelect.subtitle && <p className="text-sm text-white/70">{homepageSelect.subtitle}</p>}
@@ -294,11 +273,8 @@ export default async function Home() {
                     </div>
                   </div>
                 </a>
-              )}
-
-              {/* 只有一个时，右边补一个占位 */}
-              {homepageDaily && !homepageSelect && (
-                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB' }}>
+              ) : (
+                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '360px' }}>
                   <div className="text-center py-12">
                     <div className="text-4xl mb-3">⭐</div>
                     <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p>
@@ -306,15 +282,10 @@ export default async function Home() {
                   </div>
                 </a>
               )}
-              {!homepageDaily && homepageSelect && (
-                <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB' }}>
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">📖</div>
-                    <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p>
-                    <p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p>
-                  </div>
-                </a>
-              )}
+            </div>
+
+            <div className="text-center mt-10">
+              <a href="/magazine" className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">进入杂志社 →</a>
             </div>
           </div>
         </section>
@@ -448,8 +419,9 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="mb-4">
-                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '50px', filter: 'brightness(0) invert(1)' }} className="object-contain" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+                <div className="text-xl font-bold">Cradle摇篮</div>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
             </div>

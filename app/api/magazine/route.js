@@ -44,8 +44,7 @@ export async function GET(request) {
     if (authorId) query = query.eq('author_id', authorId)
     if (sourceType) query = query.eq('source_type', sourceType)
     if (featured === 'true') query = query.eq('is_featured', true)
-    if (status) query = query.eq('status', status)
-    else query = query.in('status', ['published', 'featured'])
+    if (status && status !== 'all') query = query.eq('status', status)
 
     const { data } = await query
     return NextResponse.json({ magazines: data || [] })
