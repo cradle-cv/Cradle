@@ -20,6 +20,7 @@ export default function AdminMagazineEditPage() {
   const [subtitle, setSubtitle] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [status, setStatus] = useState('draft')
+  const [sourceType, setSourceType] = useState('official')
   const [galleryWorks, setGalleryWorks] = useState([])
   const [sourceWorkId, setSourceWorkId] = useState('')
 
@@ -41,6 +42,7 @@ export default function AdminMagazineEditPage() {
         setSubtitle(data.magazine.subtitle || '')
         setCoverImage(data.magazine.cover_image || '')
         setStatus(data.magazine.status || 'draft')
+        setSourceType(data.magazine.source_type || 'official')
         setSourceWorkId(data.magazine.source_work_id || '')
       } else {
         alert('杂志不存在')
@@ -285,6 +287,18 @@ export default function AdminMagazineEditPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
               <option value="draft">草稿</option>
               <option value="published">发布</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>杂志类型</label>
+            <select value={sourceType} onChange={async (e) => {
+              const val = e.target.value
+              setSourceType(val)
+              await supabase.from('magazines').update({ source_type: val }).eq('id', id)
+            }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
+              <option value="official">📖 官方 (Daily)</option>
+              <option value="user">👤 用户 (Select)</option>
             </select>
           </div>
           <div className="md:col-span-2">
