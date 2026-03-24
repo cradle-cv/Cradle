@@ -10,6 +10,26 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  // 自动检测已登录用户
+  useState(() => {
+    async function check() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data: userData } = await supabase
+          .from('users').select('role').eq('auth_id', session.user.id).single()
+        if (userData && ['admin', 'artist', 'partner'].includes(userData.role)) {
+          router.push('/admin/dashboard')
+          return
+        }
+      }
+      setChecking(false)
+    }
+    check()
+  })
+
+  if (checking) return <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1F2937, #111827)' }}><p className="text-gray-400">检查登录状态...</p></div>
 
   async function handleLogin(e) {
     e.preventDefault()
