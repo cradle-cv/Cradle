@@ -41,11 +41,12 @@ export default async function MagazinePage() {
               <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px' }} className="object-contain" />
             </a>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/magazine" className="text-gray-900 font-medium">杂志社</a></li>
-              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="#partners" className="hover:text-gray-900">合作伙伴</a></li>
+  <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+    <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+    <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+  <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+  <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
             </ul>
           </div>
           <UserNav />
