@@ -73,11 +73,12 @@ export default function ProfilePage() {
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="font-bold" style={{ color: '#111827' }}>Cradle摇篮</span>
-            </Link>
-          </div>
+<a href="/" className="flex items-center gap-3">
+  <div className="w-0 h-10 flex-shrink-0"></div>
+  <div style={{ height: '69px', overflow: 'hidden' }}>
+    <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+  </div>
+</a>          </div>
           <div className="flex items-center gap-4">
             <Link href="/gallery" className="text-sm" style={{ color: '#6B7280' }}>阅览室</Link>
             {(userData.role === 'admin' || userData.user_type === 'admin') && (
