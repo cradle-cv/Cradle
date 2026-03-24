@@ -31,8 +31,21 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
   const spread = spreads[currentSpread]
   const elements = spread?.elements || []
 
-  function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) }
+function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) }
 
+  function getClipPath(shape) {
+    switch (shape) {
+      case 'circle': return 'circle(50% at 50% 50%)'
+      case 'ellipse': return 'ellipse(50% 45% at 50% 50%)'
+      case 'inset10': return 'inset(10%)'
+      case 'inset20': return 'inset(20%)'
+      case 'triangle': return 'polygon(50% 0%, 0% 100%, 100% 100%)'
+      case 'diamond': return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+      case 'hexagon': return 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'
+      case 'star': return 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+      default: return 'none'
+    }
+  }
   // ========== Undo/Redo ==========
   function pushUndo() {
     setUndoStack(prev => [...prev.slice(-MAX_UNDO), JSON.stringify(spreads)])
@@ -74,12 +87,46 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
     pushUndo()
     updateElement(elId, updates)
   }
+  
 
   // ========== 自动保存 ==========
   useEffect(() => {
     const timer = setInterval(() => { if (dirty && magazineId) doSave(true) }, 15000)
     return () => clearInterval(timer)
   }, [dirty, spreads, magazineId])
+
+  // ========== 剪切板粘贴 ==========
+  useEffect(() => {
+    async function handlePaste(e) {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const file = item.getAsFile()
+          if (!file) return
+          setUploading(true)
+          try {
+            const { url } = await uploadImage(file, 'magazine')
+            const pos = getSmartPosition('image')
+            const el = {
+              id: genId(), type: 'image', ...pos, rotation: 0, locked: false,
+              content: url,
+              style: { objectFit: 'cover', borderRadius: 0, opacity: 1, borderColor: '', borderWidth: 0, shadow: false, clipShape: 'none' }
+            }
+            pushUndo()
+            setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, elements: [...s.elements, el] } : s))
+            setDirty(true)
+            setSelectedEl(el.id)
+          } catch (err) { alert('粘贴图片失败: ' + err.message) }
+          finally { setUploading(false) }
+          return
+        }
+      }
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [currentSpread, spreads, placementSide])
 
   // ========== 键盘快捷键 ==========
   useEffect(() => {
@@ -499,9 +546,22 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
           {(selEl.type === 'image' || selEl.type === 'shape') && (
             <>
               {selEl.type === 'image' && (
-                <select value={selEl.style?.objectFit || 'cover'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, objectFit: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
-                  <option value="cover">填充</option><option value="contain">适应</option>
-                </select>
+                <>
+                  <select value={selEl.style?.objectFit || 'cover'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, objectFit: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+                    <option value="cover">填充</option><option value="contain">适应</option>
+                  </select>
+                  <select value={selEl.style?.clipShape || 'none'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, clipShape: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+                    <option value="none">无裁切</option>
+                    <option value="circle">⭕ 圆形</option>
+                    <option value="ellipse">🥚 椭圆</option>
+                    <option value="inset10">▢ 内缩10%</option>
+                    <option value="inset20">▢ 内缩20%</option>
+                    <option value="triangle">△ 三角</option>
+                    <option value="diamond">◇ 菱形</option>
+                    <option value="hexagon">⬡ 六边形</option>
+                    <option value="star">☆ 五角星</option>
+                  </select>
+                </>
               )}
               {selEl.type === 'shape' && (
                 <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>填充:<input type="color" value={selEl.style?.backgroundColor || '#E5E7EB'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
@@ -584,6 +644,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
                     borderRadius: (el.style?.borderRadius || 0) + 'px',
                     opacity: el.style?.opacity ?? 1,
                     border: borderStyle, boxShadow: shadowStyle,
+                    clipPath: getClipPath(el.style?.clipShape),
                   }} />
                 )}
 
