@@ -100,7 +100,7 @@ function AdminLayoutContent({ children }) {
                   <div className="pt-4 pb-2">
                     <div className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">⚙️ 系统管理</div>
                   </div>
-                  <NavLink href="/admin/magazine" icon="📖" active={pathname.startsWith('/admin/magazines')}>
+                  <NavLink href="/admin/magazine" icon="📖" active={pathname.startsWith('/admin/magazine')}>
   杂志管理
 </NavLink>
 <NavLink href="/admin/badges" icon="🏅" active={pathname.startsWith('/admin/badges')}>
