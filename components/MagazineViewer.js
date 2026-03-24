@@ -1,15 +1,22 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 
-export default function MagazineViewer({ magazine, spreads = [], onClose }) {
+const MagazineExporter = dynamic(() => import('./MagazineExporter'), { ssr: false })
+
+export default function MagazineViewer({ magazine, spreads = [], onClose, userId, isAdmin }) {
   const [currentSpread, setCurrentSpread] = useState(0)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(1.5)
+  const [showExport, setShowExport] = useState(false)
   const containerRef = useRef(null)
   const [scale, setScale] = useState(1)
 
   const cw = magazine?.canvas_width || 800
   const ch = magazine?.canvas_height || 450
+
+  // 作者本人或管理员可导出
+  const canExport = userId && (magazine?.author_id === userId || isAdmin)
 
   useEffect(() => {
     function updateScale() {
@@ -23,17 +30,23 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
 
   useEffect(() => {
     function handleKey(e) {
+      if (showExport) return
       if (e.key === 'ArrowLeft') setCurrentSpread(prev => Math.max(0, prev - 1))
       if (e.key === 'ArrowRight') setCurrentSpread(prev => Math.min(spreads.length - 1, prev + 1))
       if (e.key === 'Escape' && onClose) onClose()
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [spreads.length])
+  }, [spreads.length, showExport])
 
   if (spreads.length === 0) return null
   const spread = spreads[currentSpread]
   const elements = spread?.elements || []
+
+  function getClipPath(shape) {
+    const m = { circle: 'circle(50% at 50% 50%)', ellipse: 'ellipse(50% 45% at 50% 50%)', inset10: 'inset(10%)', inset20: 'inset(20%)', triangle: 'polygon(50% 0%, 0% 100%, 100% 100%)', diamond: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', hexagon: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', star: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }
+    return m[shape] || 'none'
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}>
@@ -43,6 +56,15 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
           <h2 className="text-white font-bold">{magazine?.title || ''}</h2>
         </div>
         <div className="flex items-center gap-4">
+          {/* 导出按钮 */}
+          {canExport && (
+            <button onClick={() => setShowExport(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              style={{ backgroundColor: 'rgba(124,58,237,0.8)', color: '#FFFFFF' }}>
+              📤 导出
+            </button>
+          )}
+          {/* 放大 */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
             {[1, 1.5, 2].map(z => (
               <button key={z} onClick={() => setZoom(z)} className="px-3 py-1 rounded text-xs font-medium transition"
@@ -97,6 +119,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
                       borderRadius: (el.style?.borderRadius || 0) * scale + 'px',
                       opacity: el.style?.opacity ?? 1,
                       border: borderStyle, boxShadow: shadowStyle,
+                      clipPath: el.style?.clipShape ? getClipPath(el.style.clipShape) : 'none',
                     }} />
                   )}
                   {el.type === 'shape' && (
@@ -129,6 +152,11 @@ export default function MagazineViewer({ magazine, spreads = [], onClose }) {
             style={{ backgroundColor: i === currentSpread ? '#FFFFFF' : 'rgba(255,255,255,0.3)', transform: i === currentSpread ? 'scale(1.3)' : 'scale(1)' }} />
         ))}
       </div>
+
+      {/* 导出弹窗 */}
+      {showExport && (
+        <MagazineExporter magazine={magazine} spreads={spreads} userId={userId} onClose={() => setShowExport(false)} />
+      )}
     </div>
   )
 }
