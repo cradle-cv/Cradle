@@ -15,8 +15,9 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
   const cw = magazine?.canvas_width || 800
   const ch = magazine?.canvas_height || 450
 
-  // 作者本人或管理员可导出
-  const canExport = userId && (magazine?.author_id === userId || isAdmin)
+  const isAuthor = userId && (magazine?.author_id === userId || isAdmin)
+  // 显示导出按钮条件：作者本人/管理员，或杂志允许导出
+  const canExport = userId && (isAuthor || magazine?.allow_export)
 
   useEffect(() => {
     function updateScale() {
@@ -54,14 +55,18 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
         <div className="flex items-center gap-3">
           {onClose && <button onClick={onClose} className="text-white/70 hover:text-white text-sm">← 返回</button>}
           <h2 className="text-white font-bold">{magazine?.title || ''}</h2>
+          {/* 授权标识 */}
+          {magazine?.allow_export && !isAuthor && (
+            <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'rgba(124,58,237,0.4)', color: '#C4B5FD' }}>🪞 已授权导出</span>
+          )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* 导出按钮 */}
           {canExport && (
             <button onClick={() => setShowExport(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
-              style={{ backgroundColor: 'rgba(124,58,237,0.8)', color: '#FFFFFF' }}>
-              📤 导出
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5"
+              style={{ backgroundColor: isAuthor ? 'rgba(124,58,237,0.8)' : 'rgba(245,158,11,0.8)', color: '#FFFFFF' }}>
+              📤 {isAuthor ? '导出' : `导出（300⭐）`}
             </button>
           )}
           {/* 放大 */}
@@ -109,9 +114,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
                       border: borderStyle, borderRadius: (el.style?.borderRadius || 0) * scale + 'px',
                       boxShadow: shadowStyle,
                       padding: `${4 * scale}px`, wordBreak: 'break-word', overflow: 'hidden',
-                    }}>
-                      {el.content}
-                    </div>
+                    }}>{el.content}</div>
                   )}
                   {el.type === 'image' && (
                     <img src={el.content} alt="" className="w-full h-full" style={{
@@ -135,7 +138,6 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
               )
             })}
 
-            {/* Logo水印 */}
             <div className="absolute pointer-events-none" style={{ bottom: '12px', right: '12px', zIndex: 999, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))', opacity: 0.4 }}>
               <img src="/image/logo.png" alt="" style={{ height: `${Math.max(20, 30 * scale)}px` }} className="object-contain" />
             </div>
@@ -153,9 +155,8 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
         ))}
       </div>
 
-      {/* 导出弹窗 */}
       {showExport && (
-        <MagazineExporter magazine={magazine} spreads={spreads} userId={userId} onClose={() => setShowExport(false)} />
+        <MagazineExporter magazine={magazine} spreads={spreads} userId={userId} isAuthor={isAuthor} onClose={() => setShowExport(false)} />
       )}
     </div>
   )

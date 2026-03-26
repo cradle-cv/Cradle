@@ -1,28 +1,33 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BadgeIcon } from '@/components/BadgeIcon'
+import { supabase } from '@/lib/supabase'
 
 const SERIES_INFO = {
-  exploration: { name: '探索者', icon: '🔍', desc: '谜题·日课·风赏' },
-  creation:    { name: '创作者', icon: '🎨', desc: '五种艺术门类作品集' },
-  influence:   { name: '影响力', icon: '💫', desc: '作品被认可' },
-  community:   { name: '社区',   icon: '👥', desc: '邀请·办展·传播' },
-  special:     { name: '特殊',   icon: '🌅', desc: '稀有成就' },
-  ultimate:    { name: '终极',   icon: '💠', desc: '全站最高荣誉' },
+  exploration: { name: '探索者', icon: '🧭', color: '#2563EB', bg: '#EFF6FF' },
+  creation:    { name: '创作者', icon: '✋', color: '#7C3AED', bg: '#F5F3FF' },
+  influence:   { name: '影响力', icon: '💫', color: '#D97706', bg: '#FEF3C7' },
+  community:   { name: '社区',   icon: '🤝', color: '#059669', bg: '#ECFDF5' },
+  magazinist:  { name: '杂志家', icon: '📄', color: '#DB2777', bg: '#FCE7F3' },
+  special:     { name: '特殊',   icon: '🌅', color: '#8B5CF6', bg: '#EDE9FE' },
+  ultimate:    { name: '终极',   icon: '💠', color: '#B45309', bg: '#FEF3C7' },
 }
 
-export default function BadgePanel({ userId, userLevel }) {
-  const [badges, setBadges] = useState([])
-  const [equipped, setEquipped] = useState({})
-  const [earnedCount, setEarnedCount] = useState(0)
+const TIER_COLORS = {
+  silver:  { text: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB', badge: '#9CA3AF' },
+  gold:    { text: '#92400E', bg: '#FEF3C7', border: '#FCD34D', badge: '#F59E0B' },
+  special: { text: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD', badge: '#8B5CF6' },
+}
+
+export default function BadgePanel({ userId }) {
+  const [allBadges, setAllBadges] = useState([])
+  const [ownedBadges, setOwnedBadges] = useState([])
+  const [equipped, setEquipped] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('wall')
+  const [selectedBadge, setSelectedBadge] = useState(null)
   const [checking, setChecking] = useState(false)
-  const [newBadges, setNewBadges] = useState([])
-  const [selectedSlot, setSelectedSlot] = useState(null)
-  const [synthTarget, setSynthTarget] = useState(null)
-  const [synthesizing, setSynthesizing] = useState(false)
-  const [synthResult, setSynthResult] = useState(null)
+  const [newlyEarned, setNewlyEarned] = useState([])
 
   useEffect(() => { if (userId) loadBadges() }, [userId])
 
@@ -30,335 +35,382 @@ export default function BadgePanel({ userId, userLevel }) {
     try {
       const resp = await fetch(`/api/badges?userId=${userId}`)
       const data = await resp.json()
-      if (data.badges) {
-        setBadges(data.badges)
-        setEquipped(data.equipped || {})
-        setEarnedCount(data.earnedCount || 0)
-      }
-    } catch (err) { console.error(err) }
+      setAllBadges(data.all || [])
+      setOwnedBadges(data.owned || [])
+      setEquipped(data.equipped || [])
+    } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
-  async function checkAchievements() {
+  async function checkBadges() {
     setChecking(true)
+    setNewlyEarned([])
     try {
       const resp = await fetch('/api/badges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'check', userId }),
+        body: JSON.stringify({ userId })
       })
       const data = await resp.json()
       if (data.newBadges?.length > 0) {
-        setNewBadges(data.newBadges)
+        setNewlyEarned(data.newBadges)
         await loadBadges()
-      } else {
-        setNewBadges([])
-        alert('暂无新成就可解锁')
       }
-    } catch (err) { console.error(err) }
+    } catch (e) { console.error(e) }
     finally { setChecking(false) }
   }
 
   async function equipBadge(badgeId, slot) {
-    await fetch('/api/badges', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'equip', userId, badgeId, slot }),
-    })
-    setEquipped(prev => ({ ...prev, [slot]: badgeId }))
-    setSelectedSlot(null)
-  }
-
-  async function unequipBadge(slot) {
-    await fetch('/api/badges', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'unequip', userId, slot }),
-    })
-    setEquipped(prev => { const n = { ...prev }; delete n[slot]; return n })
-  }
-
-  async function handleSynthesize(badgeCode) {
-    setSynthesizing(true)
-    setSynthResult(null)
     try {
-      const resp = await fetch('/api/badges', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'synthesize', userId, badgeCode }),
-      })
-      const data = await resp.json()
-      if (data.success) {
-        setSynthResult(data.badge)
-        await loadBadges()
-      } else {
-        alert(data.error || '合成失败')
+      // 先删除该槽位的旧数据
+      await supabase.from('user_equipped_badges').delete().eq('user_id', userId).eq('slot', slot)
+      // 插入新的
+      if (badgeId) {
+        await supabase.from('user_equipped_badges').insert({ user_id: userId, badge_id: badgeId, slot })
       }
-    } catch (err) { alert('合成失败: ' + err.message) }
-    finally { setSynthesizing(false); setSynthTarget(null) }
+      await loadBadges()
+    } catch (e) { alert('佩戴失败: ' + e.message) }
   }
 
-  if (loading) return <div className="text-center py-6 text-gray-400 text-sm">加载徽章中...</div>
-
-  // Lv7 以下锁定
-  if ((userLevel || 1) < 7) {
-    const earned = badges.filter(b => b.earned)
-    return (
-      <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
-        <div className="text-4xl mb-3">🏅</div>
-        <h3 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>徽章系统</h3>
-        <p className="text-sm mb-1" style={{ color: '#9CA3AF' }}>达到 Lv.7「徽者」解锁徽章系统</p>
-        <p className="text-sm" style={{ color: '#9CA3AF' }}>当前等级：Lv.{userLevel || 1}</p>
-        {earned.length > 0 && (
-          <>
-            <div className="mt-4 flex justify-center gap-2">
-              {earned.slice(0, 5).map(b => <BadgeIcon key={b.id} badge={b} size="sm" />)}
-            </div>
-            <p className="text-xs mt-2" style={{ color: '#B45309' }}>已解锁 {earned.length} 枚，升到 Lv.7 可佩戴展示</p>
-          </>
-        )}
-      </div>
-    )
+  async function unequipSlot(slot) {
+    await supabase.from('user_equipped_badges').delete().eq('user_id', userId).eq('slot', slot)
+    await loadBadges()
   }
 
-  const equippedBadgeIds = new Set(Object.values(equipped))
+  const ownedIds = new Set(ownedBadges.map(ob => ob.badge_id))
+  const equippedIds = new Set(equipped.map(e => e.badge_id))
+
+  // 按系列分组
   const grouped = {}
-  badges.forEach(b => {
+  allBadges.forEach(b => {
     if (!grouped[b.series]) grouped[b.series] = []
     grouped[b.series].push(b)
   })
 
-  // 分出普通徽章和合成徽章
-  const getSynthBadges = (series) => (grouped[series] || []).filter(b => b.requirement_type === 'synthesis')
-  const getNormalBadges = (series) => (grouped[series] || []).filter(b => b.requirement_type !== 'synthesis')
+  const seriesOrder = ['exploration', 'creation', 'influence', 'community', 'magazinist', 'special', 'ultimate']
+  const ownedCount = ownedBadges.length
+  const totalCount = allBadges.length
 
-  // 计算进度
-  function getProgress(badge) {
-    if (!badge.requirement_action || badge.requirement_type !== 'count') return null
-    // 这里简化，实际进度需要从后端获取
-    return null
-  }
+  if (loading) return <div className="text-center py-12" style={{ color: '#9CA3AF' }}>加载徽章中...</div>
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      {/* 头部 */}
-      <div className="p-6 border-b" style={{ borderColor: '#F3F4F6' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold" style={{ color: '#111827' }}>🏅 我的徽章</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>已解锁 {earnedCount}/{badges.filter(b => b.status === 'active').length}</p>
-          </div>
-          <button onClick={checkAchievements} disabled={checking}
-            className="px-4 py-2 rounded-lg text-xs font-medium transition"
-            style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
-            {checking ? '检查中...' : '🔍 检查新成就'}
-          </button>
-        </div>
-
-        {/* 新获得通知 */}
-        {newBadges.length > 0 && (
-          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-            <p className="text-sm font-bold mb-2" style={{ color: '#B45309' }}>🎉 恭喜获得新徽章！</p>
-            <div className="flex flex-wrap gap-3">
-              {newBadges.map(b => (
-                <div key={b.id} className="flex items-center gap-2">
-                  <BadgeIcon badge={b} size="md" showTooltip={false} />
-                  <div>
-                    <p className="text-xs font-bold" style={{ color: '#111827' }}>{b.name}</p>
-                    <p className="text-xs" style={{ color: '#9CA3AF' }}>{b.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 合成成功通知 */}
-        {synthResult && (
-          <div className="p-5 rounded-xl mb-4 text-center" style={{ backgroundColor: '#1a1a2e', border: '2px solid #DAA520' }}>
-            <p className="text-xs text-amber-400 mb-3">✦ 合成成功</p>
-            <div className="flex justify-center mb-3">
-              <BadgeIcon badge={synthResult} size="lg" showTooltip={false} />
-            </div>
-            <p className="text-lg font-bold text-white mb-1">{synthResult.name}</p>
-            <p className="text-xs text-white/60">{synthResult.art_reference}</p>
-            <button onClick={() => setSynthResult(null)} className="mt-3 text-xs text-amber-400 underline">关闭</button>
-          </div>
-        )}
-
-        {/* 佩戴栏 */}
+    <div id="badges">
+      {/* 头部统计 */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-xs font-medium mb-2" style={{ color: '#6B7280' }}>佩戴展示（最多3枚）</p>
-          <div className="flex gap-3">
-            {[1, 2, 3].map(slot => {
-              const badgeId = equipped[slot]
-              const badge = badgeId ? badges.find(b => b.id === badgeId) : null
-              return (
-                <div key={slot} className="relative text-center">
-                  {badge ? (
-                    <div className="cursor-pointer group" onClick={() => unequipBadge(slot)}>
-                      <BadgeIcon badge={badge} size="lg" showTooltip={true} />
-                      <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">×</div>
-                    </div>
-                  ) : (
-                    <button onClick={() => setSelectedSlot(selectedSlot === slot ? null : slot)}
-                      className="w-14 h-14 rounded-full border-2 border-dashed flex items-center justify-center transition"
-                      style={{ borderColor: selectedSlot === slot ? '#7C3AED' : '#D1D5DB', backgroundColor: selectedSlot === slot ? '#F5F3FF' : 'transparent' }}>
-                      <span className="text-lg" style={{ color: '#D1D5DB' }}>+</span>
-                    </button>
-                  )}
-                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>槽{slot}</p>
-                </div>
-              )
-            })}
+          <h2 className="text-xl font-bold" style={{ color: '#111827' }}>🏅 我的徽章</h2>
+          <p className="text-sm mt-1" style={{ color: '#6B7280' }}>已获得 {ownedCount} / {totalCount} 枚</p>
+        </div>
+        <button onClick={checkBadges} disabled={checking}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>
+          {checking ? '检测中...' : '🔍 检测新徽章'}
+        </button>
+      </div>
+
+      {/* 新获得提示 */}
+      {newlyEarned.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+          <p className="text-sm font-medium mb-2" style={{ color: '#92400E' }}>🎉 恭喜获得新徽章！</p>
+          <div className="flex flex-wrap gap-2">
+            {newlyEarned.map(b => (
+              <span key={b.code} className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FFFFFF', color: '#92400E' }}>
+                {b.name}
+              </span>
+            ))}
           </div>
-          {selectedSlot && <p className="text-xs mt-2" style={{ color: '#7C3AED' }}>点击下方已解锁的徽章放入槽位 {selectedSlot}</p>}
+        </div>
+      )}
+
+      {/* 佩戴槽位 */}
+      <div className="mb-8 p-5 rounded-xl" style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+        <h3 className="text-sm font-medium mb-3" style={{ color: '#374151' }}>佩戴展示（最多3枚）</h3>
+        <div className="flex gap-4">
+          {[1, 2, 3].map(slot => {
+            const eq = equipped.find(e => e.slot === slot)
+            const badge = eq?.badges
+            return (
+              <div key={slot} className="relative group">
+                {badge ? (
+                  <div className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer transition hover:shadow-md"
+                    style={{ backgroundColor: TIER_COLORS[badge.tier]?.bg || '#F3F4F6', border: `2px solid ${TIER_COLORS[badge.tier]?.border || '#D1D5DB'}` }}
+                    onClick={() => setSelectedBadge(badge)}>
+                    <span className="text-2xl">{badge.icon}</span>
+                    <span className="text-xs font-medium mt-1 text-center px-1 leading-tight" style={{ color: TIER_COLORS[badge.tier]?.text || '#374151' }}>{badge.name}</span>
+                    <button onClick={e => { e.stopPropagation(); unequipSlot(slot) }}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition"
+                      style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-xl flex flex-col items-center justify-center border-2 border-dashed" style={{ borderColor: '#D1D5DB' }}>
+                    <span className="text-lg" style={{ color: '#D1D5DB' }}>+</span>
+                    <span className="text-xs" style={{ color: '#9CA3AF' }}>槽位{slot}</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* 徽章列表 */}
-      <div className="p-6 space-y-8">
-        {Object.entries(SERIES_INFO).map(([series, info]) => {
-          const normal = getNormalBadges(series)
-          const synth = getSynthBadges(series)
-          if (normal.length === 0 && synth.length === 0) return null
+      {/* Tab切换 */}
+      <div className="flex gap-2 mb-6">
+        {[
+          { key: 'wall', label: '🏛️ 徽章墙' },
+          { key: 'synthesis', label: '⚗️ 合成' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition"
+            style={{
+              backgroundColor: activeTab === tab.key ? '#111827' : '#F3F4F6',
+              color: activeTab === tab.key ? '#FFFFFF' : '#6B7280',
+            }}>{tab.label}</button>
+        ))}
+      </div>
 
-          return (
-            <div key={series}>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">{info.icon}</span>
-                <span className="text-sm font-bold" style={{ color: '#111827' }}>{info.name}</span>
-                <span className="text-xs" style={{ color: '#9CA3AF' }}>· {info.desc}</span>
-              </div>
+      {/* 徽章墙 */}
+      {activeTab === 'wall' && (
+        <div className="space-y-8">
+          {seriesOrder.map(series => {
+            const badges = grouped[series]
+            if (!badges || badges.length === 0) return null
+            const info = SERIES_INFO[series] || { name: series, icon: '🏅', color: '#6B7280', bg: '#F3F4F6' }
+            const seriesOwned = badges.filter(b => ownedIds.has(b.id)).length
 
-              {/* 普通徽章 */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                {normal.map(badge => {
-                  const isEquipped = equippedBadgeIds.has(badge.id)
-                  const isUpcoming = badge.status === 'upcoming'
-                  return (
-                    <div key={badge.id}
-                      className={`rounded-xl p-4 transition ${
-                        isUpcoming ? 'opacity-40' :
-                        badge.earned ? (selectedSlot ? 'cursor-pointer hover:ring-2 ring-purple-400' : '') : 'opacity-50 grayscale'
-                      }`}
-                      style={{
-                        backgroundColor: badge.earned ? (badge.tier === 'gold' ? '#FFFDF5' : '#FAFAFA') : '#F9FAFB',
-                        border: isEquipped ? '2px solid #7C3AED' : `1px solid ${badge.tier === 'gold' && badge.earned ? '#DAA520' : '#E5E7EB'}`
-                      }}
-                      onClick={() => { if (badge.earned && selectedSlot && !isUpcoming) equipBadge(badge.id, selectedSlot) }}>
-                      <div className="flex items-center gap-3">
-                        <BadgeIcon badge={badge} size="md" showTooltip={!selectedSlot} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate" style={{ color: badge.earned ? '#111827' : '#9CA3AF' }}>{badge.name}</p>
-                          <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{badge.description}</p>
-                          {badge.art_reference && badge.earned && (
-                            <p className="text-xs mt-0.5 truncate" style={{ color: '#B45309', fontSize: '10px' }}>🎨 {badge.art_reference}</p>
-                          )}
-                          {isUpcoming && <p className="text-xs mt-0.5" style={{ color: '#7C3AED' }}>即将开放</p>}
-                        </div>
-                      </div>
-                      {isEquipped && (
-                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: '#7C3AED', color: '#FFF', fontSize: '10px' }}>✓</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+            return (
+              <div key={series}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">{info.icon}</span>
+                  <h3 className="font-bold" style={{ color: '#111827' }}>{info.name}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: info.bg, color: info.color }}>{seriesOwned}/{badges.length}</span>
+                </div>
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                  {badges.map(badge => {
+                    const owned = ownedIds.has(badge.id)
+                    const isEquipped = equippedIds.has(badge.id)
+                    const tierColor = TIER_COLORS[badge.tier] || TIER_COLORS.silver
+                    const isNew = newlyEarned.some(n => n.code === badge.code)
 
-              {/* 合成徽章 */}
-              {synth.length > 0 && (
-                <div className="space-y-2">
-                  {synth.map(badge => {
-                    const isEquipped = equippedBadgeIds.has(badge.id)
                     return (
-                      <div key={badge.id} className="rounded-xl p-4" style={{
-                        background: badge.earned
-                          ? badge.tier === 'gold' ? 'linear-gradient(135deg, #1a1a2e, #2d1f0e)' : 'linear-gradient(135deg, #1a1a2e, #1f2937)'
-                          : '#F3F4F6',
-                        border: badge.earned ? `2px solid ${badge.tier === 'gold' ? '#DAA520' : '#C0C0C0'}` : '1px solid #E5E7EB'
-                      }}>
-                        <div className="flex items-center gap-4">
-                          <BadgeIcon badge={badge} size="lg" showTooltip={false} />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold" style={{ color: badge.earned ? '#FFFFFF' : '#9CA3AF' }}>{badge.name}</p>
-                              {badge.earned && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(218,165,32,0.2)', color: '#DAA520' }}>✦ 高级</span>}
-                            </div>
-                            <p className="text-xs mt-0.5" style={{ color: badge.earned ? 'rgba(255,255,255,0.5)' : '#9CA3AF' }}>{badge.description}</p>
-                            {badge.art_reference && badge.earned && (
-                              <p className="text-xs mt-1" style={{ color: 'rgba(218,165,32,0.7)', fontSize: '10px' }}>🎨 {badge.art_reference}</p>
-                            )}
-                          </div>
-                          {!badge.earned && badge.canSynthesize && (
-                            <button onClick={() => setSynthTarget(badge)}
-                              className="px-4 py-2 rounded-lg text-xs font-bold transition animate-pulse"
-                              style={{ backgroundColor: '#DAA520', color: '#1a1a2e' }}>
-                              ✦ 合成
-                            </button>
-                          )}
-                          {!badge.earned && !badge.canSynthesize && (
-                            <span className="text-xs" style={{ color: '#9CA3AF' }}>材料不足</span>
-                          )}
-                          {badge.earned && selectedSlot && (
-                            <button onClick={() => equipBadge(badge.id, selectedSlot)}
-                              className="px-3 py-1.5 rounded-lg text-xs" style={{ backgroundColor: '#7C3AED', color: '#FFF' }}>
-                              佩戴
-                            </button>
-                          )}
-                        </div>
+                      <div key={badge.id}
+                        className="relative rounded-xl p-3 flex flex-col items-center cursor-pointer transition hover:shadow-md"
+                        style={{
+                          backgroundColor: owned ? tierColor.bg : '#F9FAFB',
+                          border: `2px solid ${owned ? tierColor.border : '#E5E7EB'}`,
+                          opacity: owned ? 1 : 0.45,
+                        }}
+                        onClick={() => setSelectedBadge(badge)}>
+                        {/* 新获得闪光 */}
+                        {isNew && <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#EF4444', color: '#FFF' }}>!</div>}
+                        {/* 已佩戴标记 */}
+                        {isEquipped && <div className="absolute -top-1 -left-1 w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#7C3AED', color: '#FFF' }}>✦</div>}
+
+                        <span className="text-2xl mb-1">{badge.icon}</span>
+                        <span className="text-xs font-medium text-center leading-tight" style={{ color: owned ? tierColor.text : '#9CA3AF' }}>
+                          {badge.name}
+                        </span>
+                        {/* 银/金标识 */}
+                        {badge.tier !== 'special' && (
+                          <span className="mt-1 w-2 h-2 rounded-full" style={{ backgroundColor: badge.tier === 'gold' ? '#F59E0B' : '#9CA3AF' }} />
+                        )}
                       </div>
                     )
                   })}
                 </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* 合成确认弹窗 */}
-      {synthTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSynthTarget(null)}>
-          <div className="rounded-2xl p-8 max-w-md w-full mx-4 text-center" style={{ backgroundColor: '#1a1a2e', border: '2px solid #DAA520' }}
-            onClick={e => e.stopPropagation()}>
-            <p className="text-amber-400 text-xs mb-4">✦ 徽章合成</p>
-
-            {/* 材料 */}
-            <div className="flex justify-center gap-2 mb-4 flex-wrap">
-              {synthTarget.requirement_action?.includes('+') && synthTarget.requirement_action.split('+').map(code => {
-                const mat = badges.find(b => b.code === code)
-                return mat ? (
-                  <div key={code} className="text-center">
-                    <BadgeIcon badge={mat} size="md" showTooltip={false} />
-                    <p className="text-xs text-white/40 mt-1">{mat.name}</p>
-                  </div>
-                ) : null
-              })}
-            </div>
-
-            <div className="text-2xl mb-4 text-amber-400">↓</div>
-
-            {/* 结果 */}
-            <div className="mb-6">
-              <div className="flex justify-center mb-2">
-                <BadgeIcon badge={synthTarget} size="lg" showTooltip={false} />
               </div>
-              <p className="text-xl font-bold text-white">{synthTarget.name}</p>
-              <p className="text-xs text-white/50 mt-1">{synthTarget.art_reference}</p>
-            </div>
+            )
+          })}
+        </div>
+      )}
 
-            <div className="flex gap-3 justify-center">
-              <button onClick={() => handleSynthesize(synthTarget.code)} disabled={synthesizing}
-                className="px-8 py-3 rounded-xl font-bold text-sm transition"
-                style={{ backgroundColor: '#DAA520', color: '#1a1a2e' }}>
-                {synthesizing ? '合成中...' : '✦ 确认合成'}
-              </button>
-              <button onClick={() => setSynthTarget(null)}
-                className="px-6 py-3 rounded-xl text-sm text-white/50 border border-white/20">
-                取消
-              </button>
+      {/* 合成 */}
+      {activeTab === 'synthesis' && (
+        <div className="space-y-6">
+          {allBadges.filter(b => b.requirement_type === 'synthesis').map(badge => {
+            const owned = ownedIds.has(badge.id)
+            const materials = parseMaterials(badge, allBadges).map(m => ({
+              ...m, owned: m.badge ? ownedIds.has(m.badge.id) : false
+            }))
+            const allMaterialsOwned = materials.every(m => m.owned)
+            const tierColor = TIER_COLORS[badge.tier] || TIER_COLORS.silver
+            const info = SERIES_INFO[badge.series] || {}
+
+            return (
+              <div key={badge.id} className="rounded-xl overflow-hidden"
+                style={{ border: `2px solid ${owned ? tierColor.border : '#E5E7EB'}`, backgroundColor: owned ? tierColor.bg : '#FFFFFF' }}>
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">{badge.icon}</span>
+                      <div>
+                        <h4 className="font-bold" style={{ color: '#111827' }}>{badge.name}</h4>
+                        <p className="text-xs" style={{ color: '#6B7280' }}>{badge.description}</p>
+                      </div>
+                    </div>
+                    {owned && <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>✅ 已获得</span>}
+                  </div>
+
+                  {/* 材料列表 */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {materials.map((m, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <div className="px-3 py-2 rounded-lg flex items-center gap-2 text-sm"
+                          style={{
+                            backgroundColor: m.owned ? (m.badge?.tier === 'gold' ? '#FEF3C7' : '#F3F4F6') : '#FAFAFA',
+                            border: `1px solid ${m.owned ? (m.badge?.tier === 'gold' ? '#FCD34D' : '#D1D5DB') : '#E5E7EB'}`,
+                            opacity: m.owned ? 1 : 0.5,
+                          }}>
+                          <span>{m.badge?.icon || '❓'}</span>
+                          <span style={{ color: m.owned ? '#111827' : '#9CA3AF' }}>{m.badge?.name || m.code}</span>
+                          {m.owned && <span style={{ color: '#059669' }}>✓</span>}
+                        </div>
+                        {i < materials.length - 1 && <span className="text-lg" style={{ color: '#D1D5DB' }}>+</span>}
+                      </div>
+                    ))}
+                    <span className="text-lg mx-2" style={{ color: '#9CA3AF' }}>→</span>
+                    <div className="px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-medium"
+                      style={{ backgroundColor: owned ? tierColor.bg : '#F9FAFB', border: `2px solid ${owned ? tierColor.border : '#E5E7EB'}` }}>
+                      <span>{badge.icon}</span>
+                      <span style={{ color: owned ? tierColor.text : '#9CA3AF' }}>{badge.name}</span>
+                    </div>
+                  </div>
+
+                  {/* 进度条 */}
+                  {!owned && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-xs mb-1" style={{ color: '#6B7280' }}>
+                        <span>合成进度</span>
+                        <span>{materials.filter(m => m.owned).length} / {materials.length}</span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#E5E7EB' }}>
+                        <div className="h-full rounded-full transition-all" style={{
+                          width: `${(materials.filter(m => m.owned).length / materials.length) * 100}%`,
+                          backgroundColor: info.color || '#7C3AED',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 徽章详情弹窗 */}
+      {selectedBadge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-4xl"
+                    style={{ backgroundColor: TIER_COLORS[selectedBadge.tier]?.bg || '#F3F4F6', border: `2px solid ${TIER_COLORS[selectedBadge.tier]?.border || '#D1D5DB'}` }}>
+                    {selectedBadge.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg" style={{ color: '#111827' }}>{selectedBadge.name}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                        backgroundColor: SERIES_INFO[selectedBadge.series]?.bg || '#F3F4F6',
+                        color: SERIES_INFO[selectedBadge.series]?.color || '#6B7280',
+                      }}>{SERIES_INFO[selectedBadge.series]?.name || selectedBadge.series}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                        backgroundColor: selectedBadge.tier === 'gold' ? '#FEF3C7' : selectedBadge.tier === 'special' ? '#EDE9FE' : '#F3F4F6',
+                        color: selectedBadge.tier === 'gold' ? '#92400E' : selectedBadge.tier === 'special' ? '#7C3AED' : '#6B7280',
+                      }}>{selectedBadge.tier === 'gold' ? '金' : selectedBadge.tier === 'special' ? '特殊' : '银'}</span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedBadge(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100" style={{ color: '#9CA3AF' }}>✕</button>
+              </div>
+
+              {/* 获取条件 */}
+              <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#F9FAFB' }}>
+                <p className="text-xs font-medium mb-1" style={{ color: '#6B7280' }}>获取条件</p>
+                <p className="text-sm" style={{ color: '#111827' }}>{selectedBadge.description}</p>
+              </div>
+
+              {/* 艺术灵感 */}
+              {selectedBadge.art_reference && (
+                <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#FEF3C7' }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: '#92400E' }}>🎨 艺术灵感</p>
+                  <p className="text-xs leading-relaxed" style={{ color: '#78350F' }}>{selectedBadge.art_reference}</p>
+                </div>
+              )}
+
+              {/* 状态 */}
+              {ownedIds.has(selectedBadge.id) ? (
+                <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#ECFDF5' }}>
+                  <p className="text-sm font-medium" style={{ color: '#059669' }}>✅ 已获得</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                    {ownedBadges.find(ob => ob.badge_id === selectedBadge.id)?.earned_at
+                      ? new Date(ownedBadges.find(ob => ob.badge_id === selectedBadge.id).earned_at).toLocaleDateString('zh-CN')
+                      : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
+                  <p className="text-sm" style={{ color: '#9CA3AF' }}>🔒 尚未获得</p>
+                </div>
+              )}
+
+              {/* 佩戴按钮 */}
+              {ownedIds.has(selectedBadge.id) && (
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: '#6B7280' }}>佩戴到槽位</p>
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map(slot => {
+                      const eq = equipped.find(e => e.slot === slot)
+                      const isThisEquipped = eq?.badge_id === selectedBadge.id
+                      return (
+                        <button key={slot} onClick={() => equipBadge(selectedBadge.id, slot)}
+                          className="flex-1 py-2 rounded-lg text-xs font-medium transition"
+                          style={{
+                            backgroundColor: isThisEquipped ? '#7C3AED' : '#F3F4F6',
+                            color: isThisEquipped ? '#FFFFFF' : '#374151',
+                            border: `1px solid ${isThisEquipped ? '#7C3AED' : '#E5E7EB'}`,
+                          }}>
+                          {isThisEquipped ? `✦ 槽位${slot}` : `槽位${slot}${eq ? ' (替换)' : ''}`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
     </div>
   )
+}
+
+// 解析合成材料
+function parseMaterials(badge, allBadges) {
+  const action = badge.requirement_action || ''
+  const badgeByCode = {}
+  allBadges.forEach(b => { badgeByCode[b.code] = b })
+
+  // 明确代码: code1+code2+code3
+  if (action.includes('+') && !action.match(/^(\w+)_(silver|gold)_(\d+)$/)) {
+    return action.split('+').map(code => {
+      const b = badgeByCode[code.trim()]
+      return { code: code.trim(), badge: b, owned: false } // owned 由外部设置
+    })
+  }
+
+  // 任意N枚: creation_silver_3
+  const match = action.match(/^(\w+)_(silver|gold)_(\d+)$/)
+  if (match) {
+    const [, series, tier, countStr] = match
+    const seriesMap = { creation: 'creation', community: 'community' }
+    const seriesName = seriesMap[series]
+    if (!seriesName) return []
+
+    const candidates = allBadges.filter(b => b.series === seriesName && b.tier === tier && b.requirement_type !== 'synthesis')
+    return candidates.map(b => ({ code: b.code, badge: b, owned: false }))
+  }
+
+  return []
 }
