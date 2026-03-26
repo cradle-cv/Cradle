@@ -1,307 +1,313 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
-import { BadgeIcon } from '@/components/BadgeIcon'
 
 const SERIES_INFO = {
-  exploration: { name: '🔍 探索者系列', desc: '谜题·日课·风赏' },
-  creation:    { name: '🎨 创作者系列', desc: '五种艺术门类作品集' },
-  influence:   { name: '💫 影响力系列', desc: '作品被认可' },
-  community:   { name: '👥 社区系列',   desc: '邀请·办展·传播' },
-  special:     { name: '🌅 特殊徽章',   desc: '稀有成就' },
-  ultimate:    { name: '💠 终极徽章',   desc: '全站最高荣誉' },
-}
-
-const TIER_LABELS = {
-  silver: '银',
-  gold: '金',
-  special: '特殊',
+  exploration: { name: '探索者', icon: '🧭', color: '#2563EB' },
+  creation:    { name: '创作者', icon: '✋', color: '#7C3AED' },
+  influence:   { name: '影响力', icon: '💫', color: '#D97706' },
+  community:   { name: '社区',   icon: '🤝', color: '#059669' },
+  magazinist:  { name: '杂志家', icon: '📄', color: '#DB2777' },
+  special:     { name: '特殊',   icon: '🌅', color: '#8B5CF6' },
+  ultimate:    { name: '终极',   icon: '💠', color: '#B45309' },
 }
 
 export default function AdminBadgesPage() {
   const [badges, setBadges] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editingBadge, setEditingBadge] = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [filter, setFilter] = useState('all')
-  const [previewMode, setPreviewMode] = useState(false)
-  const fileRef = useRef(null)
+  const [filterSeries, setFilterSeries] = useState('all')
+  const [filterTier, setFilterTier] = useState('all')
+  const [stats, setStats] = useState({})
+  const [showDetail, setShowDetail] = useState(null)
+  const [detailUsers, setDetailUsers] = useState([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [manualUserId, setManualUserId] = useState('')
+  const [manualBadgeId, setManualBadgeId] = useState('')
+  const [manualAction, setManualAction] = useState('grant')
 
   useEffect(() => { loadBadges() }, [])
 
   async function loadBadges() {
-    const { data } = await supabase
-      .from('badges')
-      .select('*')
-      .order('sort_order')
+    const { data } = await supabase.from('badges').select('*').order('sort_order')
     setBadges(data || [])
+
+    // 每枚徽章的获得人数
+    const { data: counts } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+    const countMap = {}
+    ;(counts || []).forEach(ub => {
+      countMap[ub.badge_id] = (countMap[ub.badge_id] || 0) + 1
+    })
+    setStats(countMap)
     setLoading(false)
   }
 
-  async function handleIconUpload(e, badge) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
+  async function toggleStatus(badge) {
+    const newStatus = badge.status === 'active' ? 'upcoming' : 'active'
+    await supabase.from('badges').update({ status: newStatus }).eq('id', badge.id)
+    await loadBadges()
+  }
+
+  async function showBadgeDetail(badge) {
+    setShowDetail(badge)
+    setDetailLoading(true)
+    setDetailUsers([])
+    const { data } = await supabase
+      .from('user_badges')
+      .select('*, users:user_id(id, username, avatar_url)')
+      .eq('badge_id', badge.id)
+      .order('earned_at', { ascending: false })
+      .limit(50)
+    setDetailUsers(data || [])
+    setDetailLoading(false)
+  }
+
+  async function handleManualAction() {
+    if (!manualUserId.trim() || !manualBadgeId) { alert('请填写用户ID并选择徽章'); return }
     try {
-      const { url } = await uploadImage(file, 'badges')
-      await supabase.from('badges').update({ icon: url }).eq('id', badge.id)
-      setBadges(prev => prev.map(b => b.id === badge.id ? { ...b, icon: url } : b))
-      if (editingBadge?.id === badge.id) setEditingBadge(prev => ({ ...prev, icon: url }))
-      alert('✅ 徽章图标上传成功')
-    } catch (err) {
-      alert('上传失败: ' + err.message)
-    } finally { setUploading(false) }
+      if (manualAction === 'grant') {
+        const { error } = await supabase.from('user_badges').upsert(
+          { user_id: manualUserId.trim(), badge_id: manualBadgeId },
+          { onConflict: 'user_id,badge_id' }
+        )
+        if (error) throw error
+        alert('✅ 颁发成功')
+      } else {
+        const { error } = await supabase.from('user_badges')
+          .delete().eq('user_id', manualUserId.trim()).eq('badge_id', manualBadgeId)
+        if (error) throw error
+        alert('✅ 已撤销')
+      }
+      await loadBadges()
+      setManualUserId('')
+    } catch (err) { alert('操作失败: ' + err.message) }
   }
 
-  async function handleSave() {
-    if (!editingBadge) return
-    setSaving(true)
-    try {
-      const { error } = await supabase.from('badges').update({
-        name: editingBadge.name,
-        description: editingBadge.description,
-        icon: editingBadge.icon,
-        art_reference: editingBadge.art_reference,
-        status: editingBadge.status,
-      }).eq('id', editingBadge.id)
-      if (error) throw error
-      setBadges(prev => prev.map(b => b.id === editingBadge.id ? { ...b, ...editingBadge } : b))
-      setEditingBadge(null)
-      alert('✅ 保存成功')
-    } catch (err) { alert('保存失败: ' + err.message) }
-    finally { setSaving(false) }
+  async function revokeBadge(userId, badgeId) {
+    if (!confirm('确定撤销该用户的这枚徽章？')) return
+    await supabase.from('user_badges').delete().eq('user_id', userId).eq('badge_id', badgeId)
+    showBadgeDetail(showDetail)
+    loadBadges()
   }
 
-  function editField(field, value) {
-    setEditingBadge(prev => ({ ...prev, [field]: value }))
-  }
-
-  if (loading) return <div className="flex items-center justify-center py-20 text-gray-500">加载中...</div>
-
-  const grouped = {}
-  badges.forEach(b => {
-    if (!grouped[b.series]) grouped[b.series] = []
-    grouped[b.series].push(b)
+  const filtered = badges.filter(b => {
+    if (filterSeries !== 'all' && b.series !== filterSeries) return false
+    if (filterTier !== 'all' && b.tier !== filterTier) return false
+    return true
   })
 
-  const filteredSeries = filter === 'all'
-    ? Object.keys(SERIES_INFO)
-    : [filter]
+  const seriesCounts = {}
+  badges.forEach(b => { seriesCounts[b.series] = (seriesCounts[b.series] || 0) + 1 })
+  const totalEarned = Object.values(stats).reduce((a, b) => a + b, 0)
 
-  const stats = {
-    total: badges.length,
-    withIcon: badges.filter(b => b.icon && (b.icon.startsWith('http') || b.icon.startsWith('/'))).length,
-    emojiOnly: badges.filter(b => b.icon && !b.icon.startsWith('http') && !b.icon.startsWith('/')).length,
-    active: badges.filter(b => b.status === 'active').length,
-    upcoming: badges.filter(b => b.status === 'upcoming').length,
-  }
+  if (loading) return <div className="flex items-center justify-center py-20" style={{ color: '#9CA3AF' }}>加载中...</div>
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div>
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <Link href="/admin" className="text-gray-500 hover:text-gray-900 text-sm">← 返回后台</Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-2">🏅 徽章管理</h1>
-          <p className="text-gray-600 mt-1">管理所有徽章的图标、名称和状态</p>
+          <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>🏅 徽章管理</h1>
+          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>共 {badges.length} 枚徽章 · 累计颁发 {totalEarned} 次</p>
         </div>
-        <button onClick={() => setPreviewMode(!previewMode)}
-          className="px-4 py-2 rounded-lg text-sm font-medium border transition"
-          style={{ backgroundColor: previewMode ? '#7C3AED' : '#FFFFFF', color: previewMode ? '#FFFFFF' : '#6B7280', borderColor: previewMode ? '#7C3AED' : '#D1D5DB' }}>
-          {previewMode ? '✓ 预览模式' : '👁 预览模式'}
-        </button>
       </div>
 
-      {/* 统计 */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        {[
-          { label: '总徽章', value: stats.total, icon: '🏅', bg: '#F3F4F6' },
-          { label: '已上传图标', value: stats.withIcon, icon: '🖼️', bg: '#ECFDF5' },
-          { label: 'Emoji占位', value: stats.emojiOnly, icon: '😀', bg: '#FEF3C7' },
-          { label: '已启用', value: stats.active, icon: '✅', bg: '#EFF6FF' },
-          { label: '即将开放', value: stats.upcoming, icon: '🔒', bg: '#F5F3FF' },
-        ].map((s, i) => (
-          <div key={i} className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: s.bg }}>{s.icon}</div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-500">{s.label}</p>
-              </div>
-            </div>
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-4 md:grid-cols-7 gap-3 mb-6">
+        {Object.entries(SERIES_INFO).map(([key, info]) => (
+          <div key={key} className="bg-white rounded-xl p-3 shadow-sm text-center cursor-pointer hover:shadow-md transition"
+            onClick={() => setFilterSeries(filterSeries === key ? 'all' : key)}
+            style={{ border: filterSeries === key ? `2px solid ${info.color}` : '2px solid transparent' }}>
+            <div className="text-xl">{info.icon}</div>
+            <div className="text-xs font-medium mt-1" style={{ color: '#111827' }}>{info.name}</div>
+            <div className="text-lg font-bold" style={{ color: info.color }}>{seriesCounts[key] || 0}</div>
           </div>
         ))}
       </div>
 
-      {/* 筛选 */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        <button onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm transition ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-          全部
-        </button>
-        {Object.entries(SERIES_INFO).map(([key, info]) => (
-          <button key={key} onClick={() => setFilter(key)}
-            className={`px-4 py-2 rounded-lg text-sm transition ${filter === key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            {info.name}
-          </button>
-        ))}
+      {/* 筛选条 */}
+      <div className="flex items-center gap-3 mb-4">
+        <select value={filterSeries} onChange={e => setFilterSeries(e.target.value)}
+          className="px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+          <option value="all">全部系列</option>
+          {Object.entries(SERIES_INFO).map(([key, info]) => (
+            <option key={key} value={key}>{info.icon} {info.name}</option>
+          ))}
+        </select>
+        <select value={filterTier} onChange={e => setFilterTier(e.target.value)}
+          className="px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+          <option value="all">全部级别</option>
+          <option value="silver">🥈 银</option>
+          <option value="gold">🥇 金</option>
+          <option value="special">⭐ 特殊</option>
+        </select>
+        <span className="text-sm ml-auto" style={{ color: '#9CA3AF' }}>显示 {filtered.length} 枚</span>
       </div>
 
       {/* 徽章列表 */}
-      {filteredSeries.map(series => {
-        const seriesBadges = grouped[series]
-        if (!seriesBadges || seriesBadges.length === 0) return null
-        const info = SERIES_INFO[series]
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
+        <table className="w-full">
+          <thead>
+            <tr style={{ backgroundColor: '#F9FAFB' }}>
+              <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>徽章</th>
+              <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>系列</th>
+              <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>级别</th>
+              <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>条件</th>
+              <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>获得人数</th>
+              <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>状态</th>
+              <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(badge => {
+              const info = SERIES_INFO[badge.series] || {}
+              const count = stats[badge.id] || 0
+              return (
+                <tr key={badge.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: '#F3F4F6' }}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{badge.icon}</span>
+                      <div>
+                        <span className="text-sm font-medium" style={{ color: '#111827' }}>{badge.name}</span>
+                        <p className="text-xs" style={{ color: '#9CA3AF' }}>{badge.code}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: (info.color || '#6B7280') + '15', color: info.color || '#6B7280' }}>
+                      {info.icon} {info.name}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                      backgroundColor: badge.tier === 'gold' ? '#FEF3C7' : badge.tier === 'special' ? '#EDE9FE' : '#F3F4F6',
+                      color: badge.tier === 'gold' ? '#92400E' : badge.tier === 'special' ? '#7C3AED' : '#6B7280',
+                    }}>{badge.tier === 'gold' ? '🥇 金' : badge.tier === 'special' ? '⭐ 特殊' : '🥈 银'}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-xs" style={{ color: '#6B7280' }}>{badge.description}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#D1D5DB' }}>
+                      {badge.requirement_type === 'synthesis' ? '合成' : badge.requirement_type === 'one_time' ? '一次性' : `计数 ≥ ${badge.requirement_count}`}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-sm font-bold" style={{ color: count > 0 ? '#111827' : '#D1D5DB' }}>{count}</span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => toggleStatus(badge)}
+                      className="text-xs px-2 py-1 rounded-full transition"
+                      style={{
+                        backgroundColor: badge.status === 'active' ? '#ECFDF5' : '#FEF3C7',
+                        color: badge.status === 'active' ? '#059669' : '#B45309',
+                      }}>
+                      {badge.status === 'active' ? '✅ 活跃' : '⏳ 即将'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => showBadgeDetail(badge)}
+                      className="text-xs px-2 py-1 rounded-lg hover:bg-gray-100 transition" style={{ color: '#7C3AED' }}>
+                      详情
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
-        return (
-          <div key={series} className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-lg font-bold text-gray-900">{info?.name || series}</h2>
-              <span className="text-xs text-gray-400">{info?.desc} · {seriesBadges.length} 枚</span>
+      {/* 手动颁发/撤销 */}
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+        <h2 className="font-bold mb-4" style={{ color: '#111827' }}>🎖️ 手动颁发/撤销</h2>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>用户ID</label>
+            <input value={manualUserId} onChange={e => setManualUserId(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm text-gray-900 w-64" style={{ borderColor: '#D1D5DB' }}
+              placeholder="输入用户UUID" />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>选择徽章</label>
+            <select value={manualBadgeId} onChange={e => setManualBadgeId(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm text-gray-900 w-64" style={{ borderColor: '#D1D5DB' }}>
+              <option value="">-- 选择徽章 --</option>
+              {badges.map(b => <option key={b.id} value={b.id}>{b.icon} {b.name}（{b.code}）</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>操作</label>
+            <select value={manualAction} onChange={e => setManualAction(e.target.value)}
+              className="px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+              <option value="grant">颁发</option>
+              <option value="revoke">撤销</option>
+            </select>
+          </div>
+          <button onClick={handleManualAction}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition"
+            style={{ backgroundColor: manualAction === 'grant' ? '#7C3AED' : '#EF4444' }}>
+            {manualAction === 'grant' ? '✅ 颁发' : '❌ 撤销'}
+          </button>
+        </div>
+      </div>
+
+      {/* 徽章详情弹窗 */}
+      {showDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F3F4F6' }}>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{showDetail.icon}</span>
+                <div>
+                  <h3 className="font-bold" style={{ color: '#111827' }}>{showDetail.name}</h3>
+                  <p className="text-xs" style={{ color: '#6B7280' }}>{showDetail.code} · {showDetail.description}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDetail(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100" style={{ color: '#9CA3AF' }}>✕</button>
             </div>
 
-            {/* 预览模式 */}
-            {previewMode ? (
-              <div className="bg-white rounded-xl p-6 shadow-sm">
-                <div className="flex flex-wrap gap-4">
-                  {seriesBadges.map(badge => (
-                    <div key={badge.id} className="text-center w-24">
-                      <div className="flex justify-center mb-2">
-                        {badge.icon && (badge.icon.startsWith('http') || badge.icon.startsWith('/')) ? (
-                          <img src={badge.icon} alt={badge.name} className="w-14 h-14 rounded-full object-cover"
-                            style={{ border: `2px solid ${badge.tier === 'gold' ? '#DAA520' : badge.tier === 'special' ? '#7C3AED' : '#C0C0C0'}` }} />
+            {/* 艺术灵感 */}
+            {showDetail.art_reference && (
+              <div className="px-6 py-3" style={{ backgroundColor: '#FEF3C7' }}>
+                <p className="text-xs" style={{ color: '#78350F' }}>🎨 {showDetail.art_reference}</p>
+              </div>
+            )}
+
+            {/* 获得用户列表 */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <h4 className="text-sm font-medium mb-3" style={{ color: '#374151' }}>获得用户（{stats[showDetail.id] || 0} 人）</h4>
+              {detailLoading ? (
+                <p className="text-sm py-4 text-center" style={{ color: '#9CA3AF' }}>加载中...</p>
+              ) : detailUsers.length === 0 ? (
+                <p className="text-sm py-4 text-center" style={{ color: '#9CA3AF' }}>暂无用户获得此徽章</p>
+              ) : (
+                <div className="space-y-2">
+                  {detailUsers.map(ub => (
+                    <div key={ub.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        {ub.users?.avatar_url ? (
+                          <img src={ub.users.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
-                          <BadgeIcon badge={badge} size="lg" showTooltip={true} />
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
                         )}
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: '#111827' }}>{ub.users?.username || '未知用户'}</p>
+                          <p className="text-xs" style={{ color: '#9CA3AF' }}>{new Date(ub.earned_at).toLocaleDateString('zh-CN')}</p>
+                        </div>
                       </div>
-                      <p className="text-xs font-medium text-gray-800 truncate">{badge.name}</p>
-                      <p className="text-xs text-gray-400">{TIER_LABELS[badge.tier] || badge.tier}</p>
+                      <button onClick={() => revokeBadge(ub.user_id, ub.badge_id)}
+                        className="text-xs px-2 py-1 rounded hover:bg-red-50 transition" style={{ color: '#EF4444' }}>
+                        撤销
+                      </button>
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : (
-              /* 编辑模式 */
-              <div className="space-y-3">
-                {seriesBadges.map(badge => {
-                  const isEditing = editingBadge?.id === badge.id
-                  const isCustomIcon = badge.icon && (badge.icon.startsWith('http') || badge.icon.startsWith('/'))
-                  const isUpcoming = badge.status === 'upcoming'
-                  const isSynthesis = badge.requirement_type === 'synthesis'
-
-                  return (
-                    <div key={badge.id} className={`bg-white rounded-xl shadow-sm overflow-hidden ${isUpcoming ? 'opacity-60' : ''}`}>
-                      <div className="flex items-center gap-4 p-4">
-                        {/* 图标 */}
-                        <div className="relative group flex-shrink-0">
-                          {isCustomIcon ? (
-                            <img src={badge.icon} alt="" className="w-14 h-14 rounded-full object-cover"
-                              style={{ border: `2px solid ${badge.tier === 'gold' ? '#DAA520' : badge.tier === 'special' ? '#7C3AED' : '#C0C0C0'}` }} />
-                          ) : (
-                            <BadgeIcon badge={badge} size="lg" showTooltip={false} />
-                          )}
-                          <label className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                            <span className="text-white text-xs font-medium">{uploading ? '...' : '上传'}</span>
-                            <input type="file" accept="image/*" className="hidden"
-                              onChange={e => handleIconUpload(e, badge)} disabled={uploading} />
-                          </label>
-                        </div>
-
-                        {/* 信息 */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-bold text-gray-900">{badge.name}</span>
-                            <span className="text-xs px-2 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: badge.tier === 'gold' ? '#FEF3C7' : badge.tier === 'special' ? '#F5F3FF' : '#F3F4F6',
-                                color: badge.tier === 'gold' ? '#B45309' : badge.tier === 'special' ? '#7C3AED' : '#6B7280'
-                              }}>{TIER_LABELS[badge.tier] || badge.tier}</span>
-                            {isSynthesis && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">✦ 合成</span>}
-                            {isUpcoming && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">即将开放</span>}
-                            {!isCustomIcon && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700">需上传图标</span>}
-                          </div>
-                          <p className="text-xs text-gray-500">{badge.description}</p>
-                          {badge.art_reference && (
-                            <p className="text-xs text-amber-600 mt-0.5">🎨 {badge.art_reference}</p>
-                          )}
-                        </div>
-
-                        {/* 状态 */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs font-mono text-gray-400">{badge.code}</span>
-                          <button onClick={() => setEditingBadge(isEditing ? null : { ...badge })}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
-                            style={{ backgroundColor: isEditing ? '#7C3AED' : '#F3F4F6', color: isEditing ? '#FFF' : '#6B7280' }}>
-                            {isEditing ? '取消' : '编辑'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 编辑面板 */}
-                      {isEditing && (
-                        <div className="px-4 pb-4 pt-2 border-t space-y-3" style={{ borderColor: '#F3F4F6' }}>
-                          <div className="grid md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">徽章名称</label>
-                              <input value={editingBadge.name} onChange={e => editField('name', e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">状态</label>
-                              <select value={editingBadge.status} onChange={e => editField('status', e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg text-sm">
-                                <option value="active">已启用</option>
-                                <option value="upcoming">即将开放</option>
-                                <option value="disabled">已禁用</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">获取条件</label>
-                            <input value={editingBadge.description} onChange={e => editField('description', e.target.value)}
-                              className="w-full px-3 py-2 border rounded-lg text-sm" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">艺术参考</label>
-                            <input value={editingBadge.art_reference || ''} onChange={e => editField('art_reference', e.target.value)}
-                              className="w-full px-3 py-2 border rounded-lg text-sm" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">图标（URL或emoji）</label>
-                            <div className="flex gap-2">
-                              <input value={editingBadge.icon || ''} onChange={e => editField('icon', e.target.value)}
-                                className="flex-1 px-3 py-2 border rounded-lg text-sm" placeholder="emoji 或 图片URL" />
-                              <label className="px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer hover:bg-gray-50 flex items-center gap-1"
-                                style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                                📤 上传
-                                <input type="file" accept="image/*" className="hidden"
-                                  onChange={e => handleIconUpload(e, editingBadge)} />
-                              </label>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 pt-2">
-                            <button onClick={handleSave} disabled={saving}
-                              className="px-5 py-2 rounded-lg text-sm font-medium text-white"
-                              style={{ backgroundColor: '#059669' }}>
-                              {saving ? '保存中...' : '✅ 保存'}
-                            </button>
-                            <button onClick={() => setEditingBadge(null)}
-                              className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100">取消</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        )
-      })}
+        </div>
+      )}
     </div>
   )
 }
