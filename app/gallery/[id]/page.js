@@ -7,6 +7,7 @@ import InspirationToast from '@/components/InspirationToast'
 import LevelBadge from '@/components/LevelBadge'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
 import ImageGallery from '@/components/ImageGallery'
+import WatermarkImage from '@/components/WaterMarkImage'
 
 export default function GalleryDetailPage() {
   const { id } = useParams()
@@ -871,13 +872,12 @@ function ZoomableImage({ src, alt }) {
   return (
     <div ref={imgRef} className="rounded-2xl overflow-hidden cursor-zoom-in relative mb-4"
       onMouseEnter={() => setZooming(true)} onMouseLeave={() => setZooming(false)} onMouseMove={handleMouseMove}>
-      <img src={src} alt={alt || ''} className="w-full h-auto" style={{ display: 'block' }} />
-      {zooming && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${src})`, backgroundSize: '250%', backgroundPosition: `${position.x}% ${position.y}%`, backgroundRepeat: 'no-repeat' }} />}
-      {!zooming && <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full">🔍 悬停放大</div>}
+      <WatermarkImage src={src} alt={alt || ''} className="w-full" objectFit="contain" />
+      {zooming && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${src})`, backgroundSize: '250%', backgroundPosition: `${position.x}% ${position.y}%`, backgroundRepeat: 'no-repeat', zIndex: 20 }} />}
+      {!zooming && <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full" style={{ zIndex: 15 }}>🔍 悬停放大</div>}
     </div>
   )
 }
-
 function formatContent(content) {
   if (!content) return ''
   return content.split('\n\n').filter(p => p.trim()).map(p => `<p style="color:#374151;line-height:1.8;margin-bottom:1em">${p.replace(/\n/g, '<br/>')}</p>`).join('')
