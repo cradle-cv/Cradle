@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 
 const SERIES_INFO = {
@@ -26,6 +27,9 @@ export default function AdminBadgesPage() {
   const [manualUserId, setManualUserId] = useState('')
   const [manualBadgeId, setManualBadgeId] = useState('')
   const [manualAction, setManualAction] = useState('grant')
+  const [uploadingId, setUploadingId] = useState(null)
+  const fileRef = useRef(null)
+  const uploadTargetRef = useRef(null)
 
   useEffect(() => { loadBadges() }, [])
 
@@ -33,14 +37,9 @@ export default function AdminBadgesPage() {
     const { data } = await supabase.from('badges').select('*').order('sort_order')
     setBadges(data || [])
 
-    // 每枚徽章的获得人数
-    const { data: counts } = await supabase
-      .from('user_badges')
-      .select('badge_id')
+    const { data: counts } = await supabase.from('user_badges').select('badge_id')
     const countMap = {}
-    ;(counts || []).forEach(ub => {
-      countMap[ub.badge_id] = (countMap[ub.badge_id] || 0) + 1
-    })
+    ;(counts || []).forEach(ub => { countMap[ub.badge_id] = (countMap[ub.badge_id] || 0) + 1 })
     setStats(countMap)
     setLoading(false)
   }
@@ -51,6 +50,37 @@ export default function AdminBadgesPage() {
     await loadBadges()
   }
 
+  // ========== 图片上传 ==========
+  function triggerUpload(badgeId) {
+    uploadTargetRef.current = badgeId
+    fileRef.current?.click()
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file || !uploadTargetRef.current) return
+    const badgeId = uploadTargetRef.current
+    setUploadingId(badgeId)
+    try {
+      const { url } = await uploadImage(file, 'badges')
+      const { error } = await supabase.from('badges').update({ image_url: url }).eq('id', badgeId)
+      if (error) throw error
+      await loadBadges()
+    } catch (err) { alert('上传失败: ' + err.message) }
+    finally {
+      setUploadingId(null)
+      uploadTargetRef.current = null
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function removeImage(badgeId) {
+    if (!confirm('确定移除此徽章图片？')) return
+    await supabase.from('badges').update({ image_url: '' }).eq('id', badgeId)
+    await loadBadges()
+  }
+
+  // ========== 详情弹窗 ==========
   async function showBadgeDetail(badge) {
     setShowDetail(badge)
     setDetailLoading(true)
@@ -93,6 +123,20 @@ export default function AdminBadgesPage() {
     loadBadges()
   }
 
+  // ========== 详情弹窗中更新图片 ==========
+  async function handleDetailUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file || !showDetail) return
+    setUploadingId(showDetail.id)
+    try {
+      const { url } = await uploadImage(file, 'badges')
+      await supabase.from('badges').update({ image_url: url }).eq('id', showDetail.id)
+      setShowDetail(prev => ({ ...prev, image_url: url }))
+      await loadBadges()
+    } catch (err) { alert('上传失败: ' + err.message) }
+    finally { setUploadingId(null) }
+  }
+
   const filtered = badges.filter(b => {
     if (filterSeries !== 'all' && b.series !== filterSeries) return false
     if (filterTier !== 'all' && b.tier !== filterTier) return false
@@ -102,19 +146,25 @@ export default function AdminBadgesPage() {
   const seriesCounts = {}
   badges.forEach(b => { seriesCounts[b.series] = (seriesCounts[b.series] || 0) + 1 })
   const totalEarned = Object.values(stats).reduce((a, b) => a + b, 0)
+  const uploadedCount = badges.filter(b => b.image_url).length
 
   if (loading) return <div className="flex items-center justify-center py-20" style={{ color: '#9CA3AF' }}>加载中...</div>
 
   return (
     <div>
+      {/* 隐藏的上传input */}
+      <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>🏅 徽章管理</h1>
-          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>共 {badges.length} 枚徽章 · 累计颁发 {totalEarned} 次</p>
+          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>
+            共 {badges.length} 枚徽章 · 已上传图片 {uploadedCount}/{badges.length} · 累计颁发 {totalEarned} 次
+          </p>
         </div>
       </div>
 
-      {/* 统计卡片 */}
+      {/* 系列统计 */}
       <div className="grid grid-cols-4 md:grid-cols-7 gap-3 mb-6">
         {Object.entries(SERIES_INFO).map(([key, info]) => (
           <div key={key} className="bg-white rounded-xl p-3 shadow-sm text-center cursor-pointer hover:shadow-md transition"
@@ -127,7 +177,7 @@ export default function AdminBadgesPage() {
         ))}
       </div>
 
-      {/* 筛选条 */}
+      {/* 筛选 */}
       <div className="flex items-center gap-3 mb-4">
         <select value={filterSeries} onChange={e => setFilterSeries(e.target.value)}
           className="px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}>
@@ -151,11 +201,12 @@ export default function AdminBadgesPage() {
         <table className="w-full">
           <thead>
             <tr style={{ backgroundColor: '#F9FAFB' }}>
+              <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>图片</th>
               <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>徽章</th>
               <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>系列</th>
               <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>级别</th>
               <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>条件</th>
-              <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>获得人数</th>
+              <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>人数</th>
               <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>状态</th>
               <th className="text-center px-4 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>操作</th>
             </tr>
@@ -164,15 +215,35 @@ export default function AdminBadgesPage() {
             {filtered.map(badge => {
               const info = SERIES_INFO[badge.series] || {}
               const count = stats[badge.id] || 0
+              const isUploading = uploadingId === badge.id
               return (
                 <tr key={badge.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: '#F3F4F6' }}>
+                  {/* 图片列 */}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{badge.icon}</span>
-                      <div>
-                        <span className="text-sm font-medium" style={{ color: '#111827' }}>{badge.name}</span>
-                        <p className="text-xs" style={{ color: '#9CA3AF' }}>{badge.code}</p>
-                      </div>
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group"
+                      style={{ backgroundColor: '#F3F4F6', border: badge.image_url ? '2px solid #D1D5DB' : '2px dashed #D1D5DB' }}
+                      onClick={() => triggerUpload(badge.id)}>
+                      {isUploading ? (
+                        <span className="text-xs" style={{ color: '#9CA3AF' }}>...</span>
+                      ) : badge.image_url ? (
+                        <>
+                          <img src={badge.image_url} alt={badge.name} className="w-full h-full object-contain" />
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <span className="text-white text-xs">换图</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <span className="text-lg">{badge.icon}</span>
+                          <span className="text-xs opacity-0 group-hover:opacity-100 transition" style={{ color: '#7C3AED' }}>上传</span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <span className="text-sm font-medium" style={{ color: '#111827' }}>{badge.name}</span>
+                      <p className="text-xs" style={{ color: '#9CA3AF' }}>{badge.code}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -206,10 +277,18 @@ export default function AdminBadgesPage() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => showBadgeDetail(badge)}
-                      className="text-xs px-2 py-1 rounded-lg hover:bg-gray-100 transition" style={{ color: '#7C3AED' }}>
-                      详情
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => showBadgeDetail(badge)}
+                        className="text-xs px-2 py-1 rounded-lg hover:bg-gray-100 transition" style={{ color: '#7C3AED' }}>
+                        详情
+                      </button>
+                      {badge.image_url && (
+                        <button onClick={() => removeImage(badge.id)}
+                          className="text-xs px-1 py-1 rounded hover:bg-red-50 transition" style={{ color: '#EF4444' }} title="移除图片">
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
@@ -256,15 +335,53 @@ export default function AdminBadgesPage() {
       {showDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F3F4F6' }}>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{showDetail.icon}</span>
+            <div className="px-6 py-4 border-b flex items-start justify-between" style={{ borderColor: '#F3F4F6' }}>
+              <div className="flex items-center gap-4">
+                {/* 详情中的徽章图片/上传 */}
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center group cursor-pointer"
+                  style={{ backgroundColor: '#F3F4F6', border: showDetail.image_url ? '2px solid #D1D5DB' : '2px dashed #D1D5DB' }}>
+                  {uploadingId === showDetail.id ? (
+                    <span style={{ color: '#9CA3AF' }}>...</span>
+                  ) : showDetail.image_url ? (
+                    <>
+                      <img src={showDetail.image_url} alt={showDetail.name} className="w-full h-full object-contain" />
+                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                        <span className="text-white text-xs">换图</span>
+                        <input type="file" accept="image/*" onChange={handleDetailUpload} className="hidden" />
+                      </label>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center cursor-pointer w-full h-full justify-center">
+                      <span className="text-3xl">{showDetail.icon}</span>
+                      <span className="text-xs mt-1" style={{ color: '#7C3AED' }}>上传图片</span>
+                      <input type="file" accept="image/*" onChange={handleDetailUpload} className="hidden" />
+                    </label>
+                  )}
+                </div>
                 <div>
-                  <h3 className="font-bold" style={{ color: '#111827' }}>{showDetail.name}</h3>
-                  <p className="text-xs" style={{ color: '#6B7280' }}>{showDetail.code} · {showDetail.description}</p>
+                  <h3 className="font-bold text-lg" style={{ color: '#111827' }}>{showDetail.name}</h3>
+                  <p className="text-xs" style={{ color: '#6B7280' }}>{showDetail.code}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                      backgroundColor: (SERIES_INFO[showDetail.series]?.color || '#6B7280') + '15',
+                      color: SERIES_INFO[showDetail.series]?.color || '#6B7280',
+                    }}>{SERIES_INFO[showDetail.series]?.name || showDetail.series}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                      backgroundColor: showDetail.tier === 'gold' ? '#FEF3C7' : showDetail.tier === 'special' ? '#EDE9FE' : '#F3F4F6',
+                      color: showDetail.tier === 'gold' ? '#92400E' : showDetail.tier === 'special' ? '#7C3AED' : '#6B7280',
+                    }}>{showDetail.tier === 'gold' ? '金' : showDetail.tier === 'special' ? '特殊' : '银'}</span>
+                  </div>
                 </div>
               </div>
               <button onClick={() => setShowDetail(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100" style={{ color: '#9CA3AF' }}>✕</button>
+            </div>
+
+            {/* 条件 */}
+            <div className="px-6 py-3" style={{ backgroundColor: '#F9FAFB' }}>
+              <p className="text-xs" style={{ color: '#6B7280' }}>{showDetail.description}</p>
+              <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>
+                {showDetail.requirement_type}: {showDetail.requirement_action} ({showDetail.requirement_count})
+              </p>
             </div>
 
             {/* 艺术灵感 */}
@@ -297,9 +414,7 @@ export default function AdminBadgesPage() {
                         </div>
                       </div>
                       <button onClick={() => revokeBadge(ub.user_id, ub.badge_id)}
-                        className="text-xs px-2 py-1 rounded hover:bg-red-50 transition" style={{ color: '#EF4444' }}>
-                        撤销
-                      </button>
+                        className="text-xs px-2 py-1 rounded hover:bg-red-50 transition" style={{ color: '#EF4444' }}>撤销</button>
                     </div>
                   ))}
                 </div>
