@@ -182,7 +182,8 @@ export default function AdminBatchArtworksPage() {
     for (let i = 0; i < uploadFiles.length; i++) {
       try {
         const { url } = await uploadImage(uploadFiles[i], 'artworks')
-        const title = uploadFiles[i].name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+        const colName = collections.find(c => c.id === uploadCollection)?.title || '作品'
+const title = `${colName} ${i + 1}`
         const insertData = { title, image_url: url, status: 'draft' }
         if (uploadArtist) insertData.artist_id = uploadArtist
         if (uploadCollection) insertData.collection_id = uploadCollection
