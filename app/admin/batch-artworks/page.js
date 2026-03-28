@@ -183,14 +183,14 @@ export default function AdminBatchArtworksPage() {
       try {
         const { url } = await uploadImage(uploadFiles[i], 'artworks')
         const title = uploadFiles[i].name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-        const { error } = await supabase.from('artworks').insert({
-          title, image_url: url, status: 'draft',
-          artist_id: uploadArtist || null, collection_id: uploadCollection || null,
-          category: uploadCategory || null,
-        })
+        const insertData = { title, image_url: url, status: 'draft' }
+        if (uploadArtist) insertData.artist_id = uploadArtist
+        if (uploadCollection) insertData.collection_id = uploadCollection
+        if (uploadCategory) insertData.category = uploadCategory
+        const { error } = await supabase.from('artworks').insert(insertData)
         if (error) throw error
         results.success++
-      } catch (err) { results.failed++; console.error(`第${i+1}张失败:`, err) }
+      } catch (err) { results.failed++; results.lastError = err.message || JSON.stringify(err) }
       setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100))
     }
     setUploadResult(results)
@@ -435,7 +435,11 @@ export default function AdminBatchArtworksPage() {
 
           {uploadResult && (
             <div className="p-4 rounded-xl" style={{ backgroundColor: '#ECFDF5', border: '1px solid #6EE7B7' }}>
-              <p className="text-sm" style={{ color: '#059669' }}>✅ 成功创建 {uploadResult.success} 个作品 {uploadResult.failed > 0 && `· 失败 ${uploadResult.failed}`}</p>
+              <p className="text-sm" style={{ color: uploadResult.failed > 0 ? '#DC2626' : '#059669' }}>
+  {uploadResult.success > 0 && `✅ 成功 ${uploadResult.success} 个 `}
+  {uploadResult.failed > 0 && `❌ 失败 ${uploadResult.failed} 个`}
+  {uploadResult.lastError && <><br/>错误: {uploadResult.lastError}</>}
+</p>
             </div>
           )}
         </div>
