@@ -402,7 +402,15 @@ export default function AdminBatchArtworksPage() {
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>分类</label>
-              <input value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} className={inputCls} style={{ borderColor: '#D1D5DB' }} placeholder="绘画" />
+              <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} className={inputCls} style={{ borderColor: '#D1D5DB' }}>
+  <option value="">不设置</option>
+  <option value="painting">绘画</option>
+  <option value="photo">摄影</option>
+  <option value="sculpture">立体造型</option>
+  <option value="literature">文学</option>
+  <option value="manuscript">手迹</option>
+  <option value="vibeart">VIBEART</option>
+</select>
             </div>
           </div>
 
