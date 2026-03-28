@@ -85,6 +85,43 @@ export async function POST(request) {
         }
       }
 
+      // 补充查找数据库中已有的作品（用于只导入谜题/日课/风赏的场景）
+      const unmatchedTitles = new Set()
+      ;(questions || []).forEach(q => { if (q.work_title?.trim() && !workIdMap[q.work_title.trim()]) unmatchedTitles.add(q.work_title.trim()) })
+      ;(comments || []).forEach(c => { if (c.work_title?.trim() && !workIdMap[c.work_title.trim()]) unmatchedTitles.add(c.work_title.trim()) })
+      ;(rikeData || []).forEach(r => { if (r.work_title?.trim() && !workIdMap[r.work_title.trim()]) unmatchedTitles.add(r.work_title.trim()) })
+
+      if (unmatchedTitles.size > 0) {
+        const { data: existingWorks } = await supabase
+          .from('gallery_works')
+          .select('id, title, puzzle_article_id, rike_article_id')
+          .in('title', Array.from(unmatchedTitles))
+        ;(existingWorks || []).forEach(w => {
+          if (!workIdMap[w.title]) {
+            workIdMap[w.title] = { workId: w.id, puzzleArticleId: w.puzzle_article_id }
+            // 如果作品存在但没有谜题文章，自动创建一个
+          }
+        })
+
+        // 对于有谜题数据但作品还没有puzzle_article_id的，自动创建谜题文章
+        for (const title of unmatchedTitles) {
+          const mapped = workIdMap[title]
+          if (mapped && !mapped.puzzleArticleId) {
+            const hasQuestions = (questions || []).some(q => q.work_title?.trim() === title)
+            if (hasQuestions) {
+              try {
+                const { data: pa } = await supabase.from('articles').insert({
+                  title: `${title} - 谜题`, category: 'puzzle', status: 'draft', author_type: 'admin',
+                }).select().single()
+                if (pa) {
+                  mapped.puzzleArticleId = pa.id
+                  await supabase.from('gallery_works').update({ puzzle_article_id: pa.id }).eq('id', mapped.workId)
+                }
+              } catch (e) { results.errors.push({ sheet: '谜题', row: 0, msg: `为「${title}」创建谜题文章失败: ${e.message}` }) }
+            }
+          }
+        }
+      }
       // 2. 创建谜题题目
       for (let i = 0; i < (questions || []).length; i++) {
         const q = questions[i]
