@@ -56,6 +56,9 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/collections" icon="📚" active={pathname.startsWith('/admin/collections')}>
                     作品集管理
                   </NavLink>
+                  <NavLink href="/admin/batch-artworks" icon="⚡" active={pathname.startsWith('/admin/batch-artworks')}>
+  批量作品管理
+</NavLink>
                   <NavLink href="/admin/tags" icon="🏷️" active={pathname.startsWith('/admin/tags')}>
                     标签管理
                   </NavLink>
@@ -85,6 +88,9 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/gallery-artists" icon="🎭" active={pathname.startsWith('/admin/gallery-artists')}>
                     阅览室艺术家
                   </NavLink>
+                  <NavLink href="/admin/batch" icon="⚡" active={pathname.startsWith('/admin/batch')}>
+  批量阅览室管理
+</NavLink>
 
                   {/* 用户管理分组 */}
                   <div className="pt-4 pb-2">

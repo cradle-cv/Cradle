@@ -8,22 +8,55 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
-    const { action, works, museumId, artistId } = await request.json()
+    const body = await request.json()
+    const { action } = body
 
-    // ========== 批量导入作品 ==========
-    if (action === 'import_works') {
-      if (!works || !Array.isArray(works) || works.length === 0) {
-        return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 })
-      }
+    // ========== 完整批量导入 ==========
+    if (action === 'import_full') {
+      const { works, questions, rikeData, comments, museumId, artistId } = body
+      const results = { worksOk: 0, worksFail: 0, questionsOk: 0, rikeOk: 0, commentsOk: 0, errors: [] }
 
-      const results = { success: 0, failed: 0, errors: [] }
+      // 1. 创建作品 + 谜题文章 + 日课文章
+      const workIdMap = {} // 作品标题 → work.id
 
-      for (let i = 0; i < works.length; i++) {
+      for (let i = 0; i < (works || []).length; i++) {
         const w = works[i]
+        if (!w.title?.trim()) { results.errors.push({ sheet: '作品', row: i + 2, msg: '标题为空' }); results.worksFail++; continue }
+
         try {
+          // 创建谜题文章（如果有谜题内容）
+          let puzzleArticleId = null
+          if (w.puzzle_title?.trim() || w.puzzle_content?.trim()) {
+            const { data: pa, error: pe } = await supabase.from('articles').insert({
+              title: w.puzzle_title?.trim() || `${w.title} - 谜题`,
+              intro: w.puzzle_intro?.trim() || null,
+              content: w.puzzle_content?.trim() || null,
+              cover_image: w.cover_image?.trim() || null,
+              category: 'puzzle', status: w.status || 'draft', author_type: 'admin',
+            }).select().single()
+            if (pe) throw pe
+            puzzleArticleId = pa.id
+          }
+
+          // 创建日课文章（如果有日课内容）
+          let rikeArticleId = null
+          const rikeRow = (rikeData || []).find(r => r.work_title?.trim() === w.title?.trim())
+          if (rikeRow?.content?.trim() || rikeRow?.title?.trim()) {
+            const { data: ra, error: re } = await supabase.from('articles').insert({
+              title: rikeRow.title?.trim() || `${w.title} - 日课`,
+              intro: rikeRow.intro?.trim() || null,
+              content: rikeRow.content?.trim() || null,
+              cover_image: w.cover_image?.trim() || null,
+              category: 'rike', status: w.status || 'draft', author_type: 'admin',
+            }).select().single()
+            if (re) throw re
+            rikeArticleId = ra.id
+            results.rikeOk++
+          }
+
           // 创建作品
           const { data: work, error: workErr } = await supabase.from('gallery_works').insert({
-            title: w.title?.trim() || `未命名作品 ${i + 1}`,
+            title: w.title.trim(),
             title_en: w.title_en?.trim() || null,
             cover_image: w.cover_image?.trim() || null,
             description: w.description?.trim() || null,
@@ -36,47 +69,90 @@ export async function POST(request) {
             artist_avatar: w.artist_avatar?.trim() || null,
             museum_id: w.museum_id || museumId || null,
             gallery_artist_id: w.gallery_artist_id || artistId || null,
+            puzzle_article_id: puzzleArticleId,
+            rike_article_id: rikeArticleId,
             total_points: parseInt(w.total_points) || 50,
             display_order: parseInt(w.display_order) || (i + 1) * 10,
             status: w.status || 'draft',
           }).select().single()
 
           if (workErr) throw workErr
-
-          // 如果有谜题文本，创建文章+题目
-          if (w.puzzle_content?.trim()) {
-            const { data: article } = await supabase.from('articles').insert({
-              title: `${w.title} - 谜题`,
-              content: w.puzzle_content.trim(),
-              category: 'puzzle',
-              status: w.status || 'draft',
-              author_type: 'admin',
-            }).select().single()
-
-            if (article) {
-              await supabase.from('gallery_works').update({ puzzle_article_id: article.id }).eq('id', work.id)
-            }
-          }
-
-          // 如果有日课文本，创建文章
-          if (w.rike_content?.trim()) {
-            const { data: article } = await supabase.from('articles').insert({
-              title: `${w.title} - 日课`,
-              content: w.rike_content.trim(),
-              category: 'rike',
-              status: w.status || 'draft',
-              author_type: 'admin',
-            }).select().single()
-
-            if (article) {
-              await supabase.from('gallery_works').update({ rike_article_id: article.id }).eq('id', work.id)
-            }
-          }
-
-          results.success++
+          workIdMap[w.title.trim()] = { workId: work.id, puzzleArticleId }
+          results.worksOk++
         } catch (err) {
-          results.failed++
-          results.errors.push({ row: i + 1, title: w.title, error: err.message })
+          results.worksFail++
+          results.errors.push({ sheet: '作品', row: i + 2, msg: `「${w.title}」${err.message}` })
+        }
+      }
+
+      // 2. 创建谜题题目
+      for (let i = 0; i < (questions || []).length; i++) {
+        const q = questions[i]
+        if (!q.work_title?.trim() || !q.question_text?.trim()) continue
+
+        const mapped = workIdMap[q.work_title.trim()]
+        if (!mapped?.puzzleArticleId) {
+          results.errors.push({ sheet: '谜题', row: i + 2, msg: `「${q.work_title}」未找到对应的作品或谜题文章` })
+          continue
+        }
+
+        try {
+          // 构建选项
+          const options = []
+          if (q.option_a?.trim()) options.push({ label: 'A', text: q.option_a.trim(), is_correct: q.correct_answer?.toUpperCase().includes('A') })
+          if (q.option_b?.trim()) options.push({ label: 'B', text: q.option_b.trim(), is_correct: q.correct_answer?.toUpperCase().includes('B') })
+          if (q.option_c?.trim()) options.push({ label: 'C', text: q.option_c.trim(), is_correct: q.correct_answer?.toUpperCase().includes('C') })
+          if (q.option_d?.trim()) options.push({ label: 'D', text: q.option_d.trim(), is_correct: q.correct_answer?.toUpperCase().includes('D') })
+
+          // 判断题型
+          let qType = q.question_type?.trim() || 'single'
+          if (qType === '单选') qType = 'single'
+          else if (qType === '多选') qType = 'multiple'
+          else if (qType === '判断') qType = 'truefalse'
+
+          const { error } = await supabase.from('article_questions').insert({
+            article_id: mapped.puzzleArticleId,
+            question_text: q.question_text.trim(),
+            question_type: qType,
+            display_order: parseInt(q.order) || i,
+            points: parseInt(q.points) || 20,
+            options,
+            explanation: q.explanation?.trim() || null,
+          })
+          if (error) throw error
+          results.questionsOk++
+        } catch (err) {
+          results.errors.push({ sheet: '谜题', row: i + 2, msg: `「${q.question_text}」${err.message}` })
+        }
+      }
+
+      // 3. 创建风赏短评
+      for (let i = 0; i < (comments || []).length; i++) {
+        const c = comments[i]
+        if (!c.work_title?.trim() || !c.content?.trim()) continue
+
+        const mapped = workIdMap[c.work_title.trim()]
+        if (!mapped?.workId) {
+          results.errors.push({ sheet: '风赏', row: i + 2, msg: `「${c.work_title}」未找到对应的作品` })
+          continue
+        }
+
+        try {
+          const { error } = await supabase.from('gallery_comments').insert({
+            work_id: mapped.workId,
+            author_name: c.author_name?.trim() || '佚名',
+            author_title: c.author_title?.trim() || null,
+            content: c.content.trim(),
+            rating: parseInt(c.rating) || 5,
+            source: c.source?.trim() || null,
+            is_featured: c.is_featured === '是' || c.is_featured === 'true' || c.is_featured === true,
+            display_order: parseInt(c.order) || i,
+            comment_type: 'admin',
+          })
+          if (error) throw error
+          results.commentsOk++
+        } catch (err) {
+          results.errors.push({ sheet: '风赏', row: i + 2, msg: `${err.message}` })
         }
       }
 
@@ -85,9 +161,8 @@ export async function POST(request) {
 
     // ========== 批量状态管理 ==========
     if (action === 'batch_status') {
-      const { ids, status, table } = await request.json()
+      const { ids, status, table } = body
       if (!ids?.length || !status) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
-
       const targetTable = table === 'magazines' ? 'magazines' : 'gallery_works'
       const { error } = await supabase.from(targetTable).update({ status }).in('id', ids)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -96,51 +171,39 @@ export async function POST(request) {
 
     // ========== 批量AI生成 ==========
     if (action === 'ai_generate') {
-      const { workIds, generateType } = await request.json()
+      const { workIds, generateType } = body
       if (!workIds?.length) return NextResponse.json({ error: '请选择作品' }, { status: 400 })
-
-      const { data: selectedWorks } = await supabase
-        .from('gallery_works').select('*').in('id', workIds)
-
+      const { data: selectedWorks } = await supabase.from('gallery_works').select('*').in('id', workIds)
       const results = { success: 0, failed: 0, errors: [] }
 
       for (const w of (selectedWorks || [])) {
         try {
           const resp = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/rike-pages/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              workInfo: {
-                title: w.title, artist_name: w.artist_name, year: w.year,
-                medium: w.medium, description: w.description,
-              },
-              generateTextOnly: true,
-              generateType: generateType || 'rike',
+              workInfo: { title: w.title, artist_name: w.artist_name, year: w.year, medium: w.medium, description: w.description },
+              generateTextOnly: true, generateType: generateType || 'rike',
             }),
           })
           const data = await resp.json()
-
-          if (generateType === 'puzzle' && data.content) {
+          if (data.content || data.intro) {
+            const cat = generateType === 'puzzle' ? 'puzzle' : 'rike'
             const { data: article } = await supabase.from('articles').insert({
-              title: `${w.title} - 谜题`, content: data.content,
-              intro: data.intro || null, category: 'puzzle', status: 'draft', author_type: 'admin',
+              title: `${w.title} - ${cat === 'puzzle' ? '谜题' : '日课'}`,
+              content: data.content || '', intro: data.intro || null,
+              category: cat, status: 'draft', author_type: 'admin',
             }).select().single()
-            if (article) await supabase.from('gallery_works').update({ puzzle_article_id: article.id }).eq('id', w.id)
-          } else if (data.content || data.intro) {
-            const { data: article } = await supabase.from('articles').insert({
-              title: `${w.title} - 日课`, content: data.content || '',
-              intro: data.intro || null, category: 'rike', status: 'draft', author_type: 'admin',
-            }).select().single()
-            if (article) await supabase.from('gallery_works').update({ rike_article_id: article.id }).eq('id', w.id)
+            if (article) {
+              const field = cat === 'puzzle' ? 'puzzle_article_id' : 'rike_article_id'
+              await supabase.from('gallery_works').update({ [field]: article.id }).eq('id', w.id)
+            }
           }
-
           results.success++
         } catch (err) {
           results.failed++
           results.errors.push({ title: w.title, error: err.message })
         }
       }
-
       return NextResponse.json(results)
     }
 
