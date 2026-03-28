@@ -17,7 +17,7 @@ export async function POST(request) {
       const results = { worksOk: 0, worksFail: 0, questionsOk: 0, rikeOk: 0, commentsOk: 0, errors: [] }
 
       // 1. 创建作品 + 谜题文章 + 日课文章
-      const workIdMap = {} // 作品标题 → work.id
+      const workIdMap = {} // 作品标题 → { workId, puzzleArticleId }
 
       for (let i = 0; i < (works || []).length; i++) {
         const w = works[i]
@@ -99,7 +99,6 @@ export async function POST(request) {
         ;(existingWorks || []).forEach(w => {
           if (!workIdMap[w.title]) {
             workIdMap[w.title] = { workId: w.id, puzzleArticleId: w.puzzle_article_id }
-            // 如果作品存在但没有谜题文章，自动创建一个
           }
         })
 
@@ -117,11 +116,39 @@ export async function POST(request) {
                   mapped.puzzleArticleId = pa.id
                   await supabase.from('gallery_works').update({ puzzle_article_id: pa.id }).eq('id', mapped.workId)
                 }
-              } catch (e) { results.errors.push({ sheet: '谜题', row: 0, msg: `为「${title}」创建谜题文章失败: ${e.message}` }) }
+              } catch (e) {
+                results.errors.push({ sheet: '谜题', row: 0, msg: `为「${title}」创建谜题文章失败: ${e.message}` })
+              }
+            }
+          }
+        }
+
+        // 对于有日课数据但作品还没有rike_article_id的，自动创建日课文章
+        for (const title of unmatchedTitles) {
+          const mapped = workIdMap[title]
+          if (mapped && !mapped.rikeArticleId) {
+            const rikeRow = (rikeData || []).find(r => r.work_title?.trim() === title)
+            if (rikeRow?.content?.trim() || rikeRow?.title?.trim()) {
+              try {
+                const { data: ra } = await supabase.from('articles').insert({
+                  title: rikeRow.title?.trim() || `${title} - 日课`,
+                  intro: rikeRow.intro?.trim() || null,
+                  content: rikeRow.content?.trim() || null,
+                  category: 'rike', status: 'draft', author_type: 'admin',
+                }).select().single()
+                if (ra) {
+                  mapped.rikeArticleId = ra.id
+                  await supabase.from('gallery_works').update({ rike_article_id: ra.id }).eq('id', mapped.workId)
+                  results.rikeOk++
+                }
+              } catch (e) {
+                results.errors.push({ sheet: '日课', row: 0, msg: `为「${title}」创建日课文章失败: ${e.message}` })
+              }
             }
           }
         }
       }
+
       // 2. 创建谜题题目
       for (let i = 0; i < (questions || []).length; i++) {
         const q = questions[i]
@@ -134,32 +161,40 @@ export async function POST(request) {
         }
 
         try {
-          // 连线题特殊处理
-if (qType === 'matching') {
-  const matchOpts = []
-  ;['option_a', 'option_b', 'option_c', 'option_d'].forEach((key, idx) => {
-    const val = q[key]?.trim()
-    if (!val) return
-    const parts = val.split('|')
-    if (parts.length >= 2) {
-      matchOpts.push({ label: String.fromCharCode(65 + idx), image: parts[0].trim(), text: parts[1].trim(), match_id: String(idx + 1) })
-    }
-  })
-  // 直接用matchOpts作为options，跳过普通选项构建
-  // ... (后面的insert用matchOpts)
-}
-            // 构建选项
-          const options = []
-          if (q.option_a?.trim()) options.push({ label: 'A', text: q.option_a.trim(), is_correct: q.correct_answer?.toUpperCase().includes('A') })
-          if (q.option_b?.trim()) options.push({ label: 'B', text: q.option_b.trim(), is_correct: q.correct_answer?.toUpperCase().includes('B') })
-          if (q.option_c?.trim()) options.push({ label: 'C', text: q.option_c.trim(), is_correct: q.correct_answer?.toUpperCase().includes('C') })
-          if (q.option_d?.trim()) options.push({ label: 'D', text: q.option_d.trim(), is_correct: q.correct_answer?.toUpperCase().includes('D') })
-
-          // 判断题型
+          // 判断题型（必须在使用之前声明）
           let qType = q.question_type?.trim() || 'single'
           if (qType === '单选') qType = 'single'
           else if (qType === '多选') qType = 'multiple'
           else if (qType === '判断') qType = 'truefalse'
+          else if (qType === '连线') qType = 'matching'
+
+          let options = []
+
+          // 连线题特殊处理
+          if (qType === 'matching') {
+            ;['option_a', 'option_b', 'option_c', 'option_d'].forEach((key, idx) => {
+              const val = q[key]?.trim()
+              if (!val) return
+              const parts = val.split('|')
+              if (parts.length >= 2) {
+                const left = parts[0].trim()
+                const isImage = left.startsWith('http://') || left.startsWith('https://')
+                options.push({
+                  label: String.fromCharCode(65 + idx),
+                  image: isImage ? left : '',
+                  text_left: isImage ? '' : left,
+                  text: parts[1].trim(),
+                  match_id: String(idx + 1)
+                })
+              }
+            })
+          } else {
+            // 普通题型（单选/多选/判断）
+            if (q.option_a?.trim()) options.push({ label: 'A', text: q.option_a.trim(), is_correct: q.correct_answer?.toUpperCase().includes('A') })
+            if (q.option_b?.trim()) options.push({ label: 'B', text: q.option_b.trim(), is_correct: q.correct_answer?.toUpperCase().includes('B') })
+            if (q.option_c?.trim()) options.push({ label: 'C', text: q.option_c.trim(), is_correct: q.correct_answer?.toUpperCase().includes('C') })
+            if (q.option_d?.trim()) options.push({ label: 'D', text: q.option_d.trim(), is_correct: q.correct_answer?.toUpperCase().includes('D') })
+          }
 
           const { error } = await supabase.from('article_questions').insert({
             article_id: mapped.puzzleArticleId,
