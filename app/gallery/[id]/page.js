@@ -749,7 +749,7 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
 function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer, onToggleMulti, onSubmitMulti }) {
   // 根据正确答案数量强制判断题型
   const correctCount = (question.options || []).filter(o => o.is_correct).length
-  const qType = question.question_type === 'truefalse' ? 'truefalse' : (correctCount > 1 ? 'multiple' : 'single')
+  const qType = question.question_type === 'matching' ? 'matching' : question.question_type === 'truefalse' ? 'truefalse' : (correctCount > 1 ? 'multiple' : 'single')
     return (
     <div className="bg-white rounded-2xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
@@ -759,8 +759,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
           backgroundColor: qType === 'single' ? '#EFF6FF' : qType === 'multiple' ? '#F5F3FF' : '#FEF3C7',
           color: qType === 'single' ? '#2563EB' : qType === 'multiple' ? '#7C3AED' : '#B45309'
         }}>
-          {qType === 'single' ? '单选' : qType === 'multiple' ? '多选' : '判断'}
-        </span>
+{qType === 'matching' ? '连线' : qType === 'single' ? '单选' : qType === 'multiple' ? '多选' : '判断'}        </span>
       </div>
 
       {qType === 'truefalse' && (
@@ -850,6 +849,13 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
         </div>
       )}
 
+{qType === 'matching' && (
+        <MatchingQuestion
+          question={question}
+          answer={answer}
+          onSubmit={(result) => onSingleAnswer(result)}
+        />
+      )}
       {answer && question.explanation && (
         <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
           <span style={{ color: "inherit" }}>💡 {question.explanation}</span>
@@ -882,3 +888,274 @@ function formatContent(content) {
   if (!content) return ''
   return content.split('\n\n').filter(p => p.trim()).map(p => `<p style="color:#374151;line-height:1.8;margin-bottom:1em">${p.replace(/\n/g, '<br/>')}</p>`).join('')
 }
+// ============================================================
+// 连线题（matching）实现
+// ============================================================
+//
+// 1. 数据格式（article_questions 表的 options 字段）：
+//
+//    question_type: 'matching'
+//    options: [
+//      { "label": "A", "image": "https://xxx/monet.jpg", "text": "莫奈《睡莲》", "match_id": "1" },
+//      { "label": "B", "image": "https://xxx/starry.jpg", "text": "梵高《星月夜》", "match_id": "2" },
+//      { "label": "C", "image": "https://xxx/pearl.jpg", "text": "维米尔《戴珍珠耳环的少女》", "match_id": "3" },
+//      { "label": "D", "image": "https://xxx/scream.jpg", "text": "蒙克《呐喊》", "match_id": "4" }
+//    ]
+//    correct_answer: "A1,B2,C3,D4"  (label+match_id 的配对)
+//
+// 2. Excel模板格式（Sheet2 谜题题目）：
+//
+//    题目类型填：连线
+//    选项A：图片URL1|文字描述1
+//    选项B：图片URL2|文字描述2
+//    选项C：图片URL3|文字描述3
+//    选项D：图片URL4|文字描述4
+//    正确答案：A1,B2,C3,D4（按顺序配对，A对应1，B对应2...）
+//
+// ============================================================
+
+// 在 QuestionCard 组件的 return 里，{qType === 'multiple' && (...)} 之后，
+// {answer && question.explanation && (...)} 之前，加入以下代码：
+
+// --- 开始：粘贴到 QuestionCard 里 ---
+
+/*
+      {qType === 'matching' && (
+        <MatchingQuestion
+          question={question}
+          answer={answer}
+          onSubmit={(result) => onSingleAnswer(result)}
+        />
+      )}
+*/
+
+// --- 结束 ---
+
+
+// ============================================================
+// MatchingQuestion 独立组件，放在 page.js 底部（QuestionCard 下面）
+// ============================================================
+
+function MatchingQuestion({ question, answer, onSubmit }) {
+  const [selectedImage, setSelectedImage] = React.useState(null)
+  const [connections, setConnections] = React.useState({}) // { imageLabel: matchId }
+  const [submitted, setSubmitted] = React.useState(false)
+
+  const opts = question.options || []
+  
+  // 左侧图片（按原始顺序）
+  const images = opts.map(o => ({ label: o.label, image: o.image, match_id: o.match_id }))
+  
+  // 右侧文字（打乱顺序）
+  const [shuffledTexts] = React.useState(() => {
+    const texts = opts.map(o => ({ match_id: o.match_id, text: o.text }))
+    for (let i = texts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[texts[i], texts[j]] = [texts[j], texts[i]]
+    }
+    return texts
+  })
+
+  const PAIR_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+
+  function handleImageClick(label) {
+    if (submitted || answer) return
+    setSelectedImage(selectedImage === label ? null : label)
+  }
+
+  function handleTextClick(matchId) {
+    if (submitted || answer || !selectedImage) return
+    // 如果这个文字已经被配对了，先解除
+    const newConn = { ...connections }
+    Object.keys(newConn).forEach(k => {
+      if (newConn[k] === matchId) delete newConn[k]
+    })
+    newConn[selectedImage] = matchId
+    setConnections(newConn)
+    setSelectedImage(null)
+  }
+
+  function handleSubmit() {
+    if (Object.keys(connections).length !== images.length) {
+      alert('请完成所有配对')
+      return
+    }
+    setSubmitted(true)
+    // 构造答案字符串
+    const answerStr = Object.entries(connections).map(([label, mid]) => `${label}${mid}`).sort().join(',')
+    onSubmit(answerStr)
+  }
+
+  function getConnectionIndex(label) {
+    const matchId = connections[label]
+    if (!matchId) return -1
+    return Object.keys(connections).sort().indexOf(label)
+  }
+
+  function getTextConnectionIndex(matchId) {
+    const entry = Object.entries(connections).find(([, mid]) => mid === matchId)
+    if (!entry) return -1
+    return Object.keys(connections).sort().indexOf(entry[0])
+  }
+
+  // 检查某个配对是否正确（答题后显示）
+  function isPairCorrect(label) {
+    const matchId = connections[label]
+    const opt = opts.find(o => o.label === label)
+    return opt && matchId === opt.match_id
+  }
+
+  const allPaired = Object.keys(connections).length === images.length
+  const isAnswered = submitted || !!answer
+
+  // 如果已有answer（从数据库恢复），重建connections
+  React.useEffect(() => {
+    if (answer && !submitted) {
+      const pairs = answer.selected.split(',')
+      const restored = {}
+      pairs.forEach(p => {
+        const label = p[0]
+        const mid = p.slice(1)
+        restored[label] = mid
+      })
+      setConnections(restored)
+      setSubmitted(true)
+    }
+  }, [answer])
+
+  return (
+    <div>
+      <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>点击左侧图片，再点击右侧对应的描述进行配对</p>
+      
+      <div className="flex gap-6">
+        {/* 左侧：图片 */}
+        <div className="flex-1 space-y-3">
+          {images.map((img, idx) => {
+            const connIdx = getConnectionIndex(img.label)
+            const paired = connIdx >= 0
+            const isSelected = selectedImage === img.label
+            const correct = isAnswered && paired && isPairCorrect(img.label)
+            const wrong = isAnswered && paired && !isPairCorrect(img.label)
+
+            return (
+              <div key={img.label}
+                onClick={() => handleImageClick(img.label)}
+                className="relative rounded-xl overflow-hidden cursor-pointer transition-all"
+                style={{
+                  border: isSelected ? '3px solid #3B82F6' 
+                    : correct ? '3px solid #10B981'
+                    : wrong ? '3px solid #EF4444'
+                    : paired ? `3px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}` 
+                    : '3px solid #E5E7EB',
+                  opacity: isAnswered && !paired ? 0.4 : 1,
+                }}>
+                <img src={img.image} alt="" className="w-full h-24 object-cover" />
+                {/* 配对编号 */}
+                {paired && (
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    style={{ backgroundColor: isAnswered ? (correct ? '#10B981' : '#EF4444') : PAIR_COLORS[connIdx % PAIR_COLORS.length] }}>
+                    {isAnswered ? (correct ? '✓' : '✗') : connIdx + 1}
+                  </div>
+                )}
+                {/* 选中指示 */}
+                {isSelected && (
+                  <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                    <span className="text-white text-sm font-bold bg-blue-500 px-3 py-1 rounded-full">选择描述 →</span>
+                  </div>
+                )}
+                {/* 标签 */}
+                <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFFFFF' }}>
+                  {img.label}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 右侧：文字 */}
+        <div className="flex-1 space-y-3 flex flex-col justify-center">
+          {shuffledTexts.map((txt) => {
+            const connIdx = getTextConnectionIndex(txt.match_id)
+            const paired = connIdx >= 0
+            const pairedLabel = Object.entries(connections).find(([, mid]) => mid === txt.match_id)?.[0]
+            const correct = isAnswered && pairedLabel && isPairCorrect(pairedLabel)
+            const wrong = isAnswered && pairedLabel && !isPairCorrect(pairedLabel)
+            // 找到这个text真正对应的图片
+            const correctOpt = opts.find(o => o.match_id === txt.match_id)
+
+            return (
+              <div key={txt.match_id}
+                onClick={() => handleTextClick(txt.match_id)}
+                className="px-4 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-3"
+                style={{
+                  border: correct ? '2px solid #10B981'
+                    : wrong ? '2px solid #EF4444'
+                    : paired ? `2px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}`
+                    : '2px solid #E5E7EB',
+                  backgroundColor: correct ? '#ECFDF5' : wrong ? '#FEF2F2' : paired ? `${PAIR_COLORS[connIdx % PAIR_COLORS.length]}10` : '#F9FAFB',
+                  opacity: isAnswered && !paired ? 0.4 : 1,
+                }}>
+                {/* 配对编号 */}
+                {paired && (
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                    style={{ backgroundColor: isAnswered ? (correct ? '#10B981' : '#EF4444') : PAIR_COLORS[connIdx % PAIR_COLORS.length] }}>
+                    {isAnswered ? (correct ? '✓' : '✗') : connIdx + 1}
+                  </div>
+                )}
+                <span className="text-sm" style={{ color: '#374151' }}>{txt.text}</span>
+                {/* 答对后显示正确配对 */}
+                {wrong && isAnswered && (
+                  <span className="text-xs ml-auto" style={{ color: '#059669' }}>应配 {correctOpt?.label}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 提交按钮 */}
+      {!isAnswered && (
+        <button onClick={handleSubmit} disabled={!allPaired}
+          className="mt-4 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+          style={{ backgroundColor: '#111827' }}>
+          确认配对
+        </button>
+      )}
+
+      {/* 得分 */}
+      {isAnswered && (
+        <div className="mt-4 p-3 rounded-xl text-sm" style={{
+          backgroundColor: answer?.is_correct ? '#ECFDF5' : '#FEF3C7',
+          color: answer?.is_correct ? '#059669' : '#B45309',
+        }}>
+          {answer?.is_correct ? '🎉 全部配对正确！' : `配对完成，${images.filter(img => isPairCorrect(img.label)).length}/${images.length} 正确`}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// 如何在数据库中创建连线题（SQL示例）
+// ============================================================
+//
+// INSERT INTO article_questions (article_id, question_text, question_type, options, display_order, points) VALUES
+// ('你的article_id', '请将以下作品与其名称配对', 'matching',
+//  '[
+//    {"label":"A","image":"https://xxx/monet.jpg","text":"莫奈《睡莲》","match_id":"1"},
+//    {"label":"B","image":"https://xxx/starry.jpg","text":"梵高《星月夜》","match_id":"2"},
+//    {"label":"C","image":"https://xxx/pearl.jpg","text":"维米尔《戴珍珠耳环的少女》","match_id":"3"},
+//    {"label":"D","image":"https://xxx/scream.jpg","text":"蒙克《呐喊》","match_id":"4"}
+//  ]'::jsonb,
+//  1, 30);
+//
+// ============================================================
+// Excel模板中怎么填连线题
+// ============================================================
+//
+// Sheet2 谜题题目：
+// | 关联作品标题 | 序号 | 题目类型 | 题目内容 | 选项A | 选项B | 选项C | 选项D | 正确答案 | 解析 | 分值 |
+// | 星月夜      | 4    | 连线     | 将作品与名称配对 | https://xxx/a.jpg|莫奈睡莲 | https://xxx/b.jpg|星月夜 | https://xxx/c.jpg|珍珠耳环 | https://xxx/d.jpg|呐喊 | A1,B2,C3,D4 | ... | 30 |
+//
+// 选项格式：图片URL|文字描述（用竖线分隔）

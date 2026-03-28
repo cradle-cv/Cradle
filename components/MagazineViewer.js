@@ -73,19 +73,27 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
             {[1, 1.5, 2].map(z => (
               <button key={z} onClick={() => setZoom(z)} className="px-3 py-1 rounded text-xs font-medium transition"
-                style={{ backgroundColor: zoom === z ? 'rgba(255,255,255,0.25)' : 'transparent', color: '#FFFFFF' }}>{z}×</button>
+                style={{ backgroundColor: Math.abs(zoom - z) < 0.05 ? 'rgba(255,255,255,0.25)' : 'transparent', color: '#FFFFFF' }}>{z}×</button>
             ))}
+            <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{zoom.toFixed(1)}×</span>
           </div>
           <span className="text-white/50 text-sm">{currentSpread + 1} / {spreads.length}</span>
           {onClose && <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 text-lg">✕</button>}
         </div>
       </div>
 
-      <div className="flex items-center gap-4 w-full px-16 overflow-auto" style={{ maxHeight: '85vh' }}>
+      <div className="flex items-center gap-4 w-full px-16" style={{ maxHeight: '85vh' }}>
         <button onClick={() => setCurrentSpread(prev => Math.max(0, prev - 1))} disabled={currentSpread === 0}
           className="w-12 h-12 rounded-full flex items-center justify-center text-white text-2xl flex-shrink-0 disabled:opacity-20 hover:bg-white/10 transition">‹</button>
 
-        <div className="flex-1 flex justify-center overflow-auto">
+        <div className="flex-1 flex justify-center overflow-auto" style={{ maxHeight: '80vh' }}
+          onWheel={(e) => {
+            e.preventDefault()
+            setZoom(prev => {
+              const delta = e.deltaY > 0 ? -0.1 : 0.1
+              return Math.round(Math.max(1, Math.min(2, prev + delta)) * 10) / 10
+            })
+          }}>
           <div ref={containerRef} className="relative shadow-2xl rounded-lg overflow-hidden"
             style={{
               width: zoom > 1 ? (cw * zoom) + 'px' : '100%',

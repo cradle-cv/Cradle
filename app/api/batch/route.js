@@ -97,7 +97,21 @@ export async function POST(request) {
         }
 
         try {
-          // 构建选项
+          // 连线题特殊处理
+if (qType === 'matching') {
+  const matchOpts = []
+  ;['option_a', 'option_b', 'option_c', 'option_d'].forEach((key, idx) => {
+    const val = q[key]?.trim()
+    if (!val) return
+    const parts = val.split('|')
+    if (parts.length >= 2) {
+      matchOpts.push({ label: String.fromCharCode(65 + idx), image: parts[0].trim(), text: parts[1].trim(), match_id: String(idx + 1) })
+    }
+  })
+  // 直接用matchOpts作为options，跳过普通选项构建
+  // ... (后面的insert用matchOpts)
+}
+            // 构建选项
           const options = []
           if (q.option_a?.trim()) options.push({ label: 'A', text: q.option_a.trim(), is_correct: q.correct_answer?.toUpperCase().includes('A') })
           if (q.option_b?.trim()) options.push({ label: 'B', text: q.option_b.trim(), is_correct: q.correct_answer?.toUpperCase().includes('B') })
