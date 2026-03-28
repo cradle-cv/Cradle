@@ -190,7 +190,7 @@ export default function AdminBatchArtworksPage() {
         })
         if (error) throw error
         results.success++
-      } catch (err) { results.failed++ }
+      } catch (err) { results.failed++; console.error(`第${i+1}张失败:`, err) }
       setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100))
     }
     setUploadResult(results)
