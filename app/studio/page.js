@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+const QuickMagazineCreator = dynamic(() => import('@/components/QuickMagazineCreator'), { ssr: false })
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -16,6 +18,7 @@ export default function StudioPage() {
   const [reviewStatus, setReviewStatus] = useState(null)
   const [stats, setStats] = useState({ artworks: 0, collections: 0, views: 0, likes: 0 })
   const [activeTab, setActiveTab] = useState('artworks')
+  const [showQuickCreate, setShowQuickCreate] = useState(null) // null | 'images' | 'template'
 
   useEffect(() => { loadData() }, [])
 
@@ -397,18 +400,28 @@ export default function StudioPage() {
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的杂志</h2>
-                          <button onClick={async () => {
-                            const resp = await fetch('/api/magazine', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'create', title: '未命名杂志', authorId: user.id, sourceType: 'user' })
-                            })
-                            const data = await resp.json()
-                            if (data.magazine) window.location.href = `/studio/magazine/${data.magazine.id}`
-                          }}
-                            className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#7C3AED' }}>
-                            + 创建杂志
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setShowQuickCreate('images')}
+                              className="px-4 py-2.5 rounded-lg text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                              📸 快速传图创建
+                            </button>
+                            <button onClick={() => setShowQuickCreate('template')}
+                              className="px-4 py-2.5 rounded-lg text-xs font-medium border hover:bg-gray-50" style={{ color: '#7C3AED', borderColor: '#C4B5FD' }}>
+                              📋 从模板创建
+                            </button>
+                            <button onClick={async () => {
+                              const resp = await fetch('/api/magazine', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'create', title: '未命名杂志', authorId: user.id, sourceType: 'user' })
+                              })
+                              const data = await resp.json()
+                              if (data.magazine) window.location.href = `/studio/magazine/${data.magazine.id}`
+                            }}
+                              className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#7C3AED' }}>
+                              + 空白创建
+                            </button>
+                          </div>
                         </div>
                         <div className="text-center py-12 bg-white rounded-xl shadow-sm">
                           <div className="text-4xl mb-3">📖</div>
@@ -420,6 +433,16 @@ export default function StudioPage() {
                 )}</>
         )}
       </div>
+    {showQuickCreate && (
+        <QuickMagazineCreator
+          userId={user?.id}
+          onCreated={(magId) => {
+            setShowQuickCreate(null)
+            window.location.href = `/studio/magazine/${magId}`
+          }}
+          onClose={() => setShowQuickCreate(null)}
+        />
+      )}
     </div>
   )
 }
