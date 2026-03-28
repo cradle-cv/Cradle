@@ -96,9 +96,9 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
           }}>
           <div ref={containerRef} className="relative shadow-2xl rounded-lg overflow-hidden"
             style={{
-              width: zoom > 1 ? (cw * zoom) + 'px' : '100%',
-              maxWidth: (cw * zoom) + 'px', flexShrink: 0,
-              aspectRatio: `${cw}/${ch}`,
+              width: (cw * zoom) + 'px',
+              height: (ch * zoom) + 'px',
+              flexShrink: 0,
               backgroundColor: spread?.background_color || '#FFFFFF',
               backgroundImage: spread?.background_image ? `url(${spread.background_image})` : 'none',
               backgroundSize: 'cover', backgroundPosition: 'center',

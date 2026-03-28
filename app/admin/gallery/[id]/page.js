@@ -131,8 +131,26 @@ export default function AdminGalleryEditPage() {
     try {
       const { url } = await uploadImage(file, 'gallery')
       setForm(prev => ({ ...prev, cover_image: url }))
-      alert('✅ 封面上传成功')
+      // 自动同步封面到关联的谜题和日课文章
+      await syncCoverToArticles(url)
+      alert('✅ 封面上传成功（已同步到谜题和日课）')
     } catch (err) { alert('❌ 上传失败: ' + err.message) }
+  }
+
+  async function syncCoverToArticles(imageUrl) {
+    try {
+      const { data: work } = await supabase
+        .from('gallery_works')
+        .select('puzzle_article_id, rike_article_id')
+        .eq('id', id)
+        .single()
+      if (work?.puzzle_article_id) {
+        await supabase.from('articles').update({ cover_image: imageUrl }).eq('id', work.puzzle_article_id)
+      }
+      if (work?.rike_article_id) {
+        await supabase.from('articles').update({ cover_image: imageUrl }).eq('id', work.rike_article_id)
+      }
+    } catch (e) { console.error('同步封面失败:', e) }
   }
 
   // ========== AI 生成日课 → 自动填充杂志 ==========
@@ -336,6 +354,8 @@ export default function AdminGalleryEditPage() {
       }
       const { error } = await supabase.from('gallery_works').update(updateData).eq('id', id)
       if (error) throw error
+      // 保存时同步封面到关联文章
+      if (form.cover_image) await syncCoverToArticles(form.cover_image)
       alert('✅ 保存成功！')
     } catch (err) { alert('❌ 保存失败: ' + err.message) }
     finally { setSaving(false) }

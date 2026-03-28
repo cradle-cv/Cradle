@@ -12,6 +12,7 @@ export default function AdminBatchPage() {
   // Excel导入
   const [sheetData, setSheetData] = useState({ works: [], questions: [], rike: [], comments: [] })
   const [previewSheet, setPreviewSheet] = useState('works')
+  const [importSheets, setImportSheets] = useState({ works: true, questions: true, rike: true, comments: true })
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [presetMuseum, setPresetMuseum] = useState('')
@@ -151,19 +152,25 @@ export default function AdminBatchPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'import_full',
-          works: sheetData.works.map(w => ({ ...w, museum_id: presetMuseum || null, gallery_artist_id: presetArtist || null })),
-          questions: sheetData.questions,
-          rikeData: sheetData.rike,
-          comments: sheetData.comments,
+          works: importSheets.works ? sheetData.works.map(w => ({ ...w, museum_id: presetMuseum || null, gallery_artist_id: presetArtist || null })) : [],
+          questions: importSheets.questions ? sheetData.questions : [],
+          rikeData: importSheets.rike ? sheetData.rike : [],
+          comments: importSheets.comments ? sheetData.comments : [],
           museumId: presetMuseum || null,
           artistId: presetArtist || null,
         })
       })
       const result = await resp.json()
       setImportResult(result)
-      if (result.worksOk > 0) loadWorks()
+      if (result.worksOk > 0) {
+        loadWorks()
+        // 导入成功后清空解析数据
+        setSheetData({ works: [], questions: [], rike: [], comments: [] })
+      }
     } catch (err) { setImportResult({ error: err.message }) }
-    finally { setImporting(false) }
+    finally {
+      setImporting(false)
+    }
   }
 
   const totalParsed = sheetData.works.length + sheetData.questions.length + sheetData.rike.length + sheetData.comments.length
@@ -305,19 +312,24 @@ export default function AdminBatchPage() {
               <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #F3F4F6' }}>
                 <div className="flex items-center gap-2">
                   {previewSheets.map(s => (
-                    <button key={s.key} onClick={() => setPreviewSheet(s.key)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
-                      style={{
-                        backgroundColor: previewSheet === s.key ? '#111827' : s.count > 0 ? '#ECFDF5' : '#F3F4F6',
-                        color: previewSheet === s.key ? '#FFF' : s.count > 0 ? '#059669' : '#9CA3AF',
-                      }}>
-                      {s.icon} {s.label} ({s.count})
-                    </button>
+                    <div key={s.key} className="flex items-center gap-1">
+                      <input type="checkbox" checked={importSheets[s.key]} onChange={e => setImportSheets(prev => ({ ...prev, [s.key]: e.target.checked }))}
+                        className="w-3.5 h-3.5 rounded" disabled={s.count === 0} />
+                      <button onClick={() => setPreviewSheet(s.key)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition"
+                        style={{
+                          backgroundColor: previewSheet === s.key ? '#111827' : !importSheets[s.key] ? '#F3F4F6' : s.count > 0 ? '#ECFDF5' : '#F3F4F6',
+                          color: previewSheet === s.key ? '#FFF' : !importSheets[s.key] ? '#D1D5DB' : s.count > 0 ? '#059669' : '#9CA3AF',
+                          textDecoration: !importSheets[s.key] ? 'line-through' : 'none',
+                        }}>
+                        {s.icon} {s.label} ({s.count})
+                      </button>
+                    </div>
                   ))}
                 </div>
                 <button onClick={handleImport} disabled={importing}
                   className="px-6 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#7C3AED' }}>
-                  {importing ? '导入中...' : `🚀 确认导入`}
+                  {importing ? '导入中...' : `🚀 确认导入（${Object.values(importSheets).filter(Boolean).length} 项）`}
                 </button>
               </div>
 
