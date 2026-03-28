@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AutoCheckIn from "@/components/AutoCheckIn";
+import PetWrapper from "@/components/PetWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
