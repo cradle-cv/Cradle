@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import WaterMarkImage from '@/components/WaterMarkImage'
 
 export default function ImageGallery({ coverImage, images = [], title }) {
   const allImages = []
@@ -44,8 +45,8 @@ export default function ImageGallery({ coverImage, images = [], title }) {
         onMouseEnter={() => setZooming(true)}
         onMouseLeave={() => setZooming(false)}
         onMouseMove={handleMouseMove}>
-        <img src={currentImage.image_url} alt={title || ''}
-          className="w-full h-auto" style={{ display: 'block' }} />
+        <WaterMarkImage src={currentImage.image_url} alt={title || ''}
+          className="w-full" objectFit="contain" />
 
         {zooming && (
           <div className="absolute inset-0 pointer-events-none"

@@ -33,6 +33,7 @@ export default function RootLayout({ children }) {
       >
         <AutoCheckIn />
         {children}
+        <PetWrapper />
       </body>
     </html>
   );
