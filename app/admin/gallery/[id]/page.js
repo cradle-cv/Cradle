@@ -6,6 +6,7 @@ import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 import GalleryImageManager from '@/components/GalleryImageManager'
 import MagazineEditor from '@/components/MagazineEditor'
+import SearchableSelect from '@/components/SearchableSelect'
 
 export default function AdminGalleryEditPage() {
   const { id } = useParams()
@@ -385,21 +386,19 @@ export default function AdminGalleryEditPage() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">选择艺术家（从数据库）</label>
-              <select name="gallery_artist_id" value={form.gallery_artist_id}
-                onChange={e => {
-                  const val = e.target.value
-                  setForm(prev => ({ ...prev, gallery_artist_id: val }))
-                  if (val) {
-                    const artist = galleryArtists.find(a => a.id === val)
-                    if (artist) setForm(prev => ({ ...prev, gallery_artist_id: val, artist_name: artist.name, artist_name_en: artist.name_en || '', artist_avatar: artist.avatar_url || prev.artist_avatar }))
-                  }
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
-                <option value="">-- 手动输入或从列表选择 --</option>
-                {galleryArtists.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}{a.name_en ? ` (${a.name_en})` : ''} · {a.nationality || ''} · {a.art_movement || ''}</option>
-                ))}
-              </select>
+              <SearchableSelect
+  value={form.gallery_artist_id}
+  onChange={(val) => {
+    setForm(prev => ({ ...prev, gallery_artist_id: val }))
+    if (val) {
+      const artist = galleryArtists.find(a => a.id === val)
+      if (artist) setForm(prev => ({ ...prev, gallery_artist_id: val, artist_name: artist.name, artist_name_en: artist.name_en || '', artist_avatar: artist.avatar_url || prev.artist_avatar }))
+    }
+  }}
+  options={galleryArtists.map(a => ({ value: a.id, label: `${a.name}${a.name_en ? ` (${a.name_en})` : ''} · ${a.nationality || ''} · ${a.art_movement || ''}` }))}
+  placeholder="搜索艺术家姓名..."
+  emptyLabel="-- 手动输入或从列表选择 --"
+/>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">艺术家名称</label>
@@ -430,19 +429,19 @@ export default function AdminGalleryEditPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">收藏地点</label>
-              <select name="museum_id" value={form.museum_id}
-                onChange={e => {
-                  const val = e.target.value
-                  setForm(prev => ({ ...prev, museum_id: val }))
-                  if (val) {
-                    const museum = museums.find(m => m.id === val)
-                    if (museum) setForm(prev => ({ ...prev, museum_id: val, collection_location: museum.name }))
-                  }
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
-                <option value="">-- 选择博物馆/美术馆 --</option>
-                {museums.map(m => <option key={m.id} value={m.id}>{m.name}{m.city ? ` · ${m.city}` : ''}</option>)}
-              </select>
+              <SearchableSelect
+  value={form.museum_id}
+  onChange={(val) => {
+    setForm(prev => ({ ...prev, museum_id: val }))
+    if (val) {
+      const museum = museums.find(m => m.id === val)
+      if (museum) setForm(prev => ({ ...prev, museum_id: val, collection_location: museum.name }))
+    }
+  }}
+  options={museums.map(m => ({ value: m.id, label: `${m.name}${m.city ? ` · ${m.city}` : ''}` }))}
+  placeholder="搜索博物馆/美术馆..."
+  emptyLabel="-- 选择博物馆/美术馆 --"
+/>
               <input name="collection_location" value={form.collection_location} onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 mt-2" placeholder="或手动输入收藏地点" />
             </div>

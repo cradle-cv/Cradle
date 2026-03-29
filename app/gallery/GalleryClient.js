@@ -354,6 +354,11 @@ const [viewMode, setViewMode] = useState('all') // all | museums | artists
 }
 
 function WorkGrid({ works }) {
+  const [page, setPage] = useState(1)
+  const perPage = 12
+  const totalPages = Math.ceil(works.length / perPage)
+  const paged = works.slice((page - 1) * perPage, page * perPage)
+
   if (works.length === 0) {
     return (
       <div className="text-center py-16">
@@ -362,47 +367,100 @@ function WorkGrid({ works }) {
       </div>
     )
   }
+
+  // 生成页码列表（最多显示7个按钮）
+  function getPageNumbers() {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    const pages = []
+    pages.push(1)
+    if (page > 3) pages.push('...')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+      pages.push(i)
+    }
+    if (page < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+    return pages
+  }
+
+  function goPage(p) {
+    setPage(p)
+    window.scrollTo({ top: 200, behavior: 'smooth' })
+  }
+
   return (
-    <div className="grid md:grid-cols-3 gap-8">
-      {works.map(work => (
-        <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-          <article className="h-full flex flex-col">
-            <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '280px' }}>
-              {work.cover_image && work.cover_image.length > 0 ? (
-                <img src={work.cover_image} alt={work.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                  <span className="text-6xl">🖼️</span>
+    <div>
+      <div className="grid md:grid-cols-3 gap-8">
+        {paged.map(work => (
+          <Link key={work.id} href={`/gallery/${work.id}`} className="group">
+            <article className="h-full flex flex-col">
+              <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '280px' }}>
+                {work.cover_image && work.cover_image.length > 0 ? (
+                  <img src={work.cover_image} alt={work.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <span className="text-6xl">🖼️</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-amber-700">
+                  ⭐ {work.total_points} 积分
                 </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-amber-700">
-                ⭐ {work.total_points} 积分
-              </div>
-              {work.museums?.name && (
-                <div className="absolute top-3 left-3 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
-                  🏛️ {work.museums.name}
+                {work.museums?.name && (
+                  <div className="absolute top-3 left-3 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
+                    🏛️ {work.museums.name}
+                  </div>
+                )}
+                <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🧩</span>
+                  <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">📖</span>
+                  <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🎐</span>
                 </div>
-              )}
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🧩</span>
-                <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">📖</span>
-                <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🎐</span>
               </div>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1 leading-snug group-hover:text-gray-600 transition-colors line-clamp-2">
-              {work.title}
-            </h3>
-            {work.title_en && <p className="text-sm text-gray-400 italic mb-2">{work.title_en}</p>}
-            <div className="flex items-center gap-3 text-sm text-gray-500 mt-auto pt-2">
-              {work.artist_name && <span>{work.artist_name}</span>}
-              {work.year && <span className="text-gray-300">|</span>}
-              {work.year && <span>{work.year}</span>}
-            </div>
-          </article>
-        </Link>
-      ))}
+              <h3 className="text-xl font-bold text-gray-900 mb-1 leading-snug group-hover:text-gray-600 transition-colors line-clamp-2">
+                {work.title}
+              </h3>
+              {work.title_en && <p className="text-sm text-gray-400 italic mb-2">{work.title_en}</p>}
+              <div className="flex items-center gap-3 text-sm text-gray-500 mt-auto pt-2">
+                {work.artist_name && <span>{work.artist_name}</span>}
+                {work.year && <span className="text-gray-300">|</span>}
+                {work.year && <span>{work.year}</span>}
+              </div>
+            </article>
+          </Link>
+        ))}
+      </div>
+
+      {/* 分页 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-12 mb-4">
+          <button onClick={() => goPage(Math.max(1, page - 1))} disabled={page === 1}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-sm transition disabled:opacity-30 hover:bg-gray-100"
+            style={{ color: '#6B7280' }}>
+            ‹
+          </button>
+          {getPageNumbers().map((p, i) =>
+            p === '...' ? (
+              <span key={`dot${i}`} className="w-9 h-9 flex items-center justify-center text-sm" style={{ color: '#D1D5DB' }}>···</span>
+            ) : (
+              <button key={p} onClick={() => goPage(p)}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition"
+                style={{
+                  backgroundColor: page === p ? '#111827' : 'transparent',
+                  color: page === p ? '#FFFFFF' : '#6B7280',
+                }}>
+                {p}
+              </button>
+            )
+          )}
+          <button onClick={() => goPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-sm transition disabled:opacity-30 hover:bg-gray-100"
+            style={{ color: '#6B7280' }}>
+            ›
+          </button>
+          <span className="ml-3 text-xs" style={{ color: '#D1D5DB' }}>{works.length} 件作品</span>
+        </div>
+      )}
     </div>
   )
 }
