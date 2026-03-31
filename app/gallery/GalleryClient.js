@@ -164,7 +164,7 @@ const [viewMode, setViewMode] = useState('all') // all | museums | artists
                     className="group text-left rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 bg-white">
                     <div className="relative h-48 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
                       {museum.cover_image ? (
-                        <img src={museum.cover_image} alt={museum.name}
+                        <img src={museum.cover_image} alt={museum.name}loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"
@@ -230,7 +230,7 @@ const [viewMode, setViewMode] = useState('all') // all | museums | artists
               <div className="flex items-center gap-6 mb-8 p-6 rounded-2xl" style={{ backgroundColor: '#F9FAFB' }}>
                 <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0" style={{ backgroundColor: '#E5E7EB' }}>
                   {selectedMuseumData.cover_image ? (
-                    <img src={selectedMuseumData.cover_image} className="w-full h-full object-cover" />
+                    <img src={selectedMuseumData.cover_image}loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl">🏛️</div>
                   )}
@@ -259,7 +259,7 @@ const [viewMode, setViewMode] = useState('all') // all | museums | artists
                     <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden flex-shrink-0"
                       style={{ backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
                       {artist.avatar_url ? (
-                        <img src={artist.avatar_url} alt={artist.name} className="w-full h-full object-cover" />
+                        <img src={artist.avatar_url} alt={artist.name}loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>👤</div>
                       )}
@@ -310,7 +310,7 @@ const [viewMode, setViewMode] = useState('all') // all | museums | artists
               <div className="flex items-center gap-6 mb-8 p-6 rounded-2xl" style={{ backgroundColor: '#F9FAFB' }}>
                 <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
                   {selectedArtistData.avatar_url ? (
-                    <img src={selectedArtistData.avatar_url} className="w-full h-full object-cover" />
+                    <img src={selectedArtistData.avatar_url}loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>👤</div>
                   )}
@@ -395,7 +395,7 @@ function WorkGrid({ works }) {
             <article className="h-full flex flex-col">
               <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '280px' }}>
                 {work.cover_image && work.cover_image.length > 0 ? (
-                  <img src={work.cover_image} alt={work.title}
+                  <img src={work.cover_image} alt={work.title}loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
