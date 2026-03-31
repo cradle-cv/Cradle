@@ -45,7 +45,7 @@ export default function ImageGallery({ coverImage, images = [], title }) {
         onMouseEnter={() => setZooming(true)}
         onMouseLeave={() => setZooming(false)}
         onMouseMove={handleMouseMove}>
-        <WaterMarkImage src={currentImage.image_url} alt={title || ''}
+        <img src={currentImage.image_url} alt={title || ''}
           className="w-full" objectFit="contain" />
 
         {zooming && (
