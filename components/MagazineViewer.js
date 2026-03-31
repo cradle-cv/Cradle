@@ -121,7 +121,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
                       backgroundColor: el.style?.backgroundColor || 'transparent',
                       border: borderStyle, borderRadius: (el.style?.borderRadius || 0) * scale + 'px',
                       boxShadow: shadowStyle,
-                      padding: `${4 * scale}px`, wordBreak: 'break-word', overflow: 'hidden',
+                      padding: `${4 * scale}px`, wordBreak: 'break-word', overflow: 'hidden', whiteSpace: 'pre-wrap',
                     }}>{el.content}</div>
                   )}
                   {el.type === 'image' && (

@@ -90,10 +90,14 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
   
 
   // ========== 自动保存 ==========
+  // 未保存提醒：离开页面时弹窗
   useEffect(() => {
-    const timer = setInterval(() => { if (dirty && magazineId) doSave(true) }, 15000)
-    return () => clearInterval(timer)
-  }, [dirty, spreads, magazineId])
+    function handleBeforeUnload(e) {
+      if (dirty) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [dirty])
 
   // ========== 剪切板粘贴 ==========
   useEffect(() => {
@@ -514,9 +518,15 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
         </div>
         <div className="flex items-center gap-2 ml-2">
           {lastSaved && <span className="text-xs" style={{ color: '#9CA3AF' }}>{lastSaved.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>}
-          {dirty && !saving && <span className="w-2 h-2 rounded-full bg-amber-400" />}
-          <button onClick={() => doSave(false)} disabled={saving} className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-            {saving ? '...' : '💾 保存'}
+          {dirty && !saving && (
+            <span className="px-2 py-1 rounded text-xs font-medium animate-pulse" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+              ⚠️ 未保存
+            </span>
+          )}
+          <button onClick={() => doSave(false)} disabled={saving}
+            className="px-3 py-1.5 rounded text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: dirty ? '#EF4444' : '#3B82F6' }}>
+            {saving ? '保存中...' : dirty ? '💾 立即保存' : '💾 已保存'}
           </button>
         </div>
       </div>
@@ -622,7 +632,22 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                 {el.type === 'text' && (
                   <div className="w-full h-full overflow-hidden"
                     contentEditable={isSel && !el.locked} suppressContentEditableWarning
-                    onBlur={e => { pushUndo(); updateElement(el.id, { content: e.target.innerText }) }}
+                    onBlur={e => {
+  pushUndo()
+  // 保留换行：将 <br> 和 <div> 转为 \n
+  const html = e.target.innerHTML
+  const text = html
+    .replace(/<div><br\s*\/?><\/div>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div><div>/gi, '\n')
+    .replace(/<\/?div>/gi, '')
+    .replace(/<\/?span[^>]*>/gi, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+  updateElement(el.id, { content: text })
+}}
                     style={{
                       fontSize: `${(el.style?.fontSize || 16) * (canvasRef.current ? canvasRef.current.offsetWidth / canvasW : 1)}px`,
                       fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
@@ -632,7 +657,7 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                       backgroundColor: el.style?.backgroundColor || 'transparent',
                       border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
                       boxShadow: shadowStyle,
-                      padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word',
+                      padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap',
                     }}>
                     {el.content}
                   </div>
