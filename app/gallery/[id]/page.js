@@ -7,7 +7,6 @@ import InspirationToast from '@/components/InspirationToast'
 import LevelBadge from '@/components/LevelBadge'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
 import ImageGallery from '@/components/ImageGallery'
-import WatermarkImage from '@/components/WaterMarkImage'
 
 export default function GalleryDetailPage() {
   const { id } = useParams()
@@ -878,7 +877,7 @@ function ZoomableImage({ src, alt }) {
   return (
     <div ref={imgRef} className="rounded-2xl overflow-hidden cursor-zoom-in relative mb-4"
       onMouseEnter={() => setZooming(true)} onMouseLeave={() => setZooming(false)} onMouseMove={handleMouseMove}>
-      <WatermarkImage src={src} alt={alt || ''} className="w-full" objectFit="contain" />
+      <img src={src} alt={alt || ''} className="w-full" objectFit="contain" />
       {zooming && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${src})`, backgroundSize: '250%', backgroundPosition: `${position.x}% ${position.y}%`, backgroundRepeat: 'no-repeat', zIndex: 20 }} />}
       {!zooming && <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full" style={{ zIndex: 15 }}>🔍 悬停放大</div>}
     </div>

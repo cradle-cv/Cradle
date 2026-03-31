@@ -135,11 +135,10 @@ export default async function ExhibitionsPage() {
                       )}
                     </div>
                   </div>
-                  <a href={`/exhibitions/${todayExhibition.id}`}
-                    className="px-8 py-4 font-medium rounded-lg transition-colors self-start inline-block"
-                    style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>
-                    了解更多 →
-                  </a>
+                  <div className="px-8 py-4 font-medium rounded-lg self-start inline-block"
+                    style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>
+                    🔨 布展中，敬请期待
+                  </div>
                 </div>
               </div>
             </div>
