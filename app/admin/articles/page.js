@@ -7,6 +7,9 @@ export default function AdminArticlesPage() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const perPage = 15
 
   useEffect(() => {
     loadArticles()
@@ -22,9 +25,13 @@ export default function AdminArticlesPage() {
     setLoading(false)
   }
 
-  const filtered = filter === 'all'
-    ? articles
-    : articles.filter(a => a.status === filter)
+  const filtered = articles.filter(a => {
+    if (filter !== 'all' && a.status !== filter) return false
+    if (categoryFilter !== 'all' && a.category !== categoryFilter) return false
+    return true
+  })
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const paged = filtered.slice((page - 1) * perPage, page * perPage)
 
   const getCategoryLabel = (cat) => {
     const labels = {
@@ -78,7 +85,7 @@ export default function AdminArticlesPage() {
       </div>
 
       {/* 筛选标签 */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4">
         {[
           { key: 'all', label: '全部' },
           { key: 'published', label: '已发布' },
@@ -87,7 +94,7 @@ export default function AdminArticlesPage() {
         ].map(f => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => { setFilter(f.key); setPage(1) }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filter === f.key
                 ? 'bg-blue-500 text-white'
@@ -99,11 +106,35 @@ export default function AdminArticlesPage() {
         ))}
       </div>
 
+      {/* 分类筛选 */}
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-xs font-medium" style={{ color: '#6B7280' }}>分类：</span>
+        {[
+          { key: 'all', label: '全部', icon: '📚' },
+          { key: 'puzzle', label: '谜题', icon: '🧩' },
+          { key: 'rike', label: '日课', icon: '📖' },
+          { key: 'fengshang', label: '风赏', icon: '🎐' },
+        ].map(c => (
+          <button key={c.key}
+            onClick={() => { setCategoryFilter(c.key); setPage(1) }}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            style={{
+              backgroundColor: categoryFilter === c.key ? '#111827' : '#F3F4F6',
+              color: categoryFilter === c.key ? '#FFF' : '#6B7280',
+            }}>
+            {c.icon} {c.label} ({c.key === 'all' ? articles.length : articles.filter(a => a.category === c.key).length})
+          </button>
+        ))}
+        <span className="ml-auto text-xs" style={{ color: '#9CA3AF' }}>
+          {filtered.length} 篇{categoryFilter !== 'all' || filter !== 'all' ? '（已筛选）' : ''} · 第 {page}/{totalPages} 页
+        </span>
+      </div>
+
       {/* 文章列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <div className="space-y-4">
-            {filtered.map((article) => (
+            {paged.map((article) => (
               <div
                 key={article.id}
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -160,7 +191,29 @@ export default function AdminArticlesPage() {
             ))}
           </div>
 
-          {filtered.length === 0 && (
+          {/* 分页 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-6">
+              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}
+                className="w-8 h-8 rounded flex items-center justify-center text-sm hover:bg-gray-100 disabled:opacity-30" style={{ color: '#6B7280' }}>‹</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
+                if (totalPages > 7 && Math.abs(p - page) > 2 && p !== 1 && p !== totalPages) {
+                  if (p === page - 3 || p === page + 3) return <span key={p} className="w-8 h-8 flex items-center justify-center text-xs" style={{ color: '#D1D5DB' }}>···</span>
+                  return null
+                }
+                return (
+                  <button key={p} onClick={() => setPage(p)}
+                    className="w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition"
+                    style={{ backgroundColor: page === p ? '#111827' : 'transparent', color: page === p ? '#FFF' : '#6B7280' }}>
+                    {p}
+                  </button>
+                )
+              })}
+              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}
+                className="w-8 h-8 rounded flex items-center justify-center text-sm hover:bg-gray-100 disabled:opacity-30" style={{ color: '#6B7280' }}>›</button>
+            </div>
+          )}
+          {paged.length === 0 && (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📝</div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">暂无文章</h3>
