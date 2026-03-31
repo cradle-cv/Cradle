@@ -24,6 +24,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
   const [placementSide, setPlacementSide] = useState('left')
   const [undoStack, setUndoStack] = useState([])
   const [redoStack, setRedoStack] = useState([])
+  const [deletedSpreadIds, setDeletedSpreadIds] = useState([])
   const canvasRef = useRef(null)
   const fileRef = useRef(null)
   const bgFileRef = useRef(null)
@@ -324,10 +325,28 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
     if (spreads.length <= 1) { alert('至少保留一页'); return }
     if (!confirm('确定删除这一页？')) return
     pushUndo()
+    const deleted = spreads[idx]
+    // 记录需要从数据库删除的spread（只记录已保存到数据库的）
+    if (deleted.id && !deleted.id.startsWith('temp_')) {
+      setDeletedSpreadIds(prev => [...prev, deleted.id])
+    }
     setSpreads(prev => prev.filter((_, i) => i !== idx))
     if (currentSpread >= spreads.length - 1) setCurrentSpread(Math.max(0, spreads.length - 2))
     setSelectedEl(null); setDirty(true)
   }
+ function moveSpread(idx, direction) {
+    const targetIdx = idx + direction
+    if (targetIdx < 0 || targetIdx >= spreads.length) return
+    pushUndo()
+    setSpreads(prev => {
+      const arr = [...prev]
+      ;[arr[idx], arr[targetIdx]] = [arr[targetIdx], arr[idx]]
+      // 更新 spread_index
+      return arr.map((s, i) => ({ ...s, spread_index: i }))
+    })
+    setCurrentSpread(targetIdx)
+    setDirty(true)
+  } 
 
   function deleteSelected() {
     if (!selectedEl) return
@@ -424,6 +443,16 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
     try {
       if (onSave) { await onSave(spreads, { canvasW, canvasH }) }
       else if (magazineId) {
+        // 删除已移除的页面
+        for (const spreadId of deletedSpreadIds) {
+          try {
+            await fetch('/api/magazine', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'delete_spread', spreadId, magazineId })
+            })
+          } catch (e) { console.error('删除页面失败:', e) }
+        }
+        setDeletedSpreadIds([])
         await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId, canvasWidth: canvasW, canvasHeight: canvasH }) })
         for (const s of spreads) {
@@ -629,9 +658,11 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                 onMouseDown={e => handleMouseDown(e, el.id)}
                 onClick={e => { e.stopPropagation(); setSelectedEl(el.id) }}>
 
-                {el.type === 'text' && (
+               {el.type === 'text' && (
                   <div className="w-full h-full overflow-hidden"
                     contentEditable={isSel && !el.locked} suppressContentEditableWarning
+                    onClick={e => e.stopPropagation()}
+                    onMouseDown={e => { if (isSel) e.stopPropagation() }}
                     onBlur={e => {
   pushUndo()
   // 保留换行：将 <br> 和 <div> 转为 \n
@@ -704,18 +735,31 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
       {/* 页面缩略图 */}
       <div className="bg-white border-t px-3 py-2 flex items-center gap-2 overflow-x-auto" style={{ borderColor: '#E5E7EB' }}>
         {spreads.map((s, i) => (
-          <button key={s.id || i} onClick={() => { setCurrentSpread(i); setSelectedEl(null); setPlacementSide('left') }}
-            className="relative flex-shrink-0 rounded overflow-hidden transition-all group"
-            style={{ width: 100, height: Math.round(100 * canvasH / canvasW), border: i === currentSpread ? '3px solid #7C3AED' : '2px solid #E5E7EB', backgroundColor: s.background_color || '#FFF',
-              backgroundImage: s.background_image ? `url(${s.background_image})` : 'none', backgroundSize: 'cover' }}>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold" style={{ color: i === currentSpread ? '#7C3AED' : '#9CA3AF', textShadow: s.background_image ? '0 0 3px white' : 'none' }}>P{i + 1}</span>
+          <div key={s.id || i} className="relative flex-shrink-0 group">
+            <button onClick={() => { setCurrentSpread(i); setSelectedEl(null); setPlacementSide('left') }}
+              className="rounded overflow-hidden transition-all"
+              style={{ width: 100, height: Math.round(100 * canvasH / canvasW), border: i === currentSpread ? '3px solid #7C3AED' : '2px solid #E5E7EB', backgroundColor: s.background_color || '#FFF',
+                backgroundImage: s.background_image ? `url(${s.background_image})` : 'none', backgroundSize: 'cover' }}>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-bold" style={{ color: i === currentSpread ? '#7C3AED' : '#9CA3AF', textShadow: s.background_image ? '0 0 3px white' : 'none' }}>P{i + 1}</span>
+              </div>
+            </button>
+            {/* 操作按钮 - hover显示 */}
+            <div className="absolute -top-1 right-0 left-0 flex items-center justify-center gap-0.5 hidden group-hover:flex">
+              {i > 0 && (
+                <button onClick={e => { e.stopPropagation(); moveSpread(i, -1) }}
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#6B7280', fontSize: '9px' }}>◀</button>
+              )}
+              {spreads.length > 1 && (
+                <button onClick={e => { e.stopPropagation(); deleteSpread(i) }}
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-white bg-red-500" style={{ fontSize: '10px' }}>×</button>
+              )}
+              {i < spreads.length - 1 && (
+                <button onClick={e => { e.stopPropagation(); moveSpread(i, 1) }}
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#6B7280', fontSize: '9px' }}>▶</button>
+              )}
             </div>
-            {spreads.length > 1 && (
-              <button onClick={e => { e.stopPropagation(); deleteSpread(i) }}
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs items-center justify-center hidden group-hover:flex" style={{ fontSize: '10px' }}>×</button>
-            )}
-          </button>
+          </div>
         ))}
         <button onClick={addSpread} className="flex-shrink-0 rounded flex items-center justify-center text-xs font-medium transition hover:opacity-80"
           style={{ width: 60, height: Math.round(100 * canvasH / canvasW), backgroundColor: '#7C3AED', color: '#FFF' }}>+ 页</button>
