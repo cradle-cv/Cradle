@@ -224,22 +224,27 @@ export default async function ExhibitionsPage() {
 
 function ExhibitionCard({ exhibition, statusColor, statusText }) {
   return (
-    <a href={`/exhibitions/${exhibition.id}`} className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all border border-gray-100">
+    <div className="group bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 relative cursor-default">
       <div className="relative h-48 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
         {exhibition.cover_image ? (
           <img src={exhibition.cover_image} alt={exhibition.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#E5E7EB' }}>
             <span className="text-4xl">🖼️</span>
           </div>
         )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="px-4 py-2 rounded-full text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.6)', color: '#FCD34D' }}>
+            🔨 布展中
+          </span>
+        </div>
         <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: statusColor, color: '#FFFFFF' }}>
           {statusText}
         </div>
       </div>
       <div className="p-5">
-        <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-amber-700 transition-colors" style={{ color: '#111827' }}>
+        <h3 className="font-bold mb-2 line-clamp-2" style={{ color: '#111827' }}>
           {exhibition.title}
         </h3>
         {exhibition.description && (
@@ -248,27 +253,23 @@ function ExhibitionCard({ exhibition, statusColor, statusText }) {
         <div className="space-y-1.5">
           {exhibition.curator_name && (
             <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
-              <span>🎨</span>
-              <span>{exhibition.curator_name}</span>
+              <span>🎨</span><span>{exhibition.curator_name}</span>
             </div>
           )}
           {exhibition.start_date && (
             <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
               <span>📅</span>
-              <span>
-                {new Date(exhibition.start_date).toLocaleDateString('zh-CN')}
-                {exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}
-              </span>
+              <span>{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</span>
             </div>
           )}
           {exhibition.location && (
             <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
-              <span>📍</span>
-              <span>{exhibition.location}</span>
+              <span>📍</span><span>{exhibition.location}</span>
             </div>
           )}
         </div>
+        <p className="text-xs mt-3 font-medium" style={{ color: '#F59E0B' }}>🔨 正在布展，敬请期待</p>
       </div>
-    </a>
+    </div>
   )
 }

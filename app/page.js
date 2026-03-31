@@ -49,6 +49,18 @@ async function getData() {
     homepageSelect = userMags[(seed + 7) % userMags.length]
   }
 
+  const { data: recentExhibitions } = await supabase
+    .from('exhibitions')
+    .select('*')
+    .eq('status', 'active')
+    .order('start_date', { ascending: false })
+    .limit(3)
+
+  return {
+    exhibition, collections: collections || [], artists: artists || [],
+    partners: partners || [], galleryWorks: galleryWorks || [],
+    homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
+  }
   return {
     exhibition, collections: collections || [], artists: artists || [],
     partners: partners || [], galleryWorks: galleryWorks || [],
@@ -57,7 +69,7 @@ async function getData() {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect } = await getData()
+  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions } = await getData()
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -187,7 +199,7 @@ export default async function Home() {
                       )}
                     </div>
                   </div>
-                  <a href={`/exhibitions/${exhibition.id}`} className="px-8 py-4 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors self-start inline-block">了解更多 →</a>
+                  <div className="px-8 py-4 font-medium rounded-lg self-start inline-block" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
                 </div>
               </div>
             </div>
@@ -379,39 +391,43 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 近期展览 */}
-      <section className="py-16 px-6 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
-            <a href="#" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { img: 'zlhb1.jpg', title: '光影诗篇:张艺谋个人画展', artist: '张艺谋', date: '2024年2月15日 - 3月15日', location: '北京当代艺术馆' },
-              { img: 'zlhb2.jpg', title: '城市印象:李明轩摄影作品展', artist: '李明轩', date: '2024年2月20日 - 3月20日', location: '上海摄影艺术中心' },
-              { img: 'zlhb3.jpg', title: '墨韵新境:当代水墨联展', artist: '王雅芊等', date: '2024年3月1日 - 4月1日', location: '广州艺术博览馆' }
-            ].map((exhibit, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="flex gap-4 p-5">
-                  <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                    <img src={`/image/${exhibit.img}`} alt={exhibit.title} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{exhibit.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3">{exhibit.artist}</p>
-                    <div className="space-y-1 text-xs text-gray-500">
-                      <p>📅 {exhibit.date}</p>
-                      <p>📍 {exhibit.location}</p>
+     {/* 近期展览 */}
+      {recentExhibitions.length > 0 && (
+        <section className="py-16 px-6 bg-white">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex justify-between items-center mb-10">
+              <h2 className="text-4xl font-bold text-gray-900">近期展览</h2>
+              <a href="/exhibitions" className="text-gray-600 hover:text-gray-900 text-sm">查看全部展览 →</a>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6">
+              {recentExhibitions.map(ex => (
+                <div key={ex.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
+                  <div className="flex gap-4 p-5" style={{ opacity: 0.6 }}>
+                    <div className="w-24 h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                      {ex.cover_image ? (
+                        <img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>
+                      )}
                     </div>
-                    <button className="text-sm text-[#F59E0B] hover:underline mt-3">了解详情 →</button>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{ex.title}</h3>
+                      {ex.curator_name && <p className="text-sm text-gray-600 mb-3">{ex.curator_name}</p>}
+                      <div className="space-y-1 text-xs text-gray-500">
+                        {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
+                        {ex.location && <p>📍 {ex.location}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="px-4 py-2 rounded-full text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FCD34D' }}>🔨 布展中</span>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
