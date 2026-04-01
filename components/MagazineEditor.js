@@ -392,8 +392,14 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
   // ========== 拖拽 ==========
   function handleMouseDown(e, elId) {
     e.stopPropagation()
-    setSelectedEl(elId)
     const el = elements.find(el => el.id === elId)
+
+    // 已选中的文字元素：不启动拖拽，让 contentEditable 处理光标
+    if (elId === selectedEl && el?.type === 'text' && !el.locked) {
+      return
+    }
+
+    setSelectedEl(elId)
     if (!el || el.locked) return
     pushUndo()
     setDragging({ elId, startX: e.clientX, startY: e.clientY, origX: el.x, origY: el.y })
@@ -661,8 +667,7 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                {el.type === 'text' && (
                   <div className="w-full h-full overflow-hidden"
                     contentEditable={isSel && !el.locked} suppressContentEditableWarning
-                    onClick={e => e.stopPropagation()}
-                    onMouseDown={e => { if (isSel) e.stopPropagation() }}
+                    
                     onBlur={e => {
   pushUndo()
   // 保留换行：将 <br> 和 <div> 转为 \n
