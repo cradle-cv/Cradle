@@ -664,25 +664,25 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                 onMouseDown={e => handleMouseDown(e, el.id)}
                 onClick={e => { e.stopPropagation(); setSelectedEl(el.id) }}>
 
-               {el.type === 'text' && (
+              {el.type === 'text' && (
                   <div className="w-full h-full overflow-hidden"
                     contentEditable={isSel && !el.locked} suppressContentEditableWarning
-                    
                     onBlur={e => {
-  pushUndo()
-  const html = e.target.innerHTML
-  const text = html
-    .replace(/<div><br\s*\/?><\/div>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/div><div>/gi, '\n')
-    .replace(/<\/?div>/gi, '')
-    .replace(/<\/?span[^>]*>/gi, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-  updateElement(el.id, { content: text })
-}}
+                      pushUndo()
+                      const html = e.target.innerHTML
+                      const text = html
+                        .replace(/<div><br\s*\/?><\/div>/gi, '\n')
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/<\/div><div>/gi, '\n')
+                        .replace(/<\/?div>/gi, '')
+                        .replace(/<\/?span[^>]*>/gi, '')
+                        .replace(/&nbsp;/gi, ' ')
+                        .replace(/&amp;/gi, '&')
+                        .replace(/&lt;/gi, '<')
+                        .replace(/&gt;/gi, '>')
+                      updateElement(el.id, { content: text })
+                    }}
+                    dangerouslySetInnerHTML={{ __html: (el.content || '').replace(/\n/g, '<br>') }}
                     style={{
                       fontSize: `${(el.style?.fontSize || 16) * (canvasRef.current ? canvasRef.current.offsetWidth / canvasW : 1)}px`,
                       fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
@@ -692,12 +692,8 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                       backgroundColor: el.style?.backgroundColor || 'transparent',
                       border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
                       boxShadow: shadowStyle,
-                      padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap',
-                    }}>
-                    {el.content.split('\n').map((line, i, arr) => (
-                      <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
-                    ))}
-                  </div>
+                      padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+                    }} />
                 )}
 
                 {el.type === 'image' && (
