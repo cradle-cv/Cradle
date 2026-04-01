@@ -657,7 +657,7 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
               <div key={el.id} className="absolute" style={{
                 left: l, top: t, width: w, height: h,
                 outline: isSel ? '2px solid #7C3AED' : 'none', outlineOffset: '1px',
-                zIndex: isSel ? 999 : elIdx + 1,
+                zIndex: (isSel && (dragging?.elId === el.id || resizing?.elId === el.id)) ? 999 : elIdx + 1,
                 cursor: el.locked ? 'not-allowed' : (dragging?.elId === el.id ? 'grabbing' : 'grab'),
                 opacity: el.locked && !isSel ? 0.8 : 1,
               }}
@@ -670,7 +670,6 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                     
                     onBlur={e => {
   pushUndo()
-  // 保留换行：将 <br> 和 <div> 转为 \n
   const html = e.target.innerHTML
   const text = html
     .replace(/<div><br\s*\/?><\/div>/gi, '\n')
@@ -695,7 +694,9 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                       boxShadow: shadowStyle,
                       padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap', whiteSpace: 'pre-wrap',
                     }}>
-                    {el.content}
+                    {el.content.split('\n').map((line, i, arr) => (
+                      <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
+                    ))}
                   </div>
                 )}
 
