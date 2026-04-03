@@ -162,22 +162,29 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                     </div>
                   )}
                   {pastCurations.length > 0 && (
-                    <div style={{ padding: '16px 0' }}>
-                      <div style={{ fontSize: '11px', letterSpacing: '4px', color: '#9CA3AF', marginBottom: '12px', textAlign: 'center' }}>往 期 回 顾</div>
-                      <div className="flex items-center justify-center gap-2">
+                    <div style={{ padding: '24px 0' }}>
+                      <div style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', marginBottom: '16px', textAlign: 'center', fontWeight: 600 }}>
+                        <span style={{ display: 'inline-block', borderBottom: '1px solid #D1D5DB', paddingBottom: '4px' }}>往 期 回 顾</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-3 flex-wrap">
                         {pastCurations.map((pc, i) => (
-                          <button key={pc.id} onClick={() => switchCuration(i + 1)} className="inline-flex items-center gap-1.5 transition-all"
-                            style={{ padding: '6px 16px', border: activeCuration === i + 1 ? '0.5px solid #111827' : '0.5px solid #E5E7EB',
-                              backgroundColor: activeCuration === i + 1 ? '#111827' : 'transparent', cursor: 'pointer', opacity: i === 0 ? 1 : i === 1 ? 0.65 : 0.38 }}>
-                            <span style={{ fontFamily: serif, fontSize: '11px', letterSpacing: '2px', color: activeCuration === i + 1 ? '#FFF' : '#9CA3AF' }}>No. {toRoman(pc.issue_number)}</span>
-                            <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: activeCuration === i + 1 ? '#FFF' : '#D1D5DB', flexShrink: 0 }}></span>
-                            <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '12px', color: activeCuration === i + 1 ? '#FFF' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${pc.theme_zh}` : ''}</span>
+                          <button key={pc.id} onClick={() => switchCuration(i + 1)}
+                            className="inline-flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                            style={{ padding: '10px 20px',
+                              border: activeCuration === i + 1 ? '1.5px solid #111827' : '1px solid #D1D5DB',
+                              backgroundColor: activeCuration === i + 1 ? '#111827' : '#FAFAF9',
+                              cursor: 'pointer',
+                              opacity: i === 0 ? 1 : i === 1 ? 0.75 : 0.5 }}>
+                            <span style={{ fontFamily: serif, fontSize: '12px', letterSpacing: '2px', fontWeight: 700, color: activeCuration === i + 1 ? '#FFF' : '#374151' }}>No. {toRoman(pc.issue_number)}</span>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: activeCuration === i + 1 ? '#FFF' : '#9CA3AF', flexShrink: 0 }}></span>
+                            <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: activeCuration === i + 1 ? '#E5E7EB' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${pc.theme_zh}` : ''}</span>
                           </button>
                         ))}
                         {activeCuration !== 0 && (
-                          <button onClick={() => switchCuration(0)} className="inline-flex items-center gap-1"
-                            style={{ padding: '6px 12px', border: '0.5px solid #C4B5FD', cursor: 'pointer', backgroundColor: '#F5F3FF' }}>
-                            <span style={{ fontSize: '11px', color: '#7C3AED' }}>← 回到最新</span>
+                          <button onClick={() => switchCuration(0)}
+                            className="inline-flex items-center gap-1 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                            style={{ padding: '10px 16px', border: '1px solid #C4B5FD', cursor: 'pointer', backgroundColor: '#F5F3FF' }}>
+                            <span style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 600 }}>← 回到最新</span>
                           </button>
                         )}
                       </div>
@@ -191,9 +198,15 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                   <p style={{ fontSize: '12px', color: '#D1D5DB', marginTop: '4px' }}>您可以点击下方标签浏览完整馆藏</p>
                 </div>
               )}
-              <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0', marginTop: '12px', textAlign: 'center', cursor: 'pointer' }}
+              <div className="group cursor-pointer transition-all duration-300 hover:bg-gray-50"
+                style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '14px 0', marginTop: '16px', textAlign: 'center' }}
                 onClick={() => switchView('all')}>
-                <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#9CA3AF' }}>FULL COLLECTION · 完 整 馆 藏 · {works.length} works</span>
+                <span className="inline-flex items-center gap-3">
+                  <span style={{ fontSize: '12px', letterSpacing: '4px', color: '#6B7280', fontWeight: 500 }}>FULL COLLECTION · 完 整 馆 藏</span>
+                  <span style={{ fontSize: '13px', color: '#9CA3AF' }}>·</span>
+                  <span style={{ fontSize: '12px', color: '#9CA3AF', letterSpacing: '1px' }}>{works.length} works</span>
+                  <span className="inline-block transition-transform duration-300 group-hover:translate-x-1" style={{ fontSize: '14px', color: '#6B7280' }}>→</span>
+                </span>
               </div>
             </div>
           )}
