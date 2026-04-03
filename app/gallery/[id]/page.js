@@ -22,6 +22,8 @@ export default function GalleryDetailPage() {
   const [userAnswers, setUserAnswers] = useState({})
   const [puzzlePage, setPuzzlePage] = useState(0)
   const [multiSelections, setMultiSelections] = useState({})
+  const [openAnswers, setOpenAnswers] = useState({})
+  const [perceptionResponses, setPerceptionResponses] = useState({})
 
   const [rikeArticle, setRikeArticle] = useState(null)
   const [rikeSeconds, setRikeSeconds] = useState(0)
@@ -66,11 +68,14 @@ export default function GalleryDetailPage() {
       if (w.puzzle_article_id) {
         const { data: pa } = await supabase.from('articles').select('*').eq('id', w.puzzle_article_id).single()
         setPuzzleArticle(pa)
-const { data: qs } = await supabase.from('article_questions').select('*').eq('article_id', w.puzzle_article_id).order('display_order')
-        // 确保 options 是数组
+        const { data: qs } = await supabase
+          .from('article_questions')
+          .select('*')
+          .eq('article_id', w.puzzle_article_id)
+          .order('display_order')
+
         const parsed = (qs || []).map(q => {
           const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options
-          // 如果 question_type 为空，根据正确答案数量自动判断
           let qType = q.question_type || 'single'
           if (!q.question_type && Array.isArray(opts)) {
             const correctCount = opts.filter(o => o.is_correct).length
@@ -79,7 +84,8 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
           return { ...q, question_type: qType, options: opts }
         })
         setQuestions(parsed)
-        }
+      }
+
       if (w.rike_article_id) {
         const { data: ra } = await supabase.from('articles').select('*').eq('id', w.rike_article_id).single()
         setRikeArticle(ra)
@@ -88,37 +94,51 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
           const rpData = await rpResp.json()
           if (Array.isArray(rpData) && rpData.length > 0) setRikePages(rpData)
         } catch (e) { console.error('加载日课页面失败:', e) }
-      // 检查是否有关联的新版杂志
-      try {
-        const { data: mag } = await supabase
-          .from('magazines')
-          .select('id, title, pages_count')
-          .eq('source_work_id', w.id)
-          .eq('source_type', 'official')
-          .in('status', ['published', 'featured'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        if (mag) setLinkedMagazine(mag)
-      } catch (e) { console.error('加载关联杂志失败:', e) }
+
+        try {
+          const { data: mag } = await supabase
+            .from('magazines')
+            .select('id, title, pages_count')
+            .eq('source_work_id', w.id)
+            .eq('source_type', 'official')
+            .in('status', ['published', 'featured'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (mag) setLinkedMagazine(mag)
+        } catch (e) { console.error('加载关联杂志失败:', e) }
       }
-     // 加载组图
-      const { data: workImages } = await supabase
+
+      const { data: workImagesData } = await supabase
         .from('gallery_work_images')
         .select('*')
         .eq('work_id', w.id)
         .order('display_order')
-      setWorkImages(workImages || [])
-      const { data: commentsData } = await supabase.from('gallery_comments').select('*').eq('work_id', w.id)
-        .order('is_featured', { ascending: false }).order('display_order', { ascending: true })
+      setWorkImages(workImagesData || [])
+
+      const { data: commentsData } = await supabase
+        .from('gallery_comments')
+        .select('*')
+        .eq('work_id', w.id)
+        .order('is_featured', { ascending: false })
+        .order('display_order', { ascending: true })
       if (commentsData) setFengshangComments(commentsData)
 
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        const { data: user } = await supabase.from('users').select('id, username, total_points, level').eq('auth_id', session.user.id).single()
+        const { data: user } = await supabase
+          .from('users')
+          .select('id, username, total_points, level')
+          .eq('auth_id', session.user.id)
+          .single()
         if (user) {
           setCurrentUser(user)
-          const { data: prog } = await supabase.from('user_gallery_progress').select('*').eq('user_id', user.id).eq('gallery_work_id', id).single()
+          const { data: prog } = await supabase
+            .from('user_gallery_progress')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('gallery_work_id', id)
+            .single()
           if (prog) {
             setProgress(prog)
             setRikeSeconds(prog.rike_read_seconds || 0)
@@ -129,10 +149,21 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
               setTab(prog.current_step === 'completed' ? 'rike' : (prog.current_step || 'puzzle'))
             }
             if (prog.puzzle_completed) {
-              const { data: ans } = await supabase.from('user_answers').select('*').eq('user_id', user.id).eq('article_id', w.puzzle_article_id)
+              const { data: ans } = await supabase
+                .from('user_answers')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('article_id', w.puzzle_article_id)
               if (ans) {
                 const map = {}
-                ans.forEach(a => { map[a.question_id] = { selected: a.selected_option, is_correct: a.is_correct } })
+                ans.forEach(a => {
+                  map[a.question_id] = {
+                    selected: a.selected_option,
+                    is_correct: a.is_correct,
+                    open_text: a.open_text,
+                    question_type: a.question_type,
+                  }
+                })
                 setUserAnswers(map)
               }
             }
@@ -146,7 +177,7 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
     }
   }
 
-  // ========== 灵感值 API 调用 ==========
+  // ── 灵感值 ──────────────────────────────────────────────────
   async function awardInspirationPoints(type, points, description, referenceId) {
     if (!currentUser) return null
     try {
@@ -162,9 +193,7 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
       if (data.success) {
         setCurrentUser(prev => ({ ...prev, total_points: data.totalPoints, level: data.level }))
         showInspirationToast(`+${data.points} ${description}`)
-        if (data.leveledUp) {
-          setTimeout(() => showInspirationToast('🎉 升级了！'), 2000)
-        }
+        if (data.leveledUp) setTimeout(() => showInspirationToast('🎉 升级了！'), 2000)
         return data
       }
       return null
@@ -174,19 +203,24 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
     }
   }
 
-  // ========== 进度管理 ==========
+  // ── 进度 ────────────────────────────────────────────────────
   async function saveProgress(updates) {
     if (!currentUser) return null
     try {
       if (progress) {
-        const { data } = await supabase.from('user_gallery_progress')
+        const { data } = await supabase
+          .from('user_gallery_progress')
           .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', progress.id).select().single()
+          .eq('id', progress.id)
+          .select()
+          .single()
         if (data) { setProgress(data); return data }
       } else {
-        const { data } = await supabase.from('user_gallery_progress')
+        const { data } = await supabase
+          .from('user_gallery_progress')
           .insert({ user_id: currentUser.id, gallery_work_id: id, ...updates })
-          .select().single()
+          .select()
+          .single()
         if (data) { setProgress(data); return data }
       }
     } catch (err) { console.error('保存进度失败:', err) }
@@ -199,36 +233,107 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
       await awardInspirationPoints('all_steps_complete', 15, '完成全部三步（额外奖励）')
       const puzzlePoints = work.total_points || 100
       const totalEarned = puzzlePoints + 20 + 20 + 15
-      const { data } = await supabase.from('user_gallery_progress').update({
-        current_step: 'completed', points_earned: totalEarned, points_settled: true,
-        settled_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      }).eq('id', prog.id).select().single()
+      const { data } = await supabase
+        .from('user_gallery_progress')
+        .update({
+          current_step: 'completed',
+          points_earned: totalEarned,
+          points_settled: true,
+          settled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', prog.id)
+        .select()
+        .single()
       if (data) setProgress(data)
       setShowPointsBanner(true)
       setTimeout(() => setShowPointsBanner(false), 5000)
     }
   }
 
-  // ========== 谜题 ==========
+  // ── 谜题答题 ─────────────────────────────────────────────────
   async function handleSingleAnswer(question, selectedLabel) {
     if (!currentUser) { alert('请先登录后再答题'); return }
     if (userAnswers[question.id]) return
+
+    const qType = question.question_type_v2 || 'knowledge'
+
+    if (qType === 'perception') {
+      // 感知型：无对错，返回该选项的回应文字，得 10 分
+      const responses = typeof question.option_responses === 'string'
+        ? JSON.parse(question.option_responses)
+        : (question.option_responses || {})
+      const responseText = responses[selectedLabel] || ''
+
+      try {
+        await supabase.from('user_answers').insert({
+          user_id: currentUser.id,
+          question_id: question.id,
+          article_id: work.puzzle_article_id,
+          selected_option: selectedLabel,
+          is_correct: null,
+          points_earned: 10,
+          question_type: 'perception',
+        })
+      } catch (err) { console.error(err) }
+
+      setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: null } }))
+      if (responseText) {
+        setPerceptionResponses(prev => ({ ...prev, [question.id]: responseText }))
+      }
+      return
+    }
+
+    // knowledge 型：有对错，答对 20 分，答错 5 分
     const correct = question.options.find(o => o.is_correct)
     const isCorrect = correct && correct.label === selectedLabel
     try {
       await supabase.from('user_answers').insert({
-        user_id: currentUser.id, question_id: question.id,
-        article_id: work.puzzle_article_id, selected_option: selectedLabel,
-        is_correct: isCorrect, points_earned: 0
+        user_id: currentUser.id,
+        question_id: question.id,
+        article_id: work.puzzle_article_id,
+        selected_option: selectedLabel,
+        is_correct: isCorrect,
+        points_earned: 0,
+        question_type: 'knowledge',
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: isCorrect } }))
   }
 
+  async function handleOpenAnswer(question) {
+    if (!currentUser) { alert('请先登录后再答题'); return }
+    if (userAnswers[question.id]) return
+
+    const text = (openAnswers[question.id] || '').trim()
+    if (text.length < 5) { alert('请输入至少 5 个字'); return }
+
+    try {
+      await supabase.from('user_answers').insert({
+        user_id: currentUser.id,
+        question_id: question.id,
+        article_id: work.puzzle_article_id,
+        selected_option: null,
+        is_correct: null,
+        points_earned: 10,
+        question_type: 'open',
+        open_text: text,
+      })
+    } catch (err) { console.error(err) }
+
+    setUserAnswers(prev => ({
+      ...prev,
+      [question.id]: { selected: null, is_correct: null, open_text: text },
+    }))
+  }
+
   function toggleMultiOption(questionId, label) {
     setMultiSelections(prev => {
       const cur = prev[questionId] || []
-      return { ...prev, [questionId]: cur.includes(label) ? cur.filter(l => l !== label) : [...cur, label] }
+      return {
+        ...prev,
+        [questionId]: cur.includes(label) ? cur.filter(l => l !== label) : [...cur, label],
+      }
     })
   }
 
@@ -240,28 +345,55 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
     const isCorrect = selected === correctLabels
     try {
       await supabase.from('user_answers').insert({
-        user_id: currentUser.id, question_id: question.id,
-        article_id: work.puzzle_article_id, selected_option: selected,
-        is_correct: isCorrect, points_earned: 0
+        user_id: currentUser.id,
+        question_id: question.id,
+        article_id: work.puzzle_article_id,
+        selected_option: selected,
+        is_correct: isCorrect,
+        points_earned: 0,
+        question_type: 'knowledge',
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected, is_correct: isCorrect } }))
   }
 
   async function completePuzzle() {
-    const cc = Object.values(userAnswers).filter(a => a.is_correct).length
-    const puzzlePoints = work.total_points || 100
-    if (cc === questions.length && questions.length > 0) {
+    // 按题型分别计算分数
+    const knowledgeCorrect = questions.filter(q =>
+      (q.question_type_v2 || 'knowledge') === 'knowledge' && userAnswers[q.id]?.is_correct
+    ).length
+    const knowledgeWrong = questions.filter(q =>
+      (q.question_type_v2 || 'knowledge') === 'knowledge' &&
+      userAnswers[q.id] && !userAnswers[q.id]?.is_correct
+    ).length
+    const participationCount = questions.filter(q => {
+      const t = q.question_type_v2 || 'knowledge'
+      return (t === 'perception' || t === 'open') && userAnswers[q.id]
+    }).length
+
+    // 知识题答对 20 分，答错 5 分；感知/开放题 10 分
+    const puzzlePoints = (knowledgeCorrect * 20) + (knowledgeWrong * 5) + (participationCount * 10)
+
+    // 全部知识题答对才记 perfect
+    const knowledgeQs = questions.filter(q => (q.question_type_v2 || 'knowledge') === 'knowledge')
+    if (knowledgeQs.length > 0 && knowledgeCorrect === knowledgeQs.length) {
       await supabase.from('users').update({
-        perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1
+        perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1,
       }).eq('id', currentUser.id)
     }
+
+    const cc = Object.values(userAnswers).filter(a => a.is_correct).length
     await awardInspirationPoints('puzzle_complete', puzzlePoints, `完成谜题「${work.title}」(${cc}/${questions.length})`)
-    const newProg = await saveProgress({ puzzle_completed: true, puzzle_correct_count: cc, puzzle_total_count: questions.length, current_step: 'rike' })
+    const newProg = await saveProgress({
+      puzzle_completed: true,
+      puzzle_correct_count: cc,
+      puzzle_total_count: questions.length,
+      current_step: 'rike',
+    })
     if (newProg) checkAndSettlePoints(newProg)
   }
 
-  // ========== 日课 ==========
+  // ── 日课 ────────────────────────────────────────────────────
   function startRikeTimer() {
     if (rikeTimer.current) return
     rikeTimer.current = setInterval(() => setRikeSeconds(prev => prev + 1), 1000)
@@ -270,11 +402,16 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
   async function completeRike() {
     if (rikeTimer.current) { clearInterval(rikeTimer.current); rikeTimer.current = null }
     await awardInspirationPoints('rike_complete', 20, `完成日课「${work.title}」`)
-    const newProg = await saveProgress({ rike_completed: true, rike_read_seconds: rikeSeconds, rike_completed_at: new Date().toISOString(), current_step: 'fengshang' })
+    const newProg = await saveProgress({
+      rike_completed: true,
+      rike_read_seconds: rikeSeconds,
+      rike_completed_at: new Date().toISOString(),
+      current_step: 'fengshang',
+    })
     if (newProg) checkAndSettlePoints(newProg)
   }
 
-  // ========== 风赏 ==========
+  // ── 风赏 ────────────────────────────────────────────────────
   function startFengshangTimer() {
     if (fengshangTimer.current) return
     fengshangTimer.current = setInterval(() => setFengshangSeconds(prev => prev + 1), 1000)
@@ -283,10 +420,18 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
   async function submitUserComment() {
     if (!userComment.trim() || !currentUser) return
     try {
-      const { data: nc, error } = await supabase.from('gallery_comments').insert({
-        work_id: work.id, author_name: currentUser.username || '匿名用户',
-        content: userComment.trim(), rating: userRating, comment_type: 'user', user_id: currentUser.id
-      }).select().single()
+      const { data: nc, error } = await supabase
+        .from('gallery_comments')
+        .insert({
+          work_id: work.id,
+          author_name: currentUser.username || '匿名用户',
+          content: userComment.trim(),
+          rating: userRating,
+          comment_type: 'user',
+          user_id: currentUser.id,
+        })
+        .select()
+        .single()
       if (error) throw error
       setFengshangComments(prev => [...prev, nc])
       setUserComment('')
@@ -296,7 +441,12 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
   async function completeFengshang() {
     if (fengshangTimer.current) { clearInterval(fengshangTimer.current); fengshangTimer.current = null }
     await awardInspirationPoints('fengshang_complete', 20, `完成风赏「${work.title}」`)
-    const newProg = await saveProgress({ fengshang_completed: true, fengshang_read_seconds: fengshangSeconds, fengshang_completed_at: new Date().toISOString(), current_step: 'fengshang' })
+    const newProg = await saveProgress({
+      fengshang_completed: true,
+      fengshang_read_seconds: fengshangSeconds,
+      fengshang_completed_at: new Date().toISOString(),
+      current_step: 'fengshang',
+    })
     if (newProg) checkAndSettlePoints(newProg)
   }
 
@@ -305,11 +455,16 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
     if (tab === 'fengshang' && currentUser && !progress?.fengshang_completed) startFengshangTimer()
   }, [tab])
 
-  // ========== 渲染 ==========
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><div className="text-xl text-gray-500">加载中...</div></div>
+  // ── 渲染 ────────────────────────────────────────────────────
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-xl text-gray-500">加载中...</div>
+    </div>
+  )
   if (!work) return null
 
-  const answeredAll = questions.length > 0 && Object.keys(userAnswers).length === questions.length
+  // 判断是否全部已答（感知/开放题只要有记录就算答了）
+  const answeredAll = questions.length > 0 && questions.every(q => !!userAnswers[q.id])
   const correctCount = Object.values(userAnswers).filter(a => a.is_correct).length
   const puzzleDone = progress?.puzzle_completed
   const rikeDone = progress?.rike_completed
@@ -323,15 +478,20 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
   const tabs = [
     { key: 'puzzle', icon: '🧩', label: '谜题', done: puzzleDone },
     { key: 'rike', icon: '📖', label: '日课', done: rikeDone },
-    { key: 'fengshang', icon: '🎐', label: '风赏', done: fengshangDone }
+    { key: 'fengshang', icon: '🎐', label: '风赏', done: fengshangDone },
   ]
 
   function LeftPanel({ children }) {
     return (
       <div className="md:sticky md:top-28 md:self-start">
-<ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} />        <div className="mb-5">
+        <ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} />
+        <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
-          {work.title_en && <p style={{ color: "#9CA3AF", fontSize: "14px", fontStyle: "italic", marginBottom: "8px" }}>{work.title_en}</p>}
+          {work.title_en && (
+            <p style={{ color: '#9CA3AF', fontSize: '14px', fontStyle: 'italic', marginBottom: '8px' }}>
+              {work.title_en}
+            </p>
+          )}
           {work.artist_name && (
             <div className="flex items-center gap-4 mt-3">
               {work.artist_avatar && (
@@ -340,13 +500,25 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                   style={{ width: '90px', height: '90px', border: '3px solid #E5E7EB' }} />
               )}
               <div>
-                <p style={{ color: "#111827", fontSize: "18px", fontWeight: "600", marginBottom: "2px" }}>{work.artist_name}</p>
+                <p style={{ color: '#111827', fontSize: '18px', fontWeight: '600', marginBottom: '2px' }}>
+                  {work.artist_name}
+                </p>
                 {work.artist_name_en && (
-                  <p style={{ color: "#9CA3AF", fontSize: "13px", fontStyle: "italic", marginBottom: "6px" }}>{work.artist_name_en}</p>
+                  <p style={{ color: '#9CA3AF', fontSize: '13px', fontStyle: 'italic', marginBottom: '6px' }}>
+                    {work.artist_name_en}
+                  </p>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {work.year && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>}
-                  {work.collection_location && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {work.collection_location}</span>}
+                  {work.year && (
+                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                      {work.year}
+                    </span>
+                  )}
+                  {work.collection_location && (
+                    <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                      📍 {work.collection_location}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -357,20 +529,23 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
     )
   }
 
-  // 未登录锁定面板
-  function LoginLock({ icon, title, desc }) {
+  function LoginLock({ title, desc }) {
     return (
       <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-10 shadow-sm">
         <div className="text-5xl mb-4">🔒</div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
         <p className="text-gray-500 mb-6">{desc}</p>
-        <Link href={`/login?redirect=/gallery/${id}`} className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
+        <Link href={`/login?redirect=/gallery/${id}`}
+          className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">
+          登录 / 注册
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+    <div className="min-h-screen bg-gray-50"
+      style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <InspirationToast message={toastMessage} show={showToast} />
 
       {/* 顶栏 */}
@@ -393,9 +568,12 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
       {/* 积分弹窗 */}
       {showPointsBanner && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-          <div className="px-8 py-4 rounded-2xl shadow-2xl text-center" style={{ backgroundColor: '#FEF3C7', border: '2px solid #F59E0B' }}>
+          <div className="px-8 py-4 rounded-2xl shadow-2xl text-center"
+            style={{ backgroundColor: '#FEF3C7', border: '2px solid #F59E0B' }}>
             <div className="text-3xl mb-1">🎉</div>
-            <div className="text-lg font-bold" style={{ color: '#B45309' }}>+{progress?.points_earned || totalPossible} 灵感值</div>
+            <div className="text-lg font-bold" style={{ color: '#B45309' }}>
+              +{progress?.points_earned || totalPossible} 灵感值
+            </div>
             <div className="text-xs" style={{ color: '#92400E' }}>三步阅览全部完成！</div>
           </div>
         </div>
@@ -410,7 +588,7 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all"
                 style={{
                   backgroundColor: tab === t.key ? '#111827' : t.done ? '#ECFDF5' : '#F3F4F6',
-                  color: tab === t.key ? '#FFFFFF' : t.done ? '#059669' : '#6B7280'
+                  color: tab === t.key ? '#FFFFFF' : t.done ? '#059669' : '#6B7280',
                 }}>
                 <span>{t.done ? '✓' : t.icon}</span>
                 <span>{t.label}</span>
@@ -421,9 +599,13 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
             ))}
             <div className="ml-auto">
               {allDone ? (
-                <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>✅ 已完成 · +{progress?.points_earned}✨</span>
+                <span className="text-xs px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
+                  ✅ 已完成 · +{progress?.points_earned}✨
+                </span>
               ) : currentUser && (
-                <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                <span className="text-xs px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
                   {[puzzleDone, rikeDone, fengshangDone].filter(Boolean).length}/3 · 最多可获 ✨{totalPossible}
                 </span>
               )}
@@ -434,13 +616,18 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
 
       <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* ====== 谜题 ====== */}
+        {/* ══ 谜题 ══ */}
         {tab === 'puzzle' && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
-              {puzzleArticle && puzzleArticle.intro && <p className="mb-3" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{puzzleArticle.intro}</p>}
-              {puzzleArticle && puzzleArticle.content && (
-                <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ color: "#374151", lineHeight: "1.8", fontSize: "15px" }}
+              {puzzleArticle?.intro && (
+                <p className="mb-3" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>
+                  {puzzleArticle.intro}
+                </p>
+              )}
+              {puzzleArticle?.content && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm"
+                  style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }}
                   dangerouslySetInnerHTML={{ __html: formatContent(puzzleArticle.content) }} />
               )}
             </LeftPanel>
@@ -451,24 +638,41 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                   <div className="text-5xl mb-4">🔒</div>
                   <h2 className="text-xl font-bold text-gray-900 mb-2">登录后开始答题</h2>
                   <p className="text-gray-500 mb-6">完成三步阅览可获得 ✨ {totalPossible} 灵感值</p>
-                  <Link href={`/login?redirect=/gallery/${id}`} className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">登录 / 注册</Link>
+                  <Link href={`/login?redirect=/gallery/${id}`}
+                    className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">
+                    登录 / 注册
+                  </Link>
                 </div>
               )}
 
               {currentUser && questions.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">🧩 谜题挑战 <span className="text-sm font-normal text-amber-600">+{puzzlePoints}✨</span></h2>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      🧩 谜题挑战
+                      <span className="text-sm font-normal text-amber-600">+{puzzlePoints}✨</span>
+                    </h2>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm" style={{ color: '#9CA3AF' }}>第 {puzzlePage + 1}/{questions.length} 题</span>
+                      <span className="text-sm" style={{ color: '#9CA3AF' }}>
+                        第 {puzzlePage + 1}/{questions.length} 题
+                      </span>
                       <div className="flex items-center gap-1">
                         {questions.map((q, i) => {
                           const ans = userAnswers[q.id]
+                          const qT = q.question_type_v2 || 'knowledge'
+                          let dotColor = '#D1D5DB'
+                          if (ans) {
+                            if (qT === 'perception' || qT === 'open') dotColor = '#10B981'
+                            else dotColor = ans.is_correct ? '#10B981' : '#EF4444'
+                          } else if (i === puzzlePage) {
+                            dotColor = '#111827'
+                          }
                           return (
-                            <button key={q.id} onClick={() => setPuzzlePage(i)} className="w-3 h-3 rounded-full transition-all"
+                            <button key={q.id} onClick={() => setPuzzlePage(i)}
+                              className="w-3 h-3 rounded-full transition-all"
                               style={{
-                                backgroundColor: ans ? (ans.is_correct ? '#10B981' : '#EF4444') : i === puzzlePage ? '#111827' : '#D1D5DB',
-                                transform: i === puzzlePage ? 'scale(1.3)' : 'scale(1)'
+                                backgroundColor: dotColor,
+                                transform: i === puzzlePage ? 'scale(1.3)' : 'scale(1)',
                               }} />
                           )
                         })}
@@ -477,38 +681,64 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                   </div>
 
                   {currentQ && (
-                    <QuestionCard question={currentQ} index={puzzlePage} answer={userAnswers[currentQ.id]}
+                    <QuestionCard
+                      question={currentQ}
+                      index={puzzlePage}
+                      answer={userAnswers[currentQ.id]}
                       multiSelections={multiSelections[currentQ.id] || []}
                       onSingleAnswer={(label) => handleSingleAnswer(currentQ, label)}
                       onToggleMulti={(label) => toggleMultiOption(currentQ.id, label)}
-                      onSubmitMulti={() => submitMultiAnswer(currentQ)} />
+                      onSubmitMulti={() => submitMultiAnswer(currentQ)}
+                      openText={openAnswers[currentQ.id] || ''}
+                      onOpenTextChange={(text) => setOpenAnswers(prev => ({ ...prev, [currentQ.id]: text }))}
+                      onSubmitOpen={() => handleOpenAnswer(currentQ)}
+                      perceptionResponse={perceptionResponses[currentQ.id] || ''}
+                    />
                   )}
 
                   <div className="flex items-center justify-between mt-6">
-                    <button onClick={() => setPuzzlePage(prev => Math.max(0, prev - 1))} disabled={puzzlePage === 0}
+                    <button onClick={() => setPuzzlePage(prev => Math.max(0, prev - 1))}
+                      disabled={puzzlePage === 0}
                       className="px-5 py-2.5 rounded-xl text-sm font-medium border transition-colors disabled:opacity-30"
-                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>← 上一题</button>
+                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                      ← 上一题
+                    </button>
 
                     {!puzzleDone && !answeredAll && (
-                      <button onClick={() => setTab('rike')} className="text-sm underline" style={{ color: '#9CA3AF' }}>跳过答题，先看日课</button>
+                      <button onClick={() => setTab('rike')}
+                        className="text-sm underline" style={{ color: '#9CA3AF' }}>
+                        跳过答题，先看日课
+                      </button>
                     )}
 
                     {puzzlePage < questions.length - 1 ? (
                       <button onClick={() => setPuzzlePage(prev => prev + 1)}
-                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>下一题 →</button>
+                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-white"
+                        style={{ backgroundColor: '#111827' }}>
+                        下一题 →
+                      </button>
                     ) : answeredAll && !puzzleDone ? (
-                      <button onClick={completePuzzle} className="px-6 py-2.5 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#059669' }}>
-                        ✓ 完成谜题 ({correctCount}/{questions.length})</button>
+                      <button onClick={completePuzzle}
+                        className="px-6 py-2.5 rounded-xl text-sm font-medium text-white"
+                        style={{ backgroundColor: '#059669' }}>
+                        ✓ 完成谜题 ({correctCount}/{questions.length})
+                      </button>
                     ) : (
                       <div className="px-5 py-2.5 text-sm" style={{ color: '#9CA3AF' }}>
-                        {puzzleDone ? `✓ 已完成 (${progress?.puzzle_correct_count}/${progress?.puzzle_total_count})` : '请答完所有题目'}
+                        {puzzleDone
+                          ? `✓ 已完成 (${progress?.puzzle_correct_count}/${progress?.puzzle_total_count})`
+                          : '请答完所有题目'}
                       </div>
                     )}
                   </div>
 
                   {puzzleDone && !rikeDone && (
                     <div className="mt-6 text-center">
-                      <button onClick={() => setTab('rike')} className="px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往日课 📖 →</button>
+                      <button onClick={() => setTab('rike')}
+                        className="px-8 py-3 rounded-xl font-medium text-white"
+                        style={{ backgroundColor: '#111827' }}>
+                        前往日课 📖 →
+                      </button>
                     </div>
                   )}
                 </div>
@@ -518,30 +748,41 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                 <div className="text-center bg-white rounded-2xl p-10 shadow-sm">
                   <p className="text-gray-500 mb-4">本作品暂无谜题</p>
                   <button onClick={async () => {
-                    const np = await saveProgress({ puzzle_completed: true, current_step: 'rike', puzzle_correct_count: 0, puzzle_total_count: 0 })
+                    const np = await saveProgress({
+                      puzzle_completed: true,
+                      current_step: 'rike',
+                      puzzle_correct_count: 0,
+                      puzzle_total_count: 0,
+                    })
                     if (np) checkAndSettlePoints(np)
                     setTab('rike')
-                  }} className="px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">进入日课 📖 →</button>
+                  }} className="px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">
+                    进入日课 📖 →
+                  </button>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ====== 日课（杂志化）— 未登录锁定 ====== */}
+        {/* ══ 日课 — 未登录 ══ */}
         {tab === 'rike' && !currentUser && (
           <LoginLock title="登录后查看日课" desc="阅读作品导读，获得 ✨20 灵感值" />
         )}
 
-        {/* ====== 日课（杂志化）— 已登录 ====== */}
+        {/* ══ 日课 — 已登录 ══ */}
         {tab === 'rike' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
                 <span className="text-sm text-gray-500">已阅读</span>
-                <span className={`text-xl font-bold ${rikeSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>{rikeSeconds}</span>
+                <span className={`text-xl font-bold ${rikeSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>
+                  {rikeSeconds}
+                </span>
                 <span className="text-sm text-gray-500">秒</span>
-                {rikeSeconds < 15 && <span className="text-xs text-gray-400">（还需 {15 - rikeSeconds} 秒）</span>}
+                {rikeSeconds < 15 && (
+                  <span className="text-xs text-gray-400">（还需 {15 - rikeSeconds} 秒）</span>
+                )}
                 {rikeSeconds >= 15 && <span className="text-green-600">✓</span>}
               </div>
             </LeftPanel>
@@ -550,25 +791,31 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-3xl">📖</span>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">日课 · 作品导读 <span className="text-sm font-normal text-amber-600">+20✨</span></h2>
-                  <p className="text-sm text-gray-500">{rikeDone ? '已完成阅读' : '阅读至少 15 秒后可标记完成'}</p>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    日课 · 作品导读 <span className="text-sm font-normal text-amber-600">+20✨</span>
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {rikeDone ? '已完成阅读' : '阅读至少 15 秒后可标记完成'}
+                  </p>
                 </div>
               </div>
 
-              {/* 有杂志页面 → 显示杂志入口 */}
-              {/* 新版杂志入口 */}
               {linkedMagazine && (
                 <a href={`/magazine/view/${linkedMagazine.id}`} target="_blank"
                   className="w-full flex items-center gap-4 rounded-2xl p-5 mb-6 hover:opacity-90 transition text-left"
                   style={{ backgroundColor: '#7C3AED' }}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
                     <span className="text-2xl">📖</span>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-white">打开杂志阅读</span>
                       {linkedMagazine.pages_count > 0 && (
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{linkedMagazine.pages_count} 页</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>
+                          {linkedMagazine.pages_count} 页
+                        </span>
                       )}
                     </div>
                     <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p>
@@ -576,32 +823,38 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                   <span className="text-lg text-white">→</span>
                 </a>
               )}
+
               {rikePages.length > 0 ? (
                 <div>
                   {rikeArticle?.intro && (
-                    <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>{rikeArticle.intro}</p>
+                    <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>
+                      {rikeArticle.intro}
+                    </p>
                   )}
                   {rikeArticle?.content && (
-                    <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: "#374151", lineHeight: "1.8", fontSize: "15px" }}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm mb-6"
+                      style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }}
                       dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />
                   )}
-
                   <button onClick={() => setShowRikeMagazine(true)}
                     className="w-full flex items-center gap-4 rounded-2xl p-5 hover:opacity-90 transition text-left"
                     style={{ backgroundColor: '#7C3AED' }}>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
                       <span className="text-2xl">📖</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-white">打开杂志阅读</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{rikePages.length} 页</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>
+                          {rikePages.length} 页
+                        </span>
                       </div>
                       <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p>
                     </div>
                     <span className="text-lg text-white">→</span>
                   </button>
-
                   {!rikeDone && (
                     <button onClick={completeRike} disabled={rikeSeconds < 15}
                       className={`mt-4 px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
@@ -609,14 +862,23 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                     </button>
                   )}
                   {rikeDone && !fengshangDone && (
-                    <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>
+                    <button onClick={() => setTab('fengshang')}
+                      className="mt-4 px-8 py-3 rounded-xl font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      前往风赏 🎐 →
+                    </button>
                   )}
                 </div>
               ) : rikeArticle ? (
                 <div>
-                  {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{rikeArticle.intro}</p>}
+                  {rikeArticle.intro && (
+                    <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>
+                      {rikeArticle.intro}
+                    </p>
+                  )}
                   {rikeArticle.content && (
-                    <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: "#374151", lineHeight: "1.8", fontSize: "15px" }}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm mb-6"
+                      style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }}
                       dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />
                   )}
                   {!rikeDone && (
@@ -626,7 +888,11 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                     </button>
                   )}
                   {rikeDone && !fengshangDone && (
-                    <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>
+                    <button onClick={() => setTab('fengshang')}
+                      className="mt-4 px-8 py-3 rounded-xl font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      前往风赏 🎐 →
+                    </button>
                   )}
                 </div>
               ) : (
@@ -636,20 +902,24 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
           </div>
         )}
 
-        {/* ====== 风赏 — 未登录锁定 ====== */}
+        {/* ══ 风赏 — 未登录 ══ */}
         {tab === 'fengshang' && !currentUser && (
           <LoginLock title="登录后查看风赏" desc="阅读名家短评，留下你的看法，获得 ✨20 灵感值" />
         )}
 
-        {/* ====== 风赏 — 已登录 ====== */}
+        {/* ══ 风赏 — 已登录 ══ */}
         {tab === 'fengshang' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
               <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
                 <span className="text-sm text-gray-500">已阅读</span>
-                <span className={`text-xl font-bold ${fengshangSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>{fengshangSeconds}</span>
+                <span className={`text-xl font-bold ${fengshangSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>
+                  {fengshangSeconds}
+                </span>
                 <span className="text-sm text-gray-500">秒</span>
-                {fengshangSeconds < 15 && <span className="text-xs text-gray-400">（还需 {15 - fengshangSeconds} 秒）</span>}
+                {fengshangSeconds < 15 && (
+                  <span className="text-xs text-gray-400">（还需 {15 - fengshangSeconds} 秒）</span>
+                )}
                 {fengshangSeconds >= 15 && <span className="text-green-600">✓</span>}
               </div>
             </LeftPanel>
@@ -658,8 +928,12 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-3xl">🎐</span>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">风赏 · 评论鉴赏 <span className="text-sm font-normal text-amber-600">+20✨</span></h2>
-                  <p className="text-sm text-gray-500">{fengshangDone ? '已完成鉴赏' : '阅读名家短评，也留下你的看法'}</p>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    风赏 · 评论鉴赏 <span className="text-sm font-normal text-amber-600">+20✨</span>
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {fengshangDone ? '已完成鉴赏' : '阅读名家短评，也留下你的看法'}
+                  </p>
                 </div>
               </div>
 
@@ -667,15 +941,23 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                 {fengshangComments.length > 0 ? fengshangComments.map(c => (
                   <div key={c.id} className="bg-white rounded-2xl p-5 shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
                         {c.author_name?.[0] || '匿'}
                       </div>
                       <span className="font-medium text-sm" style={{ color: '#111827' }}>{c.author_name}</span>
-                      {c.author_title && <span className="text-xs" style={{ color: '#9CA3AF' }}>{c.author_title}</span>}
-                      {c.is_featured && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>精选</span>}
+                      {c.author_title && (
+                        <span className="text-xs" style={{ color: '#9CA3AF' }}>{c.author_title}</span>
+                      )}
+                      {c.is_featured && (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>精选</span>
+                      )}
                       {c.rating && (
                         <div className="ml-auto flex">
-                          {[1,2,3,4,5].map(s => <span key={s} style={{ color: s <= c.rating ? '#F59E0B' : '#E5E7EB', fontSize: '12px' }}>★</span>)}
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <span key={s} style={{ color: s <= c.rating ? '#F59E0B' : '#E5E7EB', fontSize: '12px' }}>★</span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -691,14 +973,21 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
                   <div className="flex items-center gap-3 mb-3">
                     <span className="font-medium text-sm" style={{ color: '#111827' }}>写下你的看法</span>
                     <div className="flex items-center gap-1 ml-auto">
-                      {[1,2,3,4,5].map(s => <button key={s} onClick={() => setUserRating(s)} style={{ color: s <= userRating ? '#F59E0B' : '#D1D5DB', fontSize: '18px' }}>★</button>)}
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <button key={s} onClick={() => setUserRating(s)}
+                          style={{ color: s <= userRating ? '#F59E0B' : '#D1D5DB', fontSize: '18px' }}>★</button>
+                      ))}
                     </div>
                   </div>
                   <textarea value={userComment} onChange={e => setUserComment(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 text-sm resize-none" rows={3} placeholder="你对这件作品有什么看法？" />
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 text-sm resize-none"
+                    rows={3} placeholder="你对这件作品有什么看法？" />
                   <div className="flex justify-end mt-2">
                     <button onClick={submitUserComment} disabled={!userComment.trim()}
-                      className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40" style={{ backgroundColor: '#111827' }}>发表短评</button>
+                      className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                      style={{ backgroundColor: '#111827' }}>
+                      发表短评
+                    </button>
                   </div>
                 </div>
               )}
@@ -711,15 +1000,27 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
               )}
 
               {fengshangDone && !puzzleDone && (
-                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-                  <p className="text-sm" style={{ color: '#92400E' }}>🧩 还没完成谜题，完成全部三步可获得额外 ✨15 灵感值</p>
-                  <button onClick={() => setTab('puzzle')} className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>去做谜题 →</button>
+                <div className="mt-4 p-4 rounded-xl"
+                  style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+                  <p className="text-sm" style={{ color: '#92400E' }}>
+                    🧩 还没完成谜题，完成全部三步可获得额外 ✨15 灵感值
+                  </p>
+                  <button onClick={() => setTab('puzzle')}
+                    className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>
+                    去做谜题 →
+                  </button>
                 </div>
               )}
               {fengshangDone && puzzleDone && !rikeDone && (
-                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-                  <p className="text-sm" style={{ color: '#92400E' }}>📖 还没完成日课，完成全部三步可获得额外 ✨15 灵感值</p>
-                  <button onClick={() => setTab('rike')} className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>去看日课 →</button>
+                <div className="mt-4 p-4 rounded-xl"
+                  style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+                  <p className="text-sm" style={{ color: '#92400E' }}>
+                    📖 还没完成日课，完成全部三步可获得额外 ✨15 灵感值
+                  </p>
+                  <button onClick={() => setTab('rike')}
+                    className="mt-2 text-sm font-medium underline" style={{ color: '#B45309' }}>
+                    去看日课 →
+                  </button>
                 </div>
               )}
             </div>
@@ -744,23 +1045,99 @@ const { data: qs } = await supabase.from('article_questions').select('*').eq('ar
   )
 }
 
-// ========== 题目卡片 ==========
-function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer, onToggleMulti, onSubmitMulti }) {
-  // 根据正确答案数量强制判断题型
+// ══ QuestionCard ══════════════════════════════════════════════════
+function QuestionCard({
+  question, index, answer, multiSelections,
+  onSingleAnswer, onToggleMulti, onSubmitMulti,
+  openText, onOpenTextChange, onSubmitOpen,
+  perceptionResponse,
+}) {
   const correctCount = (question.options || []).filter(o => o.is_correct).length
-  const qType = question.question_type === 'matching' ? 'matching' : question.question_type === 'truefalse' ? 'truefalse' : (correctCount > 1 ? 'multiple' : 'single')
-    return (
+  const qTypeLegacy = question.question_type === 'matching' ? 'matching'
+    : question.question_type === 'truefalse' ? 'truefalse'
+    : (correctCount > 1 ? 'multiple' : 'single')
+
+  // 优先用新字段 question_type_v2
+  const qType = (question.question_type_v2 && question.question_type_v2 !== 'knowledge')
+    ? question.question_type_v2
+    : qTypeLegacy
+
+  const isPerception = qType === 'perception'
+  const isOpen = qType === 'open'
+
+  const tagMap = {
+    single:     { label: '知识题', bg: '#EFF6FF', color: '#2563EB' },
+    multiple:   { label: '多选题', bg: '#F5F3FF', color: '#7C3AED' },
+    truefalse:  { label: '判断题', bg: '#FEF3C7', color: '#B45309' },
+    matching:   { label: '连线题', bg: '#FEF3C7', color: '#B45309' },
+    perception: { label: '感知题', bg: '#F0FDF4', color: '#15803D' },
+    open:       { label: '开放题', bg: '#FFF7ED', color: '#C2410C' },
+  }
+  const tag = tagMap[qType] || tagMap.single
+
+  return (
     <div className="bg-white rounded-2xl p-6 shadow-sm">
+      {/* 题头 */}
       <div className="flex items-center gap-3 mb-5">
-        <span className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold">{index + 1}</span>
-        <h3 className="flex-1 font-bold" style={{ color: "#111827" }}>{question.question_text}</h3>
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" style={{
-          backgroundColor: qType === 'single' ? '#EFF6FF' : qType === 'multiple' ? '#F5F3FF' : '#FEF3C7',
-          color: qType === 'single' ? '#2563EB' : qType === 'multiple' ? '#7C3AED' : '#B45309'
-        }}>
-{qType === 'matching' ? '连线' : qType === 'single' ? '单选' : qType === 'multiple' ? '多选' : '判断'}        </span>
+        <span className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+          {index + 1}
+        </span>
+        <h3 className="flex-1 font-bold" style={{ color: '#111827' }}>{question.question_text}</h3>
+        <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
+          style={{ backgroundColor: tag.bg, color: tag.color }}>
+          {tag.label}
+        </span>
       </div>
 
+      {/* 感知题提示 */}
+      {isPerception && !answer && (
+        <p className="text-xs mb-4 italic" style={{ color: '#6B7280' }}>
+          没有对错，选一个最接近你此刻感受的答案
+        </p>
+      )}
+
+      {/* ── 开放题 ── */}
+      {isOpen && (
+        <div>
+          {!answer ? (
+            <div>
+              <p className="text-xs mb-3 italic" style={{ color: '#6B7280' }}>
+                用自己的语言回答，至少 5 个字，平行体会记住这句话
+              </p>
+              <textarea
+                value={openText}
+                onChange={e => onOpenTextChange(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 resize-none"
+                placeholder="写下你的感受…"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs"
+                  style={{ color: openText.trim().length >= 5 ? '#10B981' : '#D1D5DB' }}>
+                  {openText.trim().length} / 5 字以上
+                </span>
+                <button onClick={onSubmitOpen} disabled={openText.trim().length < 5}
+                  className="px-5 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+                  style={{ backgroundColor: '#111827' }}>
+                  记录 +10✨
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed"
+                style={{ backgroundColor: '#FFF7ED', borderColor: '#F97316', color: '#374151' }}>
+                {answer.open_text}
+              </div>
+              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
+                ✓ 已记录，平行体会记住这句话
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 判断题 ── */}
       {qType === 'truefalse' && (
         <div className="grid grid-cols-2 gap-4">
           {question.options?.map(opt => {
@@ -768,7 +1145,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
             if (answer) {
               if (opt.is_correct) { bg = '#ECFDF5'; border = '#10B981'; color = '#059669' }
               else if (opt.label === answer.selected && !answer.is_correct) { bg = '#FEF2F2'; border = '#EF4444'; color = '#DC2626' }
-              else { bg = '#F9FAFB'; border = '#E5E7EB'; color = '#9CA3AF' }
+              else { color = '#9CA3AF' }
             }
             return (
               <button key={opt.label} disabled={!!answer} onClick={() => onSingleAnswer(opt.label)}
@@ -783,36 +1160,63 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
         </div>
       )}
 
-      {qType === 'single' && (
+      {/* ── 单选题 / 感知题 ── */}
+      {(qType === 'single' || isPerception) && (
         <div className="space-y-2.5">
           {question.options?.map(opt => {
             let cls = 'border-gray-200 hover:border-gray-400 cursor-pointer'
             if (answer) {
-              if (opt.label === answer.selected && answer.is_correct) cls = 'border-green-500 bg-green-50'
-              else if (opt.label === answer.selected && !answer.is_correct) cls = 'border-red-400 bg-red-50'
-              else if (opt.is_correct) cls = 'border-green-500 bg-green-50'
-              else cls = 'border-gray-200 opacity-50'
+              if (isPerception) {
+                cls = opt.label === answer.selected
+                  ? 'border-green-400 bg-green-50'
+                  : 'border-gray-200 opacity-40'
+              } else {
+                if (opt.label === answer.selected && answer.is_correct) cls = 'border-green-500 bg-green-50'
+                else if (opt.label === answer.selected && !answer.is_correct) cls = 'border-red-400 bg-red-50'
+                else if (opt.is_correct) cls = 'border-green-500 bg-green-50'
+                else cls = 'border-gray-200 opacity-50'
+              }
             }
+            const dotActive = answer && (
+              (isPerception && opt.label === answer.selected) ||
+              (!isPerception && opt.is_correct) ||
+              (!isPerception && opt.label === answer.selected && !answer.is_correct)
+            )
+            const dotColor = answer && (
+              (isPerception && opt.label === answer.selected) ? '#4ADE80'
+              : (!isPerception && opt.is_correct) ? '#10B981'
+              : (!isPerception && opt.label === answer.selected && !answer.is_correct) ? '#F87171'
+              : 'transparent'
+            )
             return (
               <button key={opt.label} disabled={!!answer} onClick={() => onSingleAnswer(opt.label)}
                 className={`w-full text-left px-4 py-3.5 border-2 rounded-xl flex items-center gap-3 transition-all ${cls}`}>
-                <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                  answer && opt.is_correct ? 'border-green-500 bg-green-500 text-white'
-                  : answer && opt.label === answer.selected && !answer.is_correct ? 'border-red-400 bg-red-400 text-white'
-                  : 'border-gray-300'
-                }`}>
-                  {answer && opt.is_correct ? '✓' : answer && opt.label === answer.selected && !answer.is_correct ? '✗' : opt.label}
+                <span className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{
+                    borderColor: dotActive ? dotColor : '#D1D5DB',
+                    backgroundColor: dotActive ? dotColor : 'transparent',
+                    color: dotActive ? '#fff' : '#374151',
+                  }}>
+                  {answer && !isPerception && opt.is_correct ? '✓'
+                    : answer && !isPerception && opt.label === answer.selected && !answer.is_correct ? '✗'
+                    : answer && isPerception && opt.label === answer.selected ? '✓'
+                    : opt.label}
                 </span>
-                <span style={{ color: "#374151" }}>{opt.text}</span>
+                <span style={{ color: '#374151' }}>{opt.text}</span>
               </button>
             )
           })}
         </div>
       )}
 
+      {/* ── 多选题 ── */}
       {qType === 'multiple' && (
         <div>
-          {!answer && <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>可选择多个答案，选完后点击「确认」</p>}
+          {!answer && (
+            <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>
+              可选择多个答案，选完后点击「确认」
+            </p>
+          )}
           <div className="space-y-2.5">
             {question.options?.map(opt => {
               const selected = multiSelections.includes(opt.label)
@@ -828,97 +1232,37 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
               return (
                 <button key={opt.label} disabled={!!answer} onClick={() => onToggleMulti(opt.label)}
                   className={`w-full text-left px-4 py-3.5 border-2 rounded-xl flex items-center gap-3 transition-all ${cls}`}>
-                  <span className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold flex-shrink-0 border-2 ${
-                    answer && opt.is_correct ? 'border-green-500 bg-green-500 text-white'
-                    : answer && !opt.is_correct && answer.selected.split(',').includes(opt.label) ? 'border-red-400 bg-red-400 text-white'
-                    : selected ? 'border-blue-500 bg-blue-500 text-white'
-                    : 'border-gray-300'
-                  }`}>
-                    {answer && opt.is_correct ? '✓' : answer && answer.selected.split(',').includes(opt.label) && !opt.is_correct ? '✗' : selected ? '✓' : opt.label}
+                  <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold flex-shrink-0 border-2"
+                    style={{
+                      borderColor: answer && opt.is_correct ? '#10B981'
+                        : answer && !opt.is_correct && answer.selected.split(',').includes(opt.label) ? '#EF4444'
+                        : selected ? '#3B82F6' : '#D1D5DB',
+                      backgroundColor: answer && opt.is_correct ? '#10B981'
+                        : answer && !opt.is_correct && answer.selected.split(',').includes(opt.label) ? '#EF4444'
+                        : selected ? '#3B82F6' : 'transparent',
+                      color: (answer && (opt.is_correct || answer.selected.split(',').includes(opt.label))) || selected
+                        ? '#fff' : '#374151',
+                    }}>
+                    {answer && opt.is_correct ? '✓'
+                      : answer && answer.selected.split(',').includes(opt.label) && !opt.is_correct ? '✗'
+                      : selected ? '✓' : opt.label}
                   </span>
-                  <span style={{ color: "#374151" }}>{opt.text}</span>
+                  <span style={{ color: '#374151' }}>{opt.text}</span>
                 </button>
               )
             })}
           </div>
           {!answer && (
             <button onClick={onSubmitMulti} disabled={multiSelections.length === 0}
-              className="mt-4 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40" style={{ backgroundColor: '#111827' }}>确认答案</button>
+              className="mt-4 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+              style={{ backgroundColor: '#111827' }}>
+              确认答案
+            </button>
           )}
         </div>
       )}
 
-{qType === 'matching' && (
-        <MatchingQuestion
-          question={question}
-          answer={answer}
-          onSubmit={(result) => onSingleAnswer(result)}
-        />
-      )}
-      {answer && question.explanation && (
-        <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
-          <span style={{ color: "inherit" }}>💡 {question.explanation}</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ========== 图片放大 ==========
-function ZoomableImage({ src, alt }) {
-  const [zooming, setZooming] = useState(false)
-  const [position, setPosition] = useState({ x: 50, y: 50 })
-  const imgRef = useRef(null)
-  function handleMouseMove(e) {
-    if (!imgRef.current) return
-    const rect = imgRef.current.getBoundingClientRect()
-    setPosition({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 })
-  }
-  return (
-    <div ref={imgRef} className="rounded-2xl overflow-hidden cursor-zoom-in relative mb-4"
-      onMouseEnter={() => setZooming(true)} onMouseLeave={() => setZooming(false)} onMouseMove={handleMouseMove}>
-      <img src={src} alt={alt || ''} className="w-full" objectFit="contain" />
-      {zooming && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `url(${src})`, backgroundSize: '250%', backgroundPosition: `${position.x}% ${position.y}%`, backgroundRepeat: 'no-repeat', zIndex: 20 }} />}
-      {!zooming && <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full" style={{ zIndex: 15 }}>🔍 悬停放大</div>}
-    </div>
-  )
-}
-function formatContent(content) {
-  if (!content) return ''
-  return content.split('\n\n').filter(p => p.trim()).map(p => `<p style="color:#374151;line-height:1.8;margin-bottom:1em">${p.replace(/\n/g, '<br/>')}</p>`).join('')
-}
-// ============================================================
-// 连线题（matching）实现
-// ============================================================
-//
-// 1. 数据格式（article_questions 表的 options 字段）：
-//
-//    question_type: 'matching'
-//    options: [
-//      { "label": "A", "image": "https://xxx/monet.jpg", "text": "莫奈《睡莲》", "match_id": "1" },
-//      { "label": "B", "image": "https://xxx/starry.jpg", "text": "梵高《星月夜》", "match_id": "2" },
-//      { "label": "C", "image": "https://xxx/pearl.jpg", "text": "维米尔《戴珍珠耳环的少女》", "match_id": "3" },
-//      { "label": "D", "image": "https://xxx/scream.jpg", "text": "蒙克《呐喊》", "match_id": "4" }
-//    ]
-//    correct_answer: "A1,B2,C3,D4"  (label+match_id 的配对)
-//
-// 2. Excel模板格式（Sheet2 谜题题目）：
-//
-//    题目类型填：连线
-//    选项A：图片URL1|文字描述1
-//    选项B：图片URL2|文字描述2
-//    选项C：图片URL3|文字描述3
-//    选项D：图片URL4|文字描述4
-//    正确答案：A1,B2,C3,D4（按顺序配对，A对应1，B对应2...）
-//
-// ============================================================
-
-// 在 QuestionCard 组件的 return 里，{qType === 'multiple' && (...)} 之后，
-// {answer && question.explanation && (...)} 之前，加入以下代码：
-
-// --- 开始：粘贴到 QuestionCard 里 ---
-
-/*
+      {/* ── 连线题 ── */}
       {qType === 'matching' && (
         <MatchingQuestion
           question={question}
@@ -926,27 +1270,53 @@ function formatContent(content) {
           onSubmit={(result) => onSingleAnswer(result)}
         />
       )}
-*/
 
-// --- 结束 ---
+      {/* 感知题：选完后显示回应文字 */}
+      {isPerception && answer && perceptionResponse && (
+        <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed italic"
+          style={{ backgroundColor: '#F0FDF4', borderColor: '#4ADE80', color: '#166534' }}>
+          {perceptionResponse}
+        </div>
+      )}
+      {isPerception && answer && !perceptionResponse && (
+        <div className="mt-4 px-4 py-3 rounded-xl text-sm"
+          style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>
+          ✓ 已记录，平行体会记住你的感受
+        </div>
+      )}
 
+      {/* 知识题：答对解锁画家语录 */}
+      {!isPerception && !isOpen && answer?.is_correct && question.unlock_quote && (
+        <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed"
+          style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B', color: '#78350F' }}>
+          <span className="italic">"{question.unlock_quote}"</span>
+          {question.unlock_quote_author && (
+            <span className="block mt-1 text-xs not-italic" style={{ color: '#B45309' }}>
+              —— {question.unlock_quote_author}
+            </span>
+          )}
+        </div>
+      )}
 
-// ============================================================
-// MatchingQuestion 独立组件，放在 page.js 底部（QuestionCard 下面）
-// ============================================================
+      {/* 知识题：解析（答对无语录 或 答错时显示） */}
+      {!isPerception && !isOpen && answer && question.explanation && (
+        <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+          💡 {question.explanation}
+        </div>
+      )}
+    </div>
+  )
+}
 
+// ══ MatchingQuestion ══════════════════════════════════════════════
 function MatchingQuestion({ question, answer, onSubmit }) {
-  const [selectedImage, setSelectedImage] = React.useState(null)
-  const [connections, setConnections] = React.useState({}) // { imageLabel: matchId }
-  const [submitted, setSubmitted] = React.useState(false)
+  const [selectedImage, setSelectedImage] = useState(null)
+  const [connections, setConnections] = useState({})
+  const [submitted, setSubmitted] = useState(false)
 
   const opts = question.options || []
-  
-  // 左侧图片（按原始顺序）
   const images = opts.map(o => ({ label: o.label, image: o.image, match_id: o.match_id }))
-  
-  // 右侧文字（打乱顺序）
-  const [shuffledTexts] = React.useState(() => {
+  const [shuffledTexts] = useState(() => {
     const texts = opts.map(o => ({ match_id: o.match_id, text: o.text }))
     for (let i = texts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
@@ -964,23 +1334,16 @@ function MatchingQuestion({ question, answer, onSubmit }) {
 
   function handleTextClick(matchId) {
     if (submitted || answer || !selectedImage) return
-    // 如果这个文字已经被配对了，先解除
     const newConn = { ...connections }
-    Object.keys(newConn).forEach(k => {
-      if (newConn[k] === matchId) delete newConn[k]
-    })
+    Object.keys(newConn).forEach(k => { if (newConn[k] === matchId) delete newConn[k] })
     newConn[selectedImage] = matchId
     setConnections(newConn)
     setSelectedImage(null)
   }
 
   function handleSubmit() {
-    if (Object.keys(connections).length !== images.length) {
-      alert('请完成所有配对')
-      return
-    }
+    if (Object.keys(connections).length !== images.length) { alert('请完成所有配对'); return }
     setSubmitted(true)
-    // 构造答案字符串
     const answerStr = Object.entries(connections).map(([label, mid]) => `${label}${mid}`).sort().join(',')
     onSubmit(answerStr)
   }
@@ -997,72 +1360,61 @@ function MatchingQuestion({ question, answer, onSubmit }) {
     return Object.keys(connections).sort().indexOf(entry[0])
   }
 
-  // 检查某个配对是否正确（答题后显示）
   function isPairCorrect(label) {
     const matchId = connections[label]
     const opt = opts.find(o => o.label === label)
     return opt && matchId === opt.match_id
   }
 
-  const allPaired = Object.keys(connections).length === images.length
-  const isAnswered = submitted || !!answer
-
-  // 如果已有answer（从数据库恢复），重建connections
-  React.useEffect(() => {
+  useEffect(() => {
     if (answer && !submitted) {
       const pairs = answer.selected.split(',')
       const restored = {}
-      pairs.forEach(p => {
-        const label = p[0]
-        const mid = p.slice(1)
-        restored[label] = mid
-      })
+      pairs.forEach(p => { restored[p[0]] = p.slice(1) })
       setConnections(restored)
       setSubmitted(true)
     }
   }, [answer])
 
+  const allPaired = Object.keys(connections).length === images.length
+  const isAnswered = submitted || !!answer
+
   return (
     <div>
-      <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>点击左侧图片，再点击右侧对应的描述进行配对</p>
-      
+      <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>
+        点击左侧图片，再点击右侧对应的描述进行配对
+      </p>
       <div className="flex gap-6">
-        {/* 左侧：图片 */}
         <div className="flex-1 space-y-3">
-          {images.map((img, idx) => {
+          {images.map((img) => {
             const connIdx = getConnectionIndex(img.label)
             const paired = connIdx >= 0
             const isSelected = selectedImage === img.label
             const correct = isAnswered && paired && isPairCorrect(img.label)
             const wrong = isAnswered && paired && !isPairCorrect(img.label)
-
             return (
-              <div key={img.label}
-                onClick={() => handleImageClick(img.label)}
+              <div key={img.label} onClick={() => handleImageClick(img.label)}
                 className="relative rounded-xl overflow-hidden cursor-pointer transition-all"
                 style={{
-                  border: isSelected ? '3px solid #3B82F6' 
+                  border: isSelected ? '3px solid #3B82F6'
                     : correct ? '3px solid #10B981'
                     : wrong ? '3px solid #EF4444'
-                    : paired ? `3px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}` 
+                    : paired ? `3px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}`
                     : '3px solid #E5E7EB',
                   opacity: isAnswered && !paired ? 0.4 : 1,
                 }}>
                 <img src={img.image} alt="" className="w-full h-24 object-cover" />
-                {/* 配对编号 */}
                 {paired && (
                   <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
                     style={{ backgroundColor: isAnswered ? (correct ? '#10B981' : '#EF4444') : PAIR_COLORS[connIdx % PAIR_COLORS.length] }}>
                     {isAnswered ? (correct ? '✓' : '✗') : connIdx + 1}
                   </div>
                 )}
-                {/* 选中指示 */}
                 {isSelected && (
                   <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
                     <span className="text-white text-sm font-bold bg-blue-500 px-3 py-1 rounded-full">选择描述 →</span>
                   </div>
                 )}
-                {/* 标签 */}
                 <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{ backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFFFFF' }}>
                   {img.label}
@@ -1072,7 +1424,6 @@ function MatchingQuestion({ question, answer, onSubmit }) {
           })}
         </div>
 
-        {/* 右侧：文字 */}
         <div className="flex-1 space-y-3 flex flex-col justify-center">
           {shuffledTexts.map((txt) => {
             const connIdx = getTextConnectionIndex(txt.match_id)
@@ -1080,22 +1431,21 @@ function MatchingQuestion({ question, answer, onSubmit }) {
             const pairedLabel = Object.entries(connections).find(([, mid]) => mid === txt.match_id)?.[0]
             const correct = isAnswered && pairedLabel && isPairCorrect(pairedLabel)
             const wrong = isAnswered && pairedLabel && !isPairCorrect(pairedLabel)
-            // 找到这个text真正对应的图片
             const correctOpt = opts.find(o => o.match_id === txt.match_id)
-
             return (
-              <div key={txt.match_id}
-                onClick={() => handleTextClick(txt.match_id)}
+              <div key={txt.match_id} onClick={() => handleTextClick(txt.match_id)}
                 className="px-4 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-3"
                 style={{
                   border: correct ? '2px solid #10B981'
                     : wrong ? '2px solid #EF4444'
                     : paired ? `2px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}`
                     : '2px solid #E5E7EB',
-                  backgroundColor: correct ? '#ECFDF5' : wrong ? '#FEF2F2' : paired ? `${PAIR_COLORS[connIdx % PAIR_COLORS.length]}10` : '#F9FAFB',
+                  backgroundColor: correct ? '#ECFDF5'
+                    : wrong ? '#FEF2F2'
+                    : paired ? `${PAIR_COLORS[connIdx % PAIR_COLORS.length]}10`
+                    : '#F9FAFB',
                   opacity: isAnswered && !paired ? 0.4 : 1,
                 }}>
-                {/* 配对编号 */}
                 {paired && (
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ backgroundColor: isAnswered ? (correct ? '#10B981' : '#EF4444') : PAIR_COLORS[connIdx % PAIR_COLORS.length] }}>
@@ -1103,7 +1453,6 @@ function MatchingQuestion({ question, answer, onSubmit }) {
                   </div>
                 )}
                 <span className="text-sm" style={{ color: '#374151' }}>{txt.text}</span>
-                {/* 答对后显示正确配对 */}
                 {wrong && isAnswered && (
                   <span className="text-xs ml-auto" style={{ color: '#059669' }}>应配 {correctOpt?.label}</span>
                 )}
@@ -1113,7 +1462,6 @@ function MatchingQuestion({ question, answer, onSubmit }) {
         </div>
       </div>
 
-      {/* 提交按钮 */}
       {!isAnswered && (
         <button onClick={handleSubmit} disabled={!allPaired}
           className="mt-4 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
@@ -1122,39 +1470,67 @@ function MatchingQuestion({ question, answer, onSubmit }) {
         </button>
       )}
 
-      {/* 得分 */}
       {isAnswered && (
         <div className="mt-4 p-3 rounded-xl text-sm" style={{
           backgroundColor: answer?.is_correct ? '#ECFDF5' : '#FEF3C7',
           color: answer?.is_correct ? '#059669' : '#B45309',
         }}>
-          {answer?.is_correct ? '🎉 全部配对正确！' : `配对完成，${images.filter(img => isPairCorrect(img.label)).length}/${images.length} 正确`}
+          {answer?.is_correct
+            ? '🎉 全部配对正确！'
+            : `配对完成，${images.filter(img => isPairCorrect(img.label)).length}/${images.length} 正确`}
         </div>
       )}
     </div>
   )
 }
 
-// ============================================================
-// 如何在数据库中创建连线题（SQL示例）
-// ============================================================
-//
-// INSERT INTO article_questions (article_id, question_text, question_type, options, display_order, points) VALUES
-// ('你的article_id', '请将以下作品与其名称配对', 'matching',
-//  '[
-//    {"label":"A","image":"https://xxx/monet.jpg","text":"莫奈《睡莲》","match_id":"1"},
-//    {"label":"B","image":"https://xxx/starry.jpg","text":"梵高《星月夜》","match_id":"2"},
-//    {"label":"C","image":"https://xxx/pearl.jpg","text":"维米尔《戴珍珠耳环的少女》","match_id":"3"},
-//    {"label":"D","image":"https://xxx/scream.jpg","text":"蒙克《呐喊》","match_id":"4"}
-//  ]'::jsonb,
-//  1, 30);
-//
-// ============================================================
-// Excel模板中怎么填连线题
-// ============================================================
-//
-// Sheet2 谜题题目：
-// | 关联作品标题 | 序号 | 题目类型 | 题目内容 | 选项A | 选项B | 选项C | 选项D | 正确答案 | 解析 | 分值 |
-// | 星月夜      | 4    | 连线     | 将作品与名称配对 | https://xxx/a.jpg|莫奈睡莲 | https://xxx/b.jpg|星月夜 | https://xxx/c.jpg|珍珠耳环 | https://xxx/d.jpg|呐喊 | A1,B2,C3,D4 | ... | 30 |
-//
-// 选项格式：图片URL|文字描述（用竖线分隔）
+// ══ ZoomableImage ═════════════════════════════════════════════════
+function ZoomableImage({ src, alt }) {
+  const [zooming, setZooming] = useState(false)
+  const [position, setPosition] = useState({ x: 50, y: 50 })
+  const imgRef = useRef(null)
+
+  function handleMouseMove(e) {
+    if (!imgRef.current) return
+    const rect = imgRef.current.getBoundingClientRect()
+    setPosition({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    })
+  }
+
+  return (
+    <div ref={imgRef} className="rounded-2xl overflow-hidden cursor-zoom-in relative mb-4"
+      onMouseEnter={() => setZooming(true)}
+      onMouseLeave={() => setZooming(false)}
+      onMouseMove={handleMouseMove}>
+      <img src={src} alt={alt || ''} className="w-full" />
+      {zooming && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundSize: '250%',
+            backgroundPosition: `${position.x}% ${position.y}%`,
+            backgroundRepeat: 'no-repeat',
+            zIndex: 20,
+          }} />
+      )}
+      {!zooming && (
+        <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/50 text-white text-xs rounded-full"
+          style={{ zIndex: 15 }}>
+          🔍 悬停放大
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══ 工具函数 ══════════════════════════════════════════════════════
+function formatContent(content) {
+  if (!content) return ''
+  return content
+    .split('\n\n')
+    .filter(p => p.trim())
+    .map(p => `<p style="color:#374151;line-height:1.8;margin-bottom:1em">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('')
+}
