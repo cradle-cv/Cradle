@@ -88,6 +88,9 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/gallery-artists" icon="🎭" active={pathname.startsWith('/admin/gallery-artists')}>
                     阅览室艺术家
                   </NavLink>
+                  <NavLink href="/admin/curations" icon="📰" active={pathname.startsWith('/admin/curations')}>
+                    本期精选排期
+                  </NavLink>
                   <NavLink href="/admin/batch" icon="⚡" active={pathname.startsWith('/admin/batch')}>
   批量阅览室管理
 </NavLink>
