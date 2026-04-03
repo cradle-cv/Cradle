@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import GalleryClient from './GalleryClient'
 
@@ -6,81 +7,48 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-// 每日主题池（按日期轮转）
-const DAILY_THEMES = [
-  { en: 'Threshold',   cn: '门槛之处' },
-  { en: 'Solitude',    cn: '独处之时' },
-  { en: 'Becoming',    cn: '成为自己' },
-  { en: 'Memory',      cn: '记忆碎片' },
-  { en: 'Tenderness',  cn: '温柔时刻' },
-  { en: 'Fracture',    cn: '裂缝之光' },
-  { en: 'Passage',     cn: '时光流逝' },
-  { en: 'Witness',     cn: '见证此刻' },
-  { en: 'Longing',     cn: '渴望之处' },
-  { en: 'Stillness',   cn: '静止之间' },
-  { en: 'Emergence',   cn: '破土而出' },
-  { en: 'Dusk',        cn: '暮色将至' },
-]
-
-function getDailyTheme() {
-  const now = new Date()
-  const dayOfYear = Math.floor(
-    (now - new Date(now.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24
-  )
-  return DAILY_THEMES[dayOfYear % DAILY_THEMES.length]
-}
-
-function getFormattedDate() {
-  const now = new Date()
-  const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  const months = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
-  return {
-    day: now.getDate(),
-    monthEn: now.toLocaleString('en-US', { month: 'long' }),
-    monthCn: months[now.getMonth()],
-    year: now.getFullYear(),
-    weekday: days[now.getDay()],
-  }
-}
-
 async function getData() {
-  // 全部已发布作品
   const { data: works } = await supabase
     .from('gallery_works')
     .select('*, museums(id, name, name_en, city, country, cover_image, region)')
     .eq('status', 'published')
     .order('display_order', { ascending: true })
 
-  // 每日精选：取前3件（后续可改为 daily_featured 字段驱动）
-  const dailyWorks = (works || []).slice(0, 3)
-
-  // 博物馆
   const { data: museums } = await supabase
     .from('museums')
     .select('*')
     .eq('status', 'active')
     .order('sort_order')
 
+  // 统计每个博物馆的作品数
   const museumWorkCounts = {}
   ;(works || []).forEach(w => {
-    if (w.museum_id) museumWorkCounts[w.museum_id] = (museumWorkCounts[w.museum_id] || 0) + 1
+    if (w.museum_id) {
+      museumWorkCounts[w.museum_id] = (museumWorkCounts[w.museum_id] || 0) + 1
+    }
   })
+
+  // 只显示有作品的博物馆
   const museumsWithWorks = (museums || [])
     .filter(m => museumWorkCounts[m.id] > 0)
     .map(m => ({ ...m, works_count: museumWorkCounts[m.id] || 0 }))
 
-  // 艺术家
+// 统计每个艺术家的作品数
   const artistWorkCounts = {}
   ;(works || []).forEach(w => {
-    if (w.gallery_artist_id) artistWorkCounts[w.gallery_artist_id] = (artistWorkCounts[w.gallery_artist_id] || 0) + 1
+    if (w.gallery_artist_id) {
+      artistWorkCounts[w.gallery_artist_id] = (artistWorkCounts[w.gallery_artist_id] || 0) + 1
+    }
   })
 
+  // 获取有作品的艺术家
   const { data: galleryArtists } = await supabase
     .from('gallery_artists')
     .select('*')
     .eq('status', 'active')
     .order('sort_order')
 
+// 从作品中回填艺术家头像（如果艺术家表里没有）
   const artistAvatarFromWorks = {}
   ;(works || []).forEach(w => {
     if (w.gallery_artist_id && w.artist_avatar && !artistAvatarFromWorks[w.gallery_artist_id]) {
@@ -95,103 +63,94 @@ async function getData() {
       works_count: artistWorkCounts[a.id] || 0,
       avatar_url: a.avatar_url || artistAvatarFromWorks[a.id] || null,
     }))
-
-  return {
-    works: works || [],
-    dailyWorks,
-    museums: museumsWithWorks,
-    galleryArtists: artistsWithWorks,
-    theme: getDailyTheme(),
-    dateInfo: getFormattedDate(),
-  }
-}
+  return { works: works || [], museums: museumsWithWorks, galleryArtists: artistsWithWorks }}
 
 export default async function GalleryPage() {
-  const { works, dailyWorks, museums, galleryArtists, theme, dateInfo } = await getData()
-
+const { works, museums, galleryArtists } = await getData()
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: '#f7f4ef',
-        fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif',
-        color: '#1a1714',
-      }}
-    >
-      {/* 导航 */}
-      <nav
-        className="sticky top-0 z-50 border-b"
-        style={{ backgroundColor: '#f7f4ef', borderColor: '#ddd6c8' }}
-      >
-        <div className="max-w-6xl mx-auto px-8 flex items-center justify-between"
-          style={{ height: '52px' }}>
-          <a href="/" style={{ height: '52px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-            <img
-              src="/image/logo.png"
-              alt="Cradle摇篮"
-              style={{ height: '75px', marginTop: '-4px', objectFit: 'contain' }}
-            />
-          </a>
-          <ul className="hidden md:flex" style={{ listStyle: 'none', gap: 0 }}>
-            {[
-              { href: '/gallery', label: '艺术阅览室', active: true },
-              { href: '/exhibitions', label: '每日一展' },
-              { href: '/magazine', label: '杂志社' },
-              { href: '/collections', label: '作品集' },
-              { href: '/artists', label: '艺术家' },
-            ].map(item => (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  style={{
-                    fontSize: '10px',
-                    letterSpacing: '0.2em',
-                    color: item.active ? '#1a1714' : '#8a8278',
-                    textDecoration: 'none',
-                    padding: '16px 14px',
-                    display: 'block',
-                    borderBottom: item.active ? '2px solid #1a1714' : '2px solid transparent',
-                    transition: 'color 0.2s',
-                  }}
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <UserNav />
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+      {/* 导航栏 */}
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+<a href="/" className="flex items-center gap-3">
+              <div className="w-0 h-10 flex-shrink-0"></div>
+<div style={{ height: '69px', overflow: 'hidden' }}>
+  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+</div>
+            </a>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+  <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+    <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+    <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+  <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+  <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+            </ul>
+          </div>
+          <div className="flex items-center gap-4">
+            <UserNav />
+          </div>
         </div>
       </nav>
 
-      {/* 主体 */}
-      <GalleryClient
-        works={works}
-        dailyWorks={dailyWorks}
-        museums={museums}
-        galleryArtists={galleryArtists}
-        theme={theme}
-        dateInfo={dateInfo}
-      />
-
-      {/* 页脚 */}
-      <footer style={{ backgroundColor: '#1a1714', color: '#f7f4ef', padding: '64px 0 40px' }}>
-        <div className="max-w-6xl mx-auto px-8">
-          <div
-            style={{
-              borderTop: '1.5px solid #f7f4ef',
-              paddingTop: '14px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-            }}
-          >
-            <span style={{ fontFamily: 'Playfair Display, serif', fontSize: '13px', letterSpacing: '0.2em', color: '#8a8278' }}>
-              Cradle
-            </span>
-            <span style={{ fontSize: '9px', letterSpacing: '0.15em', color: '#8a8278', textTransform: 'uppercase' }}>
-              © {new Date().getFullYear()} Cradle摇篮 · All rights reserved
-            </span>
+      {/* 页面标题 */}
+      <section className="pt-16 pb-6 px-6">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">艺术阅览室</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-3">
+            在阅读中与艺术相遇，在文字间感受创作的温度
+          </p>
+          <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+            <span className="flex items-center gap-1">🧩 谜题答题</span>
+            <span className="text-gray-300">→</span>
+            <span className="flex items-center gap-1">📖 日课导读</span>
+            <span className="text-gray-300">→</span>
+            <span className="flex items-center gap-1">🎐 风赏评论</span>
+            <span className="text-gray-300">→</span>
+            <span className="flex items-center gap-1">⭐ 获得积分</span>
           </div>
+        </div>
+      </section>
+
+      {/* 客户端交互部分 */}
+<GalleryClient works={works} museums={museums} galleryArtists={galleryArtists} />
+      {/* 页脚 */}
+      <footer className="bg-[#1F2937] text-white py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+                <div className="text-xl font-bold">Cradle摇篮</div>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
+            </div>
+            <div>
+              <h5 className="font-bold mb-4">关于我们</h5>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><Link href="#" className="hover:text-white">平台介绍</Link></li>
+                <li><Link href="#" className="hover:text-white">团队成员</Link></li>
+                <li><Link href="#" className="hover:text-white">联系我们</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h5 className="font-bold mb-4">艺术家服务</h5>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><Link href="#" className="hover:text-white">上传作品</Link></li>
+                <li><Link href="#" className="hover:text-white">创建展览</Link></li>
+                <li><Link href="#" className="hover:text-white">艺术家认证</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
+              <div className="space-y-3">
+                <input type="email" placeholder="输入您的邮箱" className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500" />
+                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">订阅</button>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
         </div>
       </footer>
     </div>
