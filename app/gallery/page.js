@@ -28,12 +28,11 @@ async function getData() {
     }
   })
 
-  // 只显示有作品的博物馆
   const museumsWithWorks = (museums || [])
     .filter(m => museumWorkCounts[m.id] > 0)
     .map(m => ({ ...m, works_count: museumWorkCounts[m.id] || 0 }))
 
-// 统计每个艺术家的作品数
+  // 统计每个艺术家的作品数
   const artistWorkCounts = {}
   ;(works || []).forEach(w => {
     if (w.gallery_artist_id) {
@@ -41,14 +40,12 @@ async function getData() {
     }
   })
 
-  // 获取有作品的艺术家
   const { data: galleryArtists } = await supabase
     .from('gallery_artists')
     .select('*')
     .eq('status', 'active')
     .order('sort_order')
 
-// 从作品中回填艺术家头像（如果艺术家表里没有）
   const artistAvatarFromWorks = {}
   ;(works || []).forEach(w => {
     if (w.gallery_artist_id && w.artist_avatar && !artistAvatarFromWorks[w.gallery_artist_id]) {
@@ -63,29 +60,51 @@ async function getData() {
       works_count: artistWorkCounts[a.id] || 0,
       avatar_url: a.avatar_url || artistAvatarFromWorks[a.id] || null,
     }))
-  return { works: works || [], museums: museumsWithWorks, galleryArtists: artistsWithWorks }}
+
+  // 加载本期精选（最新已发布的4期：当前1期+往期3期）
+  const { data: curations } = await supabase
+    .from('gallery_curations')
+    .select('*')
+    .eq('status', 'published')
+    .order('issue_number', { ascending: false })
+    .limit(4)
+
+  // 为每期精选填充作品详情
+  const curationsWithWorks = (curations || []).map(c => {
+    const cWorks = (c.work_ids || []).map(id => (works || []).find(w => w.id === id)).filter(Boolean)
+    return { ...c, works: cWorks }
+  })
+
+  return {
+    works: works || [],
+    museums: museumsWithWorks,
+    galleryArtists: artistsWithWorks,
+    curations: curationsWithWorks,
+  }
+}
 
 export default async function GalleryPage() {
-const { works, museums, galleryArtists } = await getData()
+  const { works, museums, galleryArtists, curations } = await getData()
+
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       {/* 导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
-<a href="/" className="flex items-center gap-3">
+            <a href="/" className="flex items-center gap-3">
               <div className="w-0 h-10 flex-shrink-0"></div>
-<div style={{ height: '69px', overflow: 'hidden' }}>
-  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-</div>
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
             </a>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-  <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-    <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-    <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
-  <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-  <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
             </ul>
           </div>
           <div className="flex items-center gap-4">
@@ -94,27 +113,9 @@ const { works, museums, galleryArtists } = await getData()
         </div>
       </nav>
 
-      {/* 页面标题 */}
-      <section className="pt-16 pb-6 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">艺术阅览室</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-3">
-            在阅读中与艺术相遇，在文字间感受创作的温度
-          </p>
-          <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
-            <span className="flex items-center gap-1">🧩 谜题答题</span>
-            <span className="text-gray-300">→</span>
-            <span className="flex items-center gap-1">📖 日课导读</span>
-            <span className="text-gray-300">→</span>
-            <span className="flex items-center gap-1">🎐 风赏评论</span>
-            <span className="text-gray-300">→</span>
-            <span className="flex items-center gap-1">⭐ 获得积分</span>
-          </div>
-        </div>
-      </section>
-
       {/* 客户端交互部分 */}
-<GalleryClient works={works} museums={museums} galleryArtists={galleryArtists} />
+      <GalleryClient works={works} museums={museums} galleryArtists={galleryArtists} curations={curations} />
+
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
         <div className="max-w-6xl mx-auto">
