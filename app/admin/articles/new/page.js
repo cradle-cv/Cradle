@@ -12,9 +12,17 @@ const Q_TYPES = [
   { value: 'open', label: '开放题', desc: '用户自由输入，5 字以上得 10 分', color: '#C2410C', bg: '#FFF7ED' },
 ]
 
+// 知识题子类型
+const K_SUB_TYPES = [
+  { value: 'single', label: '单选', icon: '○' },
+  { value: 'multiple', label: '多选', icon: '☑' },
+  { value: 'truefalse', label: '判断', icon: '✓✗' },
+]
+
 const DEFAULT_QUESTION = () => ({
   id: Date.now(),
   question_type_v2: 'knowledge',
+  question_type: 'single',
   question_text: '',
   points: 20,
   explanation: '',
@@ -67,9 +75,41 @@ export default function NewArticlePage() {
     setQuestions(prev => prev.map(q => {
       if (q.id !== qId) return q
       const updated = { ...q, [field]: value }
-      // 切换题型时自动调整积分
       if (field === 'question_type_v2') {
         updated.points = value === 'knowledge' ? 20 : 10
+        if (value === 'knowledge' && !updated.question_type) {
+          updated.question_type = 'single'
+        }
+      }
+      // 切换知识题子类型时调整选项
+      if (field === 'question_type') {
+        if (value === 'truefalse') {
+          updated.options = [
+            { label: 'A', text: '对', is_correct: true },
+            { label: 'B', text: '错', is_correct: false },
+          ]
+        } else if (value === 'single' || value === 'multiple') {
+          // 从判断题切回来时，如果只有"对/错"两个选项，重置
+          const isTFOptions = updated.options.length === 2 &&
+            updated.options[0].text === '对' && updated.options[1].text === '错'
+          if (isTFOptions) {
+            updated.options = [
+              { label: 'A', text: '', is_correct: true },
+              { label: 'B', text: '', is_correct: false },
+            ]
+          }
+          // 从多选切到单选时，只保留第一个正确答案
+          if (value === 'single') {
+            let foundFirst = false
+            updated.options = updated.options.map(opt => {
+              if (opt.is_correct && !foundFirst) { foundFirst = true; return opt }
+              return { ...opt, is_correct: false }
+            })
+            if (!foundFirst && updated.options.length > 0) {
+              updated.options[0].is_correct = true
+            }
+          }
+        }
       }
       return updated
     }))
@@ -102,8 +142,18 @@ export default function NewArticlePage() {
   const updateOption = (qId, optIndex, field, value) => {
     setQuestions(prev => prev.map(q => {
       if (q.id !== qId) return q
+      const subType = q.question_type || 'single'
       const newOptions = q.options.map((opt, i) => {
-        if (field === 'is_correct') return { ...opt, is_correct: i === optIndex }
+        if (field === 'is_correct') {
+          if (subType === 'multiple') {
+            // 多选：切换当前选项
+            if (i === optIndex) return { ...opt, is_correct: !opt.is_correct }
+            return opt
+          } else {
+            // 单选/判断：只有一个正确
+            return { ...opt, is_correct: i === optIndex }
+          }
+        }
         if (i === optIndex) return { ...opt, [field]: value }
         return opt
       })
@@ -138,8 +188,13 @@ export default function NewArticlePage() {
         if (q.options.some(opt => !opt.text.trim())) {
           alert(`第 ${i + 1} 道题选项不能为空`); setActiveTab('questions'); return false
         }
-        if (q.question_type_v2 === 'knowledge' && !q.options.some(opt => opt.is_correct)) {
-          alert(`第 ${i + 1} 道知识题请设置正确答案`); setActiveTab('questions'); return false
+        if (q.question_type_v2 === 'knowledge') {
+          if (!q.options.some(opt => opt.is_correct)) {
+            alert(`第 ${i + 1} 道知识题请设置正确答案`); setActiveTab('questions'); return false
+          }
+          if (q.question_type === 'multiple' && q.options.filter(opt => opt.is_correct).length < 2) {
+            alert(`第 ${i + 1} 道多选题请设置至少 2 个正确答案`); setActiveTab('questions'); return false
+          }
         }
       }
     }
@@ -172,6 +227,7 @@ export default function NewArticlePage() {
           points: q.points,
           options: q.question_type_v2 === 'open' ? [] : q.options,
           explanation: q.explanation,
+          question_type: q.question_type_v2 === 'knowledge' ? (q.question_type || 'single') : q.question_type_v2,
           question_type_v2: q.question_type_v2,
           option_responses: q.question_type_v2 === 'perception' ? q.option_responses : {},
           unlock_quote: q.question_type_v2 === 'knowledge' ? q.unlock_quote : '',
@@ -320,7 +376,7 @@ export default function NewArticlePage() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-blue-900 mb-2">💡 三种题型说明</h3>
                 <ul className="text-sm text-blue-700 space-y-1.5">
-                  <li>🧩 <b>知识题</b> — 有正确答案，答对 20 分，答错 5 分，可设置解锁语录</li>
+                  <li>🧩 <b>知识题</b> — 单选/多选/判断，答对 20 分，答错 5 分，可设置解锁语录</li>
                   <li>🌿 <b>感知题</b> — 无对错，每个选项有专属回应文字，得 10 分</li>
                   <li>✍️ <b>开放题</b> — 自由输入，5 字以上得 10 分，数据存入平行体</li>
                 </ul>
@@ -366,7 +422,10 @@ export default function NewArticlePage() {
 // ── 题目编辑组件（new 和 edit 页面共用） ────────────────────────
 export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, onAddOption, onRemoveOption, onUpdateOption, onRemove }) {
   const qType = q.question_type_v2 || 'knowledge'
+  const subType = q.question_type || 'single'
   const typeInfo = Q_TYPES.find(t => t.value === qType)
+  const isMultiple = qType === 'knowledge' && subType === 'multiple'
+  const isTrueFalse = qType === 'knowledge' && subType === 'truefalse'
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -374,7 +433,7 @@ export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, on
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-gray-900">第 {qIndex + 1} 题</span>
           <span className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: typeInfo?.bg, color: typeInfo?.color }}>
-            {typeInfo?.label}
+            {typeInfo?.label}{qType === 'knowledge' ? ` · ${K_SUB_TYPES.find(s => s.value === subType)?.label || '单选'}` : ''}
           </span>
           <span className="text-sm text-amber-600">+{q.points} 分</span>
         </div>
@@ -400,6 +459,26 @@ export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, on
         </div>
       </div>
 
+      {/* 知识题子类型选择 */}
+      {qType === 'knowledge' && (
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-gray-700 mb-2">答题方式</label>
+          <div className="flex gap-2">
+            {K_SUB_TYPES.map(s => (
+              <button key={s.value} type="button" onClick={() => onUpdate(q.id, 'question_type', s.value)}
+                className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                style={{
+                  borderColor: subType === s.value ? '#2563EB' : '#E5E7EB',
+                  backgroundColor: subType === s.value ? '#EFF6FF' : '#F9FAFB',
+                  color: subType === s.value ? '#2563EB' : '#6B7280',
+                }}>
+                <span className="mr-1.5">{s.icon}</span>{s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 题目内容 */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">题目内容 <span className="text-red-500">*</span></label>
@@ -419,16 +498,22 @@ export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, on
       {qType !== 'open' && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {qType === 'perception' ? '选项（每个选项设置专属回应文字）' : '选项（点击圆圈设为正确答案）'}
+            {qType === 'perception' ? '选项（每个选项设置专属回应文字）'
+              : isMultiple ? '选项（点击方框可选多个正确答案）'
+              : '选项（点击圆圈设为正确答案）'}
           </label>
           <div className="space-y-3">
             {q.options.map((opt, optIndex) => (
               <div key={optIndex} className="space-y-1.5">
                 <div className="flex items-center gap-3">
-                  {/* 知识题：正确答案按钮；感知题：纯标签 */}
+                  {/* 知识题：正确答案按钮 */}
                   {qType === 'knowledge' ? (
                     <button type="button" onClick={() => onUpdateOption(q.id, optIndex, 'is_correct', true)}
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${opt.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>
+                      className={`w-8 h-8 flex items-center justify-center flex-shrink-0 transition-colors ${
+                        isMultiple
+                          ? `rounded border-2 ${opt.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`
+                          : `rounded-full border-2 ${opt.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`
+                      }`}>
                       {opt.is_correct ? '✓' : opt.label}
                     </button>
                   ) : (
@@ -438,9 +523,12 @@ export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, on
                   )}
                   <span className="text-sm font-bold text-gray-500 w-6">{opt.label}.</span>
                   <input type="text" value={opt.text} onChange={e => onUpdateOption(q.id, optIndex, 'text', e.target.value)}
-                    className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${qType === 'knowledge' && opt.is_correct ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                    disabled={isTrueFalse}
+                    className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      qType === 'knowledge' && opt.is_correct ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                    } ${isTrueFalse ? 'bg-gray-50 text-gray-500' : ''}`}
                     placeholder={`选项 ${opt.label} 的内容`} />
-                  {q.options.length > 2 && (
+                  {q.options.length > 2 && !isTrueFalse && (
                     <button type="button" onClick={() => onRemoveOption(q.id, optIndex)} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
                   )}
                 </div>
@@ -456,8 +544,11 @@ export function QuestionEditor({ q, qIndex, onUpdate, onUpdateOptionResponse, on
               </div>
             ))}
           </div>
-          {q.options.length < 4 && (
+          {q.options.length < 4 && !isTrueFalse && (
             <button type="button" onClick={() => onAddOption(q.id)} className="mt-3 text-sm text-blue-600 hover:text-blue-800">+ 添加选项</button>
+          )}
+          {isMultiple && (
+            <p className="mt-2 text-xs text-purple-600">☑ 多选题：请选择 2 个或以上正确答案</p>
           )}
         </div>
       )}
