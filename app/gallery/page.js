@@ -73,10 +73,12 @@ async function getData() {
   const allWorkIds = [...new Set((allCurations || []).flatMap(c => c.work_ids || []))]
   let curationWorksMap = {}
   if (allWorkIds.length > 0) {
-    const { data: curationWorks } = await supabase
+    const { data: curationWorks, error: cwError } = await supabase
       .from('gallery_works')
-     .select('id, title, title_en, artist_name, cover_image, year, description')
+      .select('id, title, title_en, artist_name, cover_image, year, description')
       .in('id', allWorkIds)
+    console.log('curationWorks error:', cwError)
+    console.log('curationWorks count:', curationWorks?.length)
     if (curationWorks) {
       curationWorks.forEach(w => { curationWorksMap[w.id] = w })
     }
