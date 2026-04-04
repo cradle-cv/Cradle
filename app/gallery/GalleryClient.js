@@ -199,9 +199,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                     <div style={{ textAlign: 'center', padding: '8px 0 24px' }}>
                       <button onClick={() => setShowArchive(!showArchive)}
                         className="inline-flex items-center gap-2 transition-all duration-200 hover:opacity-70"
-                        style={{ padding: '8px 20px', border: '1px solid #D1D5DB', background: showArchive ? '#111827' : 'transparent',
-                          cursor: 'pointer', fontSize: '12px', letterSpacing: '2px',
-                          color: showArchive ? '#FFF' : '#9CA3AF' }}>
+                        style={{ padding: '8px 20px', border: '1px solid #111827', background: showArchive ? '#111827' : '#111827',
+  cursor: 'pointer', fontSize: '12px', letterSpacing: '2px',
+  color: '#FFF' }}>
                         <span>{showArchive ? '收起' : '查看全部往期'}</span>
                         <span style={{ fontSize: '10px' }}>({allPastCurations.length} 期)</span>
                       </button>
