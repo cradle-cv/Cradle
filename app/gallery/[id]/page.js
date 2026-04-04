@@ -231,13 +231,10 @@ export default function GalleryDetailPage() {
     if (!prog || prog.points_settled) return
     if (prog.puzzle_completed && prog.rike_completed && prog.fengshang_completed) {
       await awardInspirationPoints('all_steps_complete', 15, '完成全部三步（额外奖励）')
-      const puzzlePoints = work.total_points || 100
-      const totalEarned = puzzlePoints + 20 + 20 + 15
       const { data } = await supabase
         .from('user_gallery_progress')
         .update({
           current_step: 'completed',
-          points_earned: totalEarned,
           points_settled: true,
           settled_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -251,7 +248,7 @@ export default function GalleryDetailPage() {
     }
   }
 
-  // ── 谜题答题 ─────────────────────────────────────────────────
+  // ── 谜题答题（每题独立得分） ──────────────────────────────────
   async function handleSingleAnswer(question, selectedLabel) {
     if (!currentUser) { alert('请先登录后再答题'); return }
     if (userAnswers[question.id]) return
@@ -281,12 +278,15 @@ export default function GalleryDetailPage() {
       if (responseText) {
         setPerceptionResponses(prev => ({ ...prev, [question.id]: responseText }))
       }
+      // ★ 独立得分：感知题 +10
+      await awardInspirationPoints('quiz', 10, `感知题「${question.question_text.slice(0, 12)}…」`)
       return
     }
 
-    // knowledge 型：有对错，答对 20 分，答错 5 分
+    // knowledge 型：答对得该题分值，答错得 5 分（鼓励分）
     const correct = question.options.find(o => o.is_correct)
     const isCorrect = correct && correct.label === selectedLabel
+    const earnedPoints = isCorrect ? (question.points || 20) : 5
     try {
       await supabase.from('user_answers').insert({
         user_id: currentUser.id,
@@ -294,11 +294,14 @@ export default function GalleryDetailPage() {
         article_id: work.puzzle_article_id,
         selected_option: selectedLabel,
         is_correct: isCorrect,
-        points_earned: 0,
+        points_earned: earnedPoints,
         question_type: 'knowledge',
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: isCorrect } }))
+    // ★ 独立得分：知识题按题目分值
+    await awardInspirationPoints('quiz', earnedPoints,
+      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
   }
 
   async function handleOpenAnswer(question) {
@@ -325,6 +328,8 @@ export default function GalleryDetailPage() {
       ...prev,
       [question.id]: { selected: null, is_correct: null, open_text: text },
     }))
+    // ★ 独立得分：开放题 +10
+    await awardInspirationPoints('quiz', 10, `开放题「${question.question_text.slice(0, 12)}…」`)
   }
 
   function toggleMultiOption(questionId, label) {
@@ -343,6 +348,7 @@ export default function GalleryDetailPage() {
     if (!selected) { alert('请至少选择一个选项'); return }
     const correctLabels = question.options.filter(o => o.is_correct).map(o => o.label).sort().join(',')
     const isCorrect = selected === correctLabels
+    const earnedPoints = isCorrect ? (question.points || 20) : 5
     try {
       await supabase.from('user_answers').insert({
         user_id: currentUser.id,
@@ -350,40 +356,30 @@ export default function GalleryDetailPage() {
         article_id: work.puzzle_article_id,
         selected_option: selected,
         is_correct: isCorrect,
-        points_earned: 0,
+        points_earned: earnedPoints,
         question_type: 'knowledge',
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected, is_correct: isCorrect } }))
+    // ★ 独立得分：多选题按题目分值
+    await awardInspirationPoints('quiz', earnedPoints,
+      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
   }
 
+  // ★ completePuzzle：不再批量发分，只保存进度
   async function completePuzzle() {
-    // 按题型分别计算分数
-    const knowledgeCorrect = questions.filter(q =>
-      (q.question_type_v2 || 'knowledge') === 'knowledge' && userAnswers[q.id]?.is_correct
-    ).length
-    const knowledgeWrong = questions.filter(q =>
-      (q.question_type_v2 || 'knowledge') === 'knowledge' &&
-      userAnswers[q.id] && !userAnswers[q.id]?.is_correct
-    ).length
-    const participationCount = questions.filter(q => {
-      const t = q.question_type_v2 || 'knowledge'
-      return (t === 'perception' || t === 'open') && userAnswers[q.id]
-    }).length
-
-    // 知识题答对 20 分，答错 5 分；感知/开放题 10 分
-    const puzzlePoints = (knowledgeCorrect * 20) + (knowledgeWrong * 5) + (participationCount * 10)
+    const cc = Object.values(userAnswers).filter(a => a.is_correct).length
 
     // 全部知识题答对才记 perfect
     const knowledgeQs = questions.filter(q => (q.question_type_v2 || 'knowledge') === 'knowledge')
+    const knowledgeCorrect = knowledgeQs.filter(q => userAnswers[q.id]?.is_correct).length
     if (knowledgeQs.length > 0 && knowledgeCorrect === knowledgeQs.length) {
       await supabase.from('users').update({
         perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1,
       }).eq('id', currentUser.id)
     }
 
-    const cc = Object.values(userAnswers).filter(a => a.is_correct).length
-    await awardInspirationPoints('puzzle_complete', puzzlePoints, `完成谜题「${work.title}」(${cc}/${questions.length})`)
+    // 每题已独立得分，这里只保存进度
     const newProg = await saveProgress({
       puzzle_completed: true,
       puzzle_correct_count: cc,
@@ -438,7 +434,12 @@ export default function GalleryDetailPage() {
     } catch (err) { console.error(err) }
   }
 
+  // ★ completeFengshang：必须写过短评才能完成
   async function completeFengshang() {
+    if (!fengshangComments.some(c => c.user_id === currentUser.id)) {
+      alert('请先写下你的短评，再完成风赏')
+      return
+    }
     if (fengshangTimer.current) { clearInterval(fengshangTimer.current); fengshangTimer.current = null }
     await awardInspirationPoints('fengshang_complete', 20, `完成风赏「${work.title}」`)
     const newProg = await saveProgress({
@@ -463,7 +464,6 @@ export default function GalleryDetailPage() {
   )
   if (!work) return null
 
-  // 判断是否全部已答（感知/开放题只要有记录就算答了）
   const answeredAll = questions.length > 0 && questions.every(q => !!userAnswers[q.id])
   const correctCount = Object.values(userAnswers).filter(a => a.is_correct).length
   const puzzleDone = progress?.puzzle_completed
@@ -572,7 +572,7 @@ export default function GalleryDetailPage() {
             style={{ backgroundColor: '#FEF3C7', border: '2px solid #F59E0B' }}>
             <div className="text-3xl mb-1">🎉</div>
             <div className="text-lg font-bold" style={{ color: '#B45309' }}>
-              +{progress?.points_earned || totalPossible} 灵感值
+              +15 灵感值（额外奖励）
             </div>
             <div className="text-xs" style={{ color: '#92400E' }}>三步阅览全部完成！</div>
           </div>
@@ -601,12 +601,12 @@ export default function GalleryDetailPage() {
               {allDone ? (
                 <span className="text-xs px-3 py-1.5 rounded-full"
                   style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
-                  ✅ 已完成 · +{progress?.points_earned}✨
+                  ✅ 全部完成（含额外 +15✨）
                 </span>
               ) : currentUser && (
                 <span className="text-xs px-3 py-1.5 rounded-full"
                   style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                  {[puzzleDone, rikeDone, fengshangDone].filter(Boolean).length}/3 · 最多可获 ✨{totalPossible}
+                  {[puzzleDone, rikeDone, fengshangDone].filter(Boolean).length}/3 · 完成全部额外 +15✨
                 </span>
               )}
             </div>
@@ -650,7 +650,7 @@ export default function GalleryDetailPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       🧩 谜题挑战
-                      <span className="text-sm font-normal text-amber-600">+{puzzlePoints}✨</span>
+                      <span className="text-sm font-normal text-amber-600">每题独立得分</span>
                     </h2>
                     <div className="flex items-center gap-3">
                       <span className="text-sm" style={{ color: '#9CA3AF' }}>
@@ -932,7 +932,7 @@ export default function GalleryDetailPage() {
                     风赏 · 评论鉴赏 <span className="text-sm font-normal text-amber-600">+20✨</span>
                   </h2>
                   <p className="text-sm text-gray-500">
-                    {fengshangDone ? '已完成鉴赏' : '阅读名家短评，也留下你的看法'}
+                    {fengshangDone ? '已完成鉴赏' : '阅读名家短评，写下你的看法后可标记完成'}
                   </p>
                 </div>
               </div>
@@ -1057,7 +1057,6 @@ function QuestionCard({
     : question.question_type === 'truefalse' ? 'truefalse'
     : (correctCount > 1 ? 'multiple' : 'single')
 
-  // 优先用新字段 question_type_v2
   const qType = (question.question_type_v2 && question.question_type_v2 !== 'knowledge')
     ? question.question_type_v2
     : qTypeLegacy
@@ -1075,21 +1074,25 @@ function QuestionCard({
   }
   const tag = tagMap[qType] || tagMap.single
 
+  // 显示该题的分值
+  const pointsDisplay = isPerception || isOpen ? '+10✨' : `+${question.points || 20}✨`
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm">
-      {/* 题头 */}
       <div className="flex items-center gap-3 mb-5">
         <span className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
           {index + 1}
         </span>
         <h3 className="flex-1 font-bold" style={{ color: '#111827' }}>{question.question_text}</h3>
+        <span className="px-2 py-0.5 text-xs font-medium flex-shrink-0" style={{ color: '#B45309' }}>
+          {pointsDisplay}
+        </span>
         <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
           style={{ backgroundColor: tag.bg, color: tag.color }}>
           {tag.label}
         </span>
       </div>
 
-      {/* 感知题提示 */}
       {isPerception && !answer && (
         <p className="text-xs mb-4 italic" style={{ color: '#6B7280' }}>
           没有对错，选一个最接近你此刻感受的答案
@@ -1130,7 +1133,7 @@ function QuestionCard({
                 {answer.open_text}
               </div>
               <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
-                ✓ 已记录，平行体会记住这句话
+                ✓ 已记录 +10✨
               </p>
             </div>
           )}
@@ -1281,7 +1284,7 @@ function QuestionCard({
       {isPerception && answer && !perceptionResponse && (
         <div className="mt-4 px-4 py-3 rounded-xl text-sm"
           style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>
-          ✓ 已记录，平行体会记住你的感受
+          ✓ 已记录 +10✨
         </div>
       )}
 
@@ -1298,7 +1301,7 @@ function QuestionCard({
         </div>
       )}
 
-      {/* 知识题：解析（答对无语录 或 答错时显示） */}
+      {/* 知识题：解析 */}
       {!isPerception && !isOpen && answer && question.explanation && (
         <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
           💡 {question.explanation}
