@@ -4,6 +4,29 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
+import { QuestionEditor } from '../new/page'
+
+// 题型配置（和 new 页面保持一致）
+const Q_TYPES = [
+  { value: 'knowledge', label: '知识题', desc: '有正确答案，答对 20 分，答错 5 分', color: '#2563EB', bg: '#EFF6FF' },
+  { value: 'perception', label: '感知题', desc: '无对错，每个选项有专属回应文字，得 10 分', color: '#15803D', bg: '#F0FDF4' },
+  { value: 'open', label: '开放题', desc: '用户自由输入，5 字以上得 10 分', color: '#C2410C', bg: '#FFF7ED' },
+]
+
+const DEFAULT_QUESTION = () => ({
+  id: Date.now(),
+  question_type_v2: 'knowledge',
+  question_text: '',
+  points: 20,
+  explanation: '',
+  unlock_quote: '',
+  unlock_quote_author: '',
+  option_responses: { A: '', B: '', C: '', D: '' },
+  options: [
+    { label: 'A', text: '', is_correct: true },
+    { label: 'B', text: '', is_correct: false },
+  ],
+})
 
 export default function EditArticlePage({ params }) {
   const router = useRouter()
@@ -16,15 +39,9 @@ export default function EditArticlePage({ params }) {
   const fileInputRef = useRef(null)
 
   const [formData, setFormData] = useState({
-    title: '',
-    title_en: '',
-    intro: '',
-    content: '',
-    cover_image: '',
-    category: 'puzzle',
-    artwork_id: '',
-    status: 'draft',
-    author_type: 'admin'
+    title: '', title_en: '', intro: '', content: '',
+    cover_image: '', category: 'puzzle', artwork_id: '',
+    status: 'draft', author_type: 'admin',
   })
 
   const [questions, setQuestions] = useState([])
@@ -48,13 +65,7 @@ export default function EditArticlePage({ params }) {
 
   async function loadArticle(id) {
     try {
-      // 加载文章
-      const { data: article, error } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('id', id)
-        .single()
-
+      const { data: article, error } = await supabase.from('articles').select('*').eq('id', id).single()
       if (error) throw error
 
       setFormData({
@@ -66,33 +77,24 @@ export default function EditArticlePage({ params }) {
         category: article.category || 'puzzle',
         artwork_id: '',
         status: article.status || 'draft',
-        author_type: article.author_type || 'admin'
+        author_type: article.author_type || 'admin',
       })
 
       if (article.cover_image) setImagePreview(article.cover_image)
+      setStats({ views: article.views_count || 0, likes: article.likes_count || 0, comments: article.comments_count || 0 })
 
-      setStats({
-        views: article.views_count || 0,
-        likes: article.likes_count || 0,
-        comments: article.comments_count || 0
-      })
-
-      // 加载阅览室作品列表 + 查找当前关联
+      // 关联作品
       const { data: allWorks } = await supabase
         .from('gallery_works')
         .select('id, title, artist_name, cover_image, puzzle_article_id, rike_article_id, fengshang_article_id')
         .order('created_at', { ascending: false })
       if (allWorks) {
         setArtworks(allWorks)
-        const linked = allWorks.find(w =>
-          w.puzzle_article_id === id || w.rike_article_id === id || w.fengshang_article_id === id
-        )
-        if (linked) {
-          setFormData(prev => ({ ...prev, artwork_id: linked.id }))
-        }
+        const linked = allWorks.find(w => w.puzzle_article_id === id || w.rike_article_id === id || w.fengshang_article_id === id)
+        if (linked) setFormData(prev => ({ ...prev, artwork_id: linked.id }))
       }
 
-      // 加载题目
+      // 题目：兼容新旧字段
       const { data: qs } = await supabase
         .from('article_questions')
         .select('*')
@@ -100,14 +102,27 @@ export default function EditArticlePage({ params }) {
         .order('display_order', { ascending: true })
 
       if (qs && qs.length > 0) {
-        setQuestions(qs.map(q => ({
-          id: q.id,
-          db_id: q.id, // 标记为数据库已有的题目
-          question_text: q.question_text,
-          points: q.points,
-          explanation: q.explanation || '',
-          options: q.options || []
-        })))
+        setQuestions(qs.map(q => {
+          const opts = typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])
+          const optResponses = typeof q.option_responses === 'string' ? JSON.parse(q.option_responses) : (q.option_responses || { A: '', B: '', C: '', D: '' })
+          // 兼容旧题目（没有 question_type_v2 字段的）
+          const qType = q.question_type_v2 || 'knowledge'
+          return {
+            id: q.id,
+            db_id: q.id,
+            question_type_v2: qType,
+            question_text: q.question_text || '',
+            points: q.points || (qType === 'knowledge' ? 20 : 10),
+            explanation: q.explanation || '',
+            unlock_quote: q.unlock_quote || '',
+            unlock_quote_author: q.unlock_quote_author || '',
+            option_responses: optResponses,
+            options: opts.length > 0 ? opts : [
+              { label: 'A', text: '', is_correct: true },
+              { label: 'B', text: '', is_correct: false },
+            ],
+          }
+        }))
       }
     } catch (error) {
       console.error('加载文章失败:', error)
@@ -118,19 +133,8 @@ export default function EditArticlePage({ params }) {
     }
   }
 
-  // ===== 题目操作函数（与 new 页面相同） =====
-  const addQuestion = () => {
-    setQuestions(prev => [...prev, {
-      id: Date.now(),
-      question_text: '',
-      points: 20,
-      explanation: '',
-      options: [
-        { label: 'A', text: '', is_correct: true },
-        { label: 'B', text: '', is_correct: false }
-      ]
-    }])
-  }
+  // ── 题目操作 ────────────────────────────────────────────────
+  const addQuestion = () => setQuestions(prev => [...prev, DEFAULT_QUESTION()])
 
   const removeQuestion = (qId) => {
     if (!confirm('确定删除这道题吗？')) return
@@ -138,9 +142,19 @@ export default function EditArticlePage({ params }) {
   }
 
   const updateQuestion = (qId, field, value) => {
-    setQuestions(prev => prev.map(q =>
-      q.id === qId ? { ...q, [field]: value } : q
-    ))
+    setQuestions(prev => prev.map(q => {
+      if (q.id !== qId) return q
+      const updated = { ...q, [field]: value }
+      if (field === 'question_type_v2') updated.points = value === 'knowledge' ? 20 : 10
+      return updated
+    }))
+  }
+
+  const updateOptionResponse = (qId, label, text) => {
+    setQuestions(prev => prev.map(q => {
+      if (q.id !== qId) return q
+      return { ...q, option_responses: { ...q.option_responses, [label]: text } }
+    }))
   }
 
   const addOption = (qId) => {
@@ -175,16 +189,13 @@ export default function EditArticlePage({ params }) {
   const handleFileSelect = async (e) => {
     const file = e.target.files[0]
     if (!file || !file.type.startsWith('image/')) return
-
     const reader = new FileReader()
     reader.onload = (e) => setImagePreview(e.target.result)
     reader.readAsDataURL(file)
-
     try {
       setSaving(true)
       const { url } = await uploadImage(file, 'articles')
       setFormData(prev => ({ ...prev, cover_image: url }))
-      alert('✅ 封面上传成功！')
     } catch (error) {
       alert('❌ 上传失败：' + error.message)
     } finally {
@@ -192,50 +203,42 @@ export default function EditArticlePage({ params }) {
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (!formData.title) {
-      alert('请填写文章标题！')
-      return
-    }
-
-    // 校验题目
+  const validateQuestions = () => {
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
-      if (!q.question_text) { alert(`第 ${i + 1} 道题内容不能为空！`); setActiveTab('questions'); return }
-      if (q.options.some(opt => !opt.text)) { alert(`第 ${i + 1} 道题选项不能为空！`); setActiveTab('questions'); return }
-      if (!q.options.some(opt => opt.is_correct)) { alert(`第 ${i + 1} 道题请设置正确答案！`); setActiveTab('questions'); return }
+      if (!q.question_text.trim()) { alert(`第 ${i + 1} 道题目内容不能为空`); setActiveTab('questions'); return false }
+      if (q.question_type_v2 !== 'open') {
+        if (q.options.some(opt => !opt.text.trim())) { alert(`第 ${i + 1} 道题选项不能为空`); setActiveTab('questions'); return false }
+        if (q.question_type_v2 === 'knowledge' && !q.options.some(opt => opt.is_correct)) {
+          alert(`第 ${i + 1} 道知识题请设置正确答案`); setActiveTab('questions'); return false
+        }
+      }
     }
+    return true
+  }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!formData.title) { alert('请填写文章标题'); return }
+    if (!validateQuestions()) return
     setSaving(true)
-
     try {
-      // 1. 更新文章
-      const wasPublished = formData.status === 'published'
+      // 更新文章
       const { error: articleError } = await supabase
         .from('articles')
         .update({
-          title: formData.title,
-          title_en: formData.title_en,
-          intro: formData.intro,
-          content: formData.content,
-          cover_image: formData.cover_image,
-          category: formData.category,
-          status: formData.status,
-          author_type: formData.author_type,
-          published_at: wasPublished ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString()
+          title: formData.title, title_en: formData.title_en,
+          intro: formData.intro, content: formData.content,
+          cover_image: formData.cover_image, category: formData.category,
+          status: formData.status, author_type: formData.author_type,
+          published_at: formData.status === 'published' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', articleId)
-
       if (articleError) throw articleError
 
-      // 2. 更新题目：先删除旧的，再插入新的
-      await supabase
-        .from('article_questions')
-        .delete()
-        .eq('article_id', articleId)
+      // 删旧题目，插新题目
+      await supabase.from('article_questions').delete().eq('article_id', articleId)
 
       if (questions.length > 0) {
         const questionsData = questions.map((q, index) => ({
@@ -243,33 +246,25 @@ export default function EditArticlePage({ params }) {
           question_text: q.question_text,
           display_order: index,
           points: q.points,
-          options: q.options,
-          explanation: q.explanation
+          options: q.question_type_v2 === 'open' ? [] : q.options,
+          explanation: q.explanation,
+          question_type_v2: q.question_type_v2,
+          option_responses: q.question_type_v2 === 'perception' ? q.option_responses : {},
+          unlock_quote: q.question_type_v2 === 'knowledge' ? q.unlock_quote : '',
+          unlock_quote_author: q.question_type_v2 === 'knowledge' ? q.unlock_quote_author : '',
         }))
-
-        const { error: qError } = await supabase
-          .from('article_questions')
-          .insert(questionsData)
-
+        const { error: qError } = await supabase.from('article_questions').insert(questionsData)
         if (qError) throw qError
       }
 
-      // 关联到阅览室作品
+      // 更新关联作品
       if (formData.artwork_id && articleId) {
-        const fieldMap = {
-          puzzle: 'puzzle_article_id',
-          rike: 'rike_article_id',
-          fengshang: 'fengshang_article_id'
-        }
+        const fieldMap = { puzzle: 'puzzle_article_id', rike: 'rike_article_id', fengshang: 'fengshang_article_id' }
         const field = fieldMap[formData.category]
         if (field) {
-          // 先清除旧关联（如果文章之前关联了其他作品）
-          const oldLinked = artworks.find(w =>
-            w.puzzle_article_id === articleId || w.rike_article_id === articleId || w.fengshang_article_id === articleId
-          )
+          const oldLinked = artworks.find(w => w.puzzle_article_id === articleId || w.rike_article_id === articleId || w.fengshang_article_id === articleId)
           if (oldLinked && oldLinked.id !== formData.artwork_id) {
-            const oldField = oldLinked.puzzle_article_id === articleId ? 'puzzle_article_id'
-              : oldLinked.rike_article_id === articleId ? 'rike_article_id' : 'fengshang_article_id'
+            const oldField = oldLinked.puzzle_article_id === articleId ? 'puzzle_article_id' : oldLinked.rike_article_id === articleId ? 'rike_article_id' : 'fengshang_article_id'
             await supabase.from('gallery_works').update({ [oldField]: null }).eq('id', oldLinked.id)
           }
           await supabase.from('gallery_works').update({ [field]: articleId }).eq('id', formData.artwork_id)
@@ -279,7 +274,6 @@ export default function EditArticlePage({ params }) {
       alert('文章更新成功！')
       router.push('/admin/articles')
     } catch (error) {
-      console.error('Error:', error)
       alert('更新失败：' + error.message)
     } finally {
       setSaving(false)
@@ -288,7 +282,6 @@ export default function EditArticlePage({ params }) {
 
   const handleDelete = async () => {
     if (!confirm('确定要删除这篇文章吗？\n\n注意：关联的题目和用户答题记录也会被删除！')) return
-
     try {
       const { error } = await supabase.from('articles').delete().eq('id', articleId)
       if (error) throw error
@@ -302,74 +295,53 @@ export default function EditArticlePage({ params }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-
     if (name === 'artwork_id' && value) {
       const work = artworks.find(w => w.id === value)
-      if (work && work.cover_image) {
+      if (work?.cover_image) {
         setFormData(prev => ({ ...prev, [name]: value, cover_image: work.cover_image }))
         setImagePreview(work.cover_image)
       }
     }
   }
 
-  if (loading || authLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
-  }
+  if (loading || authLoading) return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
 
   return (
     <div>
       <div className="mb-8">
-        <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2">
-          ← 返回文章列表
-        </button>
+        <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2">← 返回文章列表</button>
         <h1 className="text-3xl font-bold text-gray-900">编辑文章</h1>
         <p className="text-gray-600 mt-1">修改文章内容和答题设置</p>
       </div>
 
-      {/* 标签切换 */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setActiveTab('content')}
-          className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === 'content' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
-          }`}
-        >
-          📝 文章内容
-        </button>
-        <button
-          onClick={() => setActiveTab('questions')}
-          className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === 'questions' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
-          }`}
-        >
-          ❓ 答题设置 {questions.length > 0 && `(${questions.length})`}
-        </button>
+        {[{ key: 'content', label: '📝 文章内容' }, { key: 'questions', label: `❓ 答题设置${questions.length > 0 ? ` (${questions.length})` : ''}` }].map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <form onSubmit={handleSubmit}>
         {activeTab === 'content' && (
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 space-y-6">
-              {/* 统计信息 */}
+              {/* 统计 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">📊 统计</h2>
                 <div className="grid grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{stats.views}</div>
-                    <div className="text-xs text-gray-600">浏览</div>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{stats.likes}</div>
-                    <div className="text-xs text-gray-600">点赞</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{stats.comments}</div>
-                    <div className="text-xs text-gray-600">评论</div>
-                  </div>
-                  <div className="text-center p-3 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">{questions.length}</div>
-                    <div className="text-xs text-gray-600">题目</div>
-                  </div>
+                  {[
+                    { label: '浏览', value: stats.views, color: 'blue' },
+                    { label: '点赞', value: stats.likes, color: 'red' },
+                    { label: '评论', value: stats.comments, color: 'green' },
+                    { label: '题目', value: questions.length, color: 'purple' },
+                  ].map(s => (
+                    <div key={s.label} className={`text-center p-3 bg-${s.color}-50 rounded-lg`}>
+                      <div className={`text-2xl font-bold text-${s.color}-600`}>{s.value}</div>
+                      <div className="text-xs text-gray-600">{s.label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -406,7 +378,6 @@ export default function EditArticlePage({ params }) {
                 </button>
                 {imagePreview && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">当前封面：</p>
                     <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 max-w-md">
                       <img src={imagePreview} alt="预览" className="w-full h-full object-cover" />
                     </div>
@@ -424,25 +395,16 @@ export default function EditArticlePage({ params }) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">文章分类</label>
                     <select name="category" value={formData.category} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="puzzle">谜题</option>
-                      <option value="fengshang">风赏</option>
                       <option value="rike">日课</option>
+                      <option value="fengshang">风赏</option>
                     </select>
                   </div>
-
-                  {/* 关联阅览室作品 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">关联作品</label>
-                    <select
-                      name="artwork_id"
-                      value={formData.artwork_id}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
+                    <select name="artwork_id" value={formData.artwork_id} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="">-- 暂不关联 --</option>
                       {artworks.map(w => (
-                        <option key={w.id} value={w.id}>
-                          {w.title}{w.artist_name ? ` (${w.artist_name})` : ''}
-                        </option>
+                        <option key={w.id} value={w.id}>{w.title}{w.artist_name ? ` (${w.artist_name})` : ''}</option>
                       ))}
                     </select>
                     <p className="text-xs text-gray-400 mt-1">保存后自动关联到对应分类槽位</p>
@@ -462,16 +424,12 @@ export default function EditArticlePage({ params }) {
                       <option value="artist">艺术家投稿</option>
                     </select>
                   </div>
-                  <div className="pt-4 border-t border-gray-200">
+                  <div className="pt-4 border-t border-gray-200 space-y-2">
                     <button type="submit" disabled={saving} className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 transition-colors">
                       {saving ? '保存中...' : '💾 保存修改'}
                     </button>
-                    <button type="button" onClick={() => router.back()} className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                      取消
-                    </button>
-                    <button type="button" onClick={handleDelete} className="w-full mt-2 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors">
-                      🗑️ 删除文章
-                    </button>
+                    <button type="button" onClick={() => router.back()} className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">取消</button>
+                    <button type="button" onClick={handleDelete} className="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors">🗑️ 删除文章</button>
                   </div>
                 </div>
               </div>
@@ -479,57 +437,20 @@ export default function EditArticlePage({ params }) {
           </div>
         )}
 
-        {/* 答题设置（与 new 页面结构相同） */}
         {activeTab === 'questions' && (
           <div className="space-y-6">
             {questions.map((q, qIndex) => (
-              <div key={q.id} className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    第 {qIndex + 1} 题
-                    <span className="text-sm font-normal text-[#F59E0B] ml-2">+{q.points} 积分</span>
-                  </h3>
-                  <button type="button" onClick={() => removeQuestion(q.id)} className="text-red-500 hover:text-red-700 text-sm">
-                    🗑️ 删除题目
-                  </button>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">题目内容 <span className="text-red-500">*</span></label>
-                  <textarea value={q.question_text} onChange={(e) => updateQuestion(q.id, 'question_text', e.target.value)} rows={2} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">答对积分</label>
-                  <input type="number" value={q.points} onChange={(e) => updateQuestion(q.id, 'points', parseInt(e.target.value) || 0)} min="0" className="w-32 px-4 py-2 border border-gray-300 rounded-lg" />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">选项（点击圆圈设为正确答案）</label>
-                  <div className="space-y-3">
-                    {q.options.map((opt, optIndex) => (
-                      <div key={optIndex} className="flex items-center gap-3">
-                        <button type="button" onClick={() => updateOption(q.id, optIndex, 'is_correct', true)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${opt.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>
-                          {opt.is_correct ? '✓' : opt.label}
-                        </button>
-                        <span className="text-sm font-bold text-gray-500 w-6">{opt.label}.</span>
-                        <input type="text" value={opt.text} onChange={(e) => updateOption(q.id, optIndex, 'text', e.target.value)} className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${opt.is_correct ? 'border-green-300 bg-green-50' : 'border-gray-300'}`} />
-                        {q.options.length > 2 && (
-                          <button type="button" onClick={() => removeOption(q.id, optIndex)} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {q.options.length < 4 && (
-                    <button type="button" onClick={() => addOption(q.id)} className="mt-3 text-sm text-blue-600 hover:text-blue-800">+ 添加选项</button>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">答题解析（可选）</label>
-                  <textarea value={q.explanation} onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)} rows={2} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-              </div>
+              <QuestionEditor
+                key={q.id}
+                q={q}
+                qIndex={qIndex}
+                onUpdate={updateQuestion}
+                onUpdateOptionResponse={updateOptionResponse}
+                onAddOption={addOption}
+                onRemoveOption={removeOption}
+                onUpdateOption={updateOption}
+                onRemove={removeQuestion}
+              />
             ))}
 
             <button type="button" onClick={addQuestion} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center">
@@ -538,9 +459,7 @@ export default function EditArticlePage({ params }) {
             </button>
 
             <div className="flex gap-4 justify-end">
-              <button type="button" onClick={() => setActiveTab('content')} className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50">
-                ← 返回文章内容
-              </button>
+              <button type="button" onClick={() => setActiveTab('content')} className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50">← 返回文章内容</button>
               <button type="submit" disabled={saving} className="px-8 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300">
                 {saving ? '保存中...' : `💾 保存修改${questions.length > 0 ? `（含 ${questions.length} 道题）` : ''}`}
               </button>
