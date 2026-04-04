@@ -472,7 +472,10 @@ export default function GalleryDetailPage() {
   const allDone = progress?.points_settled
   const currentQ = questions[puzzlePage]
 
-  const puzzlePoints = work.total_points || 100
+  const puzzlePoints = questions.reduce((sum, q) => {
+  const t = q.question_type_v2 || 'knowledge'
+  return sum + (t === 'perception' || t === 'open' ? 10 : (q.points || 20))
+}, 0)
   const totalPossible = puzzlePoints + 20 + 20 + 15
 
   const tabs = [
