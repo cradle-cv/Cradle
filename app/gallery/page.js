@@ -75,7 +75,7 @@ async function getData() {
   if (allWorkIds.length > 0) {
     const { data: curationWorks } = await supabase
       .from('gallery_works')
-      .select('id, title, title_en, artist_name, image_path, cover_image, year, description, museum_name')
+      .select('id, title, title_en, artist_name, image_path, cover_image, year, description')
       .in('id', allWorkIds)
     if (curationWorks) {
       curationWorks.forEach(w => { curationWorksMap[w.id] = w })
