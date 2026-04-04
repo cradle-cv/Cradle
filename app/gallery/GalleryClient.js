@@ -51,11 +51,13 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
   const [activeCuration, setActiveCuration] = useState(0)
   const [museumPage, setMuseumPage] = useState(1)
   const [artistPage, setArtistPage] = useState(1)
+  const [showArchive, setShowArchive] = useState(false)
   const museumsPerPage = 9
   const artistsPerPage = 12
 
   const currentCuration = curations[activeCuration] || null
   const pastCurations = curations.slice(1, 4)
+  const allPastCurations = curations.slice(1)
   const museumWorks = selectedMuseum ? works.filter(w => w.museum_id === selectedMuseum) : works
   const artistWorks = selectedArtist ? works.filter(w => w.gallery_artist_id === selectedArtist) : works
   const filteredMuseums = regionFilter === 'all' ? museums : museums.filter(m => m.region === regionFilter)
@@ -86,6 +88,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
   function switchView(mode) {
     setViewMode(mode); setSelectedMuseum(null); setSelectedArtist(null)
     setRegionFilter('all'); setArtistSearch(''); setMuseumPage(1); setArtistPage(1)
+    setShowArchive(false)
     if (mode === 'curation') setActiveCuration(0)
   }
   function switchCuration(idx) { setActiveCuration(idx) }
@@ -187,6 +190,67 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                             <span style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 600 }}>← 回到最新</span>
                           </button>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 查看全部往期 */}
+                  {allPastCurations.length > 3 && (
+                    <div style={{ textAlign: 'center', padding: '8px 0 24px' }}>
+                      <button onClick={() => setShowArchive(!showArchive)}
+                        className="inline-flex items-center gap-2 transition-all duration-200 hover:opacity-70"
+                        style={{ padding: '8px 20px', border: '1px solid #D1D5DB', background: showArchive ? '#111827' : 'transparent',
+                          cursor: 'pointer', fontSize: '12px', letterSpacing: '2px',
+                          color: showArchive ? '#FFF' : '#9CA3AF' }}>
+                        <span>{showArchive ? '收起' : '查看全部往期'}</span>
+                        <span style={{ fontSize: '10px' }}>({allPastCurations.length} 期)</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 往期存档面板 */}
+                  {showArchive && (
+                    <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '24px', paddingBottom: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                        {allPastCurations.map((pc, i) => {
+                          const idx = curations.findIndex(c => c.id === pc.id)
+                          const hasWorks = pc.works && pc.works.length > 0
+                          return (
+                            <button key={pc.id} onClick={() => { switchCuration(idx); setShowArchive(false) }}
+                              className="text-left transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                              style={{ border: '1px solid #E5E7EB', padding: '16px', background: '#FAFAF9', cursor: 'pointer' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                                <span style={{ fontFamily: serif, fontSize: '13px', fontWeight: 700, letterSpacing: '2px', color: '#374151' }}>
+                                  No. {toRoman(pc.issue_number)}
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#D1D5DB' }}>
+                                  {pc.published_at ? new Date(pc.published_at).toLocaleDateString('zh-CN') : ''}
+                                </span>
+                              </div>
+                              <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '18px', color: '#111827', lineHeight: 1.3, marginBottom: '6px' }}>
+                                {pc.theme_en}
+                              </div>
+                              <div style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '2px', marginBottom: '10px' }}>
+                                {pc.theme_zh}
+                              </div>
+                              {hasWorks && (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  {pc.works.slice(0, 3).map((w, wi) => (
+                                    <div key={wi} style={{ width: '56px', height: '56px', overflow: 'hidden', background: '#F3F4F6', flexShrink: 0 }}>
+                                      {w.cover_image && <img src={w.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {pc.quote && (
+                                <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '10px', lineHeight: 1.6, fontStyle: 'italic',
+                                  overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                  "{pc.quote}"
+                                </p>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
