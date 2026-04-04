@@ -16,6 +16,7 @@ const Q_TYPES = [
 const DEFAULT_QUESTION = () => ({
   id: Date.now(),
   question_type_v2: 'knowledge',
+  question_type: 'single',
   question_text: '',
   points: 20,
   explanation: '',
@@ -83,7 +84,6 @@ export default function EditArticlePage({ params }) {
       if (article.cover_image) setImagePreview(article.cover_image)
       setStats({ views: article.views_count || 0, likes: article.likes_count || 0, comments: article.comments_count || 0 })
 
-      // 关联作品
       const { data: allWorks } = await supabase
         .from('gallery_works')
         .select('id, title, artist_name, cover_image, puzzle_article_id, rike_article_id, fengshang_article_id')
@@ -105,14 +105,26 @@ export default function EditArticlePage({ params }) {
         setQuestions(qs.map(q => {
           const opts = typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])
           const optResponses = typeof q.option_responses === 'string' ? JSON.parse(q.option_responses) : (q.option_responses || { A: '', B: '', C: '', D: '' })
-          // 兼容旧题目（没有 question_type_v2 字段的）
-          const qType = q.question_type_v2 || 'knowledge'
+          const qTypeV2 = q.question_type_v2 || 'knowledge'
+
+          // 推断知识题子类型：优先用 question_type 字段，否则从选项推断
+          let subType = q.question_type || 'single'
+          if (qTypeV2 === 'knowledge') {
+            if (subType === 'perception' || subType === 'open') subType = 'single'  // 修正脏数据
+            if (subType === 'single' && Array.isArray(opts)) {
+              const correctCount = opts.filter(o => o.is_correct).length
+              if (correctCount > 1) subType = 'multiple'
+              if (opts.length === 2 && opts[0].text === '对' && opts[1].text === '错') subType = 'truefalse'
+            }
+          }
+
           return {
             id: q.id,
             db_id: q.id,
-            question_type_v2: qType,
+            question_type_v2: qTypeV2,
+            question_type: qTypeV2 === 'knowledge' ? subType : qTypeV2,
             question_text: q.question_text || '',
-            points: q.points || (qType === 'knowledge' ? 20 : 10),
+            points: q.points || (qTypeV2 === 'knowledge' ? 20 : 10),
             explanation: q.explanation || '',
             unlock_quote: q.unlock_quote || '',
             unlock_quote_author: q.unlock_quote_author || '',
@@ -145,7 +157,39 @@ export default function EditArticlePage({ params }) {
     setQuestions(prev => prev.map(q => {
       if (q.id !== qId) return q
       const updated = { ...q, [field]: value }
-      if (field === 'question_type_v2') updated.points = value === 'knowledge' ? 20 : 10
+      if (field === 'question_type_v2') {
+        updated.points = value === 'knowledge' ? 20 : 10
+        if (value === 'knowledge' && !updated.question_type) {
+          updated.question_type = 'single'
+        }
+      }
+      if (field === 'question_type') {
+        if (value === 'truefalse') {
+          updated.options = [
+            { label: 'A', text: '对', is_correct: true },
+            { label: 'B', text: '错', is_correct: false },
+          ]
+        } else if (value === 'single' || value === 'multiple') {
+          const isTFOptions = updated.options.length === 2 &&
+            updated.options[0].text === '对' && updated.options[1].text === '错'
+          if (isTFOptions) {
+            updated.options = [
+              { label: 'A', text: '', is_correct: true },
+              { label: 'B', text: '', is_correct: false },
+            ]
+          }
+          if (value === 'single') {
+            let foundFirst = false
+            updated.options = updated.options.map(opt => {
+              if (opt.is_correct && !foundFirst) { foundFirst = true; return opt }
+              return { ...opt, is_correct: false }
+            })
+            if (!foundFirst && updated.options.length > 0) {
+              updated.options[0].is_correct = true
+            }
+          }
+        }
+      }
       return updated
     }))
   }
@@ -177,8 +221,16 @@ export default function EditArticlePage({ params }) {
   const updateOption = (qId, optIndex, field, value) => {
     setQuestions(prev => prev.map(q => {
       if (q.id !== qId) return q
+      const subType = q.question_type || 'single'
       const newOptions = q.options.map((opt, i) => {
-        if (field === 'is_correct') return { ...opt, is_correct: i === optIndex }
+        if (field === 'is_correct') {
+          if (subType === 'multiple') {
+            if (i === optIndex) return { ...opt, is_correct: !opt.is_correct }
+            return opt
+          } else {
+            return { ...opt, is_correct: i === optIndex }
+          }
+        }
         if (i === optIndex) return { ...opt, [field]: value }
         return opt
       })
@@ -209,8 +261,13 @@ export default function EditArticlePage({ params }) {
       if (!q.question_text.trim()) { alert(`第 ${i + 1} 道题目内容不能为空`); setActiveTab('questions'); return false }
       if (q.question_type_v2 !== 'open') {
         if (q.options.some(opt => !opt.text.trim())) { alert(`第 ${i + 1} 道题选项不能为空`); setActiveTab('questions'); return false }
-        if (q.question_type_v2 === 'knowledge' && !q.options.some(opt => opt.is_correct)) {
-          alert(`第 ${i + 1} 道知识题请设置正确答案`); setActiveTab('questions'); return false
+        if (q.question_type_v2 === 'knowledge') {
+          if (!q.options.some(opt => opt.is_correct)) {
+            alert(`第 ${i + 1} 道知识题请设置正确答案`); setActiveTab('questions'); return false
+          }
+          if (q.question_type === 'multiple' && q.options.filter(opt => opt.is_correct).length < 2) {
+            alert(`第 ${i + 1} 道多选题请设置至少 2 个正确答案`); setActiveTab('questions'); return false
+          }
         }
       }
     }
@@ -223,7 +280,6 @@ export default function EditArticlePage({ params }) {
     if (!validateQuestions()) return
     setSaving(true)
     try {
-      // 更新文章
       const { error: articleError } = await supabase
         .from('articles')
         .update({
@@ -237,7 +293,6 @@ export default function EditArticlePage({ params }) {
         .eq('id', articleId)
       if (articleError) throw articleError
 
-      // 删旧题目，插新题目
       await supabase.from('article_questions').delete().eq('article_id', articleId)
 
       if (questions.length > 0) {
@@ -248,6 +303,7 @@ export default function EditArticlePage({ params }) {
           points: q.points,
           options: q.question_type_v2 === 'open' ? [] : q.options,
           explanation: q.explanation,
+          question_type: q.question_type_v2 === 'knowledge' ? (q.question_type || 'single') : q.question_type_v2,
           question_type_v2: q.question_type_v2,
           option_responses: q.question_type_v2 === 'perception' ? q.option_responses : {},
           unlock_quote: q.question_type_v2 === 'knowledge' ? q.unlock_quote : '',
@@ -257,7 +313,6 @@ export default function EditArticlePage({ params }) {
         if (qError) throw qError
       }
 
-      // 更新关联作品
       if (formData.artwork_id && articleId) {
         const fieldMap = { puzzle: 'puzzle_article_id', rike: 'rike_article_id', fengshang: 'fengshang_article_id' }
         const field = fieldMap[formData.category]
@@ -327,7 +382,6 @@ export default function EditArticlePage({ params }) {
         {activeTab === 'content' && (
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 space-y-6">
-              {/* 统计 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">📊 统计</h2>
                 <div className="grid grid-cols-4 gap-4">
@@ -345,7 +399,6 @@ export default function EditArticlePage({ params }) {
                 </div>
               </div>
 
-              {/* 基本信息 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
                 <div className="space-y-4">
@@ -368,7 +421,6 @@ export default function EditArticlePage({ params }) {
                 </div>
               </div>
 
-              {/* 封面图 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 封面图</h2>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
@@ -386,7 +438,6 @@ export default function EditArticlePage({ params }) {
               </div>
             </div>
 
-            {/* 右侧设置 */}
             <div className="space-y-6">
               <div className="bg-white rounded-lg shadow p-6 sticky top-8">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
