@@ -8,19 +8,20 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 async function getData() {
+  // ─── 作品 ───
   const { data: works } = await supabase
     .from('gallery_works')
     .select('*, museums(id, name, name_en, city, country, cover_image, region)')
     .eq('status', 'published')
     .order('display_order', { ascending: true })
 
+  // ─── 博物馆 ───
   const { data: museums } = await supabase
     .from('museums')
     .select('*')
     .eq('status', 'active')
     .order('sort_order')
 
-  // 统计每个博物馆的作品数
   const museumWorkCounts = {}
   ;(works || []).forEach(w => {
     if (w.museum_id) {
@@ -32,7 +33,7 @@ async function getData() {
     .filter(m => museumWorkCounts[m.id] > 0)
     .map(m => ({ ...m, works_count: museumWorkCounts[m.id] || 0 }))
 
-  // 统计每个艺术家的作品数
+  // ─── 艺术家 ───
   const artistWorkCounts = {}
   ;(works || []).forEach(w => {
     if (w.gallery_artist_id) {
@@ -61,19 +62,30 @@ async function getData() {
       avatar_url: a.avatar_url || artistAvatarFromWorks[a.id] || null,
     }))
 
-  // 加载本期精选（最新已发布的4期：当前1期+往期3期）
-  const { data: curations } = await supabase
+  // ─── 期刊（全部已发布） ───
+  const { data: allCurations } = await supabase
     .from('gallery_curations')
     .select('*')
     .eq('status', 'published')
     .order('issue_number', { ascending: false })
-    .limit(4)
 
-  // 为每期精选填充作品详情
-  const curationsWithWorks = (curations || []).map(c => {
-    const cWorks = (c.work_ids || []).map(id => (works || []).find(w => w.id === id)).filter(Boolean)
-    return { ...c, works: cWorks }
-  })
+  // 收集所有期刊的 work_ids，一次性查询作品详情
+  const allWorkIds = [...new Set((allCurations || []).flatMap(c => c.work_ids || []))]
+  let curationWorksMap = {}
+  if (allWorkIds.length > 0) {
+    const { data: curationWorks } = await supabase
+      .from('gallery_works')
+      .select('id, title, title_en, artist_name, image_path, cover_image, year, description, museum_name')
+      .in('id', allWorkIds)
+    if (curationWorks) {
+      curationWorks.forEach(w => { curationWorksMap[w.id] = w })
+    }
+  }
+
+  const curationsWithWorks = (allCurations || []).map(c => ({
+    ...c,
+    works: (c.work_ids || []).map(id => curationWorksMap[id] || null).filter(Boolean),
+  }))
 
   return {
     works: works || [],
@@ -114,7 +126,12 @@ export default async function GalleryPage() {
       </nav>
 
       {/* 客户端交互部分 */}
-      <GalleryClient works={works} museums={museums} galleryArtists={galleryArtists} curations={curations} />
+      <GalleryClient
+        works={works}
+        museums={museums}
+        galleryArtists={galleryArtists}
+        curations={curations}
+      />
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
