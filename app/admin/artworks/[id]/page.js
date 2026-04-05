@@ -5,30 +5,35 @@ import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
 
-export default function EditArtworkPage({ params }) {
+export default function EditCollectionPage({ params }) {
   const router = useRouter()
   const { userData, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState('')
-  const [artworkId, setArtworkId] = useState(null)
+  const [collectionId, setCollectionId] = useState(null)
   const [artists, setArtists] = useState([])
-  const [collections, setCollections] = useState([])
-  const [tags, setTags] = useState([])
-  const [selectedTags, setSelectedTags] = useState([])
+  const [artworks, setArtworks] = useState([])
+  const [collectionArtworks, setCollectionArtworks] = useState([])
   const fileInputRef = useRef(null)
   
   const [formData, setFormData] = useState({
     title: '',
+    title_en: '',
     artist_id: '',
-    collection_id: '',
-    category: 'painting',
-    medium: '',
-    dimensions: '',
-    year: new Date().getFullYear(),
     description: '',
-    image_url: '',
-    status: 'draft'
+    cover_image: '',
+    category: 'painting',
+    status: 'draft',
+    theme_en: '',
+    theme_zh: '',
+    quote: '',
+    quote_author: '',
+    display_order: 0,
+  })
+
+  const [stats, setStats] = useState({
+    artworks_count: 0
   })
 
   useEffect(() => {
@@ -36,65 +41,82 @@ export default function EditArtworkPage({ params }) {
       if (authLoading) return
       
       const { id } = await params
-      setArtworkId(id)
+      setCollectionId(id)
       
       await Promise.all([
-        loadArtwork(id),
-        loadArtists(),
-        loadCollections(),
-        loadTags()
+        loadCollection(id),
+        loadArtists()
       ])
     }
     init()
   }, [params, authLoading])
 
-  async function loadArtwork(id) {
-    const { data: artwork, error } = await supabase
-      .from('artworks')
-      .select(`
-        *,
-        artists(id, display_name)
-      `)
-      .eq('id', id)
-      .single()
+  async function loadCollection(id) {
+    try {
+      const { data: collection, error } = await supabase
+        .from('collections')
+        .select(`
+          *,
+          artists(id, display_name)
+        `)
+        .eq('id', id)
+        .single()
 
-    if (error) {
-      console.error('加载作品失败:', error)
+      if (error) throw error
+
+      if (collection) {
+        setFormData({
+          title: collection.title || '',
+          title_en: collection.title_en || '',
+          artist_id: collection.artist_id || '',
+          description: collection.description || '',
+          cover_image: collection.cover_image || '',
+          category: collection.category || 'painting',
+          status: collection.status || 'draft',
+          theme_en: collection.theme_en || '',
+          theme_zh: collection.theme_zh || '',
+          quote: collection.quote || '',
+          quote_author: collection.quote_author || '',
+          display_order: collection.display_order || 0,
+        })
+
+        if (collection.cover_image) {
+          setImagePreview(collection.cover_image)
+        }
+
+        await loadCollectionArtworks(id, collection.artist_id)
+
+        const { count } = await supabase
+          .from('artworks')
+          .select('id', { count: 'exact', head: true })
+          .eq('collection_id', id)
+
+        setStats({ artworks_count: count || 0 })
+      }
+    } catch (error) {
+      console.error('加载作品集失败:', error)
       alert('加载失败')
-      router.push('/admin/artworks')
-      return
+      router.push('/admin/collections')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (artwork) {
-      setFormData({
-        title: artwork.title || '',
-        artist_id: artwork.artist_id || '',
-        collection_id: artwork.collection_id || '',
-        category: artwork.category || 'painting',
-        medium: artwork.medium || '',
-        dimensions: artwork.size || '',
-        year: artwork.year || new Date().getFullYear(),
-        description: artwork.description || '',
-        image_url: artwork.image_url || '',
-        status: artwork.status || 'draft'
-      })
+  async function loadCollectionArtworks(collectionId, artistId) {
+    const { data: artworksInCollection } = await supabase
+      .from('artworks')
+      .select('id, title, image_url')
+      .eq('collection_id', collectionId)
 
-      if (artwork.image_url) {
-        setImagePreview(artwork.image_url)
-      }
+    setCollectionArtworks(artworksInCollection || [])
 
-      // 加载已选标签
-      const { data: artworkTags } = await supabase
-        .from('artwork_tags')
-        .select('tag_id')
-        .eq('artwork_id', id)
+    const { data: allArtworks } = await supabase
+      .from('artworks')
+      .select('id, title, image_url')
+      .eq('artist_id', artistId)
+      .order('created_at', { ascending: false })
 
-      if (artworkTags) {
-        setSelectedTags(artworkTags.map(t => t.tag_id))
-      }
-    }
-
-    setLoading(false)
+    setArtworks(allArtworks || [])
   }
 
   async function loadArtists() {
@@ -104,37 +126,6 @@ export default function EditArtworkPage({ params }) {
       .order('display_name')
     
     setArtists(data || [])
-  }
-
-  async function loadCollections() {
-    let query = supabase
-      .from('collections')
-      .select('id, title, artist_id')
-      .order('title')
-
-    if (userData?.role === 'artist') {
-      const { data: artistData } = await supabase
-        .from('artists')
-        .select('id')
-        .eq('user_id', userData.id)
-        .single()
-      
-      if (artistData) {
-        query = query.eq('artist_id', artistData.id)
-      }
-    }
-
-    const { data } = await query
-    setCollections(data || [])
-  }
-
-  async function loadTags() {
-    const { data } = await supabase
-      .from('tags')
-      .select('*')
-      .order('name')
-    
-    setTags(data || [])
   }
 
   const handleFileSelect = async (e) => {
@@ -154,10 +145,8 @@ export default function EditArtworkPage({ params }) {
 
     try {
       setSaving(true)
-      const { url } = await uploadImage(file, 'artworks')
-      
-      setFormData(prev => ({ ...prev, image_url: url }))
-      
+      const { url } = await uploadImage(file, 'collections')
+      setFormData(prev => ({ ...prev, cover_image: url }))
       alert('✅ 图片上传成功！')
     } catch (error) {
       console.error('上传失败:', error)
@@ -179,37 +168,27 @@ export default function EditArtworkPage({ params }) {
 
     try {
       const { error } = await supabase
-        .from('artworks')
+        .from('collections')
         .update({
           title: formData.title,
+          title_en: formData.title_en,
           artist_id: formData.artist_id,
-          collection_id: formData.collection_id || null,
-          category: formData.category,
-          medium: formData.medium || null,
-          size: formData.dimensions || null,
-          year: formData.year || null,
           description: formData.description,
-          image_url: formData.image_url,
-          status: formData.status
+          category: formData.category,
+          cover_image: formData.cover_image,
+          status: formData.status,
+          theme_en: formData.theme_en || null,
+          theme_zh: formData.theme_zh || null,
+          quote: formData.quote || null,
+          quote_author: formData.quote_author || null,
+          display_order: formData.display_order || 0,
         })
-        .eq('id', artworkId)
+        .eq('id', collectionId)
 
       if (error) throw error
 
-      // 更新标签
-      await supabase.from('artwork_tags').delete().eq('artwork_id', artworkId)
-
-      if (selectedTags.length > 0) {
-        const tagLinks = selectedTags.map(tagId => ({
-          artwork_id: artworkId,
-          tag_id: tagId
-        }))
-
-        await supabase.from('artwork_tags').insert(tagLinks)
-      }
-
-      alert('作品更新成功！')
-      router.push('/admin/artworks')
+      alert('作品集更新成功！')
+      router.push('/admin/collections')
     } catch (error) {
       console.error('Error:', error)
       alert('更新失败：' + error.message)
@@ -219,21 +198,62 @@ export default function EditArtworkPage({ params }) {
   }
 
   const handleDelete = async () => {
-    if (!confirm('确定要删除这件作品吗？此操作不可恢复！')) return
+    if (!confirm('确定要删除这个作品集吗？\n\n注意：作品集中的作品不会被删除，只会取消关联。')) return
 
+    try {
+      await supabase
+        .from('artworks')
+        .update({ collection_id: null })
+        .eq('collection_id', collectionId)
+
+      const { error } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', collectionId)
+
+      if (error) throw error
+
+      alert('作品集已删除！')
+      router.push('/admin/collections')
+    } catch (error) {
+      console.error('Error:', error)
+      alert('删除失败：' + error.message)
+    }
+  }
+
+  const handleAddArtwork = async (artworkId) => {
     try {
       const { error } = await supabase
         .from('artworks')
-        .delete()
+        .update({ collection_id: collectionId })
         .eq('id', artworkId)
 
       if (error) throw error
 
-      alert('作品已删除！')
-      router.push('/admin/artworks')
+      await loadCollectionArtworks(collectionId, formData.artist_id)
+      setStats(prev => ({ ...prev, artworks_count: prev.artworks_count + 1 }))
     } catch (error) {
       console.error('Error:', error)
-      alert('删除失败：' + error.message)
+      alert('添加失败：' + error.message)
+    }
+  }
+
+  const handleRemoveArtwork = async (artworkId) => {
+    if (!confirm('确定要从作品集中移除这件作品吗？\n\n作品本身不会被删除。')) return
+
+    try {
+      const { error } = await supabase
+        .from('artworks')
+        .update({ collection_id: null })
+        .eq('id', artworkId)
+
+      if (error) throw error
+
+      await loadCollectionArtworks(collectionId, formData.artist_id)
+      setStats(prev => ({ ...prev, artworks_count: prev.artworks_count - 1 }))
+    } catch (error) {
+      console.error('Error:', error)
+      alert('移除失败：' + error.message)
     }
   }
 
@@ -245,14 +265,6 @@ export default function EditArtworkPage({ params }) {
     }))
   }
 
-  const toggleTag = (tagId) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId)
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
-    )
-  }
-
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -261,6 +273,10 @@ export default function EditArtworkPage({ params }) {
     )
   }
 
+  const availableArtworks = artworks.filter(
+    artwork => !collectionArtworks.find(ca => ca.id === artwork.id)
+  )
+
   return (
     <div>
       <div className="mb-8">
@@ -268,10 +284,10 @@ export default function EditArtworkPage({ params }) {
           onClick={() => router.back()}
           className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2"
         >
-          ← 返回作品列表
+          ← 返回作品集列表
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">编辑作品</h1>
-        <p className="text-gray-600 mt-1">修改作品信息</p>
+        <h1 className="text-3xl font-bold text-gray-900">编辑作品集</h1>
+        <p className="text-gray-600 mt-1">修改作品集信息</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -284,7 +300,7 @@ export default function EditArtworkPage({ params }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    作品标题 <span className="text-red-500">*</span>
+                    作品集标题（中文） <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -292,6 +308,19 @@ export default function EditArtworkPage({ params }) {
                     value={formData.title}
                     onChange={handleChange}
                     required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    作品集标题（英文）
+                  </label>
+                  <input
+                    type="text"
+                    name="title_en"
+                    value={formData.title_en}
+                    onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -319,88 +348,25 @@ export default function EditArtworkPage({ params }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    所属作品集
+                    作品集类别
                   </label>
                   <select
-                    name="collection_id"
-                    value={formData.collection_id}
+                    name="category"
+                    value={formData.category}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">不属于任何作品集</option>
-                    {collections.map(collection => (
-                      <option key={collection.id} value={collection.id}>
-                        {collection.title}
-                      </option>
-                    ))}
+                    <option value="painting">绘画</option>
+                    <option value="photo">摄影</option>
+                    <option value="sculpture">立体造型</option>
+                    <option value="calligraphy">手迹</option>
+                    <option value="vibeart">VIBEART</option>
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      作品类别
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-<option value="painting">绘画</option>
-<option value="photo">摄影</option>
-<option value="sculpture">立体造型</option>
-<option value="calligraphy">手迹</option>
-<option value="vibeart">VIBEART</option>                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      创作年份
-                    </label>
-                    <input
-                      type="number"
-                      name="year"
-                      value={formData.year}
-                      onChange={handleChange}
-                      min="1900"
-                      max={new Date().getFullYear()}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    媒介/材质
-                  </label>
-                  <input
-                    type="text"
-                    name="medium"
-                    value={formData.medium}
-                    onChange={handleChange}
-                    placeholder="如：布面油画、数码摄影等"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    尺寸
-                  </label>
-                  <input
-                    type="text"
-                    name="dimensions"
-                    value={formData.dimensions}
-                    onChange={handleChange}
-                    placeholder="如：100cm x 80cm"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    作品描述
+                    作品集描述
                   </label>
                   <textarea
                     name="description"
@@ -413,9 +379,50 @@ export default function EditArtworkPage({ params }) {
               </div>
             </div>
 
-            {/* 作品图片 */}
+            {/* 主题策展 */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 作品图片</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🎐 主题策展</h2>
+              <p className="text-sm text-gray-500 mb-4">设置主题信息，与艺术阅览室的大师精选形成呼应</p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">主题英文</label>
+                    <input type="text" name="theme_en" value={formData.theme_en} onChange={handleChange}
+                      placeholder="如 Tender Armor"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">主题中文</label>
+                    <input type="text" name="theme_zh" value={formData.theme_zh} onChange={handleChange}
+                      placeholder="如 柔软的铠甲"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">策展引言</label>
+                  <textarea name="quote" value={formData.quote} onChange={handleChange} rows={3}
+                    placeholder="一段有温度的引言，呼应主题…"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">引言署名</label>
+                    <input type="text" name="quote_author" value={formData.quote_author} onChange={handleChange}
+                      placeholder="如 策展手记"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">排序</label>
+                    <input type="number" name="display_order" value={formData.display_order} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 封面图 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 封面图</h2>
               
               <div>
                 <input
@@ -433,18 +440,18 @@ export default function EditArtworkPage({ params }) {
                 >
                   <div className="text-4xl mb-2">📤</div>
                   <div className="text-base font-medium text-gray-900">
-                    点击更换作品图片
+                    点击更换封面图
                   </div>
                 </button>
 
                 {imagePreview && (
                   <div className="mt-6">
-                    <p className="text-sm font-medium text-gray-700 mb-3">当前图片：</p>
+                    <p className="text-sm font-medium text-gray-700 mb-3">当前封面：</p>
                     <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                       <img
                         src={imagePreview}
                         alt="预览"
-                        className="w-full h-auto object-contain"
+                        className="w-full h-64 object-cover"
                       />
                     </div>
                   </div>
@@ -452,27 +459,64 @@ export default function EditArtworkPage({ params }) {
               </div>
             </div>
 
-            {/* 标签 */}
+            {/* 作品集中的作品 */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">🏷️ 标签</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                🎨 作品集中的作品 ({stats.artworks_count})
+              </h2>
               
-              <div className="flex flex-wrap gap-2">
-                {tags.map(tag => (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                      selectedTags.includes(tag.id)
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
+              {collectionArtworks.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {collectionArtworks.map(artwork => (
+                    <div key={artwork.id} className="p-3 border-2 border-gray-200 rounded-lg">
+                      <div className="flex gap-3">
+                        <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                          {artwork.image_url ? (
+                            <img src={artwork.image_url} alt={artwork.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">🎨</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{artwork.title}</h3>
+                          <button type="button" onClick={() => handleRemoveArtwork(artwork.id)}
+                            className="text-xs text-red-600 hover:text-red-700 mt-2">移除</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">作品集中还没有作品，从下方添加作品</p>
+              )}
             </div>
+
+            {/* 可添加的作品 */}
+            {availableArtworks.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">➕ 添加作品到作品集</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {availableArtworks.map(artwork => (
+                    <div key={artwork.id} className="p-3 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                      <div className="flex gap-3">
+                        <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                          {artwork.image_url ? (
+                            <img src={artwork.image_url} alt={artwork.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">🎨</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{artwork.title}</h3>
+                          <button type="button" onClick={() => handleAddArtwork(artwork.id)}
+                            className="text-xs text-blue-600 hover:text-blue-700 mt-2">+ 添加</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 右侧：设置 */}
@@ -482,15 +526,9 @@ export default function EditArtworkPage({ params }) {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    发布状态
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
+                  <select name="status" value={formData.status} onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="draft">草稿</option>
                     <option value="published">已发布</option>
                     <option value="archived">已归档</option>
@@ -498,28 +536,19 @@ export default function EditArtworkPage({ params }) {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
+                  <button type="submit" disabled={saving}
+                    className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
                     {saving ? '保存中...' : '💾 保存修改'}
                   </button>
                   
-                  <button
-                    type="button"
-                    onClick={() => router.back()}
-                    className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                  >
+                  <button type="button" onClick={() => router.back()}
+                    className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
                     取消
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    className="w-full mt-2 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors"
-                  >
-                    🗑️ 删除作品
+                  <button type="button" onClick={handleDelete}
+                    className="w-full mt-2 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors">
+                    🗑️ 删除作品集
                   </button>
                 </div>
               </div>
