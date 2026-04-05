@@ -32,11 +32,15 @@ export default function GalleryDetailPage() {
   const [showRikeMagazine, setShowRikeMagazine] = useState(false)
   const [workImages, setWorkImages] = useState([])
 
-  const [fengshangComments, setFengshangComments] = useState([])
+  // ── 风赏状态 ──
+  const [curatorComments, setCuratorComments] = useState([])
+  const [otherOpenAnswers, setOtherOpenAnswers] = useState([])
+  const [totalOpenAnswerCount, setTotalOpenAnswerCount] = useState(0)
+  const [allOpenAnswers, setAllOpenAnswers] = useState([])
+  const [fengshangUnlocked, setFengshangUnlocked] = useState(false)
   const [userComment, setUserComment] = useState('')
   const [userRating, setUserRating] = useState(5)
-  const [fengshangSeconds, setFengshangSeconds] = useState(0)
-  const fengshangTimer = useRef(null)
+  const [userAlreadyCommented, setUserAlreadyCommented] = useState(false)
 
   const [tab, setTab] = useState('puzzle')
   const [showPointsBanner, setShowPointsBanner] = useState(false)
@@ -55,7 +59,6 @@ export default function GalleryDetailPage() {
     loadData()
     return () => {
       if (rikeTimer.current) clearInterval(rikeTimer.current)
-      if (fengshangTimer.current) clearInterval(fengshangTimer.current)
     }
   }, [id])
 
@@ -116,13 +119,30 @@ export default function GalleryDetailPage() {
         .order('display_order')
       setWorkImages(workImagesData || [])
 
-      const { data: commentsData } = await supabase
+      // ── 风赏：策展短评 ──
+      const { data: curatorData } = await supabase
         .from('gallery_comments')
         .select('*')
         .eq('work_id', w.id)
-        .order('is_featured', { ascending: false })
+        .eq('comment_type', 'curator')
         .order('display_order', { ascending: true })
-      if (commentsData) setFengshangComments(commentsData)
+      setCuratorComments(curatorData || [])
+
+      // ── 风赏：其他用户的开放题回答 ──
+      if (w.puzzle_article_id) {
+        const { data: openData, count: openCount } = await supabase
+          .from('user_answers')
+          .select('id, open_text, created_at, user_id, users:user_id(username)', { count: 'exact' })
+          .eq('article_id', w.puzzle_article_id)
+          .eq('question_type', 'open')
+          .not('open_text', 'is', null)
+          .order('created_at', { ascending: false })
+
+        setTotalOpenAnswerCount(openCount || 0)
+        setAllOpenAnswers(openData || [])
+        // 未解锁时只展示前 3 条
+        setOtherOpenAnswers((openData || []).slice(0, 3))
+      }
 
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
@@ -142,7 +162,6 @@ export default function GalleryDetailPage() {
           if (prog) {
             setProgress(prog)
             setRikeSeconds(prog.rike_read_seconds || 0)
-            setFengshangSeconds(prog.fengshang_read_seconds || 0)
             if (prog.points_settled) {
               setTab('rike')
             } else {
@@ -167,6 +186,24 @@ export default function GalleryDetailPage() {
                 setUserAnswers(map)
               }
             }
+            // 风赏已完成 → 解锁全部
+            if (prog.fengshang_completed) {
+              setFengshangUnlocked(true)
+            }
+          }
+
+          // 检查用户是否已写过短评
+          const { data: existingComment } = await supabase
+            .from('gallery_comments')
+            .select('id')
+            .eq('work_id', w.id)
+            .eq('user_id', user.id)
+            .eq('comment_type', 'user')
+            .limit(1)
+            .maybeSingle()
+          if (existingComment) {
+            setUserAlreadyCommented(true)
+            setFengshangUnlocked(true)
           }
         }
       }
@@ -256,7 +293,6 @@ export default function GalleryDetailPage() {
     const qType = question.question_type_v2 || 'knowledge'
 
     if (qType === 'perception') {
-      // 感知型：无对错，返回该选项的回应文字，得 10 分
       const responses = typeof question.option_responses === 'string'
         ? JSON.parse(question.option_responses)
         : (question.option_responses || {})
@@ -278,12 +314,10 @@ export default function GalleryDetailPage() {
       if (responseText) {
         setPerceptionResponses(prev => ({ ...prev, [question.id]: responseText }))
       }
-      // ★ 独立得分：感知题 +10
       await awardInspirationPoints('quiz', 10, `感知题「${question.question_text.slice(0, 12)}…」`)
       return
     }
 
-    // knowledge 型：答对得该题分值，答错得 5 分（鼓励分）
     const correct = question.options.find(o => o.is_correct)
     const isCorrect = correct && correct.label === selectedLabel
     const earnedPoints = isCorrect ? (question.points || 20) : 5
@@ -299,7 +333,6 @@ export default function GalleryDetailPage() {
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: isCorrect } }))
-    // ★ 独立得分：知识题按题目分值
     await awardInspirationPoints('quiz', earnedPoints,
       isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
   }
@@ -328,7 +361,6 @@ export default function GalleryDetailPage() {
       ...prev,
       [question.id]: { selected: null, is_correct: null, open_text: text },
     }))
-    // ★ 独立得分：开放题 +10
     await awardInspirationPoints('quiz', 10, `开放题「${question.question_text.slice(0, 12)}…」`)
   }
 
@@ -361,16 +393,12 @@ export default function GalleryDetailPage() {
       })
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected, is_correct: isCorrect } }))
-    // ★ 独立得分：多选题按题目分值
     await awardInspirationPoints('quiz', earnedPoints,
       isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
   }
 
-  // ★ completePuzzle：不再批量发分，只保存进度
   async function completePuzzle() {
     const cc = Object.values(userAnswers).filter(a => a.is_correct).length
-
-    // 全部知识题答对才记 perfect
     const knowledgeQs = questions.filter(q => (q.question_type_v2 || 'knowledge') === 'knowledge')
     const knowledgeCorrect = knowledgeQs.filter(q => userAnswers[q.id]?.is_correct).length
     if (knowledgeQs.length > 0 && knowledgeCorrect === knowledgeQs.length) {
@@ -378,8 +406,6 @@ export default function GalleryDetailPage() {
         perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1,
       }).eq('id', currentUser.id)
     }
-
-    // 每题已独立得分，这里只保存进度
     const newProg = await saveProgress({
       puzzle_completed: true,
       puzzle_correct_count: cc,
@@ -407,14 +433,12 @@ export default function GalleryDetailPage() {
     if (newProg) checkAndSettlePoints(newProg)
   }
 
-  // ── 风赏 ────────────────────────────────────────────────────
-  function startFengshangTimer() {
-    if (fengshangTimer.current) return
-    fengshangTimer.current = setInterval(() => setFengshangSeconds(prev => prev + 1), 1000)
-  }
-
-  async function submitUserComment() {
+  // ── 风赏：写短评 = 自动完成 ──────────────────────────────────
+  async function submitFengshangComment() {
     if (!userComment.trim() || !currentUser) return
+    if (userComment.trim().length < 10) { alert('请至少写 10 个字'); return }
+    if (userComment.trim().length > 200) { alert('最多 200 个字'); return }
+
     try {
       const { data: nc, error } = await supabase
         .from('gallery_comments')
@@ -429,31 +453,26 @@ export default function GalleryDetailPage() {
         .select()
         .single()
       if (error) throw error
-      setFengshangComments(prev => [...prev, nc])
-      setUserComment('')
-    } catch (err) { console.error(err) }
-  }
 
-  // ★ completeFengshang：必须写过短评才能完成
-  async function completeFengshang() {
-    if (!fengshangComments.some(c => c.user_id === currentUser.id)) {
-      alert('请先写下你的短评，再完成风赏')
-      return
-    }
-    if (fengshangTimer.current) { clearInterval(fengshangTimer.current); fengshangTimer.current = null }
-    await awardInspirationPoints('fengshang_complete', 20, `完成风赏「${work.title}」`)
-    const newProg = await saveProgress({
-      fengshang_completed: true,
-      fengshang_read_seconds: fengshangSeconds,
-      fengshang_completed_at: new Date().toISOString(),
-      current_step: 'fengshang',
-    })
-    if (newProg) checkAndSettlePoints(newProg)
+      setUserComment('')
+      setUserAlreadyCommented(true)
+      setFengshangUnlocked(true)
+
+      // 自动完成风赏
+      if (!progress?.fengshang_completed) {
+        await awardInspirationPoints('fengshang_complete', 20, `完成风赏「${work.title}」`)
+        const newProg = await saveProgress({
+          fengshang_completed: true,
+          fengshang_completed_at: new Date().toISOString(),
+          current_step: 'fengshang',
+        })
+        if (newProg) checkAndSettlePoints(newProg)
+      }
+    } catch (err) { console.error(err) }
   }
 
   useEffect(() => {
     if (tab === 'rike' && currentUser && !progress?.rike_completed) startRikeTimer()
-    if (tab === 'fengshang' && currentUser && !progress?.fengshang_completed) startFengshangTimer()
   }, [tab])
 
   // ── 渲染 ────────────────────────────────────────────────────
@@ -473,9 +492,9 @@ export default function GalleryDetailPage() {
   const currentQ = questions[puzzlePage]
 
   const puzzlePoints = questions.reduce((sum, q) => {
-  const t = q.question_type_v2 || 'knowledge'
-  return sum + (t === 'perception' || t === 'open' ? 10 : (q.points || 20))
-}, 0)
+    const t = q.question_type_v2 || 'knowledge'
+    return sum + (t === 'perception' || t === 'open' ? 10 : (q.points || 20))
+  }, 0)
   const totalPossible = puzzlePoints + 20 + 20 + 15
 
   const tabs = [
@@ -483,6 +502,12 @@ export default function GalleryDetailPage() {
     { key: 'rike', icon: '📖', label: '日课', done: rikeDone },
     { key: 'fengshang', icon: '🎐', label: '风赏', done: fengshangDone },
   ]
+
+  // 风赏：过滤掉当前用户自己的开放题回答
+  const visibleOpenAnswers = fengshangUnlocked
+    ? allOpenAnswers.filter(a => a.user_id !== currentUser?.id)
+    : otherOpenAnswers.filter(a => a.user_id !== currentUser?.id)
+  const hiddenCount = totalOpenAnswerCount - visibleOpenAnswers.length - (currentUser ? 1 : 0)
 
   function LeftPanel({ children }) {
     return (
@@ -596,7 +621,7 @@ export default function GalleryDetailPage() {
                 <span>{t.done ? '✓' : t.icon}</span>
                 <span>{t.label}</span>
                 <span className="text-xs opacity-60">
-                  {t.key === 'puzzle' ? `+${puzzlePoints}` : '+20'}
+                  {t.key === 'puzzle' ? (puzzlePoints > 0 ? `+${puzzlePoints}` : '') : '+20'}
                 </span>
               </button>
             ))}
@@ -640,7 +665,7 @@ export default function GalleryDetailPage() {
                 <div className="text-center bg-white rounded-2xl p-10 shadow-sm">
                   <div className="text-5xl mb-4">🔒</div>
                   <h2 className="text-xl font-bold text-gray-900 mb-2">登录后开始答题</h2>
-                  <p className="text-gray-500 mb-6">完成三步阅览可获得 ✨ {totalPossible} 灵感值</p>
+                  <p className="text-gray-500 mb-6">完成三步阅览可获得灵感值</p>
                   <Link href={`/login?redirect=/gallery/${id}`}
                     className="inline-block px-8 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800">
                     登录 / 注册
@@ -907,75 +932,83 @@ export default function GalleryDetailPage() {
 
         {/* ══ 风赏 — 未登录 ══ */}
         {tab === 'fengshang' && !currentUser && (
-          <LoginLock title="登录后查看风赏" desc="阅读名家短评，留下你的看法，获得 ✨20 灵感值" />
+          <LoginLock title="登录后查看风赏" desc="阅读观众感受，留下你的看法，获得 ✨20 灵感值" />
         )}
 
-        {/* ══ 风赏 — 已登录 ══ */}
+        {/* ══ 风赏 — 已登录（全新设计） ══ */}
         {tab === 'fengshang' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
-            <LeftPanel>
-              <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
-                <span className="text-sm text-gray-500">已阅读</span>
-                <span className={`text-xl font-bold ${fengshangSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>
-                  {fengshangSeconds}
-                </span>
-                <span className="text-sm text-gray-500">秒</span>
-                {fengshangSeconds < 15 && (
-                  <span className="text-xs text-gray-400">（还需 {15 - fengshangSeconds} 秒）</span>
-                )}
-                {fengshangSeconds >= 15 && <span className="text-green-600">✓</span>}
-              </div>
-            </LeftPanel>
+            <LeftPanel />
 
             <div>
+              {/* 标题区 */}
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-3xl">🎐</span>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    风赏 · 评论鉴赏 <span className="text-sm font-normal text-amber-600">+20✨</span>
+                    风赏 · 观众的声音 <span className="text-sm font-normal text-amber-600">+20✨</span>
                   </h2>
                   <p className="text-sm text-gray-500">
-                    {fengshangDone ? '已完成鉴赏' : '阅读名家短评，写下你的看法后可标记完成'}
+                    {fengshangDone ? '已完成鉴赏' : '留下你的感受，解锁所有观众的声音'}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4 mb-6">
-                {fengshangComments.length > 0 ? fengshangComments.map(c => (
-                  <div key={c.id} className="bg-white rounded-2xl p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                        style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
-                        {c.author_name?.[0] || '匿'}
-                      </div>
-                      <span className="font-medium text-sm" style={{ color: '#111827' }}>{c.author_name}</span>
-                      {c.author_title && (
-                        <span className="text-xs" style={{ color: '#9CA3AF' }}>{c.author_title}</span>
-                      )}
-                      {c.is_featured && (
-                        <span className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>精选</span>
-                      )}
-                      {c.rating && (
-                        <div className="ml-auto flex">
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <span key={s} style={{ color: s <= c.rating ? '#F59E0B' : '#E5E7EB', fontSize: '12px' }}>★</span>
-                          ))}
-                        </div>
-                      )}
+              {/* 策展短评 */}
+              {curatorComments.length > 0 && (
+                <div className="space-y-3 mb-6">
+                  {curatorComments.map(c => (
+                    <div key={c.id} className="px-5 py-4 rounded-xl"
+                      style={{ backgroundColor: '#FAFAF9', borderLeft: '3px solid #D1D5DB' }}>
+                      <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.8', fontStyle: 'italic' }}>
+                        "{c.content}"
+                      </p>
+                      <p className="mt-2 text-xs" style={{ color: '#9CA3AF' }}>
+                        ——{c.author_name}{c.author_title ? ` · ${c.author_title}` : ''}
+                      </p>
                     </div>
-                    <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.7' }}>{c.content}</p>
-                  </div>
-                )) : (
-                  <div className="bg-white rounded-2xl p-8 shadow-sm text-center text-gray-400">暂无短评</div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
 
-              {currentUser && !fengshangComments.some(c => c.user_id === currentUser.id) && (
+              {/* 其他观众的开放题回答 */}
+              {visibleOpenAnswers.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+                    <span className="text-xs px-3" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>观众感受</span>
+                    <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+                  </div>
+                  {visibleOpenAnswers.map(a => (
+                    <div key={a.id} className="px-5 py-4 rounded-xl bg-white shadow-sm">
+                      <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.7' }}>
+                        "{a.open_text}"
+                      </p>
+                      <p className="mt-2 text-xs" style={{ color: '#D1D5DB' }}>
+                        ——{a.users?.username ? a.users.username.slice(0, 1) + '**' : '一位观众'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 未解锁提示 */}
+              {!fengshangUnlocked && hiddenCount > 0 && (
+                <div className="mb-6 px-5 py-4 rounded-xl text-center"
+                  style={{ border: '1.5px dashed #D1D5DB', backgroundColor: '#FAFAF9' }}>
+                  <p className="text-sm" style={{ color: '#6B7280' }}>
+                    还有 <span style={{ color: '#111827', fontWeight: 600 }}>{hiddenCount}</span> 位观众留下了感受
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>写下你的，即可查看全部</p>
+                </div>
+              )}
+
+              {/* 输入区 */}
+              {!userAlreadyCommented && (
                 <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="font-medium text-sm" style={{ color: '#111827' }}>写下你的看法</span>
-                    <div className="flex items-center gap-1 ml-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium text-sm" style={{ color: '#111827' }}>你眼中的这幅画……</span>
+                    <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map(s => (
                         <button key={s} onClick={() => setUserRating(s)}
                           style={{ color: s <= userRating ? '#F59E0B' : '#D1D5DB', fontSize: '18px' }}>★</button>
@@ -984,26 +1017,32 @@ export default function GalleryDetailPage() {
                   </div>
                   <textarea value={userComment} onChange={e => setUserComment(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 text-sm resize-none"
-                    rows={3} placeholder="你对这件作品有什么看法？" />
-                  <div className="flex justify-end mt-2">
-                    <button onClick={submitUserComment} disabled={!userComment.trim()}
+                    rows={3} placeholder="一句话就够" maxLength={200} />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs" style={{ color: userComment.trim().length >= 10 ? '#10B981' : '#D1D5DB' }}>
+                      {userComment.trim().length}/10-200 字
+                    </span>
+                    <button onClick={submitFengshangComment}
+                      disabled={userComment.trim().length < 10}
                       className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
                       style={{ backgroundColor: '#111827' }}>
-                      发表短评
+                      留下感受 {!fengshangDone && '+20✨'}
                     </button>
                   </div>
                 </div>
               )}
 
-              {!fengshangDone && (
-                <button onClick={completeFengshang} disabled={fengshangSeconds < 15}
-                  className={`px-8 py-3 rounded-xl font-medium text-sm ${fengshangSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                  {fengshangSeconds >= 15 ? '✓ 完成风赏 (+20✨)' : `继续浏览 (${15 - fengshangSeconds}s)`}
-                </button>
+              {/* 已完成提示 */}
+              {userAlreadyCommented && fengshangDone && (
+                <div className="px-4 py-3 rounded-xl text-sm mb-6"
+                  style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
+                  ✓ 已完成风赏，感谢你的分享
+                </div>
               )}
 
+              {/* 未完成其他步骤的提示 */}
               {fengshangDone && !puzzleDone && (
-                <div className="mt-4 p-4 rounded-xl"
+                <div className="p-4 rounded-xl"
                   style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
                   <p className="text-sm" style={{ color: '#92400E' }}>
                     🧩 还没完成谜题，完成全部三步可获得额外 ✨15 灵感值
@@ -1015,7 +1054,7 @@ export default function GalleryDetailPage() {
                 </div>
               )}
               {fengshangDone && puzzleDone && !rikeDone && (
-                <div className="mt-4 p-4 rounded-xl"
+                <div className="p-4 rounded-xl"
                   style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
                   <p className="text-sm" style={{ color: '#92400E' }}>
                     📖 还没完成日课，完成全部三步可获得额外 ✨15 灵感值
@@ -1076,8 +1115,6 @@ function QuestionCard({
     open:       { label: '开放题', bg: '#FFF7ED', color: '#C2410C' },
   }
   const tag = tagMap[qType] || tagMap.single
-
-  // 显示该题的分值
   const pointsDisplay = isPerception || isOpen ? '+10✨' : `+${question.points || 20}✨`
 
   return (
@@ -1102,7 +1139,6 @@ function QuestionCard({
         </p>
       )}
 
-      {/* ── 开放题 ── */}
       {isOpen && (
         <div>
           {!answer ? (
@@ -1110,16 +1146,11 @@ function QuestionCard({
               <p className="text-xs mb-3 italic" style={{ color: '#6B7280' }}>
                 用自己的语言回答，至少 5 个字，平行体会记住这句话
               </p>
-              <textarea
-                value={openText}
-                onChange={e => onOpenTextChange(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 resize-none"
-                placeholder="写下你的感受…"
-              />
+              <textarea value={openText} onChange={e => onOpenTextChange(e.target.value)}
+                rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 resize-none"
+                placeholder="写下你的感受…" />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs"
-                  style={{ color: openText.trim().length >= 5 ? '#10B981' : '#D1D5DB' }}>
+                <span className="text-xs" style={{ color: openText.trim().length >= 5 ? '#10B981' : '#D1D5DB' }}>
                   {openText.trim().length} / 5 字以上
                 </span>
                 <button onClick={onSubmitOpen} disabled={openText.trim().length < 5}
@@ -1135,15 +1166,12 @@ function QuestionCard({
                 style={{ backgroundColor: '#FFF7ED', borderColor: '#F97316', color: '#374151' }}>
                 {answer.open_text}
               </div>
-              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
-                ✓ 已记录 +10✨
-              </p>
+              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>✓ 已记录 +10✨</p>
             </div>
           )}
         </div>
       )}
 
-      {/* ── 判断题 ── */}
       {qType === 'truefalse' && (
         <div className="grid grid-cols-2 gap-4">
           {question.options?.map(opt => {
@@ -1166,16 +1194,13 @@ function QuestionCard({
         </div>
       )}
 
-      {/* ── 单选题 / 感知题 ── */}
       {(qType === 'single' || isPerception) && (
         <div className="space-y-2.5">
           {question.options?.map(opt => {
             let cls = 'border-gray-200 hover:border-gray-400 cursor-pointer'
             if (answer) {
               if (isPerception) {
-                cls = opt.label === answer.selected
-                  ? 'border-green-400 bg-green-50'
-                  : 'border-gray-200 opacity-40'
+                cls = opt.label === answer.selected ? 'border-green-400 bg-green-50' : 'border-gray-200 opacity-40'
               } else {
                 if (opt.label === answer.selected && answer.is_correct) cls = 'border-green-500 bg-green-50'
                 else if (opt.label === answer.selected && !answer.is_correct) cls = 'border-red-400 bg-red-50'
@@ -1215,13 +1240,10 @@ function QuestionCard({
         </div>
       )}
 
-      {/* ── 多选题 ── */}
       {qType === 'multiple' && (
         <div>
           {!answer && (
-            <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>
-              可选择多个答案，选完后点击「确认」
-            </p>
+            <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>可选择多个答案，选完后点击「确认」</p>
           )}
           <div className="space-y-2.5">
             {question.options?.map(opt => {
@@ -1268,16 +1290,10 @@ function QuestionCard({
         </div>
       )}
 
-      {/* ── 连线题 ── */}
       {qType === 'matching' && (
-        <MatchingQuestion
-          question={question}
-          answer={answer}
-          onSubmit={(result) => onSingleAnswer(result)}
-        />
+        <MatchingQuestion question={question} answer={answer} onSubmit={(result) => onSingleAnswer(result)} />
       )}
 
-      {/* 感知题：选完后显示回应文字 */}
       {isPerception && answer && perceptionResponse && (
         <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed italic"
           style={{ backgroundColor: '#F0FDF4', borderColor: '#4ADE80', color: '#166534' }}>
@@ -1291,7 +1307,6 @@ function QuestionCard({
         </div>
       )}
 
-      {/* 知识题：答对解锁画家语录 */}
       {!isPerception && !isOpen && answer?.is_correct && question.unlock_quote && (
         <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed"
           style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B', color: '#78350F' }}>
@@ -1304,7 +1319,6 @@ function QuestionCard({
         </div>
       )}
 
-      {/* 知识题：解析 */}
       {!isPerception && !isOpen && answer && question.explanation && (
         <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
           💡 {question.explanation}
