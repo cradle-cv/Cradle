@@ -227,7 +227,7 @@ export default async function DialogueDetailPage({ params }) {
                   </div>
 
                   {/* 该艺术家的作品 */}
-                  <div className={`grid gap-6 ${artistArtworks.length === 1 ? 'md:grid-cols-1 max-w-lg' : 'md:grid-cols-2'}`}>
+                  <div className="grid md:grid-cols-2 gap-6">
                     {artistArtworks.map((aw, wi) => (
                       <div key={aw.id} className="group">
                         <div className="overflow-hidden rounded-sm mb-3" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
