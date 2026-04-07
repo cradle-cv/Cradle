@@ -22,7 +22,7 @@ export default function DialogueCurationPage() {
           title: '新对话展（草稿）',
           exhibition_type: 'dialogue',
           type: 'daily',
-          status: 'draft',
+          status: 'upcoming',
         })
         .select()
         .single()
