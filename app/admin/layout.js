@@ -84,8 +84,11 @@ function AdminLayoutContent({ children }) {
 
                   {/* ═══ 每日一展 ═══ */}
                   <SectionLabel icon="🖼️" label="每日一展" sub="旅行者 · 经典与当代的对话" />
-                  <NavLink href="/admin/exhibitions" icon="🎪" active={pathname.startsWith('/admin/exhibitions')}>
+                  <NavLink href="/admin/exhibitions" icon="🎪" active={pathname.startsWith('/admin/exhibitions') && !pathname.startsWith('/admin/exhibitions/dialogue')}>
                     展览管理
+                  </NavLink>
+                  <NavLink href="/admin/exhibitions/dialogue" icon="🎐" active={pathname.startsWith('/admin/exhibitions/dialogue')}>
+                    本期对话排期
                   </NavLink>
 
                   {/* ═══ 杂志社 ═══ */}
