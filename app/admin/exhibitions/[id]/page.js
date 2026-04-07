@@ -36,7 +36,7 @@ export default function EditExhibitionPage({ params }) {
     start_date: '',
     end_date: '',
     location: '',
-    status: 'draft',
+    status: 'upcoming',
     exhibition_type: 'special',
     theme_en: '',
     theme_zh: '',
