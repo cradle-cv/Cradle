@@ -258,13 +258,27 @@ export default function DialogueCurationPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 封面图</h2>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center">
-                <div className="text-4xl mb-2">📤</div>
-                <div className="text-base font-medium text-gray-900">{imagePreview ? '更换封面图' : '上传封面图'}</div>
-              </button>
+              <div className="flex gap-3 mb-4">
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center text-sm">
+                  📤 手动上传
+                </button>
+                <button type="button" onClick={() => {
+                  const firstAw = selectedArtworks.length > 0 ? artworks.find(a => a.id === selectedArtworks[0]) : null
+                  if (firstAw?.image_url) {
+                    setFormData(prev => ({ ...prev, cover_image: firstAw.image_url }))
+                    setImagePreview(firstAw.image_url)
+                  } else {
+                    alert('请先选择作品，且第一件作品需要有图片')
+                  }
+                }}
+                  disabled={selectedArtworks.length === 0}
+                  className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-colors text-center text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                  🎨 使用第一件作品封面
+                </button>
+              </div>
               {imagePreview && (
-                <div className="mt-4 rounded-lg overflow-hidden border border-gray-200">
+                <div className="rounded-lg overflow-hidden border border-gray-200">
                   <img src={imagePreview} alt="封面预览" className="w-full h-48 object-cover" />
                 </div>
               )}
