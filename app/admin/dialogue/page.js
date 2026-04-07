@@ -14,6 +14,27 @@ export default function DialogueCurationPage() {
     loadData()
   }, [])
 
+  async function createNewDialogue() {
+    try {
+      const { data, error } = await supabase
+        .from('exhibitions')
+        .insert({
+          title: '新对话展（草稿）',
+          exhibition_type: 'dialogue',
+          type: 'daily',
+          status: 'draft',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      window.location.href = `/admin/exhibitions/${data.id}`
+    } catch (err) {
+      console.error(err)
+      alert('创建失败: ' + err.message)
+    }
+  }
+
   async function loadData() {
     try {
       // 加载所有对话展
@@ -101,10 +122,10 @@ export default function DialogueCurationPage() {
           <h1 className="text-3xl font-bold text-gray-900">本期对话排期</h1>
           <p className="text-gray-600 mt-1">管理"当代回响"对话展，让经典与当代在同一主题下对话</p>
         </div>
-        <Link href="/admin/exhibitions/new"
+        <button onClick={createNewDialogue}
           className="px-6 py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
           + 新建对话展
-        </Link>
+        </button>
       </div>
 
       {/* 统计 */}
