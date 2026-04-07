@@ -22,7 +22,7 @@ export default function DialogueCurationPage() {
           title: '新对话展（草稿）',
           exhibition_type: 'dialogue',
           type: 'daily',
-          status: 'upcoming',
+          status: 'draft',
         })
         .select()
         .single()
@@ -94,8 +94,9 @@ export default function DialogueCurationPage() {
   const getStatusBadge = (status) => {
     const map = {
       draft: { text: '草稿', bg: '#F3F4F6', color: '#6B7280' },
+      upcoming: { text: '即将开始', bg: '#EFF6FF', color: '#2563EB' },
       active: { text: '进行中', bg: '#ECFDF5', color: '#059669' },
-      archived: { text: '已结束', bg: '#FEF3C7', color: '#B45309' },
+      ended: { text: '已结束', bg: '#FEF3C7', color: '#B45309' },
     }
     const s = map[status] || map.draft
     return <span className="px-2.5 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: s.bg, color: s.color }}>{s.text}</span>
@@ -109,10 +110,11 @@ export default function DialogueCurationPage() {
     )
   }
 
-  // 分组：进行中 / 草稿 / 已结束
+  // 分组：进行中 / 即将开始 / 草稿 / 已结束
   const active = dialogues.filter(d => d.status === 'active')
+  const upcoming = dialogues.filter(d => d.status === 'upcoming')
   const drafts = dialogues.filter(d => d.status === 'draft')
-  const archived = dialogues.filter(d => d.status === 'archived')
+  const ended = dialogues.filter(d => d.status === 'ended')
 
   return (
     <div>
@@ -166,6 +168,21 @@ export default function DialogueCurationPage() {
         </div>
       )}
 
+      {/* 即将开始 */}
+      {upcoming.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
+            <h2 className="text-lg font-bold text-gray-900">即将开始 ({upcoming.length})</h2>
+          </div>
+          <div className="space-y-3">
+            {upcoming.map(d => (
+              <DialogueCard key={d.id} dialogue={d} getCurationLabel={getCurationLabel} getStatusBadge={getStatusBadge} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 草稿 */}
       {drafts.length > 0 && (
         <div className="mb-8">
@@ -182,14 +199,14 @@ export default function DialogueCurationPage() {
       )}
 
       {/* 已结束 */}
-      {archived.length > 0 && (
+      {ended.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#9CA3AF' }}></div>
-            <h2 className="text-lg font-bold text-gray-900">往期对话 ({archived.length})</h2>
+            <h2 className="text-lg font-bold text-gray-900">往期对话 ({ended.length})</h2>
           </div>
           <div className="space-y-3">
-            {archived.map(d => (
+            {ended.map(d => (
               <DialogueCard key={d.id} dialogue={d} getCurationLabel={getCurationLabel} getStatusBadge={getStatusBadge} />
             ))}
           </div>
