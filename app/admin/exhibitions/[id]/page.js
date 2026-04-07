@@ -597,49 +597,8 @@ export default function EditExhibitionPage({ params }) {
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
               
               <div className="space-y-4">
-                {/* 展览性质 */}
-                {ownerType === 'platform' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">展览性质</label>
-                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        formData.exhibition_type === 'special' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}>
-                        <input type="radio" name="exhibition_type" value="special"
-                          checked={formData.exhibition_type === 'special'}
-                          onChange={handleChange} className="hidden" />
-                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                          formData.exhibition_type === 'special' ? 'border-blue-500' : 'border-gray-300'
-                        }`}>
-                          {formData.exhibition_type === 'special' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">🖼️ 特别展览</p>
-                          <p className="text-xs text-gray-500">线下合作展览、独立策划展等</p>
-                        </div>
-                      </label>
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        formData.exhibition_type === 'dialogue' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}>
-                        <input type="radio" name="exhibition_type" value="dialogue"
-                          checked={formData.exhibition_type === 'dialogue'}
-                          onChange={handleChange} className="hidden" />
-                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                          formData.exhibition_type === 'dialogue' ? 'border-amber-500' : 'border-gray-300'
-                        }`}>
-                          {formData.exhibition_type === 'dialogue' && <div className="w-2 h-2 rounded-full bg-amber-500" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">🎐 当代回响 · 对话展</p>
-                          <p className="text-xs text-gray-500">多位当代艺术家呼应阅览室主题</p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
                 {/* 展览类型 */}
-                {ownerType === 'platform' && (
+                {ownerType === 'platform' && !isDialogue && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">展览类型</label>
                     <select name="type" value={formData.type} onChange={handleChange}
@@ -647,6 +606,13 @@ export default function EditExhibitionPage({ params }) {
                       <option value="regular">常规展览</option>
                       <option value="daily">每日一展</option>
                     </select>
+                  </div>
+                )}
+
+                {ownerType === 'platform' && isDialogue && (
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#FEF3C7' }}>
+                    <p className="text-sm font-medium" style={{ color: '#B45309' }}>🎐 当代回响 · 对话展</p>
+                    <p className="text-xs mt-1" style={{ color: '#92400E' }}>此展览由对话排期创建，主题字段在左侧编辑</p>
                   </div>
                 )}
 
