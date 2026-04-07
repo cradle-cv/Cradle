@@ -621,9 +621,10 @@ export default function EditExhibitionPage({ params }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
                   <select name="status" value={formData.status} onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="draft">草稿</option>
-                    <option value="active">进行中</option>
-                    <option value="archived">已结束</option>
+<option value="upcoming">即将开始</option>
+<option value="active">进行中</option>
+<option value="ended">已结束</option>
+
                   </select>
                 </div>
 
