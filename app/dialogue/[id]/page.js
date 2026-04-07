@@ -40,14 +40,6 @@ async function getData(id) {
   })
   const artists = [...artistMap.values()]
 
-  // 按艺术家分组作品
-  const artworksByArtist = {}
-  artworks.forEach(aw => {
-    const artistId = aw.artist_id || 'unknown'
-    if (!artworksByArtist[artistId]) artworksByArtist[artistId] = []
-    artworksByArtist[artistId].push(aw)
-  })
-
   // 这些艺术家的其他作品（不在本期对话中的）
   const artistIds = [...artistMap.keys()]
   let otherArtworks = []
@@ -82,7 +74,7 @@ async function getData(id) {
     .limit(1)
     .maybeSingle()
 
-  return { dialogue, artworks, artists, artworksByArtist, otherArtworks, prevDialogue, nextDialogue }
+  return { dialogue, artworks, artists, otherArtworks, prevDialogue, nextDialogue }
 }
 
 export default async function DialogueDetailPage({ params }) {
@@ -90,7 +82,7 @@ export default async function DialogueDetailPage({ params }) {
   const data = await getData(id)
   if (!data) notFound()
 
-  const { dialogue, artworks, artists, artworksByArtist, otherArtworks, prevDialogue, nextDialogue } = data
+  const { dialogue, artworks, artists, otherArtworks, prevDialogue, nextDialogue } = data
   const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
 
   return (
@@ -198,69 +190,57 @@ export default async function DialogueDetailPage({ params }) {
           </div>
         )}
 
-        {/* 作品展示：按艺术家分组 */}
-        {artists.length > 0 && (
+        {/* 作品展示：按选择顺序排列 */}
+        {artworks.length > 0 && (
           <div style={{ padding: '16px 0 40px' }}>
-            {artists.map((artist, ai) => {
-              const artistArtworks = artworksByArtist[
-                artworks.find(aw => aw.artists?.id === artist.id)?.artist_id
-              ] || []
-              if (artistArtworks.length === 0) return null
-
-              return (
-                <div key={ai} className="mb-12">
-                  {/* 艺术家标题 */}
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
-                      style={{ backgroundColor: '#F3F4F6', border: '2px solid #E5E7EB' }}>
-                      {artist.avatar_url ? (
-                        <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: '#9CA3AF' }}>👤</div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold" style={{ color: '#111827' }}>{artist.display_name}</h3>
-                      <p className="text-xs" style={{ color: '#9CA3AF' }}>{artistArtworks.length} 件参展作品</p>
-                    </div>
-                    <div style={{ flex: 1, height: '0.5px', backgroundColor: '#E5E7EB', marginLeft: '16px' }}></div>
+            <div className="grid md:grid-cols-2 gap-8">
+              {artworks.map((aw, idx) => (
+                <div key={aw.id} className="group">
+                  <div className="overflow-hidden rounded-sm mb-3" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
+                    {aw.image_url ? (
+                      <img src={aw.image_url} alt={aw.title} loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: '#D1D5DB' }}>🎨</div>
+                    )}
                   </div>
-
-                  {/* 该艺术家的作品 */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {artistArtworks.map((aw, wi) => (
-                      <div key={aw.id} className="group">
-                        <div className="overflow-hidden rounded-sm mb-3" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
-                          {aw.image_url ? (
-                            <img src={aw.image_url} alt={aw.title} loading="lazy"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: '#D1D5DB' }}>🎨</div>
-                          )}
-                        </div>
-                        <h4 className="text-base font-bold" style={{ color: '#111827' }}>{aw.title}</h4>
-                        <div className="flex items-center gap-2 text-sm mt-1" style={{ color: '#9CA3AF' }}>
-                          {aw.year && <span>{aw.year}</span>}
-                          {aw.medium && <span>· {aw.medium}</span>}
-                        </div>
-                        {aw.curator_note && (
-                          <div style={{ borderLeft: '2px solid #E5E7EB', paddingLeft: '12px', marginTop: '10px' }}>
-                            <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                              {aw.curator_note}
-                            </p>
+                  <div className="flex items-start gap-3">
+                    <span style={{ fontFamily: serif, fontSize: '28px', fontWeight: 300, color: '#D1D5DB', lineHeight: 1, flexShrink: 0, minWidth: '32px' }}>
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    <div className="flex-1">
+                      <h4 className="text-base font-bold" style={{ color: '#111827' }}>{aw.title}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        {aw.artists && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: '#F3F4F6' }}>
+                              {aw.artists.avatar_url ? (
+                                <img src={aw.artists.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#D1D5DB' }}>👤</div>
+                              )}
+                            </div>
+                            <span className="text-sm" style={{ color: '#6B7280' }}>{aw.artists.display_name}</span>
                           </div>
                         )}
-                        {!aw.curator_note && aw.description && (
-                          <p className="mt-2 text-sm leading-relaxed" style={{ color: '#6B7280' }}>
-                            {aw.description}
-                          </p>
-                        )}
+                        {aw.year && <span className="text-sm" style={{ color: '#9CA3AF' }}>· {aw.year}</span>}
+                        {aw.medium && <span className="text-sm" style={{ color: '#9CA3AF' }}>· {aw.medium}</span>}
                       </div>
-                    ))}
+                      {aw.curator_note && (
+                        <div style={{ borderLeft: '2px solid #E5E7EB', paddingLeft: '12px', marginTop: '10px' }}>
+                          <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
+                            {aw.curator_note}
+                          </p>
+                        </div>
+                      )}
+                      {!aw.curator_note && aw.description && (
+                        <p className="mt-2 text-sm leading-relaxed" style={{ color: '#6B7280' }}>{aw.description}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )
-            })}
+              ))}
+            </div>
           </div>
         )}
 
