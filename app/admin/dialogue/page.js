@@ -1,5 +1,3 @@
-
-
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -24,28 +22,6 @@ export default function DialogueCurationPage() {
         .select('*')
         .eq('exhibition_type', 'dialogue')
         .order('created_at', { ascending: false })
-      
-      async function createNewDialogue() {
-  try {
-    const { data, error } = await supabase
-      .from('exhibitions')
-      .insert({
-        title: '新对话展（草稿）',
-        exhibition_type: 'dialogue',
-        type: 'daily',
-        status: 'draft',
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-    // 直接跳转到编辑页
-    window.location.href = `/admin/exhibitions/${data.id}`
-  } catch (err) {
-    console.error(err)
-    alert('创建失败: ' + err.message)
-  }
-}
 
       // 加载每个对话展的参展作品和艺术家
       const dialoguesWithArtists = await Promise.all(
@@ -125,10 +101,10 @@ export default function DialogueCurationPage() {
           <h1 className="text-3xl font-bold text-gray-900">本期对话排期</h1>
           <p className="text-gray-600 mt-1">管理"当代回响"对话展，让经典与当代在同一主题下对话</p>
         </div>
-        <button onClick={createNewDialogue}
-  className="px-6 py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
-  + 新建对话展
-</button>
+        <Link href="/admin/exhibitions/new"
+          className="px-6 py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
+          + 新建对话展
+        </Link>
       </div>
 
       {/* 统计 */}
