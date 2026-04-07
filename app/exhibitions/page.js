@@ -320,6 +320,78 @@ export default async function ExhibitionsPage() {
               </div>
             </div>
 
+            {/* 今日推荐大图 */}
+            {ongoing.length > 0 && (() => {
+              const today = new Date()
+              const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
+              let hash = 0
+              for (let i = 0; i < dateString.length; i++) { hash = ((hash << 5) - hash) + dateString.charCodeAt(i); hash = hash & hash }
+              const todayExhibition = ongoing[Math.abs(hash) % ongoing.length]
+              return (
+                <div className="mb-10">
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100">
+                    <div className="grid md:grid-cols-2 gap-0">
+                      <div className="relative">
+                        <div className="absolute top-6 left-6 px-4 py-2 text-sm font-medium rounded-full z-10" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>
+                          🌟 今日推荐
+                        </div>
+                        <div className="aspect-[4/3]">
+                          {todayExhibition.cover_image ? (
+                            <img src={todayExhibition.cover_image} alt={todayExhibition.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
+                              <span className="text-6xl">🖼️</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-10 flex flex-col justify-between">
+                        <div>
+                          <h2 className="text-3xl font-bold mb-4" style={{ color: '#111827' }}>{todayExhibition.title}</h2>
+                          <div className="flex items-center gap-3 mb-6" style={{ color: '#6B7280' }}>
+                            {todayExhibition.curator_name && <span>{todayExhibition.curator_name}</span>}
+                            {todayExhibition.curator_name && todayExhibition.location && <span>·</span>}
+                            {todayExhibition.location && <span>{todayExhibition.location}</span>}
+                          </div>
+                          {todayExhibition.description && (
+                            <p className="leading-relaxed mb-8" style={{ color: '#374151' }}>{todayExhibition.description}</p>
+                          )}
+                          <div className="space-y-4 mb-8">
+                            {todayExhibition.start_date && (
+                              <div className="flex items-start gap-3">
+                                <span style={{ color: '#F59E0B' }}>📅</span>
+                                <div>
+                                  <div className="text-sm" style={{ color: '#9CA3AF' }}>展期</div>
+                                  <div className="font-medium" style={{ color: '#111827' }}>
+                                    {new Date(todayExhibition.start_date).toLocaleDateString('zh-CN')}
+                                    {todayExhibition.end_date && ` — ${new Date(todayExhibition.end_date).toLocaleDateString('zh-CN')}`}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {todayExhibition.location && (
+                              <div className="flex items-start gap-3">
+                                <span style={{ color: '#F59E0B' }}>📍</span>
+                                <div>
+                                  <div className="text-sm" style={{ color: '#9CA3AF' }}>地点</div>
+                                  <div className="font-medium" style={{ color: '#111827' }}>{todayExhibition.location}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Link href={`/exhibitions/${todayExhibition.id}`}
+                          className="px-8 py-4 font-medium rounded-lg self-start inline-block transition hover:opacity-90"
+                          style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
+                          查看展览 →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* 进行中 */}
             {ongoing.length > 0 && (
               <div className="mb-10">
