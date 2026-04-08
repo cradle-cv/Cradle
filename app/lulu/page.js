@@ -113,13 +113,7 @@ function evalRules(el, rules){
 }
 
 // Fallback task (used if DB load fails)
-const FALLBACK_TASK={
-  id:"fallback",title:"排版练习",
-  time_limit:600,
-  raw_html:"<p>标题文字</p><p>正文内容，请按要求排版。</p>",
-  target_html:"<h1>标题文字</h1><p>正文内容。</p>",
-  scoring_rules:[{id:"h1",type:"h1",pts:100,desc:"将标题设为 H1"}]
-}
+
 
 // Rule type definitions (for the editor UI)
 const RULE_TYPES=[
@@ -1775,8 +1769,6 @@ function SJoin({onJoin}){
 // ── STUDENT MAIN ─────────────────────────────────────────────
 function SMain({session:init,studentName}){
   const [sess,setSess]=useState(init)
-  const [task,setTask]=useState(FALLBACK_TASK)
-  const [taskLoaded,setTaskLoaded]=useState(false)
   const [groups,setGroups]=useState([])
   const [myGroupId,setMyGroupId]=useState(null)
   const [checkedIn,setCheckedIn]=useState(false)
@@ -1792,7 +1784,7 @@ function SMain({session:init,studentName}){
   const editorRef=useRef(null)
   const savedSel=useRef(null)
   const [done,setDone]=useState(new Set())
-  const [labTime,setLabTime]=useState(task?.time_limit||init.time_limit)
+  const [labTime,setLabTime]=useState(init.time_limit)
   const [submitted,setSubmitted]=useState(false)
   const [subId,setSubId]=useState(null)
   const [finalScore,setFinalScore]=useState(0)
