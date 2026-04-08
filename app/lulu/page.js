@@ -44,6 +44,37 @@ const DEFAULT_QS=[
   {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
 ]
 
+// ── Fallback task (used when no layout_task_id in session) ───
+const TASK={
+  maxScore:100,timeLimit:600,
+  rawHtml:`<p>春季电商大促 — 精选商品推荐</p>
+<p>欢迎来到本季最受期待的电商大促活动！以下商品均为限时特惠，数量有限，先到先得。</p>
+<p>潮流服饰</p>
+<p>本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
+<p>数码电器</p>
+<p>全系旗舰产品降价幅度最高达 30%，含保修与正品认证。</p>
+<p>美妆护肤</p>
+<p>精选国际大牌与国货新星，买二送一，直播间专属优惠码 PROMO2025。</p>
+<p>活动有效期至月底，请尽快下单。</p>`,
+  targetHtml:`<h1 style="font-size:22px;font-weight:900;color:#111827;line-height:1.3;margin:0 0 10px;font-family:Georgia,serif;">春季电商大促 — 精选商品推荐</h1>
+<p style="margin:0 0 12px;color:#374151;font-family:Georgia,serif;">欢迎来到本季最受期待的电商大促活动！以下商品均为<strong>限时特惠</strong>，数量有限，先到先得。</p>
+<h2 style="font-size:17px;font-weight:800;margin:20px 0 6px;color:#2563eb;font-family:Georgia,serif;">潮流服饰</h2>
+<p style="margin:0 0 12px;color:#374151;font-family:Georgia,serif;">本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
+<h2 style="font-size:17px;font-weight:800;margin:20px 0 6px;color:#dc2626;font-family:Georgia,serif;">数码电器</h2>
+<p style="margin:0 0 12px;color:#374151;font-family:Georgia,serif;">全系旗舰产品<strong>降价幅度最高达 30%</strong>，含保修与正品认证。</p>
+<h2 style="font-size:17px;font-weight:800;margin:20px 0 6px;color:#059669;font-family:Georgia,serif;">美妆护肤</h2>
+<p style="margin:0 0 12px;color:#374151;font-family:Georgia,serif;">精选国际大牌与国货新星，<strong>买二送一</strong>，直播间专属优惠码 PROMO2025。</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;font-family:Georgia,serif;"><tr style="background:#f0f4f8"><th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">商品</th><th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">单价</th><th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">折扣价</th><th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">备注</th></tr><tr><td style="border:1px solid #cbd5e1;padding:8px 12px">休闲上衣</td><td style="border:1px solid #cbd5e1;padding:8px 12px">199</td><td style="border:1px solid #cbd5e1;padding:8px 12px">149</td><td style="border:1px solid #cbd5e1;padding:8px 12px">限量200件</td></tr><tr style="background:#f8fafc"><td style="border:1px solid #cbd5e1;padding:8px 12px">无线耳机</td><td style="border:1px solid #cbd5e1;padding:8px 12px">399</td><td style="border:1px solid #cbd5e1;padding:8px 12px">279</td><td style="border:1px solid #cbd5e1;padding:8px 12px">赠品耳机包</td></tr><tr><td style="border:1px solid #cbd5e1;padding:8px 12px">护肤套装</td><td style="border:1px solid #cbd5e1;padding:8px 12px">580</td><td style="border:1px solid #cbd5e1;padding:8px 12px">399</td><td style="border:1px solid #cbd5e1;padding:8px 12px">买二送一</td></tr></table>
+<p style="margin:0;color:#777;font-size:12px;font-family:Georgia,serif;">活动有效期至月底，请尽快下单。</p>`,
+  reqs:[
+    {id:"h1",type:"h1",pts:20,desc:"将大标题设为 H1 样式"},
+    {id:"h2",type:"h2",min:3,pts:20,desc:"将三个分类名设为 H2（≥3 个）"},
+    {id:"table",type:"table",min_rows:3,min_cols:2,pts:20,desc:"插入 ≥3行×2列 价格对比表格"},
+    {id:"bold",type:"bold",min:2,pts:20,desc:"促销词加粗（≥2 处）"},
+    {id:"color_h2",type:"color_h2",min:3,pts:20,desc:"为三个 H2 标题各添加文字颜色"},
+  ]
+}
+
 // ── Generic rule evaluator (replaces hardcoded checkReqs) ────
 function evalRules(el, rules){
   const done=new Set()
