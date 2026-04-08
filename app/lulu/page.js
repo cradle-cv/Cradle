@@ -1,835 +1,936 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createClient } from "@supabase/supabase-js"
 
 const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwDjZNK5AQR2VcwF9bBhZkZEU3os"
 const sb = createClient(SB_URL, SB_KEY)
 
-// ── Palette ──────────────────────────────────────────────────
 const C = {
-  bg:     "#0a0a0f",
-  panel:  "#12121a",
-  border: "rgba(255,255,255,.06)",
-  accent: "#f0c040",
-  green:  "#3ddc84",
-  red:    "#ff5f5f",
-  blue:   "#4fc3f7",
-  muted:  "rgba(255,255,255,.35)",
-  text:   "#f0ede8",
+  bg:"#07080f",panel:"#0f1018",panel2:"#13141f",
+  border:"rgba(255,255,255,.07)",accent:"#7ee8a2",
+  gold:"#f5c842",red:"#ff6b6b",blue:"#5eb8ff",purple:"#b39dff",
+  muted:"rgba(255,255,255,.32)",text:"#eceae6",
 }
+const GROUP_COLORS=["#7ee8a2","#5eb8ff","#f5c842","#ff6b6b","#b39dff","#ff9f43","#54a0ff","#ff6b81"]
 
-// ── Default quiz questions ───────────────────────────────────
-const DEFAULT_QUESTIONS = [
-  { seq:1, question:"在 Word 中，将选中文字设为「标题 1」样式，应使用哪个功能区？", options:["插入","开始","布局","引用"], correct_index:1, points:10, time_limit:15 },
-  { seq:2, question:"在 Word 中，加粗文字的快捷键是？", options:["Ctrl+I","Ctrl+U","Ctrl+B","Ctrl+H"], correct_index:2, points:10, time_limit:10 },
-  { seq:3, question:"要在文档中插入表格，应点击哪个菜单？", options:["开始","布局","插入","视图"], correct_index:2, points:10, time_limit:12 },
-  { seq:4, question:"将页面方向改为「横向」，应在哪个选项卡操作？", options:["开始","插入","布局","审阅"], correct_index:2, points:10, time_limit:12 },
-  { seq:5, question:"Word 中「段落首行缩进 2 字符」在哪里设置？", options:["字体对话框","段落对话框","样式窗格","页面设置"], correct_index:1, points:10, time_limit:15 },
+const DEFAULT_QS=[
+  {seq:1,question:"在 Word 中，将选中文字设为「标题 1」样式，应使用哪个功能区？",options:["插入","开始","布局","引用"],correct_index:1,points:10,time_limit:15},
+  {seq:2,question:"加粗文字的快捷键是？",options:["Ctrl+I","Ctrl+U","Ctrl+B","Ctrl+H"],correct_index:2,points:10,time_limit:10},
+  {seq:3,question:"要插入表格，应点击哪个菜单？",options:["开始","布局","插入","视图"],correct_index:2,points:10,time_limit:12},
+  {seq:4,question:"将页面改为横向，应在哪个选项卡？",options:["开始","插入","布局","审阅"],correct_index:2,points:10,time_limit:12},
+  {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
 ]
 
-// ── Word lab task ────────────────────────────────────────────
-const TASK = {
-  maxScore: 100,
-  timeLimit: 600,
-  rawHtml: `<h1>春季电商大促 — 精选商品推荐</h1>
-<p>欢迎来到本季最受期待的电商大促活动！以下商品均为<span class="promo">限时特惠</span>，数量有限，先到先得。</p>
+const TASK={
+  maxScore:100,timeLimit:600,
+  rawHtml:`<h1>春季电商大促 — 精选商品推荐</h1>
+<p>欢迎来到本季最受期待的电商大促活动！以下商品均为限时特惠，数量有限，先到先得。</p>
 <h2>潮流服饰</h2>
-<p>本季主打 <span class="promo">简约风格</span> 与 <span class="promo">高性价比</span>，适合日常通勤与休闲出行。</p>
+<p>本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
 <h2>数码电器</h2>
-<p>全系旗舰产品<span class="promo">降价幅度最高达 30%</span>，含保修与正品认证。</p>
+<p>全系旗舰产品降价幅度最高达 30%，含保修与正品认证。</p>
 <h2>美妆护肤</h2>
-<p>精选国际大牌与国货新星，<span class="promo">买二送一</span>，直播间专属优惠码 PROMO2025。</p>
-<p>—— 活动有效期至月底，请尽快下单。</p>`,
-  requirements: [
-    { id:"h1",    pts:20, desc:"将「春季电商大促 — 精选商品推荐」设为 H1 标题样式" },
-    { id:"h2x3",  pts:20, desc:"将三个分类名称分别设为 H2 标题样式（≥3 个）" },
-    { id:"table", pts:20, desc:"插入一个至少 3 行 × 2 列的价格对比表格" },
-    { id:"bold",  pts:20, desc:"将文中「促销词」加粗（≥2 处）" },
-    { id:"color", pts:20, desc:"为至少一个 H2 标题添加文字颜色" },
+<p>精选国际大牌与国货新星，买二送一，直播间专属优惠码 PROMO2025。</p>
+<p>活动有效期至月底，请尽快下单。</p>`,
+  reqs:[
+    {id:"h1",pts:20,desc:"将标题设为 H1 样式"},
+    {id:"h2x3",pts:20,desc:"将三个分类名设为 H2（≥3 个）"},
+    {id:"table",pts:20,desc:"插入 ≥3行×2列 价格对比表格"},
+    {id:"bold",pts:20,desc:"促销词加粗（≥2 处）"},
+    {id:"color",pts:20,desc:"为 H2 标题添加文字颜色"},
   ]
 }
 
-// ── Helpers ──────────────────────────────────────────────────
-function genCode() { return Math.random().toString(36).slice(2,7).toUpperCase() }
-function fmtTime(s) { return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` }
+const genCode=()=>Math.random().toString(36).slice(2,7).toUpperCase()
+const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`
+const F="'Noto Sans SC',sans-serif"
+const FM="'DM Mono','Courier New',monospace"
 
-// ── Shared UI ────────────────────────────────────────────────
-const Btn = ({children,onClick,color=C.accent,small,disabled,style={}}) => (
+const Btn=({children,onClick,color=C.accent,small,disabled,full,style={}})=>(
   <button onClick={onClick} disabled={disabled} style={{
-    padding: small?"8px 18px":"14px 32px",
-    borderRadius:10, border:"none", cursor:disabled?"not-allowed":"pointer",
-    background: disabled?"rgba(255,255,255,.08)":color,
-    color: disabled?"rgba(255,255,255,.3)":"#0a0a0f",
-    fontSize: small?13:15, fontWeight:800, fontFamily:"'DM Mono',monospace",
-    transition:"opacity .15s", opacity:disabled?.5:1, ...style
+    padding:small?"7px 16px":"13px 28px",borderRadius:9,border:"none",
+    cursor:disabled?"not-allowed":"pointer",
+    background:disabled?"rgba(255,255,255,.07)":color,
+    color:disabled?"rgba(255,255,255,.25)":"#07080f",
+    fontSize:small?12:14,fontWeight:700,fontFamily:F,
+    width:full?"100%":undefined,opacity:disabled?.6:1,...style
   }}>{children}</button>
 )
-
-const Card = ({children,style={}}) => (
-  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:16,padding:24,...style}}>
+const Card=({children,style={}})=>(
+  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:14,padding:20,...style}}>
     {children}
   </div>
 )
+const inp=(extra={})=>({
+  width:"100%",padding:"10px 14px",borderRadius:9,border:`1px solid ${C.border}`,
+  background:"rgba(255,255,255,.04)",color:C.text,fontSize:13,
+  boxSizing:"border-box",fontFamily:F,outline:"none",...extra
+})
 
-const Tag = ({children,color=C.muted}) => (
-  <span style={{fontSize:11,fontWeight:700,letterSpacing:1,color,textTransform:"uppercase",
-    background:"rgba(255,255,255,.04)",padding:"3px 8px",borderRadius:6,border:`1px solid ${color}33`}}>
-    {children}
-  </span>
-)
-
-// ── Phase badge ──────────────────────────────────────────────
-function PhaseBadge({phase}) {
-  const map = { checkin:["签到中",C.blue], quiz:["抢答中",C.accent], lab:["排版竞赛",C.green], finished:["已结束",C.muted] }
-  const [label,color] = map[phase]||["—",C.muted]
-  return <Tag color={color}>{label}</Tag>
-}
-
-// ══════════════════════════════════════════════════════════════
-// HOME
-// ══════════════════════════════════════════════════════════════
-function HomeScreen({onTeacher,onStudent}) {
-  return (
+// ── HOME ─────────────────────────────────────────────────────
+function Home({onTeacher,onStudent}){
+  return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
-      alignItems:"center",justifyContent:"center",fontFamily:"'DM Mono',monospace",padding:24,gap:40}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-      {/* Logo */}
+      alignItems:"center",justifyContent:"center",fontFamily:F,padding:24,gap:48}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:11,letterSpacing:4,color:C.muted,marginBottom:12}}>WORD · SKILLS · COMPETITION</div>
-        <div style={{fontSize:48,fontWeight:800,fontFamily:"'Syne',sans-serif",color:C.text,lineHeight:1}}>
-          排版<span style={{color:C.accent}}>竞技场</span>
+        <div style={{fontSize:11,letterSpacing:5,color:C.muted,marginBottom:16,fontFamily:FM}}>高职信息技术 · WORD 教学工具</div>
+        <div style={{fontSize:72,fontWeight:900,color:C.text,lineHeight:1,letterSpacing:-2}}>
+          录<span style={{color:C.accent}}>录</span>
         </div>
-        <div style={{fontSize:13,color:C.muted,marginTop:12}}>签到 → 抢答热身 → Word排版实操</div>
+        <div style={{fontSize:13,color:C.muted,marginTop:16,lineHeight:2.2}}>
+          签到 &nbsp;·&nbsp; 抢答 &nbsp;·&nbsp; 小组讨论 &nbsp;·&nbsp; 排版竞赛
+        </div>
       </div>
-      {/* Buttons */}
-      <div style={{display:"flex",gap:16}}>
-        <button onClick={onTeacher} style={{
-          padding:"20px 48px",borderRadius:12,border:`2px solid ${C.accent}`,
-          background:"transparent",color:C.accent,fontSize:17,fontWeight:800,
-          fontFamily:"'Syne',sans-serif",cursor:"pointer",letterSpacing:1
-        }}>教师端</button>
-        <button onClick={onStudent} style={{
-          padding:"20px 48px",borderRadius:12,border:"none",
-          background:C.accent,color:"#0a0a0f",fontSize:17,fontWeight:800,
-          fontFamily:"'Syne',sans-serif",cursor:"pointer",letterSpacing:1
-        }}>学生端</button>
+      <div style={{display:"flex",gap:14}}>
+        <button onClick={onTeacher} style={{padding:"18px 48px",borderRadius:12,
+          border:`2px solid ${C.accent}`,background:"transparent",color:C.accent,
+          fontSize:16,fontWeight:700,fontFamily:F,cursor:"pointer"}}>教师端</button>
+        <button onClick={onStudent} style={{padding:"18px 48px",borderRadius:12,
+          border:"none",background:C.accent,color:"#07080f",
+          fontSize:16,fontWeight:700,fontFamily:F,cursor:"pointer"}}>学生端</button>
       </div>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEACHER – SETUP  (with full question editor)
-// ══════════════════════════════════════════════════════════════
-function TeacherSetup({onCreate}) {
-  const [title,setTitle] = useState("Word 排版技能竞赛")
-  const [timeLimit,setTimeLimit] = useState(600)
-  const [qs,setQs] = useState(DEFAULT_QUESTIONS.map(q=>({...q,options:[...q.options]})))
-  const [editIdx,setEditIdx] = useState(null)   // index of question being edited
-  const [loading,setLoading] = useState(false)
+// ── TEACHER SETUP ────────────────────────────────────────────
+function TSetup({onCreate}){
+  const [title,setTitle]=useState("Word 排版教学课堂")
+  const [timeLab,setTimeLab]=useState(600)
+  const [groups,setGroups]=useState([
+    {seq:1,name:"第一组",color:GROUP_COLORS[0]},
+    {seq:2,name:"第二组",color:GROUP_COLORS[1]},
+    {seq:3,name:"第三组",color:GROUP_COLORS[2]},
+    {seq:4,name:"第四组",color:GROUP_COLORS[3]},
+  ])
+  const [qs,setQs]=useState(DEFAULT_QS.map(q=>({...q,options:[...q.options]})))
+  const [discussions,setDiscussions]=useState([
+    {topic:"Word 排版中，你认为最难掌握的操作是什么？"},
+    {topic:"标题样式和手动改字号，有什么本质区别？"},
+  ])
+  const [editQ,setEditQ]=useState(null)
+  const [tab,setTab]=useState("groups")
+  const [loading,setLoading]=useState(false)
 
-  const inpStyle = (w="100%",extra={}) => ({
-    width,padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,
-    background:"rgba(255,255,255,.04)",color:C.text,fontSize:13,boxSizing:"border-box",
-    fontFamily:"'DM Mono',monospace",outline:"none",...extra
-  })
+  const addGroup=()=>{const s=groups.length+1;setGroups(p=>[...p,{seq:s,name:`第${s}组`,color:GROUP_COLORS[(s-1)%GROUP_COLORS.length]}])}
+  const updGroup=(i,f,v)=>setGroups(p=>p.map((g,idx)=>idx===i?{...g,[f]:v}:g))
+  const delGroup=i=>setGroups(p=>p.filter((_,idx)=>idx!==i).map((g,j)=>({...g,seq:j+1})))
+  const updQ=(i,f,v)=>setQs(p=>p.map((q,idx)=>idx===i?{...q,[f]:v}:q))
+  const updOpt=(qi,oi,v)=>setQs(p=>p.map((q,idx)=>idx===qi?{...q,options:q.options.map((o,j)=>j===oi?v:o)}:q))
+  const addQ=()=>setQs(p=>{const n=[...p,{seq:p.length+1,question:"",options:["","","",""],correct_index:0,points:10,time_limit:15}];setEditQ(n.length-1);return n})
+  const delQ=i=>{setQs(p=>p.filter((_,idx)=>idx!==i).map((q,j)=>({...q,seq:j+1})));setEditQ(null)}
+  const updDis=(i,v)=>setDiscussions(p=>p.map((d,idx)=>idx===i?{...d,topic:v}:d))
 
-  function updateQ(i,field,val) {
-    setQs(p=>p.map((q,idx)=>idx===i?{...q,[field]:val}:q))
-  }
-  function updateOption(qi,oi,val) {
-    setQs(p=>p.map((q,idx)=>idx===qi?{...q,options:q.options.map((o,j)=>j===oi?val:o)}:q))
-  }
-  function addQ() {
-    setQs(p=>{
-      const next = [...p,{seq:p.length+1,question:"",options:["","","",""],correct_index:0,points:10,time_limit:15}]
-      setEditIdx(next.length-1)
-      return next
-    })
-  }
-  function deleteQ(i) {
-    setQs(p=>p.filter((_,idx)=>idx!==i).map((q,idx)=>({...q,seq:idx+1})))
-    setEditIdx(null)
-  }
-
-  async function create() {
-    if(qs.some(q=>!q.question.trim())) { alert("有题目内容为空，请检查"); return }
+  async function create(){
+    if(!title.trim()){alert("请填写课堂名称");return}
     setLoading(true)
-    const code = genCode()
-    const {data:sess,error} = await sb.from("word_lab_sessions").insert({
-      code, title, task_id:"ecommerce_v1", status:"active",
-      time_limit:timeLimit, phase:"checkin",
-      started_at: new Date().toISOString()
+    const code=genCode()
+    const {data:sess,error}=await sb.from("word_lab_sessions").insert({
+      code,title,task_id:"ecommerce_v1",status:"active",
+      time_limit:timeLab,phase:"checkin",started_at:new Date().toISOString()
     }).select().single()
     if(error){alert("创建失败:"+error.message);setLoading(false);return}
-    await sb.from("word_lab_questions").insert(qs.map(q=>({...q,session_id:sess.id})))
+    await sb.from("lulu_groups").insert(groups.map(g=>({...g,session_id:sess.id})))
+    const validQs=qs.filter(q=>q.question.trim())
+    if(validQs.length) await sb.from("word_lab_questions").insert(validQs.map(q=>({...q,session_id:sess.id})))
+    const validDis=discussions.filter(d=>d.topic.trim())
+    if(validDis.length) await sb.from("lulu_discussions").insert(validDis.map(d=>({topic:d.topic,session_id:sess.id})))
     onCreate(sess)
   }
 
-  return (
-    <div style={{minHeight:"100vh",background:C.bg,padding:32,fontFamily:"'DM Mono',monospace",color:C.text}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  const tabBtn=(t,label)=>(
+    <button onClick={()=>setTab(t)} style={{padding:"8px 20px",borderRadius:8,border:"none",cursor:"pointer",
+      fontFamily:F,fontSize:13,fontWeight:700,
+      background:tab===t?C.accent:"transparent",color:tab===t?"#07080f":C.muted}}>
+      {label}
+    </button>
+  )
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,padding:32,fontFamily:F,color:C.text}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{maxWidth:760,margin:"0 auto"}}>
-        <div style={{fontSize:22,fontWeight:800,fontFamily:"'Syne',sans-serif",marginBottom:8}}>创建竞赛房间</div>
-        <div style={{color:C.muted,fontSize:13,marginBottom:32}}>签到 → 抢答热身 → Word排版实操</div>
+        <div style={{fontSize:24,fontWeight:900,marginBottom:6}}>
+          录录 <span style={{fontSize:13,color:C.muted,fontWeight:400}}>新建课堂</span>
+        </div>
+        <div style={{color:C.muted,fontSize:13,marginBottom:28}}>配置好小组、抢答题和讨论议题后创建房间</div>
 
-        {/* Basic settings */}
-        <Card style={{marginBottom:20}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 180px",gap:16}}>
+        <Card style={{marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 160px",gap:16}}>
             <div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>竞赛名称</div>
-              <input value={title} onChange={e=>setTitle(e.target.value)} style={inpStyle()}/>
+              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>课堂名称</div>
+              <input value={title} onChange={e=>setTitle(e.target.value)} style={inp()}/>
             </div>
             <div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>排版时限（秒）</div>
-              <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))}
-                style={inpStyle("100%",{color:C.accent})}/>
+              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>排版时限（秒）</div>
+              <input type="number" value={timeLab} onChange={e=>setTimeLab(Number(e.target.value))} style={inp({color:C.accent})}/>
             </div>
           </div>
         </Card>
 
-        {/* Question list */}
-        <Card style={{marginBottom:24}}>
-          <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
-            <div style={{fontSize:12,color:C.muted,flex:1}}>抢答题目（共 {qs.length} 题）</div>
-            <Btn small onClick={addQ} color={C.green}>＋ 新增题目</Btn>
-          </div>
+        <div style={{display:"flex",gap:4,background:C.panel,padding:5,borderRadius:10,marginBottom:16,width:"fit-content"}}>
+          {tabBtn("groups","小组设置")}
+          {tabBtn("quiz","抢答题目")}
+          {tabBtn("discuss","讨论议题")}
+        </div>
 
-          {qs.map((q,i)=>(
-            <div key={i} style={{marginBottom:10,borderRadius:12,border:`1px solid ${editIdx===i?C.accent:C.border}`,overflow:"hidden"}}>
-              {/* Collapsed row */}
-              <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",
-                background:editIdx===i?"rgba(240,192,64,.06)":"rgba(255,255,255,.02)",cursor:"pointer"}}
-                onClick={()=>setEditIdx(editIdx===i?null:i)}>
-                <span style={{fontSize:12,color:C.accent,minWidth:24}}>Q{q.seq}</span>
-                <span style={{flex:1,fontSize:13,color:q.question?C.text:C.muted}}>
-                  {q.question||"（未填写题目）"}
-                </span>
-                <span style={{fontSize:11,color:C.muted}}>{q.points}分 · {q.time_limit}s</span>
-                <span style={{fontSize:11,color:C.green,marginLeft:4}}>
-                  ✓ {q.options[q.correct_index]||"?"}
-                </span>
-                <span style={{fontSize:14,color:C.muted,marginLeft:8}}>{editIdx===i?"▲":"▼"}</span>
-              </div>
-
-              {/* Expanded editor */}
-              {editIdx===i && (
-                <div style={{padding:"16px 14px",borderTop:`1px solid ${C.border}`,background:"rgba(255,255,255,.02)"}}>
-                  {/* Question text */}
-                  <div style={{fontSize:11,color:C.muted,marginBottom:6}}>题目内容</div>
-                  <textarea value={q.question} onChange={e=>updateQ(i,"question",e.target.value)}
-                    rows={2} style={{...inpStyle(),resize:"vertical",marginBottom:14,lineHeight:1.6}}/>
-
-                  {/* Options */}
-                  <div style={{fontSize:11,color:C.muted,marginBottom:8}}>选项（点击绿色标记正确答案）</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                    {q.options.map((opt,j)=>(
-                      <div key={j} style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <button onClick={()=>updateQ(i,"correct_index",j)} style={{
-                          width:28,height:28,borderRadius:8,border:`2px solid ${j===q.correct_index?C.green:C.border}`,
-                          background:j===q.correct_index?"rgba(61,220,132,.2)":"transparent",
-                          color:j===q.correct_index?C.green:C.muted,cursor:"pointer",
-                          fontSize:12,fontWeight:800,flexShrink:0
-                        }}>{["A","B","C","D"][j]}</button>
-                        <input value={opt} onChange={e=>updateOption(i,j,e.target.value)}
-                          placeholder={`选项 ${["A","B","C","D"][j]}`}
-                          style={inpStyle("100%",{border:`1px solid ${j===q.correct_index?C.green+"66":C.border}`})}/>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Points & timer */}
-                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>分值</div>
-                      <input type="number" value={q.points} onChange={e=>updateQ(i,"points",Number(e.target.value))}
-                        min={1} style={inpStyle(80,{color:C.accent})}/>
-                    </div>
-                    <div>
-                      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>作答时限（秒）</div>
-                      <input type="number" value={q.time_limit} onChange={e=>updateQ(i,"time_limit",Number(e.target.value))}
-                        min={5} style={inpStyle(80)}/>
-                    </div>
-                    <div style={{flex:1}}/>
-                    <Btn small onClick={()=>deleteQ(i)} style={{background:C.red,color:"white"}}>删除此题</Btn>
-                  </div>
+        {tab==="groups"&&(
+          <Card style={{marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+              <span style={{flex:1,fontSize:13,color:C.muted}}>共 {groups.length} 组</span>
+              <Btn small onClick={addGroup}>＋ 添加小组</Btn>
+            </div>
+            {groups.map((g,i)=>(
+              <div key={i} style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
+                <div style={{width:26,height:26,borderRadius:7,background:g.color,flexShrink:0}}/>
+                <input value={g.name} onChange={e=>updGroup(i,"name",e.target.value)} style={{...inp(),flex:1}}/>
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  {GROUP_COLORS.map(col=>(
+                    <div key={col} onClick={()=>updGroup(i,"color",col)} style={{
+                      width:18,height:18,borderRadius:4,background:col,cursor:"pointer",
+                      border:`2px solid ${g.color===col?"white":"transparent"}`}}/>
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
-        </Card>
+                <button onClick={()=>delGroup(i)} style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:18}}>×</button>
+              </div>
+            ))}
+          </Card>
+        )}
 
-        <Btn onClick={create} disabled={loading}>{loading?"创建中…":"创建竞赛房间 →"}</Btn>
+        {tab==="quiz"&&(
+          <Card style={{marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+              <span style={{flex:1,fontSize:13,color:C.muted}}>{qs.length} 道题</span>
+              <Btn small onClick={addQ} color={C.blue}>＋ 新增题目</Btn>
+            </div>
+            {qs.map((q,i)=>(
+              <div key={i} style={{marginBottom:10,borderRadius:10,border:`1px solid ${editQ===i?C.accent:C.border}`,overflow:"hidden"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",
+                  background:editQ===i?"rgba(126,232,162,.05)":"rgba(255,255,255,.02)",cursor:"pointer"}}
+                  onClick={()=>setEditQ(editQ===i?null:i)}>
+                  <span style={{fontSize:12,color:C.accent,fontFamily:FM,minWidth:22}}>Q{q.seq}</span>
+                  <span style={{flex:1,fontSize:13,color:q.question?C.text:C.muted}}>{q.question||"未填写"}</span>
+                  <span style={{fontSize:11,color:C.muted}}>{q.points}分·{q.time_limit}s</span>
+                  <span style={{fontSize:11,color:C.accent,marginLeft:6}}>✓{q.options[q.correct_index]||"?"}</span>
+                  <span style={{color:C.muted}}>{editQ===i?"▲":"▼"}</span>
+                </div>
+                {editQ===i&&(
+                  <div style={{padding:"14px",borderTop:`1px solid ${C.border}`,background:"rgba(255,255,255,.015)"}}>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:6}}>题目</div>
+                    <textarea value={q.question} onChange={e=>updQ(i,"question",e.target.value)} rows={2}
+                      style={{...inp(),resize:"vertical",marginBottom:12,lineHeight:1.6}}/>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:8}}>选项（点字母标记正确答案）</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                      {q.options.map((opt,j)=>(
+                        <div key={j} style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <button onClick={()=>updQ(i,"correct_index",j)} style={{
+                            width:28,height:28,borderRadius:7,
+                            border:`2px solid ${j===q.correct_index?C.accent:C.border}`,
+                            background:j===q.correct_index?"rgba(126,232,162,.2)":"transparent",
+                            color:j===q.correct_index?C.accent:C.muted,cursor:"pointer",
+                            fontSize:12,fontWeight:700,fontFamily:FM,flexShrink:0
+                          }}>{"ABCD"[j]}</button>
+                          <input value={opt} onChange={e=>updOpt(i,j,e.target.value)}
+                            placeholder={`选项${"ABCD"[j]}`}
+                            style={inp({border:`1px solid ${j===q.correct_index?C.accent+"55":C.border}`})}/>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:11,color:C.muted,marginBottom:5}}>分值</div>
+                        <input type="number" value={q.points} onChange={e=>updQ(i,"points",Number(e.target.value))} min={1}
+                          style={inp({width:70,color:C.accent})}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:11,color:C.muted,marginBottom:5}}>时限(秒)</div>
+                        <input type="number" value={q.time_limit} onChange={e=>updQ(i,"time_limit",Number(e.target.value))} min={5}
+                          style={inp({width:70})}/>
+                      </div>
+                      <div style={{flex:1}}/>
+                      <Btn small onClick={()=>delQ(i)} style={{background:C.red,color:"white"}}>删除</Btn>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {tab==="discuss"&&(
+          <Card style={{marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+              <span style={{flex:1,fontSize:13,color:C.muted}}>{discussions.length} 个议题</span>
+              <Btn small onClick={()=>setDiscussions(p=>[...p,{topic:""}])} color={C.purple}>＋ 新增议题</Btn>
+            </div>
+            {discussions.map((d,i)=>(
+              <div key={i} style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
+                <span style={{fontSize:12,color:C.purple,fontFamily:FM,minWidth:22}}>D{i+1}</span>
+                <input value={d.topic} onChange={e=>updDis(i,e.target.value)} placeholder="输入讨论议题…"
+                  style={{...inp(),flex:1}}/>
+                <button onClick={()=>setDiscussions(p=>p.filter((_,idx)=>idx!==i))}
+                  style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:18}}>×</button>
+              </div>
+            ))}
+            {!discussions.length&&<div style={{fontSize:13,color:C.muted}}>暂无议题</div>}
+          </Card>
+        )}
+
+        <div style={{marginTop:24}}>
+          <Btn onClick={create} disabled={loading}>{loading?"创建中…":"创建课堂房间 →"}</Btn>
+        </div>
       </div>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEACHER – MAIN DASHBOARD (phases: checkin / quiz / lab / finished)
-// ══════════════════════════════════════════════════════════════
-function TeacherDashboard({session:initSession}) {
-  const [session,setSession] = useState(initSession)
-  const [checkins,setCheckins] = useState([])
-  const [questions,setQuestions] = useState([])
-  const [answers,setAnswers] = useState([])
-  const [submissions,setSubmissions] = useState([])
-  const [quizTimer,setQuizTimer] = useState(0)
-  const quizInterval = useRef(null)
+// ── TEACHER DASHBOARD ────────────────────────────────────────
+function TDash({session:init}){
+  const [sess,setSess]=useState(init)
+  const [groups,setGroups]=useState([])
+  const [checkins,setCheckins]=useState([])
+  const [questions,setQuestions]=useState([])
+  const [answers,setAnswers]=useState([])
+  const [discussions,setDiscussions]=useState([])
+  const [posts,setPosts]=useState([])
+  const [submissions,setSubmissions]=useState([])
+  const [qTimer,setQTimer]=useState(0)
+  const timerRef=useRef(null)
 
-  // Load questions once
   useEffect(()=>{
-    sb.from("word_lab_questions").select().eq("session_id",session.id).order("seq").then(({data})=>{
-      if(data) setQuestions(data)
-    })
-  },[session.id])
+    sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
+    sb.from("word_lab_questions").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setQuestions(data))
+    sb.from("lulu_discussions").select().eq("session_id",init.id).order("created_at").then(({data})=>data&&setDiscussions(data))
+    sb.from("word_lab_checkins").select().eq("session_id",init.id).then(({data})=>data&&setCheckins(data))
+    sb.from("word_lab_answers").select().eq("session_id",init.id).then(({data})=>data&&setAnswers(data))
+    sb.from("lulu_posts").select().eq("session_id",init.id).order("created_at").then(({data})=>data&&setPosts(data))
+    sb.from("word_lab_submissions").select().eq("session_id",init.id).then(({data})=>data&&setSubmissions(data))
 
-  // Realtime subscriptions
-  useEffect(()=>{
-    const ch = sb.channel(`teacher-${session.id}`)
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${session.id}`},
+    const ch=sb.channel(`tdash-${init.id}`)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setCheckins(p=>[...p.filter(x=>x.student_name!==r.student_name),r]))
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_answers",filter:`session_id=eq.${session.id}`},
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${init.id}`},
+        ({new:r})=>setCheckins(p=>p.map(x=>x.student_name===r.student_name?r:x)))
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_answers",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setAnswers(p=>[...p,r]))
-      .on("postgres_changes",{event:"*",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${session.id}`},
-        ({new:r,eventType})=>{
-          if(eventType==="INSERT") setSubmissions(p=>[...p,r])
-          else setSubmissions(p=>p.map(x=>x.id===r.id?r:x))
-        })
-      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${session.id}`},
-        ({new:r})=>setSession(r))
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"lulu_posts",filter:`session_id=eq.${init.id}`},
+        ({new:r})=>setPosts(p=>[...p,r]))
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"lulu_discussions",filter:`session_id=eq.${init.id}`},
+        ({new:r})=>setDiscussions(p=>p.map(x=>x.id===r.id?r:x)))
+      .on("postgres_changes",{event:"*",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${init.id}`},
+        ({new:r,eventType})=>setSubmissions(p=>eventType==="INSERT"?[...p,r]:p.map(x=>x.id===r.id?r:x)))
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
+        ({new:r})=>setSess(r))
       .subscribe()
-    // Initial load
-    sb.from("word_lab_checkins").select().eq("session_id",session.id).then(({data})=>{ if(data) setCheckins(data) })
-    sb.from("word_lab_answers").select().eq("session_id",session.id).then(({data})=>{ if(data) setAnswers(data) })
-    sb.from("word_lab_submissions").select().eq("session_id",session.id).then(({data})=>{ if(data) setSubmissions(data) })
-    return ()=>sb.removeChannel(ch)
-  },[session.id])
+    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
+  },[init.id])
 
-  // Quiz timer
   useEffect(()=>{
-    if(session.phase==="quiz" && session.current_question>0 && questions.length>0) {
-      const q = questions.find(x=>x.seq===session.current_question)
+    if(sess.phase==="quiz"&&sess.current_question>0){
+      const q=questions.find(x=>x.seq===sess.current_question)
       if(!q) return
-      setQuizTimer(q.time_limit)
-      clearInterval(quizInterval.current)
-      quizInterval.current = setInterval(()=>setQuizTimer(t=>{
-        if(t<=1){ clearInterval(quizInterval.current); return 0 }
-        return t-1
-      }),1000)
+      setQTimer(q.time_limit)
+      clearInterval(timerRef.current)
+      timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
     }
-    return ()=>clearInterval(quizInterval.current)
-  },[session.phase, session.current_question, questions])
+    return()=>clearInterval(timerRef.current)
+  },[sess.phase,sess.current_question,questions])
 
-  async function setPhase(phase) {
-    await sb.from("word_lab_sessions").update({phase}).eq("id",session.id)
-  }
-  async function pushQuestion(seq) {
-    await sb.from("word_lab_sessions").update({current_question:seq}).eq("id",session.id)
-  }
-  async function endSession() {
-    await sb.from("word_lab_sessions").update({phase:"finished",status:"finished"}).eq("id",session.id)
-  }
+  const setPhase=async p=>{ await sb.from("word_lab_sessions").update({phase:p}).eq("id",sess.id) }
+  const pushQ=async seq=>{ await sb.from("word_lab_sessions").update({current_question:seq}).eq("id",sess.id) }
+  const toggleDis=async d=>{ await sb.from("lulu_discussions").update({is_active:!d.is_active}).eq("id",d.id) }
+  const endSession=async()=>{ await sb.from("word_lab_sessions").update({phase:"finished",status:"finished"}).eq("id",sess.id) }
 
-  const currentQ = questions.find(q=>q.seq===session.current_question)
-  const currentAnswers = answers.filter(a=>a.question_id===currentQ?.id)
-  const correctCount = currentAnswers.filter(a=>a.is_correct).length
+  const curQ=questions.find(q=>q.seq===sess.current_question)
+  const curAnswers=answers.filter(a=>a.question_id===curQ?.id)
+  const activeDis=discussions.find(d=>d.is_active)
+  const activePosts=posts.filter(p=>p.discussion_id===activeDis?.id)
 
-  // Quiz score totals per student
-  const quizScores = {}
-  answers.forEach(a=>{ quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned })
-  // Lab score per student
-  const labScores = {}
-  submissions.forEach(s=>{ labScores[s.student_name]=s.score })
-  // Combined ranking
-  const allStudents = [...new Set([...checkins.map(c=>c.student_name)])]
-  const ranking = allStudents.map(name=>({
-    name,
-    quiz: quizScores[name]||0,
-    lab:  labScores[name]||0,
+  const quizScores={}; answers.forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
+  const labScores={}; submissions.forEach(s=>{labScores[s.student_name]=s.score})
+  const allStudents=[...new Set(checkins.map(c=>c.student_name))]
+  const studentRank=allStudents.map(name=>({
+    name,group_id:checkins.find(c=>c.student_name===name)?.group_id,
+    quiz:quizScores[name]||0,lab:labScores[name]||0,
     total:(quizScores[name]||0)+(labScores[name]||0)
   })).sort((a,b)=>b.total-a.total)
 
-  return (
-    <div style={{minHeight:"100vh",background:C.bg,padding:28,fontFamily:"'DM Mono',monospace",color:C.text}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  const groupRank=groups.map(g=>{
+    const members=checkins.filter(c=>c.group_id===g.id)
+    const names=members.map(m=>m.student_name)
+    const labAvg=names.length?Math.round(names.reduce((s,n)=>s+(labScores[n]||0),0)/names.length):0
+    const quizSum=names.reduce((s,n)=>s+(quizScores[n]||0),0)
+    return{...g,memberCount:names.length,labAvg,quizSum,total:quizSum+labAvg}
+  }).sort((a,b)=>b.total-a.total)
 
+  const phases=[["checkin","签到"],["quiz","抢答"],["discussion","讨论"],["lab","排版"],["finished","结果"]]
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       {/* Header */}
-      <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:28}}>
+      <div style={{display:"flex",alignItems:"center",gap:16,padding:"12px 24px",
+        background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",gap:10}}>
         <div style={{flex:1}}>
-          <div style={{fontSize:20,fontWeight:800,fontFamily:"'Syne',sans-serif"}}>{session.title}</div>
-          <div style={{fontSize:13,color:C.muted,marginTop:4,letterSpacing:3}}>房间码: <span style={{color:C.accent,fontSize:20,fontWeight:800}}>{session.code}</span></div>
-        </div>
-        <PhaseBadge phase={session.phase}/>
-        {session.phase!=="finished" && <Btn small onClick={endSession} style={{background:C.red,color:"white"}}>结束竞赛</Btn>}
-      </div>
-
-      {/* Phase nav */}
-      <div style={{display:"flex",gap:4,marginBottom:28,background:C.panel,padding:6,borderRadius:12,width:"fit-content"}}>
-        {[["checkin","签到"],["quiz","抢答"],["lab","排版"],["finished","结果"]].map(([p,label])=>(
-          <button key={p} onClick={()=>session.phase!==p&&setPhase(p)} style={{
-            padding:"8px 22px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
-            background:session.phase===p?C.accent:"transparent",
-            color:session.phase===p?"#0a0a0f":C.muted, fontFamily:"'DM Mono',monospace"
-          }}>{label}</button>
-        ))}
-      </div>
-
-      {/* ── CHECKIN PHASE ── */}
-      {session.phase==="checkin" && (
-        <div>
-          <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
-            <div style={{fontSize:14,color:C.muted}}>已签到 <span style={{color:C.green,fontWeight:800,fontSize:20}}>{checkins.length}</span> 人</div>
-            <Btn onClick={()=>setPhase("quiz")} color={C.accent}>开始抢答热身 →</Btn>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
-            {checkins.map((c,i)=>(
-              <Card key={i} style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
-                <span style={{color:C.green,fontSize:18}}>✓</span>
-                <span style={{fontSize:13,fontWeight:700}}>{c.student_name}</span>
-              </Card>
-            ))}
-            {checkins.length===0 && <div style={{color:C.muted,fontSize:13}}>等待学生扫码加入…</div>}
+          <div style={{fontSize:17,fontWeight:900}}>{sess.title}</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:2,fontFamily:FM}}>
+            房间码 <span style={{color:C.accent,fontSize:20,fontWeight:700,letterSpacing:3}}>{sess.code}</span>
+            <span style={{marginLeft:12}}>· {checkins.length} 人签到</span>
           </div>
         </div>
-      )}
+        <div style={{display:"flex",gap:3,background:"rgba(255,255,255,.05)",padding:4,borderRadius:10}}>
+          {phases.map(([p,label])=>(
+            <button key={p} onClick={()=>setPhase(p)} style={{
+              padding:"7px 14px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:F,
+              background:sess.phase===p?C.accent:"transparent",color:sess.phase===p?"#07080f":C.muted
+            }}>{label}</button>
+          ))}
+        </div>
+        <Btn small onClick={endSession} style={{background:C.red,color:"white"}}>结束</Btn>
+      </div>
 
-      {/* ── QUIZ PHASE ── */}
-      {session.phase==="quiz" && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:20}}>
+      <div style={{padding:24}}>
+
+        {/* CHECKIN */}
+        {sess.phase==="checkin"&&(
           <div>
-            <div style={{fontSize:14,color:C.muted,marginBottom:16}}>点击题号推送给所有学生：</div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:24}}>
-              {questions.map(q=>(
-                <button key={q.seq} onClick={()=>pushQuestion(q.seq)} style={{
-                  padding:"12px 20px",borderRadius:10,border:`2px solid ${session.current_question===q.seq?C.accent:C.border}`,
-                  background:session.current_question===q.seq?"rgba(240,192,64,.12)":"transparent",
-                  color:session.current_question===q.seq?C.accent:C.muted,
-                  cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"'DM Mono',monospace"
-                }}>Q{q.seq}</button>
-              ))}
-              <Btn onClick={()=>{setPhase("lab");pushQuestion(0)}} color={C.green} small>结束抢答 → 开始排版</Btn>
+            <div style={{display:"flex",gap:14,marginBottom:20,alignItems:"center"}}>
+              <span style={{fontSize:14,color:C.muted}}>学生签到后可自选小组</span>
+              <Btn small onClick={()=>setPhase("quiz")} color={C.blue}>→ 开始抢答</Btn>
+              <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 直接讨论</Btn>
+              <Btn small onClick={()=>setPhase("lab")} color={C.accent}>→ 直接排版</Btn>
             </div>
-
-            {currentQ && (
-              <Card>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-                  <Tag color={C.accent}>Q{currentQ.seq} · {currentQ.points}分</Tag>
-                  <span style={{fontSize:28,fontWeight:800,color:quizTimer<=5?C.red:C.accent}}>{quizTimer}s</span>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(groups.length,4)},1fr)`,gap:14}}>
+              {groups.map(g=>{
+                const members=checkins.filter(c=>c.group_id===g.id)
+                return(
+                  <Card key={g.id} style={{borderTop:`3px solid ${g.color}`}}>
+                    <div style={{fontSize:14,fontWeight:700,color:g.color,marginBottom:8}}>{g.name}</div>
+                    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>{members.length} 人</div>
+                    {members.map(m=>(
+                      <div key={m.student_name} style={{fontSize:13,padding:"6px 10px",borderRadius:7,
+                        background:"rgba(255,255,255,.04)",marginBottom:6}}>✓ {m.student_name}</div>
+                    ))}
+                  </Card>
+                )
+              })}
+            </div>
+            {checkins.filter(c=>!c.group_id).length>0&&(
+              <div style={{marginTop:16}}>
+                <div style={{fontSize:12,color:C.muted,marginBottom:8}}>未选组</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {checkins.filter(c=>!c.group_id).map(c=>(
+                    <span key={c.student_name} style={{fontSize:13,padding:"6px 12px",borderRadius:7,
+                      background:"rgba(255,255,255,.04)"}}>{c.student_name}</span>
+                  ))}
                 </div>
-                <div style={{fontSize:16,color:C.text,marginBottom:16,lineHeight:1.6}}>{currentQ.question}</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {currentQ.options.map((opt,j)=>{
-                    const cnt = currentAnswers.filter(a=>a.answer_index===j).length
-                    return (
-                      <div key={j} style={{padding:"10px 14px",borderRadius:10,
-                        background:j===currentQ.correct_index?"rgba(61,220,132,.12)":"rgba(255,255,255,.03)",
-                        border:`1px solid ${j===currentQ.correct_index?C.green:C.border}`}}>
-                        <div style={{fontSize:13,color:j===currentQ.correct_index?C.green:C.muted,marginBottom:4}}>{opt}</div>
-                        <div style={{fontSize:20,fontWeight:800,color:C.text}}>{cnt}</div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{marginTop:12,fontSize:13,color:C.muted}}>
-                  已作答 {currentAnswers.length} / {checkins.length} 人 · 答对 <span style={{color:C.green}}>{correctCount}</span> 人
-                </div>
-              </Card>
+              </div>
             )}
           </div>
+        )}
 
-          {/* Live ranking */}
-          <div>
-            <div style={{fontSize:12,color:C.muted,marginBottom:12,letterSpacing:1}}>当前积分榜</div>
-            {ranking.slice(0,10).map((r,i)=>(
-              <Card key={r.name} style={{marginBottom:8,padding:"12px 16px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:13,color:i<3?C.accent:C.muted,width:20}}>{i+1}</span>
-                  <span style={{flex:1,fontSize:13,fontWeight:700}}>{r.name}</span>
-                  <span style={{fontSize:16,fontWeight:800,color:C.accent}}>{r.quiz}</span>
-                </div>
-              </Card>
-            ))}
+        {/* QUIZ */}
+        {sess.phase==="quiz"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:20}}>
+            <div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20,alignItems:"center"}}>
+                {questions.map(q=>(
+                  <button key={q.seq} onClick={()=>pushQ(q.seq)} style={{
+                    padding:"10px 18px",borderRadius:9,border:`2px solid ${sess.current_question===q.seq?C.accent:C.border}`,
+                    background:sess.current_question===q.seq?"rgba(126,232,162,.1)":"transparent",
+                    color:sess.current_question===q.seq?C.accent:C.muted,
+                    cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:FM
+                  }}>Q{q.seq}</button>
+                ))}
+                <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 讨论</Btn>
+                <Btn small onClick={()=>{setPhase("lab");pushQ(0)}} color={C.accent}>→ 排版</Btn>
+              </div>
+              {curQ&&(
+                <Card>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+                    <span style={{fontSize:12,color:C.muted,fontFamily:FM}}>Q{curQ.seq} · {curQ.points}分</span>
+                    <span style={{fontSize:40,fontWeight:900,color:qTimer<=5?C.red:C.accent,fontFamily:FM}}>{qTimer}</span>
+                  </div>
+                  <div style={{fontSize:16,lineHeight:1.75,marginBottom:16}}>{curQ.question}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {curQ.options.map((opt,j)=>{
+                      const cnt=curAnswers.filter(a=>a.answer_index===j).length
+                      return(
+                        <div key={j} style={{padding:"10px 14px",borderRadius:10,
+                          background:j===curQ.correct_index?"rgba(126,232,162,.1)":"rgba(255,255,255,.03)",
+                          border:`1px solid ${j===curQ.correct_index?C.accent:C.border}`}}>
+                          <div style={{fontSize:13,color:j===curQ.correct_index?C.accent:C.muted,marginBottom:4}}>{opt}</div>
+                          <div style={{fontSize:24,fontWeight:900,fontFamily:FM}}>{cnt}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{marginTop:10,fontSize:12,color:C.muted}}>
+                    作答 {curAnswers.length}/{checkins.length} · 答对 <span style={{color:C.accent}}>{curAnswers.filter(a=>a.is_correct).length}</span>
+                  </div>
+                </Card>
+              )}
+              {!curQ&&<Card style={{textAlign:"center",padding:40,color:C.muted}}>点击上方题号推送给学生</Card>}
+            </div>
+            <GroupRankPanel groupRank={groupRank} label="小组抢答积分"/>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── LAB PHASE ── */}
-      {session.phase==="lab" && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:20}}>
-          <div>
-            <div style={{fontSize:14,color:C.muted,marginBottom:16}}>实时监控学生排版进度</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
-              {checkins.map(c=>{
-                const sub = submissions.find(s=>s.student_name===c.student_name)
-                const pct = sub ? Math.round(sub.score/TASK.maxScore*100) : 0
-                return (
-                  <Card key={c.student_name} style={{padding:"14px 16px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                      <span style={{fontSize:13,fontWeight:700}}>{c.student_name}</span>
-                      <span style={{fontSize:13,color:C.accent,fontWeight:800}}>{sub?.score||0}分</span>
+        {/* DISCUSSION */}
+        {sess.phase==="discussion"&&(
+          <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:20}}>
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>议题列表（点击激活/关闭）</div>
+              {discussions.map(d=>(
+                <Card key={d.id} style={{marginBottom:10,cursor:"pointer",
+                  border:`1px solid ${d.is_active?C.purple:C.border}`,
+                  background:d.is_active?"rgba(179,157,255,.07)":C.panel}}
+                  onClick={()=>toggleDis(d)}>
+                  <div style={{fontSize:12,color:d.is_active?C.purple:C.muted,fontWeight:700,marginBottom:4}}>
+                    {d.is_active?"● 进行中":"○ 未激活"}
+                  </div>
+                  <div style={{fontSize:13,lineHeight:1.6}}>{d.topic}</div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:6}}>{posts.filter(p=>p.discussion_id===d.id).length} 条发言</div>
+                </Card>
+              ))}
+              <div style={{marginTop:14}}>
+                <Btn small onClick={()=>setPhase("lab")} color={C.accent} full>→ 开始排版</Btn>
+              </div>
+            </div>
+            <div>
+              {activeDis?(
+                <>
+                  <div style={{fontSize:15,fontWeight:700,marginBottom:16,padding:"12px 16px",
+                    background:"rgba(179,157,255,.1)",borderRadius:10,border:`1px solid ${C.purple}44`}}>
+                    💬 {activeDis.topic}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+                    {activePosts.map(p=>{
+                      const g=groups.find(x=>x.id===p.group_id)
+                      return(
+                        <Card key={p.id} style={{borderLeft:`3px solid ${g?.color||C.border}`}}>
+                          <div style={{fontSize:11,color:g?.color||C.muted,fontWeight:700,marginBottom:6}}>
+                            {p.student_name}{g?` · ${g.name}`:""}
+                          </div>
+                          <div style={{fontSize:13,lineHeight:1.6}}>{p.content}</div>
+                        </Card>
+                      )
+                    })}
+                    {!activePosts.length&&<div style={{fontSize:13,color:C.muted,gridColumn:"1/-1",padding:20}}>等待学生发言…</div>}
+                  </div>
+                </>
+              ):(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:200,color:C.muted,fontSize:14}}>
+                  ← 点击左侧议题激活
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* LAB */}
+        {sess.phase==="lab"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:20}}>
+            <div>
+              {groups.map(g=>{
+                const members=checkins.filter(c=>c.group_id===g.id)
+                const avgScore=members.length?Math.round(members.reduce((s,m)=>{
+                  const sub=submissions.find(x=>x.student_name===m.student_name)
+                  return s+(sub?.score||0)
+                },0)/members.length):0
+                return(
+                  <Card key={g.id} style={{marginBottom:14,borderLeft:`3px solid ${g.color}`}}>
+                    <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
+                      <span style={{fontSize:14,fontWeight:700,color:g.color,flex:1}}>{g.name}</span>
+                      <span style={{fontSize:12,color:C.muted}}>
+                        小组均分 <span style={{color:g.color,fontWeight:900,fontSize:20,fontFamily:FM}}>{avgScore}</span>
+                      </span>
                     </div>
-                    <div style={{height:6,borderRadius:3,background:"rgba(255,255,255,.06)"}}>
-                      <div style={{height:"100%",borderRadius:3,background:C.green,width:`${pct}%`,transition:"width .5s"}}/>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
+                      {members.map(m=>{
+                        const sub=submissions.find(x=>x.student_name===m.student_name)
+                        const pct=sub?Math.round(sub.score/TASK.maxScore*100):0
+                        return(
+                          <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(255,255,255,.03)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
+                              <span>{m.student_name}</span>
+                              <span style={{color:C.accent,fontWeight:700,fontFamily:FM}}>{sub?.score||0}</span>
+                            </div>
+                            <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,.06)"}}>
+                              <div style={{height:"100%",borderRadius:2,background:g.color,width:`${pct}%`,transition:"width .5s"}}/>
+                            </div>
+                            {sub?.submitted&&<div style={{fontSize:10,color:C.accent,marginTop:4}}>✓ 已提交</div>}
+                          </div>
+                        )
+                      })}
                     </div>
-                    {sub?.submitted && <div style={{fontSize:11,color:C.green,marginTop:6}}>✓ 已提交</div>}
+                  </Card>
+                )
+              })}
+            </div>
+            <GroupRankPanel groupRank={groupRank} label="小组综合积分"/>
+          </div>
+        )}
+
+        {/* FINISHED */}
+        {sess.phase==="finished"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,maxWidth:880}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>🏆 小组排名</div>
+              {groupRank.map((g,i)=>(
+                <Card key={g.id} style={{marginBottom:10,borderLeft:`3px solid ${g.color}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:15,fontWeight:700,color:g.color}}>{g.name}</div>
+                      <div style={{fontSize:11,color:C.muted}}>抢答 {g.quizSum} · 排版均分 {g.labAvg} · {g.memberCount}人</div>
+                    </div>
+                    <span style={{fontSize:28,fontWeight:900,color:g.color,fontFamily:FM}}>{g.total}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>个人排名</div>
+              {studentRank.map((r,i)=>{
+                const g=groups.find(x=>x.id===r.group_id)
+                return(
+                  <Card key={r.name} style={{marginBottom:8,padding:"12px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:13,color:i<3?C.gold:C.muted,width:22,fontFamily:FM}}>{i+1}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700}}>{r.name}</div>
+                        {g&&<div style={{fontSize:11,color:g.color}}>{g.name}</div>}
+                      </div>
+                      <span style={{fontSize:16,fontWeight:900,color:C.accent,fontFamily:FM}}>{r.total}</span>
+                    </div>
                   </Card>
                 )
               })}
             </div>
           </div>
-          {/* Full ranking */}
-          <div>
-            <div style={{fontSize:12,color:C.muted,marginBottom:12,letterSpacing:1}}>综合积分榜</div>
-            {ranking.map((r,i)=>(
-              <Card key={r.name} style={{marginBottom:8,padding:"12px 16px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:13,color:i<3?C.accent:C.muted,width:20}}>{i+1}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:700}}>{r.name}</div>
-                    <div style={{fontSize:11,color:C.muted}}>抢答{r.quiz} + 排版{r.lab}</div>
-                  </div>
-                  <span style={{fontSize:16,fontWeight:800,color:C.accent}}>{r.total}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── FINISHED ── */}
-      {session.phase==="finished" && (
-        <div style={{maxWidth:600,margin:"0 auto"}}>
-          <div style={{fontSize:24,fontWeight:800,fontFamily:"'Syne',sans-serif",marginBottom:24,textAlign:"center"}}>
-            🏆 竞赛结果
-          </div>
-          {ranking.map((r,i)=>(
-            <Card key={r.name} style={{marginBottom:12,padding:"16px 20px",
-              border:i===0?`1px solid ${C.accent}`:undefined}}>
-              <div style={{display:"flex",alignItems:"center",gap:14}}>
-                <span style={{fontSize:28,width:40,textAlign:"center"}}>
-                  {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
-                </span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:16,fontWeight:800}}>{r.name}</div>
-                  <div style={{fontSize:12,color:C.muted,marginTop:2}}>
-                    抢答 {r.quiz}分 · 排版 {r.lab}分
-                  </div>
-                </div>
-                <div style={{fontSize:28,fontWeight:800,color:C.accent}}>{r.total}</div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-// STUDENT – JOIN
-// ══════════════════════════════════════════════════════════════
-function StudentJoin({onJoin}) {
-  const [code,setCode] = useState("")
-  const [name,setName] = useState("")
-  const [loading,setLoading] = useState(false)
+function GroupRankPanel({groupRank,label}){
+  return(
+    <div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:12,fontFamily:"'Noto Sans SC',sans-serif"}}>{label}</div>
+      {groupRank.map((g,i)=>(
+        <div key={g.id} style={{marginBottom:8,padding:"12px 14px",borderRadius:12,
+          background:"#0f1018",border:`1px solid rgba(255,255,255,.07)`,borderLeft:`3px solid ${g.color}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:13,color:i<3?"#f5c842":"rgba(255,255,255,.32)",width:20,fontFamily:"'DM Mono',monospace"}}>{i+1}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:g.color,fontFamily:"'Noto Sans SC',sans-serif"}}>{g.name}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.32)",fontFamily:"'Noto Sans SC',sans-serif"}}>
+                {g.memberCount}人 · 抢{g.quizSum} · 排{g.labAvg}
+              </div>
+            </div>
+            <span style={{fontSize:20,fontWeight:900,color:g.color,fontFamily:"'DM Mono',monospace"}}>{g.total}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
-  async function join() {
+// ── STUDENT JOIN ─────────────────────────────────────────────
+function SJoin({onJoin}){
+  const [code,setCode]=useState("")
+  const [name,setName]=useState("")
+  const [loading,setLoading]=useState(false)
+
+  async function join(){
     if(!code.trim()||!name.trim()){alert("请填写房间码和姓名");return}
     setLoading(true)
-    const {data:sess,error} = await sb.from("word_lab_sessions").select()
+    const {data:s,error}=await sb.from("word_lab_sessions").select()
       .eq("code",code.toUpperCase()).neq("status","finished").single()
-    if(error||!sess){alert("找不到该房间，请核对房间码");setLoading(false);return}
-    onJoin(sess, name.trim())
+    if(error||!s){alert("找不到房间，请核对房间码");setLoading(false);return}
+    onJoin(s,name.trim())
+    setLoading(false)
   }
 
-  const inputStyle = {
-    width:"100%",padding:"14px 16px",borderRadius:12,
-    border:`1px solid ${C.border}`,background:"rgba(255,255,255,.04)",
-    color:C.text,fontSize:16,boxSizing:"border-box",
-    fontFamily:"'DM Mono',monospace",outline:"none",marginBottom:16
-  }
-
-  return (
+  return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"'DM Mono',monospace",padding:24}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-      <Card style={{width:"100%",maxWidth:360}}>
-        <div style={{fontSize:20,fontWeight:800,fontFamily:"'Syne',sans-serif",
-          color:C.text,marginBottom:6}}>加入竞赛</div>
-        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>输入老师给出的房间码</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:8}}>房间码</div>
+      justifyContent:"center",fontFamily:F,padding:24}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+      <Card style={{width:"100%",maxWidth:340}}>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>加入录录课堂</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>输入老师的 5 位房间码</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:7}}>房间码</div>
         <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={5}
-          placeholder="XXXXX" style={{...inputStyle,fontSize:28,letterSpacing:8,textAlign:"center",
-          color:C.accent,fontWeight:800}}/>
-        <div style={{fontSize:12,color:C.muted,marginBottom:8}}>你的姓名</div>
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="输入真实姓名" style={inputStyle}/>
-        <Btn onClick={async()=>{setLoading(true);await join();setLoading(false)}} disabled={loading} style={{width:"100%"}}>
-          {loading?"加入中…":"加入竞赛 →"}
-        </Btn>
+          placeholder="XXXXX"
+          style={{...inp({fontSize:28,letterSpacing:8,textAlign:"center",color:C.accent,
+            fontWeight:700,fontFamily:FM,marginBottom:16})}}/>
+        <div style={{fontSize:12,color:C.muted,marginBottom:7}}>姓名</div>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="输入你的姓名"
+          style={{...inp({marginBottom:20})}}
+          onKeyDown={e=>e.key==="Enter"&&join()}/>
+        <Btn full onClick={join} disabled={loading}>{loading?"加入中…":"加入课堂 →"}</Btn>
       </Card>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-// STUDENT – MAIN (checkin → quiz → lab → finished)
-// ══════════════════════════════════════════════════════════════
-function StudentMain({session:initSession, studentName}) {
-  const [session,setSession] = useState(initSession)
-  const [checkedIn,setCheckedIn] = useState(false)
-  const [currentQ,setCurrentQ] = useState(null)
-  const [answered,setAnswered] = useState({}) // questionId -> index
-  const [quizPoints,setQuizPoints] = useState(0)
-  const [quizTimer,setQuizTimer] = useState(0)
-  const timerRef = useRef(null)
-  // Lab state
-  const editorRef = useRef(null)
-  const savedSel = useRef(null)
-  const [done,setDone] = useState(new Set())
-  const [labTimeLeft,setLabTimeLeft] = useState(session.time_limit)
-  const [submitted,setSubmitted] = useState(false)
-  const [submissionId,setSubmissionId] = useState(null)
-  const [finalScore,setFinalScore] = useState(0)
-  const [showTable,setShowTable] = useState(false)
-  const [showColor,setShowColor] = useState(false)
-  const [tRows,setTRows] = useState(3)
-  const [tCols,setTCols] = useState(2)
-  const [flash,setFlash] = useState(null)
+// ── STUDENT MAIN ─────────────────────────────────────────────
+function SMain({session:init,studentName}){
+  const [sess,setSess]=useState(init)
+  const [groups,setGroups]=useState([])
+  const [myGroupId,setMyGroupId]=useState(null)
+  const [checkedIn,setCheckedIn]=useState(false)
+  const [curQ,setCurQ]=useState(null)
+  const [answered,setAnswered]=useState({})
+  const [quizPts,setQuizPts]=useState(0)
+  const [qTimer,setQTimer]=useState(0)
+  const timerRef=useRef(null)
+  const [activeDis,setActiveDis]=useState(null)
+  const [posts,setPosts]=useState([])
+  const [postText,setPostText]=useState("")
+  const [posted,setPosted]=useState({})
+  const editorRef=useRef(null)
+  const savedSel=useRef(null)
+  const [done,setDone]=useState(new Set())
+  const [labTime,setLabTime]=useState(init.time_limit)
+  const [submitted,setSubmitted]=useState(false)
+  const [subId,setSubId]=useState(null)
+  const [finalScore,setFinalScore]=useState(0)
+  const [showTable,setShowTable]=useState(false)
+  const [showColor,setShowColor]=useState(false)
+  const [tRows,setTRows]=useState(3)
+  const [tCols,setTCols]=useState(2)
+  const [flash,setFlash]=useState(null)
 
-  // Check-in on mount
   useEffect(()=>{
-    (async()=>{
-      const {error} = await sb.from("word_lab_checkins").upsert({
-        session_id:session.id, student_name:studentName
-      },{onConflict:"session_id,student_name"})
-      if(!error) setCheckedIn(true)
-    })()
+    sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
+    sb.from("word_lab_checkins").upsert({session_id:init.id,student_name:studentName},{onConflict:"session_id,student_name"})
+      .then(()=>setCheckedIn(true))
+    sb.from("word_lab_checkins").select("group_id").eq("session_id",init.id).eq("student_name",studentName).single()
+      .then(({data})=>{ if(data?.group_id) setMyGroupId(data.group_id) })
   },[])
 
-  // Listen to session phase changes
   useEffect(()=>{
-    const ch = sb.channel(`student-sess-${session.id}`)
-      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${session.id}`},
+    const ch=sb.channel(`smain-${init.id}-${studentName}`)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
         async({new:s})=>{
-          setSession(s)
-          if(s.phase==="quiz" && s.current_question>0) {
-            const {data:q} = await sb.from("word_lab_questions").select()
+          setSess(s)
+          if(s.phase==="quiz"&&s.current_question>0){
+            const {data:q}=await sb.from("word_lab_questions").select()
               .eq("session_id",s.id).eq("seq",s.current_question).single()
-            if(q) {
-              setCurrentQ(q)
-              setQuizTimer(q.time_limit)
+            if(q){
+              setCurQ(q);setQTimer(q.time_limit)
               clearInterval(timerRef.current)
-              timerRef.current = setInterval(()=>setQuizTimer(t=>{
-                if(t<=1){clearInterval(timerRef.current);return 0}
-                return t-1
-              }),1000)
+              timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
             }
           }
-          if(s.current_question===0) setCurrentQ(null)
-          if(s.phase==="lab") {
-            // create submission row
-            const {data:sub} = await sb.from("word_lab_submissions").insert({
-              session_id:s.id, student_name:studentName, score:0,
-              max_score:TASK.maxScore, completed_tasks:[]
+          if(s.current_question===0) setCurQ(null)
+          if(s.phase==="lab"){
+            const {data:sub}=await sb.from("word_lab_submissions").insert({
+              session_id:s.id,student_name:studentName,score:0,max_score:TASK.maxScore,completed_tasks:[]
             }).select().single()
-            if(sub) setSubmissionId(sub.id)
+            if(sub) setSubId(sub.id)
           }
         })
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"lulu_discussions",filter:`session_id=eq.${init.id}`},
+        ({new:d})=>{
+          if(d.is_active){ setActiveDis(d) }
+          else { setActiveDis(p=>p?.id===d.id?null:p) }
+        })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"lulu_posts",filter:`session_id=eq.${init.id}`},
+        ({new:p})=>setPosts(prev=>[...prev,p]))
       .subscribe()
-    return ()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
-  },[session.id])
+    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
+  },[init.id])
 
-  // Init Word editor
+  useEffect(()=>{ if(sess.phase==="lab"&&editorRef.current) editorRef.current.innerHTML=TASK.rawHtml },[sess.phase])
+
   useEffect(()=>{
-    if(session.phase==="lab" && editorRef.current)
-      editorRef.current.innerHTML = TASK.rawHtml
-  },[session.phase])
+    if(sess.phase!=="lab"||submitted) return
+    const t=setInterval(()=>setLabTime(v=>{if(v<=1){clearInterval(t);handleSubmit();return 0}return v-1}),1000)
+    return()=>clearInterval(t)
+  },[sess.phase,submitted])
 
-  // Lab timer
   useEffect(()=>{
-    if(session.phase!=="lab"||submitted) return
-    const t = setInterval(()=>setLabTimeLeft(v=>{
-      if(v<=1){clearInterval(t);handleSubmit();return 0}
-      return v-1
-    }),1000)
-    return ()=>clearInterval(t)
-  },[session.phase,submitted])
+    if(sess.phase!=="lab"||!subId||submitted) return
+    const t=setInterval(()=>save(),3000)
+    return()=>clearInterval(t)
+  },[sess.phase,subId,submitted,done])
 
-  // Auto-save lab every 3s
-  useEffect(()=>{
-    if(session.phase!=="lab"||!submissionId||submitted) return
-    const t = setInterval(()=>saveProgress(),3000)
-    return ()=>clearInterval(t)
-  },[session.phase,submissionId,submitted,done])
+  async function chooseGroup(gid){
+    await sb.from("word_lab_checkins").update({group_id:gid})
+      .eq("session_id",init.id).eq("student_name",studentName)
+    setMyGroupId(gid)
+  }
 
-  async function answerQuiz(q, idx) {
-    if(answered[q.id]!==undefined || quizTimer===0) return
-    const isCorrect = idx === q.correct_index
-    const pts = isCorrect ? q.points : 0
+  async function answerQ(q,idx){
+    if(answered[q.id]!==undefined||qTimer===0) return
+    const ok=idx===q.correct_index
     await sb.from("word_lab_answers").upsert({
-      session_id:session.id, question_id:q.id,
-      student_name:studentName, answer_index:idx,
-      is_correct:isCorrect, points_earned:pts
+      session_id:init.id,question_id:q.id,student_name:studentName,
+      answer_index:idx,is_correct:ok,points_earned:ok?q.points:0
     },{onConflict:"question_id,student_name"})
     setAnswered(p=>({...p,[q.id]:idx}))
-    setQuizPoints(p=>p+pts)
-    setFlash(isCorrect?"correct":"wrong")
+    setQuizPts(p=>p+(ok?q.points:0))
+    setFlash(ok?"correct":"wrong")
     setTimeout(()=>setFlash(null),1200)
   }
 
-  function saveSelection() {
-    const sel = window.getSelection()
-    if(sel&&sel.rangeCount>0) savedSel.current=sel.getRangeAt(0).cloneRange()
-  }
-  function restoreSelection() {
-    if(!savedSel.current) return
-    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedSel.current)
-  }
-  function exec(cmd,val=null) {
-    editorRef.current?.focus(); restoreSelection()
-    document.execCommand(cmd,false,val)
-    checkRequirements()
+  async function submitPost(){
+    if(!postText.trim()||posted[activeDis?.id]) return
+    await sb.from("lulu_posts").insert({
+      session_id:init.id,discussion_id:activeDis.id,
+      student_name:studentName,group_id:myGroupId,content:postText.trim()
+    })
+    setPosted(p=>({...p,[activeDis.id]:true}))
+    setPostText("")
   }
 
-  function checkRequirements() {
+  const saveSel=()=>{const s=window.getSelection();if(s&&s.rangeCount>0)savedSel.current=s.getRangeAt(0).cloneRange()}
+  const restSel=()=>{if(!savedSel.current)return;const s=window.getSelection();s.removeAllRanges();s.addRange(savedSel.current)}
+  const exec=(cmd,val=null)=>{editorRef.current?.focus();restSel();document.execCommand(cmd,false,val);checkReqs()}
+
+  function checkReqs(){
     if(!editorRef.current) return
-    const html = editorRef.current.innerHTML
-    const el = editorRef.current
-    const newDone = new Set()
-    if(el.querySelector("h1")) newDone.add("h1")
-    if(el.querySelectorAll("h2").length>=3) newDone.add("h2x3")
-    if(el.querySelector("table")) newDone.add("table")
-    const boldEls = el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold']")
-    if(boldEls.length>=2) newDone.add("bold")
-    const colorEls = Array.from(el.querySelectorAll("h2")).filter(h=>h.style.color||h.querySelector("[style*='color']"))
-    if(colorEls.length>0) newDone.add("color")
-    setDone(newDone)
+    const el=editorRef.current,nd=new Set()
+    if(el.querySelector("h1")) nd.add("h1")
+    if(el.querySelectorAll("h2").length>=3) nd.add("h2x3")
+    if(el.querySelector("table")) nd.add("table")
+    if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold']").length>=2) nd.add("bold")
+    if(Array.from(el.querySelectorAll("h2")).some(h=>h.style.color||h.querySelector("[style*='color']"))) nd.add("color")
+    setDone(nd)
   }
 
-  async function saveProgress() {
-    if(!submissionId) return
-    const score = TASK.requirements.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+  async function save(){
+    if(!subId) return
+    const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
     await sb.from("word_lab_submissions").update({
-      score, completed_tasks:[...done],
+      score,completed_tasks:[...done],
       html_content:editorRef.current?.innerHTML||"",
-      last_active: new Date().toISOString()
-    }).eq("id",submissionId)
+      last_active:new Date().toISOString()
+    }).eq("id",subId)
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(){
     if(submitted) return
-    await saveProgress()
-    const score = TASK.requirements.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
-    await sb.from("word_lab_submissions").update({submitted:true,score}).eq("id",submissionId)
-    setFinalScore(score); setSubmitted(true)
+    await save()
+    const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    await sb.from("word_lab_submissions").update({submitted:true,score}).eq("id",subId)
+    setFinalScore(score);setSubmitted(true)
   }
 
-  function insertTable() {
-    editorRef.current?.focus(); restoreSelection()
-    let html="<table border='1' style='border-collapse:collapse;width:100%;margin:12px 0'>"
-    for(let r=0;r<tRows;r++){
-      html+="<tr>"
-      for(let c=0;c<tCols;c++) html+=`<td style='padding:8px 12px;border:1px solid #ccc'>${r===0?["商品","价格","规格","备注"][c]||"列"+(c+1):"&nbsp;"}</td>`
-      html+="</tr>"
-    }
-    html+="</table>"
-    document.execCommand("insertHTML",false,html)
-    setShowTable(false); checkRequirements()
+  function insertTable(){
+    editorRef.current?.focus();restSel()
+    let h="<table border='1' style='border-collapse:collapse;width:100%;margin:12px 0'>"
+    for(let r=0;r<tRows;r++){h+="<tr>";for(let c=0;c<tCols;c++) h+=`<td style='padding:8px 12px;border:1px solid #ccc'>${r===0?["商品","单价","数量","备注"][c]||"列"+(c+1):"&nbsp;"}</td>`;h+="</tr>"}
+    h+="</table>"
+    document.execCommand("insertHTML",false,h)
+    setShowTable(false);checkReqs()
   }
 
-  const score = TASK.requirements.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+  const myGroup=groups.find(g=>g.id===myGroupId)
+  const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
 
-  // ── Waiting screen ──
-  if(!checkedIn || session.phase==="checkin") {
-    return (
+  // Checkin screen
+  if(!checkedIn||sess.phase==="checkin"){
+    return(
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
-        alignItems:"center",justifyContent:"center",fontFamily:"'DM Mono',monospace",gap:20}}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-        <div style={{fontSize:48}}>✅</div>
-        <div style={{fontSize:22,fontWeight:800,fontFamily:"'Syne',sans-serif",color:C.text}}>
-          {studentName}，签到成功！
+        alignItems:"center",justifyContent:"center",fontFamily:F,gap:20,padding:24}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        <div style={{fontSize:28,fontWeight:900}}>{studentName}</div>
+        {myGroupId?(
+          <>
+            <div style={{fontSize:32}}>✅</div>
+            <div style={{fontSize:16,fontWeight:700,color:myGroup?.color||C.accent}}>已加入 {myGroup?.name}</div>
+            <div style={{fontSize:13,color:C.muted}}>等待老师开始…</div>
+            <div style={{marginTop:8,fontSize:12,color:C.muted}}>想换组？点击下方重新选择</div>
+          </>
+        ):(
+          <div style={{fontSize:15,color:C.muted}}>选择你的小组 ↓</div>
+        )}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center"}}>
+          {groups.map(g=>(
+            <button key={g.id} onClick={()=>chooseGroup(g.id)} style={{
+              padding:"16px 30px",borderRadius:14,
+              border:`2px solid ${g.id===myGroupId?g.color:C.border}`,
+              background:g.id===myGroupId?`${g.color}20`:"transparent",
+              color:g.id===myGroupId?g.color:C.muted,cursor:"pointer",
+              fontSize:16,fontWeight:700,fontFamily:F,transition:"all .2s"
+            }}>{g.name}</button>
+          ))}
         </div>
-        <div style={{color:C.muted,fontSize:14}}>等待老师开始抢答热身…</div>
-        <div style={{marginTop:8}}>
-          <Tag color={C.blue}>房间: {session.code}</Tag>
-        </div>
-        {/* Pulse dot */}
-        <div style={{width:12,height:12,borderRadius:"50%",background:C.green,
-          animation:"pulse 1.5s infinite",marginTop:12}}/>
-        <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}`}</style>
+        <div style={{width:10,height:10,borderRadius:"50%",background:C.accent,marginTop:8,
+          animation:"pulse 1.5s infinite"}}/>
+        <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(2)}}`}</style>
       </div>
     )
   }
 
-  // ── Quiz screen ──
-  if(session.phase==="quiz") {
-    const myAnswer = currentQ ? answered[currentQ.id] : undefined
-    return (
+  // Quiz screen
+  if(sess.phase==="quiz"){
+    const myAns=curQ?answered[curQ.id]:undefined
+    return(
       <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
-        alignItems:"center",justifyContent:"center",fontFamily:"'DM Mono',monospace",padding:20}}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-        {/* Flash overlay */}
-        {flash && (
-          <div style={{position:"fixed",inset:0,background:flash==="correct"?"rgba(61,220,132,.15)":"rgba(255,95,95,.15)",
-            zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:72,animation:"fadeout .8s forwards"}}>{flash==="correct"?"✓":"✗"}</div>
-        )}
-        <style>{`@keyframes fadeout{from{opacity:1}to{opacity:0}}`}</style>
-
-        <div style={{width:"100%",maxWidth:480}}>
-          {/* Header */}
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
-            <div>
-              <div style={{fontSize:13,color:C.muted}}>{studentName}</div>
-              <div style={{fontSize:20,fontWeight:800,color:C.accent}}>{quizPoints} 分</div>
-            </div>
-            <Tag color={C.accent}>抢答热身</Tag>
+        alignItems:"center",justifyContent:"center",fontFamily:F,padding:20}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        {flash&&(
+          <div style={{position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",
+            justifyContent:"center",fontSize:80,pointerEvents:"none",
+            background:flash==="correct"?"rgba(126,232,162,.18)":"rgba(255,107,107,.15)",
+            animation:"fout .9s forwards"}}>
+            {flash==="correct"?"✓":"✗"}
           </div>
-
-          {!currentQ ? (
+        )}
+        <style>{`@keyframes fout{from{opacity:1}to{opacity:0}}`}</style>
+        <div style={{width:"100%",maxWidth:460}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+            <div>
+              <div style={{fontSize:12,color:C.muted}}>
+                {studentName} {myGroup&&<span style={{color:myGroup.color}}>· {myGroup.name}</span>}
+              </div>
+              <div style={{fontSize:24,fontWeight:900,color:C.accent,fontFamily:FM}}>{quizPts} 分</div>
+            </div>
+            <div style={{fontSize:11,color:C.muted,background:"rgba(255,255,255,.05)",
+              padding:"4px 10px",borderRadius:6}}>抢答热身</div>
+          </div>
+          {!curQ?(
             <Card style={{textAlign:"center",padding:48}}>
-              <div style={{fontSize:32,marginBottom:12}}>🎯</div>
+              <div style={{fontSize:40,marginBottom:12}}>🎯</div>
               <div style={{color:C.muted}}>等待老师推送题目…</div>
             </Card>
-          ) : (
+          ):(
             <Card>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                <Tag color={C.accent}>Q{currentQ.seq} · {currentQ.points}分</Tag>
-                <span style={{fontSize:32,fontWeight:800,color:quizTimer<=5?C.red:C.accent}}>{quizTimer}</span>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+                <span style={{fontSize:12,color:C.muted,fontFamily:FM}}>Q{curQ.seq} · {curQ.points}分</span>
+                <span style={{fontSize:40,fontWeight:900,color:qTimer<=5?C.red:C.accent,fontFamily:FM}}>{qTimer}</span>
               </div>
-              <div style={{fontSize:17,color:C.text,lineHeight:1.7,marginBottom:20}}>{currentQ.question}</div>
+              <div style={{fontSize:16,lineHeight:1.75,marginBottom:20}}>{curQ.question}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                {currentQ.options.map((opt,j)=>{
-                  const selected = myAnswer===j
-                  const revealed = myAnswer!==undefined
-                  const isCorrect = j===currentQ.correct_index
-                  let bg="rgba(255,255,255,.04)", border=C.border, color=C.muted
-                  if(selected && revealed) {
-                    bg=isCorrect?"rgba(61,220,132,.15)":"rgba(255,95,95,.12)"
-                    border=isCorrect?C.green:C.red
-                    color=isCorrect?C.green:C.red
-                  } else if(!selected && revealed && isCorrect) {
-                    border=C.green; color=C.green
-                  }
-                  return (
-                    <button key={j} onClick={()=>answerQuiz(currentQ,j)} style={{
-                      padding:"16px 14px",borderRadius:12,border:`2px solid ${border}`,
-                      background:bg,color,fontSize:14,fontWeight:700,cursor:myAnswer!==undefined?"default":"pointer",
-                      fontFamily:"'DM Mono',monospace",textAlign:"left",transition:"all .2s"
+                {curQ.options.map((opt,j)=>{
+                  const sel=myAns===j,rev=myAns!==undefined,ok=j===curQ.correct_index
+                  let bg="rgba(255,255,255,.04)",brd=C.border,col=C.muted
+                  if(sel&&rev){bg=ok?"rgba(126,232,162,.15)":"rgba(255,107,107,.12)";brd=ok?C.accent:C.red;col=ok?C.accent:C.red}
+                  else if(!sel&&rev&&ok){brd=C.accent;col=C.accent}
+                  return(
+                    <button key={j} onClick={()=>answerQ(curQ,j)} style={{
+                      padding:"15px 12px",borderRadius:12,border:`2px solid ${brd}`,background:bg,
+                      color,fontSize:14,fontWeight:700,cursor:myAns!==undefined?"default":"pointer",
+                      fontFamily:F,textAlign:"left",transition:"all .2s"
                     }}>
-                      <span style={{color:"rgba(255,255,255,.3)",marginRight:8}}>{["A","B","C","D"][j]}</span>
-                      {opt}
+                      <span style={{color:"rgba(255,255,255,.2)",marginRight:8,fontFamily:FM}}>{"ABCD"[j]}</span>{opt}
                     </button>
                   )
                 })}
               </div>
-              {myAnswer!==undefined && (
-                <div style={{marginTop:14,textAlign:"center",fontSize:13,
-                  color:myAnswer===currentQ.correct_index?C.green:C.red}}>
-                  {myAnswer===currentQ.correct_index?`✓ 答对！+${currentQ.points}分`:"✗ 答错，继续加油！"}
+              {myAns!==undefined&&(
+                <div style={{marginTop:14,textAlign:"center",fontSize:14,fontWeight:700,
+                  color:myAns===curQ.correct_index?C.accent:C.red}}>
+                  {myAns===curQ.correct_index?`答对！+${curQ.points}分`:"答错了，下题加油"}
                 </div>
               )}
             </Card>
@@ -839,89 +940,133 @@ function StudentMain({session:initSession, studentName}) {
     )
   }
 
-  // ── Lab screen ──
-  if(session.phase==="lab") {
-    const toolBtn = (label,action,extra={})=>(
-      <button onMouseDown={e=>{e.preventDefault();saveSelection();action()}} style={{
-        padding:"6px 12px",borderRadius:8,border:`1px solid ${C.border}`,
-        background:"rgba(255,255,255,.04)",color:C.text,fontSize:12,cursor:"pointer",
-        fontFamily:"'DM Mono',monospace",...extra
+  // Discussion screen
+  if(sess.phase==="discussion"){
+    return(
+      <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,padding:20,
+        display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        <div style={{width:"100%",maxWidth:480}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.text}}>{studentName}</div>
+            {myGroup&&<span style={{fontSize:12,color:myGroup.color,background:`${myGroup.color}18`,
+              padding:"3px 10px",borderRadius:6,fontWeight:700}}>{myGroup.name}</span>}
+          </div>
+          {!activeDis?(
+            <Card style={{textAlign:"center",padding:48}}>
+              <div style={{fontSize:36,marginBottom:12}}>💬</div>
+              <div style={{color:C.muted}}>等待老师开启讨论议题…</div>
+            </Card>
+          ):(
+            <>
+              <Card style={{marginBottom:16,border:`1px solid ${C.purple}55`,background:"rgba(179,157,255,.06)"}}>
+                <div style={{fontSize:12,color:C.purple,marginBottom:6,fontWeight:700}}>💬 本轮议题</div>
+                <div style={{fontSize:15,lineHeight:1.75}}>{activeDis.topic}</div>
+              </Card>
+              {!posted[activeDis.id]?(
+                <Card style={{marginBottom:16}}>
+                  <textarea value={postText} onChange={e=>setPostText(e.target.value.slice(0,80))}
+                    placeholder="写下你的想法…（最多 80 字）" rows={3}
+                    style={{...inp({resize:"none",lineHeight:1.7,marginBottom:10}),width:"100%",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:11,color:C.muted}}>{postText.length}/80</span>
+                    <Btn small onClick={submitPost} color={C.purple} disabled={!postText.trim()}>发送</Btn>
+                  </div>
+                </Card>
+              ):(
+                <Card style={{marginBottom:16,border:`1px solid ${C.accent}44`,textAlign:"center"}}>
+                  <div style={{fontSize:14,color:C.accent,fontWeight:700}}>✓ 发言成功</div>
+                </Card>
+              )}
+              <div style={{display:"grid",gap:8}}>
+                {posts.filter(p=>p.student_name!==studentName).slice(-6).map(p=>{
+                  const g=groups.find(x=>x.id===p.group_id)
+                  return(
+                    <div key={p.id} style={{padding:"10px 14px",borderRadius:10,
+                      background:"rgba(255,255,255,.03)",border:`1px solid ${C.border}`}}>
+                      <div style={{fontSize:11,color:g?.color||C.muted,marginBottom:4,fontWeight:700}}>
+                        {p.student_name}{g?` · ${g.name}`:""}
+                      </div>
+                      <div style={{fontSize:13,lineHeight:1.6,color:C.text}}>{p.content}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Lab screen
+  if(sess.phase==="lab"){
+    const toolBtn=(label,action,extra={})=>(
+      <button onMouseDown={e=>{e.preventDefault();saveSel();action()}} style={{
+        padding:"6px 11px",borderRadius:7,border:`1px solid ${C.border}`,
+        background:"rgba(255,255,255,.05)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
       }}>{label}</button>
     )
-    return (
-      <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'DM Mono',monospace",color:C.text,
-        display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden",height:"100vh"}}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-
-        {/* Top bar */}
-        <div style={{display:"flex",alignItems:"center",gap:16,padding:"10px 20px",
-          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",gap:8}}>
-          <span style={{fontSize:13,fontWeight:800,color:C.accent,minWidth:60}}>{fmtTime(labTimeLeft)}</span>
-          {/* toolbar */}
-          {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.accent})}
+    return(
+      <div style={{height:"100vh",background:C.bg,fontFamily:F,color:C.text,
+        display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden"}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
+          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+          <span style={{fontSize:14,fontWeight:900,color:C.accent,fontFamily:FM,minWidth:54}}>{fmtTime(labTime)}</span>
+          {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700}}>▪ {myGroup.name}</span>}
+          {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.gold})}
           {toolBtn("H2",()=>exec("formatBlock","h2"))}
-          {toolBtn("B",()=>exec("bold"),{fontWeight:800})}
-          {toolBtn("Color",()=>setShowColor(p=>!p))}
+          {toolBtn("加粗",()=>exec("bold"),{fontWeight:700})}
+          {toolBtn("颜色",()=>setShowColor(p=>!p))}
           {toolBtn("表格",()=>setShowTable(p=>!p))}
-          {/* color picker */}
-          {showColor && (
-            <div style={{display:"flex",gap:6,background:C.panel,padding:6,borderRadius:8,border:`1px solid ${C.border}`}}>
-              {["#f0c040","#ff5f5f","#4fc3f7","#3ddc84","#a78bfa"].map(col=>(
+          {showColor&&(
+            <div style={{display:"flex",gap:5,background:C.panel2,padding:5,borderRadius:7,border:`1px solid ${C.border}`}}>
+              {[C.gold,C.red,C.blue,C.accent,C.purple,"#ff9f43"].map(col=>(
                 <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}} style={{
-                  width:24,height:24,borderRadius:6,background:col,cursor:"pointer"
-                }}/>
+                  width:22,height:22,borderRadius:5,background:col,cursor:"pointer"}}/>
               ))}
             </div>
           )}
-          {/* table popup */}
-          {showTable && (
-            <div style={{display:"flex",gap:8,alignItems:"center",background:C.panel,padding:"6px 12px",
-              borderRadius:8,border:`1px solid ${C.border}`}}>
+          {showTable&&(
+            <div style={{display:"flex",gap:6,alignItems:"center",background:C.panel2,
+              padding:"5px 10px",borderRadius:7,border:`1px solid ${C.border}`}}>
               <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
-                style={{width:40,padding:"4px 6px",borderRadius:6,border:`1px solid ${C.border}`,
-                background:"rgba(255,255,255,.04)",color:C.text,fontSize:12,fontFamily:"'DM Mono',monospace"}}/>
-              <span style={{color:C.muted,fontSize:11}}>行 ×</span>
+                style={{width:36,...inp({padding:"3px 6px",fontSize:12})}}/>
+              <span style={{fontSize:11,color:C.muted}}>行×</span>
               <input type="number" value={tCols} onChange={e=>setTCols(Number(e.target.value))} min={2} max={6}
-                style={{width:40,padding:"4px 6px",borderRadius:6,border:`1px solid ${C.border}`,
-                background:"rgba(255,255,255,.04)",color:C.text,fontSize:12,fontFamily:"'DM Mono',monospace"}}/>
-              <span style={{color:C.muted,fontSize:11}}>列</span>
-              <Btn small onClick={insertTable} color={C.green}>插入</Btn>
+                style={{width:36,...inp({padding:"3px 6px",fontSize:12})}}/>
+              <span style={{fontSize:11,color:C.muted}}>列</span>
+              <Btn small onClick={insertTable} color={C.accent}>插入</Btn>
             </div>
           )}
           <div style={{flex:1}}/>
-          <span style={{fontSize:13,color:C.accent,fontWeight:800}}>{score}/{TASK.maxScore}分</span>
-          {!submitted && <Btn small onClick={handleSubmit} color={C.accent}>提交</Btn>}
-          {submitted && <Tag color={C.green}>已提交</Tag>}
+          <span style={{fontSize:13,color:C.accent,fontWeight:700,fontFamily:FM}}>{score}/{TASK.maxScore}</span>
+          {!submitted&&<Btn small onClick={handleSubmit} color={C.accent}>提交</Btn>}
+          {submitted&&<span style={{fontSize:12,color:C.accent,fontWeight:700}}>✓ 已提交</span>}
         </div>
-
-        {/* Main area */}
-        <div style={{display:"grid",gridTemplateColumns:"200px 1fr",overflow:"hidden"}}>
-          {/* Task panel */}
-          <div style={{background:C.panel,borderRight:`1px solid ${C.border}`,padding:16,overflowY:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"185px 1fr",overflow:"hidden"}}>
+          <div style={{background:C.panel,borderRight:`1px solid ${C.border}`,padding:14,overflowY:"auto"}}>
             <div style={{fontSize:11,color:C.muted,marginBottom:12,letterSpacing:1}}>任务清单</div>
-            {TASK.requirements.map(r=>(
+            {TASK.reqs.map(r=>(
               <div key={r.id} style={{marginBottom:12,display:"flex",gap:8,alignItems:"flex-start"}}>
-                <span style={{color:done.has(r.id)?C.green:"rgba(255,255,255,.15)",fontSize:16,marginTop:1}}>
+                <span style={{color:done.has(r.id)?C.accent:"rgba(255,255,255,.12)",fontSize:15,marginTop:1}}>
                   {done.has(r.id)?"✓":"○"}
                 </span>
                 <div>
                   <div style={{fontSize:11,color:done.has(r.id)?C.text:C.muted,lineHeight:1.5}}>{r.desc}</div>
-                  <div style={{fontSize:11,color:done.has(r.id)?C.green:"rgba(255,255,255,.15)",fontWeight:800}}>
-                    +{r.pts}
-                  </div>
+                  <div style={{fontSize:11,color:done.has(r.id)?C.accent:"rgba(255,255,255,.12)",fontWeight:700}}>+{r.pts}</div>
                 </div>
               </div>
             ))}
           </div>
-
-          {/* Editor */}
-          <div style={{background:"#1a1a24",overflowY:"auto",padding:24}}>
-            <div style={{maxWidth:680,margin:"0 auto",background:"white",padding:"40px 50px",
-              borderRadius:4,boxShadow:"0 4px 40px rgba(0,0,0,.5)"}}>
-              <div ref={editorRef} contentEditable={!submitted} onInput={checkRequirements}
-                onKeyUp={checkRequirements} onMouseUp={saveSelection} onKeyDown={saveSelection}
-                style={{minHeight:400,color:"#222",fontSize:14,lineHeight:1.8,outline:"none",
-                  fontFamily:"Georgia,serif"}}/>
+          <div style={{background:"#1c1c28",overflowY:"auto",padding:20}}>
+            <div style={{maxWidth:660,margin:"0 auto",background:"white",padding:"40px 48px",
+              borderRadius:3,boxShadow:"0 4px 40px rgba(0,0,0,.6)"}}>
+              <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
+                onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
+                style={{minHeight:380,color:"#1a1a1a",fontSize:14,lineHeight:1.9,
+                  outline:"none",fontFamily:"Georgia,serif"}}/>
             </div>
           </div>
         </div>
@@ -929,43 +1074,42 @@ function StudentMain({session:initSession, studentName}) {
     )
   }
 
-  // ── Finished / results ──
-  return (
+  // Finished
+  return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
-      alignItems:"center",justifyContent:"center",fontFamily:"'DM Mono',monospace",gap:16,padding:24}}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-      <div style={{fontSize:48}}>🏅</div>
-      <div style={{fontSize:24,fontWeight:800,fontFamily:"'Syne',sans-serif",color:C.text}}>{studentName}</div>
-      <div style={{display:"flex",gap:20}}>
-        <Card style={{textAlign:"center",padding:"20px 32px"}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:4}}>抢答得分</div>
-          <div style={{fontSize:32,fontWeight:800,color:C.accent}}>{quizPoints}</div>
+      alignItems:"center",justifyContent:"center",fontFamily:F,gap:16,padding:24}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+      <div style={{fontSize:40}}>🏅</div>
+      <div style={{fontSize:28,fontWeight:900}}>{studentName}</div>
+      {myGroup&&<div style={{fontSize:14,color:myGroup.color,fontWeight:700}}>{myGroup.name}</div>}
+      <div style={{display:"flex",gap:14,marginTop:8}}>
+        <Card style={{textAlign:"center",padding:"18px 28px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>抢答</div>
+          <div style={{fontSize:32,fontWeight:900,color:C.blue,fontFamily:FM}}>{quizPts}</div>
         </Card>
-        <Card style={{textAlign:"center",padding:"20px 32px"}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:4}}>排版得分</div>
-          <div style={{fontSize:32,fontWeight:800,color:C.green}}>{finalScore||score}</div>
+        <Card style={{textAlign:"center",padding:"18px 28px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>排版</div>
+          <div style={{fontSize:32,fontWeight:900,color:C.accent,fontFamily:FM}}>{finalScore||score}</div>
+        </Card>
+        <Card style={{textAlign:"center",padding:"18px 28px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>总分</div>
+          <div style={{fontSize:32,fontWeight:900,color:C.gold,fontFamily:FM}}>{quizPts+(finalScore||score)}</div>
         </Card>
       </div>
-      <Card style={{textAlign:"center",padding:"16px 40px"}}>
-        <div style={{fontSize:12,color:C.muted,marginBottom:4}}>总分</div>
-        <div style={{fontSize:40,fontWeight:800,color:C.accent}}>{quizPoints+(finalScore||score)}</div>
-      </Card>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-// ROOT
-// ══════════════════════════════════════════════════════════════
-export default function App() {
-  const [screen,setScreen] = useState("home")
-  const [session,setSession] = useState(null)
-  const [studentName,setStudentName] = useState("")
+// ── ROOT ─────────────────────────────────────────────────────
+export default function App(){
+  const [screen,setScreen]=useState("home")
+  const [sess,setSess]=useState(null)
+  const [name,setName]=useState("")
 
-  if(screen==="home")    return <HomeScreen onTeacher={()=>setScreen("t-setup")} onStudent={()=>setScreen("s-join")}/>
-  if(screen==="t-setup") return <TeacherSetup onCreate={s=>{setSession(s);setScreen("t-dash")}}/>
-  if(screen==="t-dash")  return <TeacherDashboard session={session}/>
-  if(screen==="s-join")  return <StudentJoin onJoin={(sess,name)=>{setSession(sess);setStudentName(name);setScreen("s-main")}}/>
-  if(screen==="s-main")  return <StudentMain session={session} studentName={studentName}/>
+  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-setup")} onStudent={()=>setScreen("s-join")}/>
+  if(screen==="t-setup") return <TSetup onCreate={s=>{setSess(s);setScreen("t-dash")}}/>
+  if(screen==="t-dash")  return <TDash session={sess}/>
+  if(screen==="s-join")  return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
+  if(screen==="s-main")  return <SMain session={sess} studentName={name}/>
   return null
 }
