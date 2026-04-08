@@ -276,7 +276,7 @@ function TSetup({onCreate}){
   const [selectedTaskId,setSelectedTaskId]=useState(null)
 
   useEffect(()=>{
-    sb.from("lulu_task_library").select("id,title,description,scoring_rules,time_limit")
+    sb.from("lulu_layout_tasks").select("id,title,description,scoring_rules,time_limit")
       .order("created_at",{ascending:false})
       .then(({data})=>{
         if(data&&data.length){
@@ -1066,7 +1066,7 @@ function TTaskLibrary(){
 
   async function loadTasks(){
     setLoading(true)
-    const {data}=await sb.from("lulu_task_library").select().order("created_at",{ascending:false})
+    const {data}=await sb.from("lulu_layout_tasks").select().order("created_at",{ascending:false})
     if(data) setTasks(data)
     setLoading(false)
   }
@@ -1074,7 +1074,7 @@ function TTaskLibrary(){
   async function deleteTask(id,e){
     e.stopPropagation()
     if(!confirm("确定删除这道题目？")) return
-    await sb.from("lulu_task_library").delete().eq("id",id)
+    await sb.from("lulu_layout_tasks").delete().eq("id",id)
     setTasks(p=>p.filter(t=>t.id!==id))
   }
 
@@ -1220,10 +1220,10 @@ ${rulesDesc}
       scoring_rules:rules,time_limit:timeLimit}
     let result
     if(task?.id){
-      const {data}=await sb.from("lulu_task_library").update(payload).eq("id",task.id).select().single()
+      const {data}=await sb.from("lulu_layout_tasks").update(payload).eq("id",task.id).select().single()
       result=data
     } else {
-      const {data}=await sb.from("lulu_task_library").insert(payload).select().single()
+      const {data}=await sb.from("lulu_layout_tasks").insert(payload).select().single()
       result=data
     }
     setSaving(false)
@@ -1469,7 +1469,7 @@ function LayoutTaskEditor({task,onSave,onBack}){
 
   useEffect(()=>{
     if(tab==="target"&&targetRef.current&&task?.target_html){
-      targetRef.current.innerHTML=task.target_html
+      targetRef.current.innerHTML=task.target_html||''
     }
   },[tab])
 
@@ -1802,6 +1802,8 @@ function SMain({session:init,studentName}){
   const [tCols,setTCols]=useState(2)
   const [flash,setFlash]=useState(null)
   const [activeTask,setActiveTask]=useState(null) // loaded from DB
+  const [taskLoaded,setTaskLoaded]=useState(false)  // true when task confirmed
+  const [labInitialized,setLabInitialized]=useState(false) // editor init once
 
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
@@ -1809,14 +1811,14 @@ function SMain({session:init,studentName}){
       .then(()=>setCheckedIn(true))
     sb.from("word_lab_checkins").select("group_id").eq("session_id",init.id).eq("student_name",studentName).single()
       .then(({data})=>{ if(data?.group_id) setMyGroupId(data.group_id) })
-    // Load task from library
-    if(init.task_id){
-      sb.from("lulu_task_library").select().eq("id",init.task_id).single()
+    // Load layout task from library
+    if(init.layout_task_id){
+      sb.from("lulu_layout_tasks").select().eq("id",init.layout_task_id).single()
         .then(({data})=>{
-          if(data) setTask(data)
+          if(data) setActiveTask(data)
           setTaskLoaded(true)
-        })
-    } else { setTaskLoaded(true) }
+        }).catch(()=>setTaskLoaded(true))
+    } else { setTaskLoaded(true) } // no task, use TASK fallback immediately
   },[])
 
   useEffect(()=>{
@@ -1856,7 +1858,13 @@ function SMain({session:init,studentName}){
     return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
   },[init.id])
 
-  useEffect(()=>{ if(sess.phase==="lab"&&editorRef.current) editorRef.current.innerHTML=task.raw_html },[sess.phase])
+  // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
+  useEffect(()=>{
+    if(sess.phase==="lab" && taskLoaded && editorRef.current && !labInitialized){
+      editorRef.current.innerHTML = activeTask?.raw_html || TASK.rawHtml
+      setLabInitialized(true)
+    }
+  },[sess.phase, taskLoaded])
 
   useEffect(()=>{
     if(sess.phase!=="lab"||submitted) return
@@ -2247,7 +2255,7 @@ function SMain({session:init,studentName}){
               <div className="doc-paper" style={{background:"white",padding:"32px 40px",
                 borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
                 fontSize:14,lineHeight:1.9}}>
-                <div dangerouslySetInnerHTML={{__html:task.target_html}}/>
+                <div dangerouslySetInnerHTML={{__html:activeTask?.target_html||TASK.targetHtml}}/>
               </div>
             </div>
           </div>
