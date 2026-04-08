@@ -1025,8 +1025,13 @@ function SMain({session:init,studentName}){
     if(el.querySelector("h1")) nd.add("h1")
     if(el.querySelectorAll("h2").length>=3) nd.add("h2x3")
     if(el.querySelector("table")) nd.add("table")
-    if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold']").length>=2) nd.add("bold")
-    if(Array.from(el.querySelectorAll("h2")).some(h=>h.style.color||h.querySelector("[style*='color']"))) nd.add("color")
+    if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold'],[style*='font-weight: 700'],[style*='font-weight:700']").length>=2) nd.add("bold")
+    if(Array.from(el.querySelectorAll("h2")).some(h=>
+      h.style.color ||
+      h.querySelector("font[color]") ||
+      h.querySelector("[style*='color']") ||
+      h.querySelector("span[style]")
+    )) nd.add("color")
     setDone(nd)
   }
 
