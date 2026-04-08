@@ -1537,10 +1537,7 @@ function LayoutTaskEditor({task,onSave,onBack}){
             <div style={{marginTop:10}}>
               <Btn small onClick={()=>{
                 // Convert plain text to <p> tags
-                const converted=rawHtml.split(/
-\s*
-/).map(s=>s.trim()).filter(Boolean).map(s=>`<p>${s}</p>`).join("
-")
+                const converted=rawHtml.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean).map(s=>`<p>${s}</p>`).join("\n")
                 setRawHtml(converted)
               }} style={{background:"rgba(0,0,0,.06)",color:C.text}}>转换为段落格式</Btn>
             </div>
