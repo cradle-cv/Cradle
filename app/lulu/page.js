@@ -72,20 +72,20 @@ const TASK={
   </tr>
   <tr>
     <td style="border:1px solid #cbd5e1;padding:8px 12px">休闲上衣</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥199</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥149</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">199</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">149</td>
     <td style="border:1px solid #cbd5e1;padding:8px 12px">限量 200 件</td>
   </tr>
   <tr style="background:#f8fafc">
     <td style="border:1px solid #cbd5e1;padding:8px 12px">无线耳机</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥399</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥279</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">399</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">279</td>
     <td style="border:1px solid #cbd5e1;padding:8px 12px">赠品耳机包</td>
   </tr>
   <tr>
     <td style="border:1px solid #cbd5e1;padding:8px 12px">护肤套装</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥580</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥399</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">580</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">399</td>
     <td style="border:1px solid #cbd5e1;padding:8px 12px">买二送一</td>
   </tr>
 </table>
@@ -1061,15 +1061,14 @@ function SMain({session:init,studentName}){
     if(el.querySelectorAll("h2").length>=3) nd.add("h2x3")
     if(el.querySelector("table")) nd.add("table")
     if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold'],[style*='font-weight: 700'],[style*='font-weight:700']").length>=2) nd.add("bold")
-    // Color check: any color applied anywhere inside or on an h2
-    if(Array.from(el.querySelectorAll("h2")).some(h=>{
+    // Color check: ALL 3 H2s must have color applied
+    const h2list=Array.from(el.querySelectorAll("h2"))
+    const h2withColor=h2list.filter(h=>{
       const html=h.innerHTML.toLowerCase()
-      return h.style.color ||
-        h.querySelector("font") ||
-        h.querySelector("[style]") ||
-        html.includes("color") ||
-        html.includes("<font")
-    })) nd.add("color")
+      return h.style.color||h.querySelector("font")||h.querySelector("[style]")||
+        html.includes("color")||html.includes("<font")
+    })
+    if(h2withColor.length>=3) nd.add("color")
     setDone(nd)
   }
 
@@ -1326,7 +1325,8 @@ function SMain({session:init,studentName}){
                 boxShadow:"0 8px 24px rgba(0,0,0,.18)",border:`1px solid ${C.border}`}}>
                 {[["#2563eb","蓝色"],["#dc2626","红色"],["#059669","绿色"],
                   ["#d97706","橙色"],["#7c3aed","紫色"],["#0284c7","青色"],["#111827","黑色"]].map(([col,name])=>(
-                  <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}}
+                  <div key={col}
+                    onMouseDown={e=>{e.preventDefault();exec("foreColor",col);setShowColor(false)}}
                     title={name} style={{
                       width:28,height:28,borderRadius:7,background:col,cursor:"pointer",
                       border:"2px solid white",boxShadow:"0 1px 4px rgba(0,0,0,.25)"}}/>
