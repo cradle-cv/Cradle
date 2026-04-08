@@ -79,8 +79,8 @@ const Btn=({children,onClick,color=C.accent,small,disabled,full,style={}})=>(
     width:full?"100%":undefined,opacity:disabled?.6:1,...style
   }}>{children}</button>
 )
-const Card=({children,style={}})=>(
-  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:14,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,.07)',...style}}>
+const Card=({children,style={},onClick})=>(
+  <div onClick={onClick} style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:14,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,.07)',cursor:onClick?'pointer':undefined,...style}}>
     {children}
   </div>
 )
