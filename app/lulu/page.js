@@ -1532,13 +1532,7 @@ function LayoutTaskEditor({task,onSave,onBack}){
               每段用空行隔开，系统会自动转换成段落。不要在这里加任何格式。
             </div>
             <textarea value={rawHtml} onChange={e=>setRawHtml(e.target.value)} rows={10}
-              placeholder={"大标题
-
-第一段正文
-
-小标题一
-
-正文…"}
+              placeholder={"大标题\n\n第一段正文\n\n小标题一\n\n正文…"}
               style={{...inp(),resize:"vertical",lineHeight:1.7,whiteSpace:"pre-wrap"}}/>
             <div style={{marginTop:10}}>
               <Btn small onClick={()=>{
