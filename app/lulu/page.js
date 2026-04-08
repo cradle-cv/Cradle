@@ -661,7 +661,7 @@ function TDash({session:init,onBack}){
     return{...g,memberCount:names.length,labAvg,quizSum,total:quizSum+labAvg}
   }).sort((a,b)=>b.total-a.total)
 
-  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","排版"],["finished","结果"]]
+  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","Word排版"],["excel","Excel制表"],["finished","结果"]]
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
@@ -697,7 +697,8 @@ function TDash({session:init,onBack}){
               <span style={{fontSize:14,color:C.muted}}>学生签到后可自选小组</span>
               <Btn small onClick={()=>setPhase("quiz")} color={C.blue}>→ 开始抢答</Btn>
               <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 直接讨论</Btn>
-              <Btn small onClick={()=>setPhase("lab")} color={C.accent}>→ 直接排版</Btn>
+              <Btn small onClick={()=>setPhase("lab")} color={C.accent}>→ Word 排版</Btn>
+              <Btn small onClick={()=>setPhase("excel")} color={C.gold}>→ Excel 制表</Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(groups.length,4)},1fr)`,gap:14}}>
               {groups.map(g=>{
@@ -879,6 +880,52 @@ function TDash({session:init,onBack}){
               })}
             </div>
             <GroupRankPanel groupRank={groupRank} label="小组综合积分"/>
+          </div>
+        )}
+
+        {/* EXCEL */}
+        {sess.phase==="excel"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:20}}>
+            <div>
+              <div style={{fontSize:13,color:C.muted,marginBottom:14}}>实时监控各组 Excel 完成情况</div>
+              {groups.map(g=>{
+                const members=checkins.filter(c=>c.group_id===g.id)
+                return(
+                  <Card key={g.id} style={{marginBottom:14,borderLeft:`3px solid ${g.color}`}}>
+                    <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
+                      <span style={{fontSize:14,fontWeight:700,color:g.color,flex:1}}>{g.name}</span>
+                      <span style={{fontSize:12,color:C.muted}}>
+                        均分 <span style={{color:g.color,fontWeight:900,fontSize:18,fontFamily:"'DM Mono',monospace"}}>
+                          {members.length?Math.round(members.reduce((s,m)=>{
+                            const sub=submissions.find(x=>x.student_name===m.student_name)
+                            return s+(sub?.score||0)
+                          },0)/members.length):0}
+                        </span>
+                      </span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
+                      {members.map(m=>{
+                        const sub=submissions.find(x=>x.student_name===m.student_name)
+                        const pct=sub?Math.round(sub.score/80*100):0
+                        return(
+                          <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(0,0,0,.03)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5}}>
+                              <span>{m.student_name}</span>
+                              <span style={{color:C.gold,fontWeight:700,fontFamily:"'DM Mono',monospace"}}>{sub?.score||0}</span>
+                            </div>
+                            <div style={{height:4,borderRadius:2,background:"rgba(0,0,0,.06)"}}>
+                              <div style={{height:"100%",borderRadius:2,background:g.color,width:`${pct}%`,transition:"width .5s"}}/>
+                            </div>
+                            {sub?.submitted&&<div style={{fontSize:10,color:C.gold,marginTop:3}}>✓ 已提交</div>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+            <GroupRankPanel groupRank={groupRank} label="Excel 积分排名"/>
           </div>
         )}
 
@@ -1789,6 +1836,509 @@ function LayoutTaskEditor({task,onSave,onBack}){
 }
 
 
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL FORMULA ENGINE
+// ══════════════════════════════════════════════════════════════
+const EXCEL_RAW = [
+  ['KH001','普通会员','202X-01-15','广东',638,'是'],
+  ['KH002','黄金会员','202X-03-22','浙江',1580,'是'],
+  ['KH003','白金会员','202X-02-10','北京',3260,'是'],
+  ['KH004','普通会员','202X-05-08','湖南',296,'否'],
+  ['KH005','白银会员','202X-04-16','江苏',890,'是'],
+  ['KH006','普通会员','202X-06-23','上海',450,'否'],
+  ['KH007','黄金会员','202X-01-30','四川',1680,'是'],
+  ['KH008','普通会员','202X-07-11','重庆',358,'否'],
+  ['KH009','白银会员','202X-03-05','湖北',920,'是'],
+  ['KH010','白金会员','202X-02-18','福建',2850,'是'],
+  ['KH011','黄金会员','202X-05-27','河南',1420,'是'],
+  ['KH012','普通会员','202X-06-09','陕西',580,'否'],
+  ['KH013','普通会员','202X-04-30','天津',720,'否'],
+  ['KH014','普通会员','202X-07-25','安徽',398,'否'],
+  ['KH015','白银会员','202X-01-08','广西',850,'是'],
+  ['KH016','普通会员','202X-03-14','云南',420,'否'],
+  ['KH017','黄金会员','202X-05-12','贵州',1360,'是'],
+  ['KH018','普通会员','202X-06-17','甘肃',560,'否'],
+  ['KH019','白银会员','202X-02-24','青海',980,'是'],
+  ['KH020','黄金会员','202X-04-03','宁夏',1250,'是'],
+  ['KH021','白金会员','202X-01-22','黑龙江',3580,'是'],
+  ['KH022','普通会员','202X-03-30','吉林',650,'否'],
+  ['KH023','黄金会员','202X-05-01','辽宁',1720,'是'],
+  ['KH024','普通会员','202X-06-28','内蒙古',480,'否'],
+  ['KH025','白银会员','202X-02-05','新疆',1050,'是'],
+  ['KH026','黄金会员','202X-04-19','海南',1480,'是'],
+  ['KH027','普通会员','202X-07-04','西藏',380,'否'],
+  ['KH028','普通会员','202X-01-12','台湾',750,'否'],
+  ['KH029','白金会员','202X-03-18','香港',2980,'是'],
+  ['KH030','黄金会员','202X-05-21','澳门',1650,'是'],
+]
+const EXCEL_COL_LABELS = ['客户ID','会员等级','注册时间','所属省份','累计消费金额（元）','是否复购','客户消费排名','等级','会员数量','销售金额总和']
+const EXCEL_COL_LETTERS = ['A','B','C','D','E','F','G','H','I','J']
+const EXCEL_COL_W = [72,82,96,76,140,66,96,76,80,120]
+const EXCEL_SUMMARY = ['普通会员','白银会员','白金会员','黄金会员']
+
+function exParseAddr(raw){
+  const s=raw.replace(/\$/g,'').toUpperCase()
+  const m=s.match(/^([A-Z]+)(\d+)$/)
+  if(!m) return null
+  const c=m[1].split('').reduce((n,ch)=>n*26+(ch.charCodeAt(0)-64),0)-1
+  return {r:parseInt(m[2])-1, c}
+}
+function exGetRange(s){
+  const [a,b]=s.split(':')
+  const from=exParseAddr(a),to=exParseAddr(b)
+  if(!from||!to) return []
+  const out=[]
+  for(let r=from.r;r<=to.r;r++) for(let c=from.c;c<=to.c;c++) out.push({r,c})
+  return out
+}
+function exSplitArgs(s){
+  const args=[];let depth=0,cur=''
+  for(const ch of s){
+    if(ch==='('){depth++;cur+=ch}
+    else if(ch===')'){depth--;cur+=ch}
+    else if(ch===','&&depth===0){args.push(cur.trim());cur=''}
+    else{cur+=ch}
+  }
+  if(cur.trim()) args.push(cur.trim())
+  return args
+}
+
+function buildExcelStaticGrid(){
+  const g=Array.from({length:51},()=>Array(10).fill(null))
+  EXCEL_COL_LABELS.forEach((h,c)=>{g[0][c]=h})
+  EXCEL_RAW.forEach((row,i)=>{for(let c=0;c<6;c++)g[i+1][c]=row[c]})
+  EXCEL_SUMMARY.forEach((t,i)=>{g[i+1][7]=t})
+  return g
+}
+const EX_STATIC = buildExcelStaticGrid()
+
+function exGetCellVal(r,c,userForms){
+  if(r<0||r>50||c<0||c>9) return ''
+  const key=`${r},${c}`
+  if(userForms&&userForms[key]!==undefined){
+    const f=userForms[key]
+    if(!f) return ''
+    if(typeof f==='string'&&f.startsWith('=')) return exEval(f,userForms)
+    const n=Number(f); return isNaN(n)?f:n
+  }
+  return EX_STATIC[r]?.[c]??''
+}
+function exResolveArg(arg,userForms){
+  const t=arg.trim()
+  if((t.startsWith('"')&&t.endsWith('"'))||(t.startsWith("'")&&t.endsWith("'"))) return t.slice(1,-1)
+  const n=Number(t); if(!isNaN(n)&&t!=='') return n
+  const addr=exParseAddr(t.replace(/\$/g,''))
+  if(addr) return exGetCellVal(addr.r,addr.c,userForms)
+  return t
+}
+function exEval(formula,userForms){
+  if(!formula||typeof formula!=='string') return ''
+  const f=formula.trim()
+  if(!f.startsWith('=')){const n=Number(f);return isNaN(n)?f:n}
+  const expr=f.slice(1).trim(),up=expr.toUpperCase()
+  try{
+    if(up.startsWith('RANK(')){
+      const args=exSplitArgs(expr.slice(5,-1))
+      const val=Number(exResolveArg(args[0],userForms))
+      const cells=exGetRange(args[1].trim())
+      const order=args[2]?Number(exResolveArg(args[2],userForms)):0
+      const vals=cells.map(({r,c})=>{const v=exGetCellVal(r,c,userForms);return(v!==null&&v!==''&&!isNaN(Number(v)))?Number(v):null}).filter(v=>v!==null)
+      const sorted=order===0?[...vals].sort((a,b)=>b-a):[...vals].sort((a,b)=>a-b)
+      const rank=sorted.indexOf(val)+1; return rank>0?rank:'#N/A'
+    }
+    if(up.startsWith('COUNTIF(')){
+      const args=exSplitArgs(expr.slice(8,-1))
+      const cells=exGetRange(args[0].trim())
+      const crit=String(exResolveArg(args[1],userForms))
+      return cells.filter(({r,c})=>String(exGetCellVal(r,c,userForms))===crit).length
+    }
+    if(up.startsWith('SUMIF(')){
+      const args=exSplitArgs(expr.slice(6,-1))
+      const cells=exGetRange(args[0].trim())
+      const crit=String(exResolveArg(args[1],userForms))
+      const sumCells=exGetRange(args[2].trim())
+      let sum=0
+      cells.forEach(({r,c},i)=>{
+        if(String(exGetCellVal(r,c,userForms))===crit){
+          const sv=exGetCellVal(sumCells[i].r,sumCells[i].c,userForms)
+          if(sv!==null&&sv!==''&&!isNaN(Number(sv)))sum+=Number(sv)
+        }
+      }); return sum
+    }
+    const addr=exParseAddr(expr.replace(/\$/g,''))
+    if(addr) return exGetCellVal(addr.r,addr.c,userForms)
+    return '#UNSUP'
+  }catch(e){return '#ERR'}
+}
+
+function exIsEditable(r,c){
+  if(r===0) return false
+  if(c===6&&r>=1&&r<=30) return true
+  if(c===8&&r>=1&&r<=4) return true
+  if(c===9&&r>=1&&r<=4) return true
+  return false
+}
+function exDisplayVal(r,c,userForms){
+  if(exIsEditable(r,c)){
+    const f=userForms[`${r},${c}`]
+    if(!f) return ''
+    if(typeof f==='string'&&f.startsWith('=')){const v=exEval(f,userForms);return v===null?'':String(v)}
+    return String(f)
+  }
+  const v=EX_STATIC[r]?.[c]; return v===null||v===undefined?'':String(v)
+}
+
+function calcExcelScore(task,userForms,cellStyles){
+  const rules=(task?.scoring_rules)||[
+    {id:'rank',keyword:'RANK',cells:'G2:G31',expected:[21,8,2,30,16,25,6,29,15,4,10,22,19,27,17,26,11,23,14,12,1,20,5,24,13,9,28,18,3,7],pts_each:1,total_pts:30,desc:'RANK 函数'},
+    {id:'countif',keyword:'COUNTIF',cells:'I2:I5',expected:[13,5,4,8],pts_each:5,total_pts:20,desc:'COUNTIF 函数'},
+    {id:'sumif',keyword:'SUMIF',cells:'J2:J5',expected:[6680,4690,12670,12140],pts_each:5,total_pts:20,desc:'SUMIF 函数'},
+    {id:'beauty',type:'style',pts:10,desc:'数据美化'},
+  ]
+  let total=0; const detail={}
+  rules.forEach(rule=>{
+    if(rule.type==='style'){
+      const headerBold=EXCEL_COL_LABELS.some((_,c)=>cellStyles[`0,${c}`]?.bold)
+      const hasBg=Object.values(cellStyles).some(s=>s.bg&&s.bg!=='#ffffff'&&s.bg!=='')
+      const pts=(headerBold?Math.ceil(rule.pts/2):0)+(hasBg?Math.floor(rule.pts/2):0)
+      total+=pts; detail[rule.id]={pts,max:rule.pts,label:rule.desc}
+    } else {
+      const cellList=exGetRange(rule.cells)
+      const exp=rule.expected||[]
+      let pts=0; const items=[]
+      cellList.forEach(({r,c},i)=>{
+        const key=`${r},${c}`
+        const f=userForms[key]||''
+        const hasKw=f.toUpperCase().includes(rule.keyword+'(')
+        const val=hasKw?exEval(f.startsWith('=')?f:`=${f}`,userForms):null
+        const ok=hasKw&&Number(val)===exp[i]
+        if(ok) pts+=(rule.pts_each||1)
+        items.push({r,c,ok,val,exp:exp[i]})
+      })
+      total+=pts; detail[rule.id]={pts,max:rule.total_pts,label:rule.desc,items}
+    }
+  })
+  return {total,rules,detail}
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL SHEET (student view)
+// ══════════════════════════════════════════════════════════════
+function ExcelSheet({task,studentName,sessionId,onSubmit,onBack}){
+  const [userForms,setUserForms]=useState({})
+  const [cellStyles,setCellStyles]=useState({})
+  const [selected,setSelected]=useState(null)
+  const [editVal,setEditVal]=useState('')
+  const [submitted,setSubmitted]=useState(false)
+  const [finalScore,setFinalScore]=useState(null)
+  const fbarRef=useRef(null)
+
+  const score=calcExcelScore(task,userForms,cellStyles)
+  const isEdit=(r,c)=>exIsEditable(r,c)
+
+  function selectCell(r,c){
+    setSelected({r,c})
+    const key=`${r},${c}`
+    setEditVal(isEdit(r,c)?(userForms[key]||''):String(EX_STATIC[r]?.[c]??''))
+    if(isEdit(r,c)) setTimeout(()=>fbarRef.current?.focus(),10)
+  }
+
+  function commitEdit(){
+    if(!selected||!isEdit(selected.r,selected.c)) return
+    setUserForms(p=>({...p,[`${selected.r},${selected.c}`]:editVal}))
+  }
+
+  function onKey(e){
+    if(e.key==='Enter'){e.preventDefault();commitEdit();if(selected&&selected.r<30)selectCell(selected.r+1,selected.c)}
+    if(e.key==='Escape') setEditVal(userForms[`${selected?.r},${selected?.c}`]||'')
+    if(e.key==='Tab'){e.preventDefault();commitEdit()}
+  }
+
+  function toggleBold(){
+    if(!selected) return
+    const key=`${selected.r},${selected.c}`
+    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,bold:!cur.bold}}})
+  }
+  function setBg(col){
+    if(!selected) return
+    const key=`${selected.r},${selected.c}`
+    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,bg:col}}})
+  }
+
+  async function handleSubmit(){
+    const s=calcExcelScore(task,userForms,cellStyles)
+    if(sessionId){
+      await sb.from("word_lab_submissions").upsert({
+        session_id:sessionId,student_name:studentName,
+        score:s.total,max_score:80,submitted:true,
+        completed_tasks:Object.keys(s.detail).filter(k=>s.detail[k].pts>0)
+      },{onConflict:"session_id,student_name"})
+    }
+    setFinalScore(s); setSubmitted(true)
+    if(onSubmit) onSubmit(s.total)
+  }
+
+  // Results screen
+  if(submitted&&finalScore){
+    const s=finalScore
+    return(
+      <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
+        alignItems:"center",justifyContent:"center",fontFamily:F,padding:24,gap:14}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        <div style={{fontSize:36}}>📊</div>
+        <div style={{fontSize:22,fontWeight:900}}>{studentName}</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center"}}>
+          {s.rules.map(rule=>{
+            const d=s.detail[rule.id]; if(!d) return null
+            const pct=Math.round(d.pts/d.max*100)
+            return(
+              <div key={rule.id} style={{background:C.panel,borderRadius:12,padding:"14px 20px",
+                textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.07)",
+                border:`2px solid ${d.pts===d.max?C.accent:C.border}`}}>
+                <div style={{fontSize:11,color:C.muted,marginBottom:3}}>{d.label}</div>
+                <div style={{fontSize:26,fontWeight:900,color:d.pts===d.max?C.accent:C.gold,fontFamily:"'DM Mono',monospace"}}>{d.pts}</div>
+                <div style={{fontSize:11,color:C.muted}}>/ {d.max}</div>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{background:C.panel,borderRadius:14,padding:"16px 36px",textAlign:"center",
+          boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
+          <div style={{fontSize:12,color:C.muted,marginBottom:3}}>总分</div>
+          <div style={{fontSize:48,fontWeight:900,color:C.accent,fontFamily:"'DM Mono',monospace"}}>{s.total}</div>
+          <div style={{fontSize:12,color:C.muted}}>/ 80 分</div>
+        </div>
+      </div>
+    )
+  }
+
+  const BG_COLS=['#ffffff','#fef9c3','#dbeafe','#dcfce7','#fee2e2','#f3e8ff','#1e3a5f','#ffedd5']
+  const selKey=selected?`${selected.r},${selected.c}`:null
+  const selSt=selKey?cellStyles[selKey]||{}:{}
+  const fbarEditable=selected&&isEdit(selected.r,selected.c)
+
+  return(
+    <div style={{height:"100vh",display:"grid",gridTemplateRows:"auto auto 1fr auto",
+      background:C.bg,fontFamily:F,color:C.text,overflow:"hidden"}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+      {/* Header */}
+      <div style={{background:"#1e3a5f",padding:"8px 16px",display:"flex",alignItems:"center",gap:12,color:"white"}}>
+        {onBack&&<button onClick={onBack} style={{background:"rgba(255,255,255,.15)",border:"none",
+          color:"white",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:12,fontFamily:F}}>← 返回</button>}
+        <div style={{fontSize:14,fontWeight:700}}>📊 Excel 制表 · {studentName}</div>
+        <div style={{flex:1}}/>
+        <div style={{display:"flex",gap:6}}>
+          {s.rules.map(r=>{
+            const d=s.detail[r.id]; if(!d) return null
+            return <span key={r.id} style={{fontSize:11,padding:"2px 7px",borderRadius:4,
+              background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.85)"}}>
+              {d.label.split('(')[0]} {d.pts}/{d.max}
+            </span>
+          })}
+          <span style={{fontSize:14,fontWeight:900,color:s.total>=60?"#6ee7b7":"#fcd34d",
+            fontFamily:"'DM Mono',monospace",marginLeft:4}}>{s.total}/80</span>
+        </div>
+        <button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
+          background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
+          提交
+        </button>
+      </div>
+      {/* Toolbar */}
+      <div style={{background:C.panel,borderBottom:`1px solid ${C.border}`,
+        padding:"5px 10px",display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontSize:11,fontFamily:"'DM Mono',monospace",color:C.muted,minWidth:44,
+          textAlign:"center",background:"#f8fafc",border:`1px solid ${C.border}`,borderRadius:5,padding:"3px 6px"}}>
+          {selected?`${EXCEL_COL_LETTERS[selected.c]}${selected.r+1}`:'--'}
+        </div>
+        <div style={{width:1,height:18,background:C.border}}/>
+        <span style={{fontSize:12,color:C.muted}}>fx</span>
+        <input ref={fbarRef} value={fbarEditable?editVal:String(EX_STATIC[selected?.r]?.[selected?.c]??'')}
+          onChange={e=>fbarEditable&&setEditVal(e.target.value)}
+          onKeyDown={onKey} onBlur={commitEdit}
+          readOnly={!fbarEditable}
+          placeholder={fbarEditable?"输入公式，如 =RANK(E2,$E$2:$E$31,0)":"只读"}
+          style={{flex:1,padding:"4px 8px",borderRadius:6,fontSize:12,fontFamily:"'DM Mono',monospace",
+            border:`1px solid ${fbarEditable?"#ca8a04":C.border}`,
+            background:fbarEditable?"#fefce8":"#f9fafb",outline:"none",minWidth:180}}/>
+        <div style={{width:1,height:18,background:C.border}}/>
+        <button onMouseDown={e=>{e.preventDefault();toggleBold()}} style={{
+          padding:"4px 10px",borderRadius:5,border:`1px solid ${C.border}`,
+          background:selSt.bold?"rgba(37,99,235,.1)":"white",
+          color:selSt.bold?C.accent:C.text,fontWeight:900,cursor:"pointer",fontSize:13}}>B</button>
+        <span style={{fontSize:11,color:C.muted}}>填充:</span>
+        {BG_COLS.map(col=>(
+          <div key={col} onMouseDown={e=>{e.preventDefault();setBg(col)}} style={{
+            width:16,height:16,borderRadius:3,background:col,cursor:"pointer",
+            border:`2px solid ${selSt.bg===col?"#333":C.border}`}}/>
+        ))}
+      </div>
+      {/* Grid */}
+      <div style={{overflow:"auto",background:"#e8ecf1"}}>
+        <table style={{borderCollapse:"collapse",tableLayout:"fixed",background:"white",userSelect:"none"}}>
+          <colgroup>
+            <col style={{width:32}}/>
+            {EXCEL_COL_W.map((w,i)=><col key={i} style={{width:w}}/>)}
+          </colgroup>
+          <thead style={{position:"sticky",top:0,zIndex:10}}>
+            <tr>
+              <th style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center"}}>#</th>
+              {EXCEL_COL_LETTERS.map((l,c)=>(
+                <th key={c} style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",
+                  fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{l}</th>
+              ))}
+            </tr>
+            <tr>
+              <td style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>1</td>
+              {EXCEL_COL_LABELS.map((h,c)=>{
+                const st=cellStyles[`0,${c}`]||{}
+                const isSel=selected?.r===0&&selected?.c===c
+                return(
+                  <td key={c} onClick={()=>selectCell(0,c)} style={{
+                    border:`${isSel?2:1}px solid ${isSel?C.accent:C.border}`,
+                    padding:"4px 5px",fontSize:11,fontWeight:st.bold?700:700,
+                    background:st.bg||"#1e3a5f",color:st.color||"white",
+                    cursor:"default",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"
+                  }}>{h}</td>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {EXCEL_RAW.map((_,rowIdx)=>{
+              const r=rowIdx+1
+              return(
+                <tr key={r}>
+                  <td style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"2px 3px",
+                    fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{r+1}</td>
+                  {EXCEL_COL_LETTERS.map((_,c)=>{
+                    const key=`${r},${c}`
+                    const st=cellStyles[key]||{}
+                    const edit=isEdit(r,c)
+                    const isSel=selected?.r===r&&selected?.c===c
+                    const dv=exDisplayVal(r,c,userForms)
+                    const isErr=typeof dv==='string'&&dv.startsWith('#')
+                    // Cell status
+                    let status=null
+                    if(edit&&userForms[key]){
+                      const rules=(task?.scoring_rules)||[
+                        {id:'rank',keyword:'RANK',cells:'G2:G31',expected:[21,8,2,30,16,25,6,29,15,4,10,22,19,27,17,26,11,23,14,12,1,20,5,24,13,9,28,18,3,7]},
+                        {id:'countif',keyword:'COUNTIF',cells:'I2:I5',expected:[13,5,4,8]},
+                        {id:'sumif',keyword:'SUMIF',cells:'J2:J5',expected:[6680,4690,12670,12140]},
+                      ]
+                      const rule=c===6?rules[0]:c===8?rules[1]:c===9?rules[2]:null
+                      if(rule){
+                        const cellList=exGetRange(rule.cells)
+                        const idx=cellList.findIndex(cl=>cl.r===r&&cl.c===c)
+                        const hasKw=userForms[key].toUpperCase().includes(rule.keyword+'(')
+                        const val=hasKw?exEval(userForms[key].startsWith('=')?userForms[key]:('='+userForms[key]),userForms):null
+                        const ok=hasKw&&Number(val)===rule.expected[idx]
+                        status=ok?'ok':hasKw?'wrong':'nofn'
+                      }
+                    }
+                    return(
+                      <td key={c} onClick={()=>selectCell(r,c)}
+                        style={{
+                          border:`${isSel?2:1}px solid ${isSel?C.accent:edit?"#ca8a0499":C.border}`,
+                          padding:"2px 5px",fontSize:11,
+                          background:st.bg||(edit?"#fefce8":"white"),
+                          color:isErr?C.red:st.color||C.text,
+                          fontWeight:st.bold?700:400,cursor:edit?"cell":"default",
+                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+                          textAlign:(c>=4&&c<=6)?'right':'left',position:"relative"
+                        }}>
+                        {dv||(!edit?'':<span style={{color:"#ca8a04",fontSize:9,fontStyle:"italic"}}>
+                          {c===6?"=RANK(...)":c===8?"=COUNTIF(...)":"=SUMIF(...)"}
+                        </span>)}
+                        {status&&<span style={{position:"absolute",top:1,right:2,fontSize:8,
+                          color:status==='ok'?"#059669":status==='wrong'?C.red:"#d97706"}}>
+                          {status==='ok'?'✓':status==='wrong'?'✗':'!'}
+                        </span>}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {/* Status bar */}
+      <div style={{background:C.panel,borderTop:`1px solid ${C.border}`,padding:"4px 14px",
+        display:"flex",gap:14,fontSize:11,color:C.muted,alignItems:"center"}}>
+        <span>💡 点击黄色单元格 → 公式栏输入公式 → Enter 确认</span>
+        <div style={{flex:1}}/>
+        {s.rules.map(r=>{const d=s.detail[r.id];if(!d)return null;return(
+          <span key={r.id}>{d.label.split('(')[0]} {d.pts}/{d.max}</span>
+        )})}
+        <span style={{color:C.accent,fontWeight:700}}>总分 {s.total}/80</span>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL TASK LIBRARY (teacher backend)
+// ══════════════════════════════════════════════════════════════
+function ExcelTaskLibrary({onSelect,selectedId}){
+  const [tasks,setTasks]=useState([])
+  const [loading,setLoading]=useState(true)
+
+  useEffect(()=>{
+    sb.from("lulu_excel_tasks").select("id,title,description,scoring_rules,time_limit")
+      .order("created_at",{ascending:false})
+      .then(({data})=>{if(data)setTasks(data);setLoading(false)})
+  },[])
+
+  async function del(id,e){
+    e.stopPropagation()
+    if(!confirm("确定删除这道题？")) return
+    await sb.from("lulu_excel_tasks").delete().eq("id",id)
+    setTasks(p=>p.filter(t=>t.id!==id))
+  }
+
+  if(loading) return <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
+
+  return(
+    <div style={{padding:24}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,fontWeight:700}}>表格题库</div>
+          <div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道 Excel 题目</div>
+        </div>
+      </div>
+      {!tasks.length&&<Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无题目</Card>}
+      {tasks.map(t=>(
+        <Card key={t.id} style={{marginBottom:12,cursor:"pointer",
+          border:selectedId===t.id?`2px solid ${C.accent}`:`1px solid ${C.border}`}}
+          onClick={()=>onSelect&&onSelect(t)}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{t.title}</div>
+              {t.description&&<div style={{fontSize:13,color:C.muted,marginBottom:8}}>{t.description}</div>}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {(t.scoring_rules||[]).map((r,i)=>(
+                  <span key={i} style={{fontSize:11,padding:"2px 8px",borderRadius:5,
+                    background:"rgba(217,119,6,.08)",color:C.gold,border:`1px solid ${C.gold}22`}}>
+                    {r.total_pts||r.pts}分 · {r.desc}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+              <span style={{fontSize:12,color:C.muted,fontFamily:"'DM Mono',monospace"}}>{Math.floor(t.time_limit/60)}分钟</span>
+              <button onClick={e=>del(t.id,e)} style={{background:"none",border:"none",
+                color:"rgba(220,38,38,.5)",cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
+            </div>
+          </div>
+          {selectedId===t.id&&<div style={{marginTop:8,fontSize:12,color:C.accent,fontWeight:700}}>✓ 已选择此题</div>}
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+
 function GroupRankPanel({groupRank,label}){
   return(
     <div>
@@ -2577,12 +3127,14 @@ function TBackend(){
         <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
           {tabBtn("tasks","排版题库",C.gold)}
+          {tabBtn("excel","表格题库","#d97706")}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
         </div>
       </div>
       {tab==="new"&&<TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="tasks"&&<LayoutTaskLibrary onEdit={t=>setEditingTask(t||"new")} selectedId={null}/>}
+      {tab==="excel"&&<ExcelTaskLibrary/>}
       {tab==="history"&&<THistory onResume={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="settings"&&<TSettings/>}
     </div>
