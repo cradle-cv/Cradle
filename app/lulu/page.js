@@ -55,8 +55,7 @@ const TASK={
 <p>美妆护肤</p>
 <p>精选国际大牌与国货新星，买二送一，直播间专属优惠码 PROMO2025。</p>
 <p>活动有效期至月底，请尽快下单。</p>`,
-  targetHtml:`<div style="font-family:Georgia,serif;color:#1a1a1a;line-height:1.9;font-size:14px">
-<h1 style="font-size:22px;font-weight:900;margin:0 0 8px;color:#111">春季电商大促 — 精选商品推荐</h1>
+  targetHtml:`<h1 style="font-size:22px;font-weight:900;margin:0 0 8px;color:#111">春季电商大促 — 精选商品推荐</h1>
 <p style="margin:0 0 14px;color:#444">欢迎来到本季最受期待的电商大促活动！以下商品均为<strong>限时特惠</strong>，数量有限，先到先得。</p>
 <h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#2563eb">潮流服饰</h2>
 <p style="margin:0 0 14px;color:#444">本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
@@ -90,8 +89,7 @@ const TASK={
     <td style="border:1px solid #cbd5e1;padding:8px 12px">买二送一</td>
   </tr>
 </table>
-<p style="margin:0;color:#777;font-size:12px">活动有效期至月底，请尽快下单。</p>
-</div>`,
+<p style="margin:0;color:#777;font-size:12px">活动有效期至月底，请尽快下单。</p>`,
   reqs:[
     {id:"h1",pts:20,desc:"将大标题设为 H1 样式"},
     {id:"h2x3",pts:20,desc:"将三个分类名设为 H2（≥3 个）"},
@@ -1281,114 +1279,171 @@ function SMain({session:init,studentName}){
 
   // Lab screen
   if(sess.phase==="lab"){
+    // Shared CSS injected into both panels so styles are identical
+    const docCSS = `
+      .doc-paper h1{font-size:22px;font-weight:900;color:#111827;line-height:1.3;margin:0 0 10px;font-family:Georgia,serif;}
+      .doc-paper h2{font-size:17px;font-weight:800;margin:20px 0 6px;font-family:Georgia,serif;}
+      .doc-paper p{margin:0 0 12px;color:#374151;font-family:Georgia,serif;}
+      .doc-paper table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+      .doc-paper td,.doc-paper th{border:1px solid #cbd5e1;padding:8px 12px;text-align:left;}
+      .doc-paper th{background:#f0f4f8;font-weight:700;}
+      .doc-paper tr:nth-child(even) td{background:#f8fafc;}
+      .doc-paper strong,.doc-paper b{font-weight:700;}
+    `
     const toolBtn=(label,action,extra={})=>(
       <button onMouseDown={e=>{e.preventDefault();saveSel();action()}} style={{
-        padding:"6px 11px",borderRadius:7,border:`1px solid ${C.border}`,
-        background:"rgba(0,0,0,.03)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
+        padding:"7px 14px",borderRadius:7,border:`1px solid ${C.border}`,
+        background:"white",color:C.text,fontSize:13,cursor:"pointer",fontFamily:F,
+        fontWeight:700,...extra
       }}>{label}</button>
     )
     return(
-      <div style={{height:"100vh",background:C.bg,fontFamily:F,color:C.text,
+      <div style={{height:"100vh",background:"#e8edf4",fontFamily:F,color:C.text,
         display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden"}}>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-        {/* Toolbar */}
-        <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
-          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
-          <span style={{fontSize:14,fontWeight:900,color:C.accent,fontFamily:FM,minWidth:54}}>{fmtTime(labTime)}</span>
-          {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700,marginRight:4}}>▪ {myGroup.name}</span>}
-          <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
-          {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.gold,fontWeight:700})}
-          {toolBtn("H2",()=>exec("formatBlock","h2"),{fontWeight:700})}
-          {toolBtn("加粗",()=>exec("bold"),{fontWeight:700})}
-          {toolBtn("文字颜色 ▾",()=>setShowColor(p=>!p))}
-          {toolBtn("插入表格 ▾",()=>setShowTable(p=>!p))}
-          {showColor&&(
-            <div style={{display:"flex",gap:5,background:C.panel,padding:6,borderRadius:9,
-              border:`1px solid ${C.border}`,boxShadow:"0 4px 12px rgba(0,0,0,.1)"}}>
-              {[["#2563eb","蓝"],["#dc2626","红"],["#059669","绿"],["#d97706","橙"],["#7c3aed","紫"],["#0284c7","青"]].map(([col,name])=>(
-                <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}}
-                  title={name}
-                  style={{width:26,height:26,borderRadius:6,background:col,cursor:"pointer",
-                    border:"2px solid white",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
-              ))}
-            </div>
-          )}
-          {showTable&&(
-            <div style={{display:"flex",gap:6,alignItems:"center",background:C.panel,padding:"5px 10px",
-              borderRadius:9,border:`1px solid ${C.border}`,boxShadow:"0 4px 12px rgba(0,0,0,.1)"}}>
-              <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
-                style={{width:36,...inp({padding:"3px 6px",fontSize:12})}}/>
-              <span style={{fontSize:11,color:C.muted}}>行×</span>
-              <input type="number" value={tCols} onChange={e=>setTCols(Number(e.target.value))} min={2} max={6}
-                style={{width:36,...inp({padding:"3px 6px",fontSize:12})}}/>
-              <span style={{fontSize:11,color:C.muted}}>列</span>
-              <Btn small onClick={insertTable} color={C.accent}>插入</Btn>
-            </div>
-          )}
+        <style>{docCSS}</style>
+
+        {/* ── Toolbar ── */}
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 18px",
+          background:"#1e3a5f",color:"white",flexWrap:"wrap"}}>
+          <span style={{fontSize:15,fontWeight:900,color:"#7dd3fc",fontFamily:FM,minWidth:54}}>{fmtTime(labTime)}</span>
+          {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700,
+            background:"rgba(255,255,255,.1)",padding:"2px 8px",borderRadius:5}}>▪ {myGroup.name}</span>}
+          <div style={{width:1,height:20,background:"rgba(255,255,255,.2)",margin:"0 6px"}}/>
+          {toolBtn("H1",()=>exec("formatBlock","h1"),{background:"#1d4ed8",color:"white",border:"none"})}
+          {toolBtn("H2",()=>exec("formatBlock","h2"),{background:"#334155",color:"white",border:"none"})}
+          {toolBtn("加粗 B",()=>exec("bold"),{background:"#334155",color:"white",border:"none",fontStyle:"italic"})}
+          {/* Color picker */}
+          <div style={{position:"relative"}}>
+            <button onMouseDown={e=>{e.preventDefault();setShowColor(p=>!p)}} style={{
+              padding:"7px 14px",borderRadius:7,border:"none",background:"#334155",
+              color:"white",fontSize:13,cursor:"pointer",fontFamily:F,fontWeight:700}}>
+              文字颜色 ▾
+            </button>
+            {showColor&&(
+              <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:200,
+                display:"flex",gap:6,background:"white",padding:8,borderRadius:10,
+                boxShadow:"0 8px 24px rgba(0,0,0,.18)",border:`1px solid ${C.border}`}}>
+                {[["#2563eb","蓝色"],["#dc2626","红色"],["#059669","绿色"],
+                  ["#d97706","橙色"],["#7c3aed","紫色"],["#0284c7","青色"],["#111827","黑色"]].map(([col,name])=>(
+                  <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}}
+                    title={name} style={{
+                      width:28,height:28,borderRadius:7,background:col,cursor:"pointer",
+                      border:"2px solid white",boxShadow:"0 1px 4px rgba(0,0,0,.25)"}}/>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Table inserter */}
+          <div style={{position:"relative"}}>
+            <button onMouseDown={e=>{e.preventDefault();setShowTable(p=>!p)}} style={{
+              padding:"7px 14px",borderRadius:7,border:"none",background:"#334155",
+              color:"white",fontSize:13,cursor:"pointer",fontFamily:F,fontWeight:700}}>
+              插入表格 ▾
+            </button>
+            {showTable&&(
+              <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:200,
+                display:"flex",gap:6,alignItems:"center",background:"white",padding:"8px 12px",
+                borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.18)",border:`1px solid ${C.border}`}}>
+                <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
+                  style={{width:40,...inp({padding:"4px 6px",fontSize:12})}}/>
+                <span style={{fontSize:12,color:C.muted}}>行 ×</span>
+                <input type="number" value={tCols} onChange={e=>setTCols(Number(e.target.value))} min={2} max={6}
+                  style={{width:40,...inp({padding:"4px 6px",fontSize:12})}}/>
+                <span style={{fontSize:12,color:C.muted}}>列</span>
+                <Btn small onClick={insertTable} color={C.accent}>插入</Btn>
+              </div>
+            )}
+          </div>
           <div style={{flex:1}}/>
-          {/* Score pills */}
-          {TASK.reqs.map(r=>(
-            <span key={r.id} style={{fontSize:11,padding:"3px 8px",borderRadius:6,fontWeight:700,
-              background:done.has(r.id)?"rgba(37,99,235,.1)":"rgba(0,0,0,.04)",
-              color:done.has(r.id)?C.accent:C.muted,
-              border:`1px solid ${done.has(r.id)?C.accent+"44":C.border}`}}>
-              {done.has(r.id)?"✓":"○"} {r.pts}分
-            </span>
-          ))}
-          <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
-          <span style={{fontSize:14,color:C.accent,fontWeight:900,fontFamily:FM}}>{score}/{TASK.maxScore}</span>
-          {!submitted&&<Btn small onClick={handleSubmit} color={C.accent}>提交</Btn>}
-          {submitted&&<span style={{fontSize:12,color:C.accent,fontWeight:700}}>✓ 已提交</span>}
+          <span style={{fontSize:15,color:"white",fontWeight:900,fontFamily:FM}}>
+            {score}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{TASK.maxScore}</span>
+          </span>
+          {!submitted&&<Btn small onClick={handleSubmit} color="#f59e0b">提交答卷</Btn>}
+          {submitted&&<span style={{fontSize:12,color:"#6ee7b7",fontWeight:700}}>✓ 已提交</span>}
         </div>
 
-        {/* Split screen */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",overflow:"hidden"}}>
+        {/* ── Three-column body ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 220px",overflow:"hidden",gap:0}}>
 
-          {/* LEFT: Target reference */}
-          <div style={{borderRight:`2px solid ${C.border}`,overflow:"hidden",
-            display:"flex",flexDirection:"column",background:"#f8fafc"}}>
-            {/* Target header */}
-            <div style={{padding:"8px 16px",background:"#1e3a5f",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-              <span style={{fontSize:11,fontWeight:700,color:"white",letterSpacing:1}}>🎯 目标效果（对照此图操作）</span>
-              <span style={{fontSize:10,color:"rgba(255,255,255,.5)",marginLeft:"auto"}}>只读参考</span>
+          {/* ── 左：目标文档 ── */}
+          <div style={{borderRight:`2px solid #cbd5e1`,overflow:"hidden",
+            display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"7px 14px",background:"#1e3a5f",
+              display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+              <span style={{fontSize:12,fontWeight:700,color:"white",letterSpacing:.5}}>🎯 目标效果</span>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.45)",marginLeft:"auto"}}>只读参考</span>
             </div>
-            {/* Target document */}
-            <div style={{flex:1,overflow:"auto",padding:20}}>
-              <div style={{background:"white",padding:"36px 44px",borderRadius:4,
-                boxShadow:"0 2px 16px rgba(0,0,0,.1)",maxWidth:580,margin:"0 auto"}}>
+            <div style={{flex:1,overflow:"auto",padding:16,background:"#e8edf4"}}>
+              <div className="doc-paper" style={{background:"white",padding:"32px 40px",
+                borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
+                fontSize:14,lineHeight:1.9}}>
                 <div dangerouslySetInnerHTML={{__html:TASK.targetHtml}}/>
               </div>
             </div>
-            {/* Checklist overlay at bottom */}
-            <div style={{padding:"10px 16px",background:"white",borderTop:`1px solid ${C.border}`,
-              display:"flex",gap:8,flexWrap:"wrap"}}>
-              {TASK.reqs.map(r=>(
-                <div key={r.id} style={{display:"flex",alignItems:"center",gap:5,
-                  fontSize:11,color:done.has(r.id)?C.accent:C.muted}}>
-                  <span style={{fontWeight:700}}>{done.has(r.id)?"✓":"○"}</span>
-                  <span>{r.desc}</span>
-                  <span style={{color:done.has(r.id)?C.accent:"rgba(0,0,0,.2)",fontWeight:700}}>+{r.pts}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
-          {/* RIGHT: Editable area */}
-          <div style={{overflow:"hidden",display:"flex",flexDirection:"column",background:"#e8edf4"}}>
-            <div style={{padding:"8px 16px",background:C.panel2,borderBottom:`1px solid ${C.border}`,
-              flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.muted,letterSpacing:1}}>✏️ 你的文档（在此编辑）</span>
+          {/* ── 中：编辑区 ── */}
+          <div style={{overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"7px 14px",background:"#334155",
+              display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+              <span style={{fontSize:12,fontWeight:700,color:"white",letterSpacing:.5}}>✏️ 你的文档</span>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.45)",marginLeft:"auto"}}>在此处编辑排版</span>
             </div>
-            <div style={{flex:1,overflow:"auto",padding:20}}>
-              <div style={{background:"white",padding:"36px 44px",borderRadius:4,
-                boxShadow:"0 2px 16px rgba(0,0,0,.1)",maxWidth:580,margin:"0 auto"}}>
+            <div style={{flex:1,overflow:"auto",padding:16,background:"#e8edf4"}}>
+              <div className="doc-paper" style={{background:"white",padding:"32px 40px",
+                borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
+                fontSize:14,lineHeight:1.9}}>
                 <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
                   onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
-                  style={{minHeight:380,color:"#1a1a1a",fontSize:14,lineHeight:1.9,
-                    outline:"none",fontFamily:"Georgia,serif"}}/>
+                  style={{minHeight:360,color:"#1a1a1a",outline:"none",fontFamily:"Georgia,serif"}}/>
               </div>
             </div>
           </div>
+
+          {/* ── 右：任务清单 ── */}
+          <div style={{background:"white",borderLeft:`2px solid #cbd5e1`,
+            overflow:"auto",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"10px 14px",background:"#1e3a5f",flexShrink:0}}>
+              <div style={{fontSize:12,fontWeight:700,color:"white"}}>📋 评分任务</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:2}}>完成即自动得分</div>
+            </div>
+            <div style={{padding:14,flex:1}}>
+              {TASK.reqs.map((r,i)=>{
+                const ok=done.has(r.id)
+                return(
+                  <div key={r.id} style={{marginBottom:14,padding:"12px 14px",borderRadius:10,
+                    border:`1.5px solid ${ok?C.accent:C.border}`,
+                    background:ok?"rgba(37,99,235,.06)":"white",
+                    transition:"all .3s"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <span style={{fontSize:18,color:ok?C.accent:"#d1d5db"}}>
+                        {ok?"✓":"○"}
+                      </span>
+                      <span style={{fontSize:20,fontWeight:900,fontFamily:FM,
+                        color:ok?C.accent:"#d1d5db"}}>
+                        {r.pts}
+                      </span>
+                      <span style={{fontSize:10,color:ok?C.accent:"#9ca3af",fontWeight:700}}>分</span>
+                    </div>
+                    <div style={{fontSize:12,color:ok?C.text:C.muted,lineHeight:1.5}}>
+                      {r.desc}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Total */}
+            <div style={{padding:"12px 14px",borderTop:`1px solid ${C.border}`,
+              background:"#f8fafc",textAlign:"center"}}>
+              <div style={{fontSize:11,color:C.muted,marginBottom:4}}>当前得分</div>
+              <div style={{fontSize:36,fontWeight:900,color:C.accent,fontFamily:FM,lineHeight:1}}>
+                {score}
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {TASK.maxScore} 分</div>
+            </div>
+          </div>
+
         </div>
       </div>
     )
