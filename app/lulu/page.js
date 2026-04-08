@@ -503,11 +503,10 @@ function TDash({session:init,onBack}){
         {/* QUIZ RESULT */}
         {sess.phase==="quiz_result"&&(
           <QuizResultScreen
-            groups={groups} checkins={checkins} answers={answers}
-            questions={questions}
+            sessionId={sess.id}
+            groups={groups} isTeacher={true}
             onNext={()=>setPhase("discussion")}
             onLab={()=>setPhase("lab")}
-            isTeacher={true}
           />
         )}
 
@@ -651,9 +650,32 @@ function TDash({session:init,onBack}){
 }
 
 // ── QUIZ RESULT SCREEN ───────────────────────────────────────
-function QuizResultScreen({groups,checkins,answers,questions,isTeacher,onNext,onLab}){
+function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
   const [show,setShow]=useState(false)
-  useEffect(()=>{ setTimeout(()=>setShow(true),300) },[])
+  const [checkins,setCheckins]=useState([])
+  const [answers,setAnswers]=useState([])
+  const [questions,setQuestions]=useState([])
+  const [loaded,setLoaded]=useState(false)
+
+  useEffect(()=>{
+    Promise.all([
+      sb.from("word_lab_checkins").select("student_name,group_id").eq("session_id",sessionId),
+      sb.from("word_lab_answers").select("student_name,points_earned").eq("session_id",sessionId),
+      sb.from("word_lab_questions").select("points").eq("session_id",sessionId),
+    ]).then(([{data:c},{data:a},{data:q}])=>{
+      if(c) setCheckins(c)
+      if(a) setAnswers(a)
+      if(q) setQuestions(q)
+      setLoaded(true)
+      setTimeout(()=>setShow(true),300)
+    })
+  },[sessionId])
+
+  if(!loaded) return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e3a5f 0%,#0f2027 100%)",
+      display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,.5)",
+      fontFamily:F,fontSize:14}}>加载结算数据…</div>
+  )
 
   // Calculate quiz scores
   const quizScores={}
@@ -664,9 +686,8 @@ function QuizResultScreen({groups,checkins,answers,questions,isTeacher,onNext,on
     const members=checkins.filter(c=>c.group_id===g.id)
     const names=members.map(m=>m.student_name)
     const total=names.reduce((s,n)=>s+(quizScores[n]||0),0)
-    const avg=names.length?Math.round(total/names.length):0
-    const top=names.sort((a,b)=>(quizScores[b]||0)-(quizScores[a]||0))[0]
-    return{...g,members:names.length,total,avg,top,topScore:quizScores[top]||0}
+    const top=[...names].sort((a,b)=>(quizScores[b]||0)-(quizScores[a]||0))[0]
+    return{...g,members:names.length,total,top,topScore:quizScores[top]||0}
   }).sort((a,b)=>b.total-a.total)
 
   // Individual top 5
@@ -1140,8 +1161,8 @@ function SMain({session:init,studentName}){
   if(sess.phase==="quiz_result"){
     return(
       <QuizResultScreen
-        groups={groups} checkins={checkins} answers={answers}
-        questions={[]} isTeacher={false}
+        sessionId={init.id}
+        groups={groups} isTeacher={false}
         onNext={()=>{}} onLab={()=>{}}
       />
     )
