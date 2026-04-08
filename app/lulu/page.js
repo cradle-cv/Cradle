@@ -1314,7 +1314,7 @@ function SMain({session:init,studentName}){
           {toolBtn("加粗 B",()=>exec("bold"),{background:"#334155",color:"white",border:"none",fontStyle:"italic"})}
           {/* Color picker */}
           <div style={{position:"relative"}}>
-            <button onMouseDown={e=>{e.preventDefault();setShowColor(p=>!p)}} style={{
+            <button onMouseDown={e=>{e.preventDefault();saveSel();setShowColor(p=>!p)}} style={{
               padding:"7px 14px",borderRadius:7,border:"none",background:"#334155",
               color:"white",fontSize:13,cursor:"pointer",fontFamily:F,fontWeight:700}}>
               文字颜色 ▾
