@@ -1100,6 +1100,8 @@ function SMain({session:init,studentName}){
 }
 
 // ── TEACHER LOGIN ────────────────────────────────────────────
+const DEFAULT_PW = "lulu2025"
+
 function TLogin({onSuccess,onBack}){
   const [pw,setPw]=useState("")
   const [err,setErr]=useState("")
@@ -1108,9 +1110,12 @@ function TLogin({onSuccess,onBack}){
   async function login(){
     if(!pw.trim()) return
     setLoading(true); setErr("")
-    const {data,error}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
-    if(error||!data){ setErr("系统错误，请稍后重试"); setLoading(false); return }
-    if(pw===data.teacher_password){ onSuccess() }
+    let correctPw = DEFAULT_PW
+    try {
+      const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
+      if(data?.teacher_password) correctPw = data.teacher_password
+    } catch(_){}
+    if(pw===correctPw){ onSuccess() }
     else { setErr("密码错误，请重试"); setLoading(false) }
   }
 
@@ -1364,8 +1369,12 @@ function TSettings(){
     if(newPw!==newPw2){setMsg({text:"两次新密码不一致",ok:false});return}
     if(newPw.length<4){setMsg({text:"新密码至少 4 位",ok:false});return}
     setLoading(true)
-    const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
-    if(oldPw!==data?.teacher_password){setMsg({text:"旧密码错误",ok:false});setLoading(false);return}
+    let curPw = DEFAULT_PW
+    try {
+      const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
+      if(data?.teacher_password) curPw = data.teacher_password
+    } catch(_){}
+    if(oldPw!==curPw){setMsg({text:"旧密码错误",ok:false});setLoading(false);return}
     await sb.from("lulu_settings").update({teacher_password:newPw}).eq("id",1)
     setMsg({text:"密码已更新",ok:true})
     setOldPw("");setNewPw("");setNewPw2("")
