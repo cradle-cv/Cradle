@@ -351,9 +351,13 @@ function TSetup({onCreate}){
   const [loading,setLoading]=useState(false)
   const [layoutTasks,setLayoutTasks]=useState([])
   const [layoutTaskId,setLayoutTaskId]=useState(null)
+  const [excelTasks,setExcelTasks]=useState([])
+  const [excelTaskId,setExcelTaskId]=useState(null)
   useEffect(()=>{
     sb.from("lulu_layout_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
       .then(({data})=>{ if(data){setLayoutTasks(data);if(data[0]){setLayoutTaskId(data[0].id);setTimeLab(data[0].time_limit)}} })
+    sb.from("lulu_excel_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
+      .then(({data})=>{ if(data){setExcelTasks(data);if(data[0]) setExcelTaskId(data[0].id)} })
   },[])
 
   const addGroup=()=>{const s=groups.length+1;setGroups(p=>[...p,{seq:s,name:`第${s}组`,color:GROUP_COLORS[(s-1)%GROUP_COLORS.length]}])}
@@ -371,6 +375,7 @@ function TSetup({onCreate}){
     const code=genCode()
     const {data:sess,error}=await sb.from("word_lab_sessions").insert({
       code,title,task_id:"ecommerce_v1",status:"active",layout_task_id:layoutTaskId||null,
+      excel_task_id:excelTaskId||null,
       time_limit:timeLab,phase:"checkin",started_at:new Date().toISOString()
     }).select().single()
     if(error){alert("创建失败:"+error.message);setLoading(false);return}
@@ -423,6 +428,29 @@ function TSetup({onCreate}){
                     border:`2px solid ${t.id===layoutTaskId?C.gold:C.border}`,
                     background:t.id===layoutTaskId?"rgba(217,119,6,.08)":"transparent",
                     color:t.id===layoutTaskId?C.gold:C.muted
+                  }}>{t.title}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{marginTop:14}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:8}}>选择 Excel 表格题目（可选）</div>
+            {excelTasks.length===0?(
+              <div style={{fontSize:13,color:C.muted}}>题库暂无 Excel 题目，可在「表格题库」标签创建</div>
+            ):(
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                <button onClick={()=>setExcelTaskId(null)} style={{
+                  padding:"8px 16px",borderRadius:9,cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+                  border:`2px solid ${!excelTaskId?C.gold:C.border}`,
+                  background:!excelTaskId?"rgba(217,119,6,.08)":"transparent",
+                  color:!excelTaskId?C.gold:C.muted
+                }}>不使用</button>
+                {excelTasks.map(t=>(
+                  <button key={t.id} onClick={()=>setExcelTaskId(t.id)} style={{
+                    padding:"8px 16px",borderRadius:9,cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+                    border:`2px solid ${t.id===excelTaskId?C.gold:C.border}`,
+                    background:t.id===excelTaskId?"rgba(217,119,6,.08)":"transparent",
+                    color:t.id===excelTaskId?C.gold:C.muted
                   }}>{t.title}</button>
                 ))}
               </div>
@@ -2025,7 +2053,8 @@ function calcExcelScore(task,userForms,cellStyles){
 // ══════════════════════════════════════════════════════════════
 // EXCEL SHEET (student view)
 // ══════════════════════════════════════════════════════════════
-function ExcelSheet({task,studentName,sessionId,onSubmit,onBack}){
+function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,onBack}){
+  const [task,setTask]=useState(taskProp||null)
   const [userForms,setUserForms]=useState({})
   const [cellStyles,setCellStyles]=useState({})
   const [selected,setSelected]=useState(null)
@@ -2033,6 +2062,13 @@ function ExcelSheet({task,studentName,sessionId,onSubmit,onBack}){
   const [submitted,setSubmitted]=useState(false)
   const [finalScore,setFinalScore]=useState(null)
   const fbarRef=useRef(null)
+
+  useEffect(()=>{
+    if(excelTaskId&&!taskProp){
+      sb.from("lulu_excel_tasks").select().eq("id",excelTaskId).single()
+        .then(({data})=>{ if(data) setTask(data) })
+    }
+  },[excelTaskId])
 
   const score=calcExcelScore(task,userForms,cellStyles)
   const isEdit=(r,c)=>exIsEditable(r,c)
