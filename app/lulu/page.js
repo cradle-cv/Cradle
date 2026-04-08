@@ -946,7 +946,7 @@ function SMain({session:init,studentName}){
                   return(
                     <button key={j} onClick={()=>answerQ(curQ,j)} style={{
                       padding:"15px 12px",borderRadius:12,border:`2px solid ${brd}`,background:bg,
-                      color,fontSize:14,fontWeight:700,cursor:myAns!==undefined?"default":"pointer",
+                      color:col,fontSize:14,fontWeight:700,cursor:myAns!==undefined?"default":"pointer",
                       fontFamily:F,textAlign:"left",transition:"all .2s"
                     }}>
                       <span style={{color:"rgba(0,0,0,.12)",marginRight:8,fontFamily:FM}}>{"ABCD"[j]}</span>{opt}
