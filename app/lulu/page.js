@@ -718,23 +718,27 @@ function SMain({session:init,studentName}){
     const ch=sb.channel(`smain-${init.id}-${studentName}`)
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
         async({new:s})=>{
-          setSess(s)
-          if(s.phase==="quiz"&&s.current_question>0){
-            const {data:q}=await sb.from("word_lab_questions").select()
-              .eq("session_id",s.id).eq("seq",s.current_question).single()
-            if(q){
-              setCurQ(q);setQTimer(q.time_limit)
-              clearInterval(timerRef.current)
-              timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
+          try {
+            setSess(s)
+            if(s.phase==="quiz"&&s.current_question>0){
+              const {data:q}=await sb.from("word_lab_questions").select()
+                .eq("session_id",s.id).eq("seq",s.current_question).single()
+              if(q){
+                setCurQ(q);setQTimer(q.time_limit)
+                clearInterval(timerRef.current)
+                timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
+              }
             }
-          }
-          if(s.current_question===0) setCurQ(null)
-          if(s.phase==="lab"){
-            const {data:sub}=await sb.from("word_lab_submissions").insert({
-              session_id:s.id,student_name:studentName,score:0,max_score:TASK.maxScore,completed_tasks:[]
-            }).select().single()
-            if(sub) setSubId(sub.id)
-          }
+            if(s.current_question===0) setCurQ(null)
+            if(s.phase==="lab"){
+              // upsert to avoid duplicate error if student reconnects
+              const {data:sub}=await sb.from("word_lab_submissions").upsert(
+                {session_id:s.id,student_name:studentName,score:0,max_score:TASK.maxScore,completed_tasks:[]},
+                {onConflict:"session_id,student_name",ignoreDuplicates:false}
+              ).select().single()
+              if(sub) setSubId(sub.id)
+            }
+          } catch(e){ console.error("session listener error",e) }
         })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"lulu_discussions",filter:`session_id=eq.${init.id}`},
         ({new:d})=>{
@@ -769,15 +773,18 @@ function SMain({session:init,studentName}){
 
   async function answerQ(q,idx){
     if(answered[q.id]!==undefined||qTimer===0) return
+    // Optimistically update UI first
     const ok=idx===q.correct_index
-    await sb.from("word_lab_answers").upsert({
-      session_id:init.id,question_id:q.id,student_name:studentName,
-      answer_index:idx,is_correct:ok,points_earned:ok?q.points:0
-    },{onConflict:"question_id,student_name"})
     setAnswered(p=>({...p,[q.id]:idx}))
     setQuizPts(p=>p+(ok?q.points:0))
     setFlash(ok?"correct":"wrong")
     setTimeout(()=>setFlash(null),1200)
+    try {
+      await sb.from("word_lab_answers").upsert({
+        session_id:init.id,question_id:q.id,student_name:studentName,
+        answer_index:idx,is_correct:ok,points_earned:ok?q.points:0
+      },{onConflict:"question_id,student_name"})
+    } catch(e){ console.error("answer error",e) }
   }
 
   async function submitPost(){
