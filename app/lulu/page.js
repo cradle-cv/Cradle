@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -122,15 +121,41 @@ function HomeScreen({onTeacher,onStudent}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TEACHER – SETUP
+// TEACHER – SETUP  (with full question editor)
 // ══════════════════════════════════════════════════════════════
 function TeacherSetup({onCreate}) {
   const [title,setTitle] = useState("Word 排版技能竞赛")
   const [timeLimit,setTimeLimit] = useState(600)
-  const [qs,setQs] = useState(DEFAULT_QUESTIONS)
+  const [qs,setQs] = useState(DEFAULT_QUESTIONS.map(q=>({...q,options:[...q.options]})))
+  const [editIdx,setEditIdx] = useState(null)   // index of question being edited
   const [loading,setLoading] = useState(false)
 
+  const inpStyle = (w="100%",extra={}) => ({
+    width,padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,
+    background:"rgba(255,255,255,.04)",color:C.text,fontSize:13,boxSizing:"border-box",
+    fontFamily:"'DM Mono',monospace",outline:"none",...extra
+  })
+
+  function updateQ(i,field,val) {
+    setQs(p=>p.map((q,idx)=>idx===i?{...q,[field]:val}:q))
+  }
+  function updateOption(qi,oi,val) {
+    setQs(p=>p.map((q,idx)=>idx===qi?{...q,options:q.options.map((o,j)=>j===oi?val:o)}:q))
+  }
+  function addQ() {
+    setQs(p=>{
+      const next = [...p,{seq:p.length+1,question:"",options:["","","",""],correct_index:0,points:10,time_limit:15}]
+      setEditIdx(next.length-1)
+      return next
+    })
+  }
+  function deleteQ(i) {
+    setQs(p=>p.filter((_,idx)=>idx!==i).map((q,idx)=>({...q,seq:idx+1})))
+    setEditIdx(null)
+  }
+
   async function create() {
+    if(qs.some(q=>!q.question.trim())) { alert("有题目内容为空，请检查"); return }
     setLoading(true)
     const code = genCode()
     const {data:sess,error} = await sb.from("word_lab_sessions").insert({
@@ -139,51 +164,99 @@ function TeacherSetup({onCreate}) {
       started_at: new Date().toISOString()
     }).select().single()
     if(error){alert("创建失败:"+error.message);setLoading(false);return}
-    // insert questions
-    await sb.from("word_lab_questions").insert(
-      qs.map(q=>({...q, session_id:sess.id}))
-    )
+    await sb.from("word_lab_questions").insert(qs.map(q=>({...q,session_id:sess.id})))
     onCreate(sess)
   }
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,padding:32,fontFamily:"'DM Mono',monospace",color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-      <div style={{maxWidth:720,margin:"0 auto"}}>
+      <div style={{maxWidth:760,margin:"0 auto"}}>
         <div style={{fontSize:22,fontWeight:800,fontFamily:"'Syne',sans-serif",marginBottom:8}}>创建竞赛房间</div>
-        <div style={{color:C.muted,fontSize:13,marginBottom:32}}>包含签到、抢答热身、Word排版三个阶段</div>
+        <div style={{color:C.muted,fontSize:13,marginBottom:32}}>签到 → 抢答热身 → Word排版实操</div>
 
+        {/* Basic settings */}
         <Card style={{marginBottom:20}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:8}}>竞赛名称</div>
-          <input value={title} onChange={e=>setTitle(e.target.value)} style={{
-            width:"100%",padding:"12px 16px",borderRadius:10,border:`1px solid ${C.border}`,
-            background:"rgba(255,255,255,.04)",color:C.text,fontSize:15,boxSizing:"border-box",
-            fontFamily:"'DM Mono',monospace",outline:"none"
-          }}/>
-          <div style={{fontSize:12,color:C.muted,marginTop:16,marginBottom:8}}>排版实操时限（秒）</div>
-          <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))} style={{
-            width:140,padding:"10px 14px",borderRadius:10,border:`1px solid ${C.border}`,
-            background:"rgba(255,255,255,.04)",color:C.accent,fontSize:15,
-            fontFamily:"'DM Mono',monospace",outline:"none"
-          }}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 180px",gap:16}}>
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>竞赛名称</div>
+              <input value={title} onChange={e=>setTitle(e.target.value)} style={inpStyle()}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>排版时限（秒）</div>
+              <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))}
+                style={inpStyle("100%",{color:C.accent})}/>
+            </div>
+          </div>
         </Card>
 
-        <Card style={{marginBottom:28}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>抢答题目（共 {qs.length} 题）</div>
+        {/* Question list */}
+        <Card style={{marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
+            <div style={{fontSize:12,color:C.muted,flex:1}}>抢答题目（共 {qs.length} 题）</div>
+            <Btn small onClick={addQ} color={C.green}>＋ 新增题目</Btn>
+          </div>
+
           {qs.map((q,i)=>(
-            <div key={i} style={{padding:"12px 14px",borderRadius:10,background:"rgba(255,255,255,.03)",
-              border:`1px solid ${C.border}`,marginBottom:10}}>
-              <div style={{fontSize:12,color:C.accent,marginBottom:4}}>Q{q.seq} · {q.points}分 · {q.time_limit}s</div>
-              <div style={{fontSize:13,color:C.text,marginBottom:6}}>{q.question}</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {q.options.map((opt,j)=>(
-                  <span key={j} style={{fontSize:11,padding:"3px 10px",borderRadius:6,
-                    background:j===q.correct_index?"rgba(61,220,132,.15)":"rgba(255,255,255,.04)",
-                    border:`1px solid ${j===q.correct_index?C.green:C.border}`,
-                    color:j===q.correct_index?C.green:C.muted
-                  }}>{opt}</span>
-                ))}
+            <div key={i} style={{marginBottom:10,borderRadius:12,border:`1px solid ${editIdx===i?C.accent:C.border}`,overflow:"hidden"}}>
+              {/* Collapsed row */}
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",
+                background:editIdx===i?"rgba(240,192,64,.06)":"rgba(255,255,255,.02)",cursor:"pointer"}}
+                onClick={()=>setEditIdx(editIdx===i?null:i)}>
+                <span style={{fontSize:12,color:C.accent,minWidth:24}}>Q{q.seq}</span>
+                <span style={{flex:1,fontSize:13,color:q.question?C.text:C.muted}}>
+                  {q.question||"（未填写题目）"}
+                </span>
+                <span style={{fontSize:11,color:C.muted}}>{q.points}分 · {q.time_limit}s</span>
+                <span style={{fontSize:11,color:C.green,marginLeft:4}}>
+                  ✓ {q.options[q.correct_index]||"?"}
+                </span>
+                <span style={{fontSize:14,color:C.muted,marginLeft:8}}>{editIdx===i?"▲":"▼"}</span>
               </div>
+
+              {/* Expanded editor */}
+              {editIdx===i && (
+                <div style={{padding:"16px 14px",borderTop:`1px solid ${C.border}`,background:"rgba(255,255,255,.02)"}}>
+                  {/* Question text */}
+                  <div style={{fontSize:11,color:C.muted,marginBottom:6}}>题目内容</div>
+                  <textarea value={q.question} onChange={e=>updateQ(i,"question",e.target.value)}
+                    rows={2} style={{...inpStyle(),resize:"vertical",marginBottom:14,lineHeight:1.6}}/>
+
+                  {/* Options */}
+                  <div style={{fontSize:11,color:C.muted,marginBottom:8}}>选项（点击绿色标记正确答案）</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                    {q.options.map((opt,j)=>(
+                      <div key={j} style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <button onClick={()=>updateQ(i,"correct_index",j)} style={{
+                          width:28,height:28,borderRadius:8,border:`2px solid ${j===q.correct_index?C.green:C.border}`,
+                          background:j===q.correct_index?"rgba(61,220,132,.2)":"transparent",
+                          color:j===q.correct_index?C.green:C.muted,cursor:"pointer",
+                          fontSize:12,fontWeight:800,flexShrink:0
+                        }}>{["A","B","C","D"][j]}</button>
+                        <input value={opt} onChange={e=>updateOption(i,j,e.target.value)}
+                          placeholder={`选项 ${["A","B","C","D"][j]}`}
+                          style={inpStyle("100%",{border:`1px solid ${j===q.correct_index?C.green+"66":C.border}`})}/>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Points & timer */}
+                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>分值</div>
+                      <input type="number" value={q.points} onChange={e=>updateQ(i,"points",Number(e.target.value))}
+                        min={1} style={inpStyle(80,{color:C.accent})}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>作答时限（秒）</div>
+                      <input type="number" value={q.time_limit} onChange={e=>updateQ(i,"time_limit",Number(e.target.value))}
+                        min={5} style={inpStyle(80)}/>
+                    </div>
+                    <div style={{flex:1}}/>
+                    <Btn small onClick={()=>deleteQ(i)} style={{background:C.red,color:"white"}}>删除此题</Btn>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </Card>
