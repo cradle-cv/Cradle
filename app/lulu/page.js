@@ -360,7 +360,14 @@ function TDash({session:init,onBack}){
 
   const setPhase=async p=>{ await sb.from("word_lab_sessions").update({phase:p}).eq("id",sess.id) }
   const pushQ=async seq=>{ await sb.from("word_lab_sessions").update({current_question:seq}).eq("id",sess.id) }
-  const toggleDis=async d=>{ await sb.from("lulu_discussions").update({is_active:!d.is_active}).eq("id",d.id) }
+  const toggleDis=async d=>{
+    const newActive=!d.is_active
+    // Optimistic local update immediately
+    setDiscussions(p=>p.map(x=>({...x,is_active:x.id===d.id?newActive:false})))
+    // Sync to DB: deactivate all first, then activate if needed
+    await sb.from("lulu_discussions").update({is_active:false}).eq("session_id",sess.id)
+    if(newActive) await sb.from("lulu_discussions").update({is_active:true}).eq("id",d.id)
+  }
   const endSession=async()=>{ await sb.from("word_lab_sessions").update({phase:"finished",status:"finished"}).eq("id",sess.id) }
 
   const curQ=questions.find(q=>q.seq===sess.current_question)
