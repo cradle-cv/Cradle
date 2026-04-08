@@ -385,7 +385,7 @@ function TDash({session:init,onBack}){
     return{...g,memberCount:names.length,labAvg,quizSum,total:quizSum+labAvg}
   }).sort((a,b)=>b.total-a.total)
 
-  const phases=[["checkin","签到"],["quiz","抢答"],["discussion","讨论"],["lab","排版"],["finished","结果"]]
+  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","排版"],["finished","结果"]]
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
@@ -465,6 +465,7 @@ function TDash({session:init,onBack}){
                     cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:FM
                   }}>Q{q.seq}</button>
                 ))}
+                <Btn small onClick={()=>{setPhase("quiz_result");pushQ(0)}} color={C.gold}>📊 结算</Btn>
                 <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 讨论</Btn>
                 <Btn small onClick={()=>{setPhase("lab");pushQ(0)}} color={C.accent}>→ 排版</Btn>
               </div>
@@ -497,6 +498,17 @@ function TDash({session:init,onBack}){
             </div>
             <GroupRankPanel groupRank={groupRank} label="小组抢答积分"/>
           </div>
+        )}
+
+        {/* QUIZ RESULT */}
+        {sess.phase==="quiz_result"&&(
+          <QuizResultScreen
+            groups={groups} checkins={checkins} answers={answers}
+            questions={questions}
+            onNext={()=>setPhase("discussion")}
+            onLab={()=>setPhase("lab")}
+            isTeacher={true}
+          />
         )}
 
         {/* DISCUSSION */}
