@@ -1342,16 +1342,25 @@ function SMain({session:init,studentName}){
               插入表格 ▾
             </button>
             {showTable&&(
-              <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:200,
-                display:"flex",gap:6,alignItems:"center",background:"white",padding:"8px 12px",
-                borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.18)",border:`1px solid ${C.border}`}}>
-                <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
-                  style={{width:40,...inp({padding:"4px 6px",fontSize:12})}}/>
-                <span style={{fontSize:12,color:C.muted}}>行 ×</span>
-                <input type="number" value={tCols} onChange={e=>setTCols(Number(e.target.value))} min={2} max={6}
-                  style={{width:40,...inp({padding:"4px 6px",fontSize:12})}}/>
-                <span style={{fontSize:12,color:C.muted}}>列</span>
-                <Btn small onClick={insertTable} color={C.accent}>插入</Btn>
+              <div style={{position:"absolute",top:"calc(100% + 8px)",left:0,zIndex:200,
+                background:"white",padding:"16px 18px",borderRadius:12,
+                boxShadow:"0 8px 32px rgba(0,0,0,.18)",border:`1px solid ${C.border}`,
+                minWidth:220}}>
+                <div style={{fontSize:12,color:C.muted,marginBottom:12,fontWeight:700}}>设置表格尺寸</div>
+                <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:14}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:4}}>行数</div>
+                    <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
+                      style={{...inp({fontSize:14,padding:"8px 10px",textAlign:"center",fontWeight:700})}}/>
+                  </div>
+                  <span style={{fontSize:18,color:C.muted,marginTop:16}}>×</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:4}}>列数</div>
+                    <input type="number" value={tCols} onChange={e=>setTCols(Number(e.target.value))} min={2} max={6}
+                      style={{...inp({fontSize:14,padding:"8px 10px",textAlign:"center",fontWeight:700})}}/>
+                  </div>
+                </div>
+                <Btn full onClick={insertTable} color={C.accent}>插入表格</Btn>
               </div>
             )}
           </div>
