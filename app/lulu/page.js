@@ -134,7 +134,12 @@ const REQ_TYPES = {
   bold:     {label:"加粗文字",    toolbar:"bold",  params:[{k:"min",label:"至少几处",default:2}],  hint:"选中文字，点工具栏「加粗」"},
   color_h2: {label:"H2标题颜色", toolbar:"color", params:[{k:"min",label:"至少几个H2上色",default:3}], hint:"选中H2内文字，点「文字颜色」选色"},
   align:    {label:"居中对齐",    toolbar:"align", params:[{k:"min",label:"至少几处",default:1}],  hint:"选中文字，点工具栏「居中」"},
-  list:     {label:"插入列表",    toolbar:"list",  params:[{k:"type",label:"类型(ul/ol)",default:"ul"}], hint:"点工具栏「无序列表」或「有序列表」"},
+  list:        {label:"插入列表",    toolbar:"list",       params:[{k:"type",label:"类型(ul/ol)",default:"ul"}], hint:"点工具栏「无序列表」或「有序列表」"},
+  indent_first:{label:"首行缩进",    toolbar:"indent_first",params:[{k:"min",label:"至少几段",default:1}],              hint:"光标置于段落内，点「首行缩进」按钮"},
+  line_height: {label:"行距设置",    toolbar:"line_height", params:[{k:"min",label:"至少几处",default:1},{k:"min_value",label:"最小行距(如1.5)",default:1.5}], hint:"光标置于段落，用「行距」下拉菜单设置"},
+  space_before:{label:"段前间距",    toolbar:"space_before",params:[{k:"min",label:"至少几段",default:1},{k:"min_px",label:"最小段前距px(如12)",default:12}],    hint:"光标置于段落，用「段前间距」菜单设置"},
+  space_after: {label:"段后间距",    toolbar:"space_after", params:[{k:"min",label:"至少几段",default:1},{k:"min_px",label:"最小段后距px(如12)",default:12}],    hint:"光标置于段落，用「段后间距」菜单设置"},
+  indent_block:{label:"左右缩进",    toolbar:"indent_block",params:[{k:"min",label:"至少几处",default:1},{k:"min_px",label:"最小缩进px(如24)",default:24}],   hint:"光标置于段落，点「增加缩进」按钮"},
 }
 
 // Check if an element specifically has a color applied (not just any style)
@@ -203,6 +208,56 @@ function evalReqs(el, reqs) {
       case "list":
         if(el.querySelector("ul,ol")) nd.add(r.id)
         break
+      case "indent_first": {
+        // Check paragraphs/elements with text-indent set (>=1em or >=16px)
+        const indented=Array.from(el.querySelectorAll("[style]")).filter(e=>{
+          const ti=e.style.textIndent
+          if(!ti||ti==="0px"||ti==="0em"||ti==="0") return false
+          const val=parseFloat(ti)
+          return !isNaN(val)&&val>0
+        })
+        if(indented.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "line_height": {
+        const minVal=parseFloat(r.min_value)||1.5
+        const lhEls=Array.from(el.querySelectorAll("[style]")).filter(e=>{
+          const lh=e.style.lineHeight
+          if(!lh) return false
+          const val=parseFloat(lh)
+          return !isNaN(val)&&val>=minVal
+        })
+        if(lhEls.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "space_before": {
+        // 段前间距 - margin-top
+        const minPx=parseFloat(r.min_px)||12
+        const spaced=Array.from(el.querySelectorAll("[style]")).filter(e=>{
+          return (parseFloat(e.style.marginTop)||0)>=minPx
+        })
+        if(spaced.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "space_after": {
+        // 段后间距 - margin-bottom
+        const minPx=parseFloat(r.min_px)||12
+        const spaced=Array.from(el.querySelectorAll("[style]")).filter(e=>{
+          return (parseFloat(e.style.marginBottom)||0)>=minPx
+        })
+        if(spaced.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "indent_block": {
+        const minPx=parseFloat(r.min_px)||24
+        const indented=Array.from(el.querySelectorAll("[style],blockquote")).filter(e=>{
+          if(e.nodeName==="BLOCKQUOTE") return true
+          const ml=parseFloat(e.style.marginLeft)||0
+          return ml>=minPx
+        })
+        if(indented.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
     }
   }
   return nd
@@ -1588,6 +1643,35 @@ function LayoutTaskEditor({task,onSave,onBack}){
                 {label}
               </button>
             ))}
+            {/* Paragraph format buttons for editor */}
+            {[
+              ["⇥ 首行缩进",()=>{ const sel=window.getSelection();if(!sel?.rangeCount)return;let n=sel.getRangeAt(0).startContainer;while(n&&n!==targetRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}if(n&&n!==targetRef.current)n.style.textIndent="2em" }],
+              ["→ 缩进",()=>{ const sel=window.getSelection();if(!sel?.rangeCount)return;let n=sel.getRangeAt(0).startContainer;while(n&&n!==targetRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}if(n&&n!==targetRef.current)n.style.marginLeft=(parseFloat(n.style.marginLeft)||0)+24+"px" }],
+            ].map(([label,action])=>(
+              <button key={label} onMouseDown={e=>{e.preventDefault();saveSelE();action()}} style={{
+                padding:"5px 12px",borderRadius:6,border:"none",background:"rgba(255,255,255,.1)",
+                color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",fontFamily:F}}>
+                {label}
+              </button>
+            ))}
+            <select onMouseDown={e=>e.preventDefault()}
+              onChange={e=>{ const sel=window.getSelection();if(!sel?.rangeCount)return;let n=sel.getRangeAt(0).startContainer;while(n&&n!==targetRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}if(n&&n!==targetRef.current){n.style.lineHeight=e.target.value};e.target.value="" }}
+              style={{padding:"4px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",fontFamily:F}}>
+              <option value="">行距</option>
+              {["1.0","1.2","1.5","1.8","2.0","2.5"].map(v=><option key={v} value={v}>{v}x</option>)}
+            </select>
+            <select onMouseDown={e=>e.preventDefault()}
+              onChange={e=>{ const sel=window.getSelection();if(!sel?.rangeCount)return;let n=sel.getRangeAt(0).startContainer;while(n&&n!==targetRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}if(n&&n!==targetRef.current){n.style.marginTop=e.target.value+"px"};e.target.value="" }}
+              style={{padding:"4px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",fontFamily:F}}>
+              <option value="">段前距</option>
+              {[["0","0"],["6","6px"],["12","12px"],["18","18px"],["24","24px"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+            <select onMouseDown={e=>e.preventDefault()}
+              onChange={e=>{ const sel=window.getSelection();if(!sel?.rangeCount)return;let n=sel.getRangeAt(0).startContainer;while(n&&n!==targetRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}if(n&&n!==targetRef.current){n.style.marginBottom=e.target.value+"px"};e.target.value="" }}
+              style={{padding:"4px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.8)",fontSize:12,cursor:"pointer",fontFamily:F}}>
+              <option value="">段后距</option>
+              {[["0","0"],["6","6px"],["12","12px"],["18","18px"],["24","24px"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
             <div style={{position:"relative"}}>
               <button onMouseDown={e=>{e.preventDefault();saveSelE();setShowColorE(p=>!p)}}
                 style={{padding:"5px 12px",borderRadius:6,border:"none",
@@ -1906,6 +1990,25 @@ function SMain({session:init,studentName}){
   const restSel=()=>{if(!savedSel.current)return;const s=window.getSelection();s.removeAllRanges();s.addRange(savedSel.current)}
   const exec=(cmd,val=null)=>{editorRef.current?.focus();restSel();document.execCommand(cmd,false,val);checkReqs()}
 
+  // Apply CSS style to the block element containing current cursor position
+  function applyBlockStyle(styleProp, value){
+    editorRef.current?.focus()
+    restSel()
+    const sel=window.getSelection()
+    if(!sel||!sel.rangeCount) return
+    let node=sel.getRangeAt(0).startContainer
+    // Walk up to nearest block element inside the editor
+    while(node&&node!==editorRef.current){
+      const tag=node.nodeName
+      if(["P","H1","H2","H3","DIV","LI","BLOCKQUOTE"].includes(tag)) break
+      node=node.parentNode
+    }
+    if(node&&node!==editorRef.current){
+      node.style[styleProp]=value
+      checkReqs()
+    }
+  }
+
   function checkReqs(){
     if(!editorRef.current) return
     const reqs=(activeTask?.requirements)||TASK.reqs
@@ -2167,9 +2270,63 @@ function SMain({session:init,studentName}){
                 {toolBtn("左对齐",()=>exec("justifyLeft"),{...s})}
               </>}
               {needs.has("list")&&<>
-                {toolBtn("• 无序列表",()=>exec("insertUnorderedList"),{...s})}
-                {toolBtn("1. 有序列表",()=>exec("insertOrderedList"),{...s})}
+                {toolBtn("• 无序",()=>exec("insertUnorderedList"),{...s})}
+                {toolBtn("1. 有序",()=>exec("insertOrderedList"),{...s})}
               </>}
+              {needs.has("indent_first")&&
+                toolBtn("⇥ 首行缩进",()=>{saveSel();applyBlockStyle("textIndent","2em")},{...s})
+              }
+              {needs.has("indent_block")&&<>
+                {toolBtn("→ 增加缩进",()=>{
+                  saveSel()
+                  const sel=window.getSelection()
+                  if(!sel?.rangeCount) return
+                  let n=sel.getRangeAt(0).startContainer
+                  while(n&&n!==editorRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}
+                  if(n&&n!==editorRef.current){n.style.marginLeft=(parseFloat(n.style.marginLeft)||0)+24+"px";checkReqs()}
+                },{...s})}
+                {toolBtn("← 减少缩进",()=>{
+                  saveSel()
+                  const sel=window.getSelection()
+                  if(!sel?.rangeCount) return
+                  let n=sel.getRangeAt(0).startContainer
+                  while(n&&n!==editorRef.current){if(["P","H1","H2","H3","DIV"].includes(n.nodeName))break;n=n.parentNode}
+                  if(n&&n!==editorRef.current){n.style.marginLeft=Math.max(0,(parseFloat(n.style.marginLeft)||0)-24)+"px";checkReqs()}
+                },{...s})}
+              </>}
+              {needs.has("line_height")&&(
+                <select onMouseDown={e=>e.preventDefault()}
+                  onChange={e=>{saveSel();applyBlockStyle("lineHeight",e.target.value);e.target.value=""}}
+                  style={{padding:"6px 10px",borderRadius:7,border:"none",background:"#334155",
+                    color:"white",fontSize:12,cursor:"pointer",fontFamily:F}}>
+                  <option value="">行距 ▾</option>
+                  {[["1.0","1.0x"],["1.2","1.2x"],["1.5","1.5x"],["1.8","1.8x"],["2.0","2.0x"],["2.5","2.5x"]].map(([v,l])=>(
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              )}
+              {needs.has("space_before")&&(
+                <select onMouseDown={e=>e.preventDefault()}
+                  onChange={e=>{saveSel();applyBlockStyle("marginTop",e.target.value+"px");e.target.value=""}}
+                  style={{padding:"6px 10px",borderRadius:7,border:"none",background:"#334155",
+                    color:"white",fontSize:12,cursor:"pointer",fontFamily:F}}>
+                  <option value="">段前间距 ▾</option>
+                  {[["0","无 0px"],["6","6px"],["12","12px"],["18","18px"],["24","24px"],["36","36px"]].map(([v,l])=>(
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              )}
+              {needs.has("space_after")&&(
+                <select onMouseDown={e=>e.preventDefault()}
+                  onChange={e=>{saveSel();applyBlockStyle("marginBottom",e.target.value+"px");e.target.value=""}}
+                  style={{padding:"6px 10px",borderRadius:7,border:"none",background:"#334155",
+                    color:"white",fontSize:12,cursor:"pointer",fontFamily:F}}>
+                  <option value="">段后间距 ▾</option>
+                  {[["0","无 0px"],["6","6px"],["12","12px"],["18","18px"],["24","24px"],["36","36px"]].map(([v,l])=>(
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              )}
             </>
           })()}
           {/* Color picker */}
