@@ -2551,13 +2551,6 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
 // ══════════════════════════════════════════════════════════════
 // EXCEL TASK EDITOR (teacher backend)
 // ══════════════════════════════════════════════════════════════
-const RULE_TYPES=[
-  {k:'formula_keyword',label:'函数关键词 + 结果验证',hint:'指定函数名且结果正确才得分（如 SUM、RANK、IF）'},
-  {k:'value_match',label:'结果值匹配',hint:'只验证计算结果，不限制用什么函数'},
-  {k:'formula_any',label:'有公式即得分',hint:'只要写了等号开头的公式就得分'},
-  {k:'style',label:'样式美化',hint:'表头加粗 + 单元格填色得分'},
-]
-
 function ExcelTaskEditor({task,onSave,onBack}){
   const isNew=!task
   const [title,setTitle]=useState(task?.title||'')
