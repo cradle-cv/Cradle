@@ -150,13 +150,11 @@ function TSetup({onCreate}){
   )
 
   return(
-    <div style={{minHeight:"100vh",background:C.bg,padding:32,fontFamily:F,color:C.text}}>
+    <div style={{padding:28,fontFamily:F,color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{maxWidth:760,margin:"0 auto"}}>
-        <div style={{fontSize:24,fontWeight:900,marginBottom:6}}>
-          录录 <span style={{fontSize:13,color:C.muted,fontWeight:400}}>新建课堂</span>
-        </div>
-        <div style={{color:C.muted,fontSize:13,marginBottom:28}}>配置好小组、抢答题和讨论议题后创建房间</div>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>新建课堂</div>
+        <div style={{color:C.muted,fontSize:13,marginBottom:24}}>配置好小组、抢答题和讨论议题后创建房间</div>
 
         <Card style={{marginBottom:16}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 160px",gap:16}}>
@@ -288,7 +286,7 @@ function TSetup({onCreate}){
 }
 
 // ── TEACHER DASHBOARD ────────────────────────────────────────
-function TDash({session:init}){
+function TDash({session:init,onBack}){
   const [sess,setSess]=useState(init)
   const [groups,setGroups]=useState([])
   const [checkins,setCheckins]=useState([])
@@ -390,6 +388,7 @@ function TDash({session:init}){
           ))}
         </div>
         <Btn small onClick={endSession} style={{background:C.red,color:"white"}}>结束</Btn>
+        {onBack&&<Btn small onClick={onBack} style={{background:"rgba(255,255,255,.08)",color:C.text}}>← 后台</Btn>}
       </div>
 
       <div style={{padding:24}}>
@@ -1100,16 +1099,330 @@ function SMain({session:init,studentName}){
   )
 }
 
+// ── TEACHER LOGIN ────────────────────────────────────────────
+function TLogin({onSuccess,onBack}){
+  const [pw,setPw]=useState("")
+  const [err,setErr]=useState("")
+  const [loading,setLoading]=useState(false)
+
+  async function login(){
+    if(!pw.trim()) return
+    setLoading(true); setErr("")
+    const {data,error}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
+    if(error||!data){ setErr("系统错误，请稍后重试"); setLoading(false); return }
+    if(pw===data.teacher_password){ onSuccess() }
+    else { setErr("密码错误，请重试"); setLoading(false) }
+  }
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:F,padding:24}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+      <Card style={{width:"100%",maxWidth:320}}>
+        <div style={{fontSize:20,fontWeight:900,marginBottom:4}}>教师端登录</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>请输入教师密码</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:7}}>密码</div>
+        <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&login()}
+          placeholder="输入密码" style={{...inp({marginBottom:err?8:20})}}/>
+        {err&&<div style={{fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
+        <div style={{display:"flex",gap:10}}>
+          <Btn full onClick={login} disabled={loading||!pw.trim()}>{loading?"验证中…":"进入教师后台"}</Btn>
+        </div>
+        <button onClick={onBack} style={{marginTop:14,background:"none",border:"none",
+          color:C.muted,fontSize:12,cursor:"pointer",fontFamily:F,display:"block",width:"100%",textAlign:"center"}}>
+          ← 返回首页
+        </button>
+      </Card>
+    </div>
+  )
+}
+
+// ── TEACHER BACKEND (tabbed: new / history / settings) ────────
+function TBackend(){
+  const [tab,setTab]=useState("new")
+  const [sess,setSess]=useState(null)
+  const [inDash,setInDash]=useState(false)
+
+  if(inDash&&sess) return <TDash session={sess} onBack={()=>{setInDash(false);setSess(null)}}/>
+
+  const tabBtn=(t,label,col=C.accent)=>(
+    <button onClick={()=>setTab(t)} style={{padding:"9px 22px",borderRadius:8,border:"none",
+      cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+      background:tab===t?col:"transparent",color:tab===t?"#07080f":C.muted}}>
+      {label}
+    </button>
+  )
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:16,padding:"14px 28px",
+        background:C.panel,borderBottom:`1px solid ${C.border}`}}>
+        <div style={{fontSize:20,fontWeight:900}}>录录 <span style={{color:C.accent}}>教师后台</span></div>
+        <div style={{flex:1}}/>
+        <div style={{display:"flex",gap:4,background:"rgba(255,255,255,.05)",padding:4,borderRadius:10}}>
+          {tabBtn("new","新建课堂",C.accent)}
+          {tabBtn("history","历史课堂",C.blue)}
+          {tabBtn("settings","设置",C.muted)}
+        </div>
+      </div>
+
+      {tab==="new"&&(
+        <TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>
+      )}
+      {tab==="history"&&(
+        <THistory onResume={s=>{setSess(s);setInDash(true)}}/>
+      )}
+      {tab==="settings"&&(
+        <TSettings/>
+      )}
+    </div>
+  )
+}
+
+// ── TEACHER HISTORY ──────────────────────────────────────────
+function THistory({onResume}){
+  const [sessions,setSessions]=useState([])
+  const [loading,setLoading]=useState(true)
+  const [expanded,setExpanded]=useState(null)
+  const [detail,setDetail]=useState({})
+
+  useEffect(()=>{
+    loadSessions()
+  },[])
+
+  async function loadSessions(){
+    setLoading(true)
+    const {data}=await sb.from("word_lab_sessions").select().order("started_at",{ascending:false}).limit(50)
+    if(data) setSessions(data)
+    setLoading(false)
+  }
+
+  async function loadDetail(sid){
+    if(detail[sid]) return
+    const [{data:checkins},{data:subs},{data:answers},{data:groups}]=await Promise.all([
+      sb.from("word_lab_checkins").select("student_name,group_id").eq("session_id",sid),
+      sb.from("word_lab_submissions").select("student_name,score,submitted").eq("session_id",sid),
+      sb.from("word_lab_answers").select("student_name,points_earned").eq("session_id",sid),
+      sb.from("lulu_groups").select("id,name,color").eq("session_id",sid),
+    ])
+    const quizScores={}
+    ;(answers||[]).forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
+    const labScores={}
+    ;(subs||[]).forEach(s=>{labScores[s.student_name]=s.score})
+    const students=[...new Set((checkins||[]).map(c=>c.student_name))].map(name=>({
+      name,
+      group_id:(checkins||[]).find(c=>c.student_name===name)?.group_id,
+      quiz:quizScores[name]||0,
+      lab:labScores[name]||0,
+      total:(quizScores[name]||0)+(labScores[name]||0)
+    })).sort((a,b)=>b.total-a.total)
+    setDetail(p=>({...p,[sid]:{students,groups:groups||[]}}))
+  }
+
+  async function deleteSession(sid,e){
+    e.stopPropagation()
+    if(!confirm("确定删除这场课堂记录？此操作不可恢复。")) return
+    await sb.from("word_lab_sessions").delete().eq("id",sid)
+    setSessions(p=>p.filter(s=>s.id!==sid))
+    if(expanded===sid) setExpanded(null)
+  }
+
+  function toggle(sid){
+    if(expanded===sid){ setExpanded(null); return }
+    setExpanded(sid)
+    loadDetail(sid)
+  }
+
+  const phaseColor={checkin:C.blue,quiz:C.gold,discussion:C.purple,lab:C.accent,finished:"rgba(255,255,255,.3)"}
+  const phaseLabel={checkin:"签到中",quiz:"抢答中",discussion:"讨论中",lab:"排版中",finished:"已结束"}
+
+  if(loading) return(
+    <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
+  )
+
+  return(
+    <div style={{padding:28,maxWidth:900}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,fontWeight:700}}>历史课堂</div>
+          <div style={{fontSize:13,color:C.muted,marginTop:2}}>共 {sessions.length} 场课堂记录</div>
+        </div>
+        <Btn small onClick={loadSessions} style={{background:"rgba(255,255,255,.07)",color:C.text}}>刷新</Btn>
+      </div>
+
+      {!sessions.length&&(
+        <Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无历史记录</Card>
+      )}
+
+      {sessions.map(s=>{
+        const d=detail[s.id]
+        const isOpen=expanded===s.id
+        const phase=s.phase||"checkin"
+        return(
+          <Card key={s.id} style={{marginBottom:12,padding:0,overflow:"hidden",
+            border:isOpen?`1px solid ${C.accent}44`:undefined}}>
+            {/* Row */}
+            <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",cursor:"pointer"}}
+              onClick={()=>toggle(s.id)}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:700}}>{s.title}</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:3,fontFamily:FM}}>
+                  房间码 <span style={{color:C.accent,fontWeight:700}}>{s.code}</span>
+                  <span style={{marginLeft:12}}>{s.started_at?new Date(s.started_at).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</span>
+                </div>
+              </div>
+              <span style={{fontSize:11,padding:"3px 10px",borderRadius:6,fontWeight:700,
+                background:`${phaseColor[phase]||C.muted}18`,color:phaseColor[phase]||C.muted}}>
+                {phaseLabel[phase]||phase}
+              </span>
+              {phase!=="finished"&&(
+                <Btn small onClick={e=>{e.stopPropagation();onResume(s)}} color={C.accent}>进入课堂</Btn>
+              )}
+              <button onClick={e=>deleteSession(s.id,e)} style={{background:"none",border:"none",
+                color:"rgba(255,100,100,.5)",cursor:"pointer",fontSize:18,lineHeight:1,padding:"0 4px"}}
+                title="删除">✕</button>
+              <span style={{color:C.muted,fontSize:13}}>{isOpen?"▲":"▼"}</span>
+            </div>
+
+            {/* Expanded detail */}
+            {isOpen&&(
+              <div style={{borderTop:`1px solid ${C.border}`,padding:"16px 18px",background:"rgba(255,255,255,.015)"}}>
+                {!d?(
+                  <div style={{color:C.muted,fontSize:13}}>加载中…</div>
+                ):(
+                  <>
+                    {/* Group summary */}
+                    {d.groups.length>0&&(
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+                        {d.groups.map(g=>{
+                          const members=d.students.filter(st=>st.group_id===g.id)
+                          const avg=members.length?Math.round(members.reduce((s,m)=>s+m.total,0)/members.length):0
+                          return(
+                            <div key={g.id} style={{padding:"8px 14px",borderRadius:9,
+                              background:`${g.color}15`,border:`1px solid ${g.color}44`}}>
+                              <div style={{fontSize:12,color:g.color,fontWeight:700}}>{g.name}</div>
+                              <div style={{fontSize:11,color:C.muted}}>{members.length}人 · 均分{avg}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {/* Student table */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+                      {d.students.map((st,i)=>{
+                        const g=d.groups.find(x=>x.id===st.group_id)
+                        return(
+                          <div key={st.name} style={{padding:"8px 12px",borderRadius:9,
+                            background:"rgba(255,255,255,.03)",border:`1px solid ${C.border}`,
+                            borderLeft:`3px solid ${g?.color||C.border}`}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <div>
+                                <span style={{fontSize:12,color:C.muted,marginRight:6,fontFamily:FM}}>{i+1}</span>
+                                <span style={{fontSize:13,fontWeight:700}}>{st.name}</span>
+                              </div>
+                              <span style={{fontSize:15,fontWeight:900,color:C.accent,fontFamily:FM}}>{st.total}</span>
+                            </div>
+                            <div style={{fontSize:11,color:C.muted,marginTop:3}}>
+                              抢答{st.quiz} · 排版{st.lab}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {!d.students.length&&<div style={{fontSize:13,color:C.muted,gridColumn:"1/-1"}}>本场无参与学生记录</div>}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── TEACHER SETTINGS ─────────────────────────────────────────
+function TSettings(){
+  const [oldPw,setOldPw]=useState("")
+  const [newPw,setNewPw]=useState("")
+  const [newPw2,setNewPw2]=useState("")
+  const [schoolName,setSchoolName]=useState("")
+  const [msg,setMsg]=useState({text:"",ok:true})
+  const [loading,setLoading]=useState(false)
+  const [infoLoaded,setInfoLoaded]=useState(false)
+
+  useEffect(()=>{
+    sb.from("lulu_settings").select("school_name").eq("id",1).single()
+      .then(({data})=>{ if(data){setSchoolName(data.school_name);setInfoLoaded(true)} })
+  },[])
+
+  async function changePw(){
+    if(!oldPw||!newPw||!newPw2){setMsg({text:"请填写所有字段",ok:false});return}
+    if(newPw!==newPw2){setMsg({text:"两次新密码不一致",ok:false});return}
+    if(newPw.length<4){setMsg({text:"新密码至少 4 位",ok:false});return}
+    setLoading(true)
+    const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
+    if(oldPw!==data?.teacher_password){setMsg({text:"旧密码错误",ok:false});setLoading(false);return}
+    await sb.from("lulu_settings").update({teacher_password:newPw}).eq("id",1)
+    setMsg({text:"密码已更新",ok:true})
+    setOldPw("");setNewPw("");setNewPw2("")
+    setLoading(false)
+  }
+
+  async function saveSchoolName(){
+    if(!schoolName.trim()) return
+    await sb.from("lulu_settings").update({school_name:schoolName}).eq("id",1)
+    setMsg({text:"已保存",ok:true})
+  }
+
+  return(
+    <div style={{padding:28,maxWidth:500}}>
+      <Card style={{marginBottom:20}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>课堂信息</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:7}}>学校 / 课堂名称</div>
+        <div style={{display:"flex",gap:10}}>
+          <input value={schoolName} onChange={e=>setSchoolName(e.target.value)}
+            style={{...inp(),flex:1}}/>
+          <Btn small onClick={saveSchoolName}>保存</Btn>
+        </div>
+      </Card>
+
+      <Card>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>修改教师密码</div>
+        {[["旧密码",oldPw,setOldPw],["新密码",newPw,setNewPw],["确认新密码",newPw2,setNewPw2]].map(([label,val,setter])=>(
+          <div key={label} style={{marginBottom:14}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:7}}>{label}</div>
+            <input type="password" value={val} onChange={e=>setter(e.target.value)} style={inp()}/>
+          </div>
+        ))}
+        {msg.text&&(
+          <div style={{fontSize:13,color:msg.ok?C.accent:C.red,marginBottom:12}}>{msg.text}</div>
+        )}
+        <Btn onClick={changePw} disabled={loading}>{loading?"保存中…":"更新密码"}</Btn>
+        <div style={{marginTop:16,padding:"12px 14px",borderRadius:9,background:"rgba(255,255,255,.03)",
+          border:`1px solid ${C.border}`,fontSize:12,color:C.muted}}>
+          默认密码：<span style={{color:C.text,fontFamily:FM}}>lulu2025</span>
+          <br/>建议首次登录后立即修改
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 // ── ROOT ─────────────────────────────────────────────────────
 export default function App(){
   const [screen,setScreen]=useState("home")
   const [sess,setSess]=useState(null)
   const [name,setName]=useState("")
+  const [tAuthed,setTAuthed]=useState(false)
 
-  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-setup")} onStudent={()=>setScreen("s-join")}/>
-  if(screen==="t-setup") return <TSetup onCreate={s=>{setSess(s);setScreen("t-dash")}}/>
-  if(screen==="t-dash")  return <TDash session={sess}/>
-  if(screen==="s-join")  return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
-  if(screen==="s-main")  return <SMain session={sess} studentName={name}/>
+  if(screen==="home")     return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>setScreen("s-join")}/>
+  if(screen==="t-login")  return <TLogin onSuccess={()=>{setTAuthed(true);setScreen("t-backend")}} onBack={()=>setScreen("home")}/>
+  if(screen==="t-backend"&&tAuthed) return <TBackend/>
+  if(screen==="s-join")   return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
+  if(screen==="s-main")   return <SMain session={sess} studentName={name}/>
   return null
 }
