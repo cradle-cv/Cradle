@@ -1,7 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, Component } from "react"
 import { createClient } from "@supabase/supabase-js"
+
+class ErrorBoundary extends Component {
+  constructor(p){ super(p); this.state={err:null,info:null} }
+  static getDerivedStateFromError(err){ return {err} }
+  componentDidCatch(err,info){ this.setState({err,info}) }
+  render(){
+    if(this.state.err) return(
+      <div style={{padding:32,fontFamily:"monospace",background:"#fff",minHeight:"100vh",color:"#111"}}>
+        <h2 style={{color:"#dc2626",marginBottom:16}}>⚠️ 页面错误（请截图发给开发者）</h2>
+        <pre style={{background:"#f5f5f5",padding:16,borderRadius:8,whiteSpace:"pre-wrap",
+          wordBreak:"break-all",fontSize:12,marginBottom:16}}>
+          {this.state.err.toString()}{"\n\n"}{this.state.err.stack}
+        </pre>
+        <button onClick={()=>window.location.reload()}
+          style={{padding:"10px 24px",background:"#2563eb",color:"white",border:"none",
+          borderRadius:8,cursor:"pointer",fontSize:14}}>刷新页面</button>
+      </div>
+    )
+    return this.props.children
+  }
+}
 
 const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4"
@@ -1429,7 +1450,7 @@ function TSettings(){
 }
 
 // ── ROOT ─────────────────────────────────────────────────────
-export default function App(){
+function AppInner(){
   const [screen,setScreen]=useState("home")
   const [sess,setSess]=useState(null)
   const [name,setName]=useState("")
@@ -1441,4 +1462,8 @@ export default function App(){
   if(screen==="s-join")   return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
   if(screen==="s-main")   return <SMain session={sess} studentName={name}/>
   return null
+}
+
+export default function App(){
+  return <ErrorBoundary><AppInner/></ErrorBoundary>
 }
