@@ -46,21 +46,58 @@ const DEFAULT_QS=[
 
 const TASK={
   maxScore:100,timeLimit:600,
-  rawHtml:`<h1>春季电商大促 — 精选商品推荐</h1>
+  rawHtml:`<p>春季电商大促 — 精选商品推荐</p>
 <p>欢迎来到本季最受期待的电商大促活动！以下商品均为限时特惠，数量有限，先到先得。</p>
-<h2>潮流服饰</h2>
+<p>潮流服饰</p>
 <p>本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
-<h2>数码电器</h2>
+<p>数码电器</p>
 <p>全系旗舰产品降价幅度最高达 30%，含保修与正品认证。</p>
-<h2>美妆护肤</h2>
+<p>美妆护肤</p>
 <p>精选国际大牌与国货新星，买二送一，直播间专属优惠码 PROMO2025。</p>
 <p>活动有效期至月底，请尽快下单。</p>`,
+  targetHtml:`<div style="font-family:Georgia,serif;color:#1a1a1a;line-height:1.9;font-size:14px">
+<h1 style="font-size:22px;font-weight:900;margin:0 0 8px;color:#111">春季电商大促 — 精选商品推荐</h1>
+<p style="margin:0 0 14px;color:#444">欢迎来到本季最受期待的电商大促活动！以下商品均为<strong>限时特惠</strong>，数量有限，先到先得。</p>
+<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#2563eb">潮流服饰</h2>
+<p style="margin:0 0 14px;color:#444">本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
+<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#dc2626">数码电器</h2>
+<p style="margin:0 0 14px;color:#444">全系旗舰产品<strong>降价幅度最高达 30%</strong>，含保修与正品认证。</p>
+<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#059669">美妆护肤</h2>
+<p style="margin:0 0 14px;color:#444">精选国际大牌与国货新星，<strong>买二送一</strong>，直播间专属优惠码 PROMO2025。</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+  <tr style="background:#f0f4f8">
+    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">商品</th>
+    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">单价</th>
+    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">折扣价</th>
+    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">备注</th>
+  </tr>
+  <tr>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">休闲上衣</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥199</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥149</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">限量 200 件</td>
+  </tr>
+  <tr style="background:#f8fafc">
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">无线耳机</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥399</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥279</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">赠品耳机包</td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">护肤套装</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥580</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">¥399</td>
+    <td style="border:1px solid #cbd5e1;padding:8px 12px">买二送一</td>
+  </tr>
+</table>
+<p style="margin:0;color:#777;font-size:12px">活动有效期至月底，请尽快下单。</p>
+</div>`,
   reqs:[
-    {id:"h1",pts:20,desc:"将标题设为 H1 样式"},
+    {id:"h1",pts:20,desc:"将大标题设为 H1 样式"},
     {id:"h2x3",pts:20,desc:"将三个分类名设为 H2（≥3 个）"},
     {id:"table",pts:20,desc:"插入 ≥3行×2列 价格对比表格"},
     {id:"bold",pts:20,desc:"促销词加粗（≥2 处）"},
-    {id:"color",pts:20,desc:"为 H2 标题添加文字颜色"},
+    {id:"color",pts:20,desc:"为 H2 标题添加任意文字颜色"},
   ]
 }
 
@@ -1026,12 +1063,15 @@ function SMain({session:init,studentName}){
     if(el.querySelectorAll("h2").length>=3) nd.add("h2x3")
     if(el.querySelector("table")) nd.add("table")
     if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold'],[style*='font-weight: 700'],[style*='font-weight:700']").length>=2) nd.add("bold")
-    if(Array.from(el.querySelectorAll("h2")).some(h=>
-      h.style.color ||
-      h.querySelector("font[color]") ||
-      h.querySelector("[style*='color']") ||
-      h.querySelector("span[style]")
-    )) nd.add("color")
+    // Color check: any color applied anywhere inside or on an h2
+    if(Array.from(el.querySelectorAll("h2")).some(h=>{
+      const html=h.innerHTML.toLowerCase()
+      return h.style.color ||
+        h.querySelector("font") ||
+        h.querySelector("[style]") ||
+        html.includes("color") ||
+        html.includes("<font")
+    })) nd.add("color")
     setDone(nd)
   }
 
@@ -1244,33 +1284,38 @@ function SMain({session:init,studentName}){
     const toolBtn=(label,action,extra={})=>(
       <button onMouseDown={e=>{e.preventDefault();saveSel();action()}} style={{
         padding:"6px 11px",borderRadius:7,border:`1px solid ${C.border}`,
-        background:"rgba(0,0,0,.04)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
+        background:"rgba(0,0,0,.03)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
       }}>{label}</button>
     )
     return(
       <div style={{height:"100vh",background:C.bg,fontFamily:F,color:C.text,
         display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden"}}>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        {/* Toolbar */}
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
-          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
           <span style={{fontSize:14,fontWeight:900,color:C.accent,fontFamily:FM,minWidth:54}}>{fmtTime(labTime)}</span>
-          {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700}}>▪ {myGroup.name}</span>}
-          {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.gold})}
-          {toolBtn("H2",()=>exec("formatBlock","h2"))}
+          {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700,marginRight:4}}>▪ {myGroup.name}</span>}
+          <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
+          {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.gold,fontWeight:700})}
+          {toolBtn("H2",()=>exec("formatBlock","h2"),{fontWeight:700})}
           {toolBtn("加粗",()=>exec("bold"),{fontWeight:700})}
-          {toolBtn("颜色",()=>setShowColor(p=>!p))}
-          {toolBtn("表格",()=>setShowTable(p=>!p))}
+          {toolBtn("文字颜色 ▾",()=>setShowColor(p=>!p))}
+          {toolBtn("插入表格 ▾",()=>setShowTable(p=>!p))}
           {showColor&&(
-            <div style={{display:"flex",gap:5,background:C.panel2,padding:5,borderRadius:7,border:`1px solid ${C.border}`}}>
-              {[C.gold,C.red,C.blue,C.accent,C.purple,"#ff9f43"].map(col=>(
-                <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}} style={{
-                  width:22,height:22,borderRadius:5,background:col,cursor:"pointer"}}/>
+            <div style={{display:"flex",gap:5,background:C.panel,padding:6,borderRadius:9,
+              border:`1px solid ${C.border}`,boxShadow:"0 4px 12px rgba(0,0,0,.1)"}}>
+              {[["#2563eb","蓝"],["#dc2626","红"],["#059669","绿"],["#d97706","橙"],["#7c3aed","紫"],["#0284c7","青"]].map(([col,name])=>(
+                <div key={col} onClick={()=>{exec("foreColor",col);setShowColor(false)}}
+                  title={name}
+                  style={{width:26,height:26,borderRadius:6,background:col,cursor:"pointer",
+                    border:"2px solid white",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
               ))}
             </div>
           )}
           {showTable&&(
-            <div style={{display:"flex",gap:6,alignItems:"center",background:C.panel2,
-              padding:"5px 10px",borderRadius:7,border:`1px solid ${C.border}`}}>
+            <div style={{display:"flex",gap:6,alignItems:"center",background:C.panel,padding:"5px 10px",
+              borderRadius:9,border:`1px solid ${C.border}`,boxShadow:"0 4px 12px rgba(0,0,0,.1)"}}>
               <input type="number" value={tRows} onChange={e=>setTRows(Number(e.target.value))} min={2} max={8}
                 style={{width:36,...inp({padding:"3px 6px",fontSize:12})}}/>
               <span style={{fontSize:11,color:C.muted}}>行×</span>
@@ -1281,39 +1326,73 @@ function SMain({session:init,studentName}){
             </div>
           )}
           <div style={{flex:1}}/>
-          <span style={{fontSize:13,color:C.accent,fontWeight:700,fontFamily:FM}}>{score}/{TASK.maxScore}</span>
+          {/* Score pills */}
+          {TASK.reqs.map(r=>(
+            <span key={r.id} style={{fontSize:11,padding:"3px 8px",borderRadius:6,fontWeight:700,
+              background:done.has(r.id)?"rgba(37,99,235,.1)":"rgba(0,0,0,.04)",
+              color:done.has(r.id)?C.accent:C.muted,
+              border:`1px solid ${done.has(r.id)?C.accent+"44":C.border}`}}>
+              {done.has(r.id)?"✓":"○"} {r.pts}分
+            </span>
+          ))}
+          <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
+          <span style={{fontSize:14,color:C.accent,fontWeight:900,fontFamily:FM}}>{score}/{TASK.maxScore}</span>
           {!submitted&&<Btn small onClick={handleSubmit} color={C.accent}>提交</Btn>}
           {submitted&&<span style={{fontSize:12,color:C.accent,fontWeight:700}}>✓ 已提交</span>}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"185px 1fr",overflow:"hidden"}}>
-          <div style={{background:C.panel,borderRight:`1px solid ${C.border}`,padding:14,overflowY:"auto"}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:12,letterSpacing:1}}>任务清单</div>
-            {TASK.reqs.map(r=>(
-              <div key={r.id} style={{marginBottom:12,display:"flex",gap:8,alignItems:"flex-start"}}>
-                <span style={{color:done.has(r.id)?C.accent:"rgba(0,0,0,.08)",fontSize:15,marginTop:1}}>
-                  {done.has(r.id)?"✓":"○"}
-                </span>
-                <div>
-                  <div style={{fontSize:11,color:done.has(r.id)?C.text:C.muted,lineHeight:1.5}}>{r.desc}</div>
-                  <div style={{fontSize:11,color:done.has(r.id)?C.accent:"rgba(0,0,0,.08)",fontWeight:700}}>+{r.pts}</div>
-                </div>
+
+        {/* Split screen */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",overflow:"hidden"}}>
+
+          {/* LEFT: Target reference */}
+          <div style={{borderRight:`2px solid ${C.border}`,overflow:"hidden",
+            display:"flex",flexDirection:"column",background:"#f8fafc"}}>
+            {/* Target header */}
+            <div style={{padding:"8px 16px",background:"#1e3a5f",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+              <span style={{fontSize:11,fontWeight:700,color:"white",letterSpacing:1}}>🎯 目标效果（对照此图操作）</span>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.5)",marginLeft:"auto"}}>只读参考</span>
+            </div>
+            {/* Target document */}
+            <div style={{flex:1,overflow:"auto",padding:20}}>
+              <div style={{background:"white",padding:"36px 44px",borderRadius:4,
+                boxShadow:"0 2px 16px rgba(0,0,0,.1)",maxWidth:580,margin:"0 auto"}}>
+                <div dangerouslySetInnerHTML={{__html:TASK.targetHtml}}/>
               </div>
-            ))}
+            </div>
+            {/* Checklist overlay at bottom */}
+            <div style={{padding:"10px 16px",background:"white",borderTop:`1px solid ${C.border}`,
+              display:"flex",gap:8,flexWrap:"wrap"}}>
+              {TASK.reqs.map(r=>(
+                <div key={r.id} style={{display:"flex",alignItems:"center",gap:5,
+                  fontSize:11,color:done.has(r.id)?C.accent:C.muted}}>
+                  <span style={{fontWeight:700}}>{done.has(r.id)?"✓":"○"}</span>
+                  <span>{r.desc}</span>
+                  <span style={{color:done.has(r.id)?C.accent:"rgba(0,0,0,.2)",fontWeight:700}}>+{r.pts}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{background:"#e8edf4",overflowY:"auto",padding:20}}>
-            <div style={{maxWidth:660,margin:"0 auto",background:"white",padding:"40px 48px",
-              borderRadius:3,boxShadow:"0 4px 24px rgba(0,0,0,.12)"}}>
-              <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
-                onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
-                style={{minHeight:380,color:"#1a1a1a",fontSize:14,lineHeight:1.9,
-                  outline:"none",fontFamily:"Georgia,serif"}}/>
+
+          {/* RIGHT: Editable area */}
+          <div style={{overflow:"hidden",display:"flex",flexDirection:"column",background:"#e8edf4"}}>
+            <div style={{padding:"8px 16px",background:C.panel2,borderBottom:`1px solid ${C.border}`,
+              flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:11,fontWeight:700,color:C.muted,letterSpacing:1}}>✏️ 你的文档（在此编辑）</span>
+            </div>
+            <div style={{flex:1,overflow:"auto",padding:20}}>
+              <div style={{background:"white",padding:"36px 44px",borderRadius:4,
+                boxShadow:"0 2px 16px rgba(0,0,0,.1)",maxWidth:580,margin:"0 auto"}}>
+                <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
+                  onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
+                  style={{minHeight:380,color:"#1a1a1a",fontSize:14,lineHeight:1.9,
+                    outline:"none",fontFamily:"Georgia,serif"}}/>
+              </div>
             </div>
           </div>
         </div>
       </div>
     )
   }
-
   // Finished
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
