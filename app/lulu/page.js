@@ -2685,10 +2685,7 @@ function ExcelTaskEditor({task,onSave,onBack}){
             <b style={{color:C.text}}>公式格子留空</b>（学生需要自己填写的格子，在 Excel 里不要填数据）。
           </div>
           <textarea value={csvData} onChange={e=>setCsvData(e.target.value)} rows={10}
-            placeholder={"从 Excel 复制数据粘贴到这里（Tab 分隔）
-姓名\t部门\t销售额\t排名
-张三\t销售部\t\t
-李四\t技术部\t\t"}
+            placeholder={"从 Excel 复制数据粘贴到这里（Tab 分隔）\n姓名\t部门\t销售额\t排名\n张三\t销售部\t\t\n李四\t技术部\t\t"}
             style={{...inp({resize:'vertical',lineHeight:1.6,fontFamily:"'DM Mono',monospace"}),width:'100%',boxSizing:'border-box',marginBottom:10}}/>
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
             <Btn small onClick={parseCsv} color={C.gold}>导入数据</Btn>
