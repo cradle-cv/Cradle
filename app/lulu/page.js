@@ -8,12 +8,12 @@ const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const sb = createClient(SB_URL, SB_KEY)
 
 const C = {
-  bg:"#07080f",panel:"#0f1018",panel2:"#13141f",
-  border:"rgba(255,255,255,.07)",accent:"#7ee8a2",
-  gold:"#f5c842",red:"#ff6b6b",blue:"#5eb8ff",purple:"#b39dff",
-  muted:"rgba(255,255,255,.32)",text:"#eceae6",
+  bg:"#f0f4f8",panel:"#ffffff",panel2:"#f3f6fa",
+  border:"#dde3ec",accent:"#2563eb",
+  gold:"#d97706",red:"#dc2626",blue:"#0284c7",purple:"#7c3aed",
+  muted:"#6b7280",text:"#111827",
 }
-const GROUP_COLORS=["#7ee8a2","#5eb8ff","#f5c842","#ff6b6b","#b39dff","#ff9f43","#54a0ff","#ff6b81"]
+const GROUP_COLORS=["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#ea580c","#0891b2","#db2777"]
 
 const DEFAULT_QS=[
   {seq:1,question:"在 Word 中，将选中文字设为「标题 1」样式，应使用哪个功能区？",options:["插入","开始","布局","引用"],correct_index:1,points:10,time_limit:15},
@@ -53,31 +53,31 @@ const Btn=({children,onClick,color=C.accent,small,disabled,full,style={}})=>(
     padding:small?"7px 16px":"13px 28px",borderRadius:9,border:"none",
     cursor:disabled?"not-allowed":"pointer",
     background:disabled?"rgba(255,255,255,.07)":color,
-    color:disabled?"rgba(255,255,255,.25)":"#07080f",
+    color:disabled?"rgba(0,0,0,.3)":"#ffffff",
     fontSize:small?12:14,fontWeight:700,fontFamily:F,
     width:full?"100%":undefined,opacity:disabled?.6:1,...style
   }}>{children}</button>
 )
 const Card=({children,style={}})=>(
-  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:14,padding:20,...style}}>
+  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:14,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,.07)',...style}}>
     {children}
   </div>
 )
 const inp=(extra={})=>({
   width:"100%",padding:"10px 14px",borderRadius:9,border:`1px solid ${C.border}`,
-  background:"rgba(255,255,255,.04)",color:C.text,fontSize:13,
+  background:"rgba(0,0,0,.03)",color:C.text,fontSize:13,
   boxSizing:"border-box",fontFamily:F,outline:"none",...extra
 })
 
 // ── HOME ─────────────────────────────────────────────────────
 function Home({onTeacher,onStudent}){
   return(
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0f4ff 0%,#e8f4f8 100%)",display:"flex",flexDirection:"column",
       alignItems:"center",justifyContent:"center",fontFamily:F,padding:24,gap:48}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:11,letterSpacing:5,color:C.muted,marginBottom:16,fontFamily:FM}}>高职信息技术 · WORD 教学工具</div>
-        <div style={{fontSize:72,fontWeight:900,color:C.text,lineHeight:1,letterSpacing:-2}}>
+        <div style={{fontSize:11,letterSpacing:5,color:"#94a3b8",marginBottom:16,fontFamily:FM}}>高职信息技术 · WORD 教学工具</div>
+        <div style={{fontSize:72,fontWeight:900,color:"#0f172a",lineHeight:1,letterSpacing:-2}}>
           录<span style={{color:C.accent}}>录</span>
         </div>
         <div style={{fontSize:13,color:C.muted,marginTop:16,lineHeight:2.2}}>
@@ -87,9 +87,9 @@ function Home({onTeacher,onStudent}){
       <div style={{display:"flex",gap:14}}>
         <button onClick={onTeacher} style={{padding:"18px 48px",borderRadius:12,
           border:`2px solid ${C.accent}`,background:"transparent",color:C.accent,
-          fontSize:16,fontWeight:700,fontFamily:F,cursor:"pointer"}}>教师端</button>
+          fontSize:16,fontWeight:700,fontFamily:F,cursor:"pointer",boxShadow:"0 0 0 2px "+C.accent}}>教师端</button>
         <button onClick={onStudent} style={{padding:"18px 48px",borderRadius:12,
-          border:"none",background:C.accent,color:"#07080f",
+          border:"none",background:C.accent,color:"#ffffff",
           fontSize:16,fontWeight:700,fontFamily:F,cursor:"pointer"}}>学生端</button>
       </div>
     </div>
@@ -144,7 +144,7 @@ function TSetup({onCreate}){
   const tabBtn=(t,label)=>(
     <button onClick={()=>setTab(t)} style={{padding:"8px 20px",borderRadius:8,border:"none",cursor:"pointer",
       fontFamily:F,fontSize:13,fontWeight:700,
-      background:tab===t?C.accent:"transparent",color:tab===t?"#07080f":C.muted}}>
+      background:tab===t?C.accent:"transparent",color:tab===t?"#ffffff":C.muted}}>
       {label}
     </button>
   )
@@ -207,7 +207,7 @@ function TSetup({onCreate}){
             {qs.map((q,i)=>(
               <div key={i} style={{marginBottom:10,borderRadius:10,border:`1px solid ${editQ===i?C.accent:C.border}`,overflow:"hidden"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",
-                  background:editQ===i?"rgba(126,232,162,.05)":"rgba(255,255,255,.02)",cursor:"pointer"}}
+                  background:editQ===i?"rgba(37,99,235,.05)":"rgba(0,0,0,.015)",cursor:"pointer"}}
                   onClick={()=>setEditQ(editQ===i?null:i)}>
                   <span style={{fontSize:12,color:C.accent,fontFamily:FM,minWidth:22}}>Q{q.seq}</span>
                   <span style={{flex:1,fontSize:13,color:q.question?C.text:C.muted}}>{q.question||"未填写"}</span>
@@ -216,7 +216,7 @@ function TSetup({onCreate}){
                   <span style={{color:C.muted}}>{editQ===i?"▲":"▼"}</span>
                 </div>
                 {editQ===i&&(
-                  <div style={{padding:"14px",borderTop:`1px solid ${C.border}`,background:"rgba(255,255,255,.015)"}}>
+                  <div style={{padding:"14px",borderTop:`1px solid ${C.border}`,background:"rgba(0,0,0,.01)"}}>
                     <div style={{fontSize:11,color:C.muted,marginBottom:6}}>题目</div>
                     <textarea value={q.question} onChange={e=>updQ(i,"question",e.target.value)} rows={2}
                       style={{...inp(),resize:"vertical",marginBottom:12,lineHeight:1.6}}/>
@@ -227,7 +227,7 @@ function TSetup({onCreate}){
                           <button onClick={()=>updQ(i,"correct_index",j)} style={{
                             width:28,height:28,borderRadius:7,
                             border:`2px solid ${j===q.correct_index?C.accent:C.border}`,
-                            background:j===q.correct_index?"rgba(126,232,162,.2)":"transparent",
+                            background:j===q.correct_index?"rgba(37,99,235,.15)":"transparent",
                             color:j===q.correct_index?C.accent:C.muted,cursor:"pointer",
                             fontSize:12,fontWeight:700,fontFamily:FM,flexShrink:0
                           }}>{"ABCD"[j]}</button>
@@ -379,16 +379,16 @@ function TDash({session:init,onBack}){
             <span style={{marginLeft:12}}>· {checkins.length} 人签到</span>
           </div>
         </div>
-        <div style={{display:"flex",gap:3,background:"rgba(255,255,255,.05)",padding:4,borderRadius:10}}>
+        <div style={{display:"flex",gap:3,background:"#f0f4f8",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {phases.map(([p,label])=>(
             <button key={p} onClick={()=>setPhase(p)} style={{
               padding:"7px 14px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:F,
-              background:sess.phase===p?C.accent:"transparent",color:sess.phase===p?"#07080f":C.muted
+              background:sess.phase===p?C.accent:"transparent",color:sess.phase===p?"#ffffff":C.muted
             }}>{label}</button>
           ))}
         </div>
         <Btn small onClick={endSession} style={{background:C.red,color:"white"}}>结束</Btn>
-        {onBack&&<Btn small onClick={onBack} style={{background:"rgba(255,255,255,.08)",color:C.text}}>← 后台</Btn>}
+        {onBack&&<Btn small onClick={onBack} style={{background:"rgba(0,0,0,.06)",color:C.text}}>← 后台</Btn>}
       </div>
 
       <div style={{padding:24}}>
@@ -411,7 +411,7 @@ function TDash({session:init,onBack}){
                     <div style={{fontSize:12,color:C.muted,marginBottom:10}}>{members.length} 人</div>
                     {members.map(m=>(
                       <div key={m.student_name} style={{fontSize:13,padding:"6px 10px",borderRadius:7,
-                        background:"rgba(255,255,255,.04)",marginBottom:6}}>✓ {m.student_name}</div>
+                        background:"rgba(0,0,0,.03)",marginBottom:6}}>✓ {m.student_name}</div>
                     ))}
                   </Card>
                 )
@@ -423,7 +423,7 @@ function TDash({session:init,onBack}){
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {checkins.filter(c=>!c.group_id).map(c=>(
                     <span key={c.student_name} style={{fontSize:13,padding:"6px 12px",borderRadius:7,
-                      background:"rgba(255,255,255,.04)"}}>{c.student_name}</span>
+                      background:"rgba(0,0,0,.03)"}}>{c.student_name}</span>
                   ))}
                 </div>
               </div>
@@ -439,7 +439,7 @@ function TDash({session:init,onBack}){
                 {questions.map(q=>(
                   <button key={q.seq} onClick={()=>pushQ(q.seq)} style={{
                     padding:"10px 18px",borderRadius:9,border:`2px solid ${sess.current_question===q.seq?C.accent:C.border}`,
-                    background:sess.current_question===q.seq?"rgba(126,232,162,.1)":"transparent",
+                    background:sess.current_question===q.seq?"rgba(37,99,235,.08)":"transparent",
                     color:sess.current_question===q.seq?C.accent:C.muted,
                     cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:FM
                   }}>Q{q.seq}</button>
@@ -459,7 +459,7 @@ function TDash({session:init,onBack}){
                       const cnt=curAnswers.filter(a=>a.answer_index===j).length
                       return(
                         <div key={j} style={{padding:"10px 14px",borderRadius:10,
-                          background:j===curQ.correct_index?"rgba(126,232,162,.1)":"rgba(255,255,255,.03)",
+                          background:j===curQ.correct_index?"rgba(37,99,235,.08)":"rgba(0,0,0,.02)",
                           border:`1px solid ${j===curQ.correct_index?C.accent:C.border}`}}>
                           <div style={{fontSize:13,color:j===curQ.correct_index?C.accent:C.muted,marginBottom:4}}>{opt}</div>
                           <div style={{fontSize:24,fontWeight:900,fontFamily:FM}}>{cnt}</div>
@@ -486,7 +486,7 @@ function TDash({session:init,onBack}){
               {discussions.map(d=>(
                 <Card key={d.id} style={{marginBottom:10,cursor:"pointer",
                   border:`1px solid ${d.is_active?C.purple:C.border}`,
-                  background:d.is_active?"rgba(179,157,255,.07)":C.panel}}
+                  background:d.is_active?"rgba(124,58,237,.07)":C.panel}}
                   onClick={()=>toggleDis(d)}>
                   <div style={{fontSize:12,color:d.is_active?C.purple:C.muted,fontWeight:700,marginBottom:4}}>
                     {d.is_active?"● 进行中":"○ 未激活"}
@@ -503,7 +503,7 @@ function TDash({session:init,onBack}){
               {activeDis?(
                 <>
                   <div style={{fontSize:15,fontWeight:700,marginBottom:16,padding:"12px 16px",
-                    background:"rgba(179,157,255,.1)",borderRadius:10,border:`1px solid ${C.purple}44`}}>
+                    background:"rgba(124,58,237,.08)",borderRadius:10,border:`1px solid ${C.purple}44`}}>
                     💬 {activeDis.topic}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
@@ -553,12 +553,12 @@ function TDash({session:init,onBack}){
                         const sub=submissions.find(x=>x.student_name===m.student_name)
                         const pct=sub?Math.round(sub.score/TASK.maxScore*100):0
                         return(
-                          <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(255,255,255,.03)"}}>
+                          <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(0,0,0,.02)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
                               <span>{m.student_name}</span>
                               <span style={{color:C.accent,fontWeight:700,fontFamily:FM}}>{sub?.score||0}</span>
                             </div>
-                            <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,.06)"}}>
+                            <div style={{height:4,borderRadius:2,background:"rgba(0,0,0,.05)"}}>
                               <div style={{height:"100%",borderRadius:2,background:g.color,width:`${pct}%`,transition:"width .5s"}}/>
                             </div>
                             {sub?.submitted&&<div style={{fontSize:10,color:C.accent,marginTop:4}}>✓ 已提交</div>}
@@ -623,7 +623,7 @@ function GroupRankPanel({groupRank,label}){
       <div style={{fontSize:12,color:C.muted,marginBottom:12,fontFamily:"'Noto Sans SC',sans-serif"}}>{label}</div>
       {groupRank.map((g,i)=>(
         <div key={g.id} style={{marginBottom:8,padding:"12px 14px",borderRadius:12,
-          background:"#0f1018",border:`1px solid rgba(255,255,255,.07)`,borderLeft:`3px solid ${g.color}`}}>
+          background:"#ffffff",border:`1px solid #dde3ec`,boxShadow:"0 1px 3px rgba(0,0,0,.06)",borderLeft:`3px solid ${g.color}`}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:13,color:i<3?"#f5c842":"rgba(255,255,255,.32)",width:20,fontFamily:"'DM Mono',monospace"}}>{i+1}</span>
             <div style={{flex:1}}>
@@ -838,7 +838,7 @@ function SMain({session:init,studentName}){
   // Checkin screen
   if(!checkedIn||sess.phase==="checkin"){
     return(
-      <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
+      <div style={{minHeight:"100vh",background:"#f8fafc",display:"flex",flexDirection:"column",
         alignItems:"center",justifyContent:"center",fontFamily:F,gap:20,padding:24}}>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
         <div style={{fontSize:28,fontWeight:900}}>{studentName}</div>
@@ -863,7 +863,7 @@ function SMain({session:init,studentName}){
             }}>{g.name}</button>
           ))}
         </div>
-        <div style={{width:10,height:10,borderRadius:"50%",background:C.accent,marginTop:8,
+        <div style={{width:10,height:10,borderRadius:"50%",background:"#2563eb",marginTop:8,
           animation:"pulse 1.5s infinite"}}/>
         <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(2)}}`}</style>
       </div>
@@ -880,7 +880,7 @@ function SMain({session:init,studentName}){
         {flash&&(
           <div style={{position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",
             justifyContent:"center",fontSize:80,pointerEvents:"none",
-            background:flash==="correct"?"rgba(126,232,162,.18)":"rgba(255,107,107,.15)",
+            background:flash==="correct"?"rgba(37,99,235,.15)":"rgba(220,38,38,.12)",
             animation:"fout .9s forwards"}}>
             {flash==="correct"?"✓":"✗"}
           </div>
@@ -894,7 +894,7 @@ function SMain({session:init,studentName}){
               </div>
               <div style={{fontSize:24,fontWeight:900,color:C.accent,fontFamily:FM}}>{quizPts} 分</div>
             </div>
-            <div style={{fontSize:11,color:C.muted,background:"rgba(255,255,255,.05)",
+            <div style={{fontSize:11,color:C.muted,background:"rgba(0,0,0,.04)",
               padding:"4px 10px",borderRadius:6}}>抢答热身</div>
           </div>
           {!curQ?(
@@ -912,8 +912,8 @@ function SMain({session:init,studentName}){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 {curQ.options.map((opt,j)=>{
                   const sel=myAns===j,rev=myAns!==undefined,ok=j===curQ.correct_index
-                  let bg="rgba(255,255,255,.04)",brd=C.border,col=C.muted
-                  if(sel&&rev){bg=ok?"rgba(126,232,162,.15)":"rgba(255,107,107,.12)";brd=ok?C.accent:C.red;col=ok?C.accent:C.red}
+                  let bg="rgba(0,0,0,.03)",brd=C.border,col=C.muted
+                  if(sel&&rev){bg=ok?"rgba(37,99,235,.12)":"rgba(220,38,38,.1)";brd=ok?C.accent:C.red;col=ok?C.accent:C.red}
                   else if(!sel&&rev&&ok){brd=C.accent;col=C.accent}
                   return(
                     <button key={j} onClick={()=>answerQ(curQ,j)} style={{
@@ -921,7 +921,7 @@ function SMain({session:init,studentName}){
                       color,fontSize:14,fontWeight:700,cursor:myAns!==undefined?"default":"pointer",
                       fontFamily:F,textAlign:"left",transition:"all .2s"
                     }}>
-                      <span style={{color:"rgba(255,255,255,.2)",marginRight:8,fontFamily:FM}}>{"ABCD"[j]}</span>{opt}
+                      <span style={{color:"rgba(0,0,0,.12)",marginRight:8,fontFamily:FM}}>{"ABCD"[j]}</span>{opt}
                     </button>
                   )
                 })}
@@ -958,7 +958,7 @@ function SMain({session:init,studentName}){
             </Card>
           ):(
             <>
-              <Card style={{marginBottom:16,border:`1px solid ${C.purple}55`,background:"rgba(179,157,255,.06)"}}>
+              <Card style={{marginBottom:16,border:`1px solid ${C.purple}55`,background:"rgba(124,58,237,.06)"}}>
                 <div style={{fontSize:12,color:C.purple,marginBottom:6,fontWeight:700}}>💬 本轮议题</div>
                 <div style={{fontSize:15,lineHeight:1.75}}>{activeDis.topic}</div>
               </Card>
@@ -982,7 +982,7 @@ function SMain({session:init,studentName}){
                   const g=groups.find(x=>x.id===p.group_id)
                   return(
                     <div key={p.id} style={{padding:"10px 14px",borderRadius:10,
-                      background:"rgba(255,255,255,.03)",border:`1px solid ${C.border}`}}>
+                      background:"rgba(0,0,0,.02)",border:`1px solid ${C.border}`}}>
                       <div style={{fontSize:11,color:g?.color||C.muted,marginBottom:4,fontWeight:700}}>
                         {p.student_name}{g?` · ${g.name}`:""}
                       </div>
@@ -1003,7 +1003,7 @@ function SMain({session:init,studentName}){
     const toolBtn=(label,action,extra={})=>(
       <button onMouseDown={e=>{e.preventDefault();saveSel();action()}} style={{
         padding:"6px 11px",borderRadius:7,border:`1px solid ${C.border}`,
-        background:"rgba(255,255,255,.05)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
+        background:"rgba(0,0,0,.04)",color:C.text,fontSize:12,cursor:"pointer",fontFamily:F,...extra
       }}>{label}</button>
     )
     return(
@@ -1011,7 +1011,7 @@ function SMain({session:init,studentName}){
         display:"grid",gridTemplateRows:"auto 1fr",overflow:"hidden"}}>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
-          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+          background:C.panel,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
           <span style={{fontSize:14,fontWeight:900,color:C.accent,fontFamily:FM,minWidth:54}}>{fmtTime(labTime)}</span>
           {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700}}>▪ {myGroup.name}</span>}
           {toolBtn("H1",()=>exec("formatBlock","h1"),{color:C.gold})}
@@ -1049,19 +1049,19 @@ function SMain({session:init,studentName}){
             <div style={{fontSize:11,color:C.muted,marginBottom:12,letterSpacing:1}}>任务清单</div>
             {TASK.reqs.map(r=>(
               <div key={r.id} style={{marginBottom:12,display:"flex",gap:8,alignItems:"flex-start"}}>
-                <span style={{color:done.has(r.id)?C.accent:"rgba(255,255,255,.12)",fontSize:15,marginTop:1}}>
+                <span style={{color:done.has(r.id)?C.accent:"rgba(0,0,0,.08)",fontSize:15,marginTop:1}}>
                   {done.has(r.id)?"✓":"○"}
                 </span>
                 <div>
                   <div style={{fontSize:11,color:done.has(r.id)?C.text:C.muted,lineHeight:1.5}}>{r.desc}</div>
-                  <div style={{fontSize:11,color:done.has(r.id)?C.accent:"rgba(255,255,255,.12)",fontWeight:700}}>+{r.pts}</div>
+                  <div style={{fontSize:11,color:done.has(r.id)?C.accent:"rgba(0,0,0,.08)",fontWeight:700}}>+{r.pts}</div>
                 </div>
               </div>
             ))}
           </div>
-          <div style={{background:"#1c1c28",overflowY:"auto",padding:20}}>
+          <div style={{background:"#e8edf4",overflowY:"auto",padding:20}}>
             <div style={{maxWidth:660,margin:"0 auto",background:"white",padding:"40px 48px",
-              borderRadius:3,boxShadow:"0 4px 40px rgba(0,0,0,.6)"}}>
+              borderRadius:3,boxShadow:"0 4px 24px rgba(0,0,0,.12)"}}>
               <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
                 onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
                 style={{minHeight:380,color:"#1a1a1a",fontSize:14,lineHeight:1.9,
@@ -1149,7 +1149,7 @@ function TBackend(){
   const tabBtn=(t,label,col=C.accent)=>(
     <button onClick={()=>setTab(t)} style={{padding:"9px 22px",borderRadius:8,border:"none",
       cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
-      background:tab===t?col:"transparent",color:tab===t?"#07080f":C.muted}}>
+      background:tab===t?col:"transparent",color:tab===t?"#ffffff":C.muted}}>
       {label}
     </button>
   )
@@ -1162,7 +1162,7 @@ function TBackend(){
         background:C.panel,borderBottom:`1px solid ${C.border}`}}>
         <div style={{fontSize:20,fontWeight:900}}>录录 <span style={{color:C.accent}}>教师后台</span></div>
         <div style={{flex:1}}/>
-        <div style={{display:"flex",gap:4,background:"rgba(255,255,255,.05)",padding:4,borderRadius:10}}>
+        <div style={{display:"flex",gap:4,background:"#f0f4f8",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
@@ -1236,7 +1236,7 @@ function THistory({onResume}){
     loadDetail(sid)
   }
 
-  const phaseColor={checkin:C.blue,quiz:C.gold,discussion:C.purple,lab:C.accent,finished:"rgba(255,255,255,.3)"}
+  const phaseColor={checkin:C.blue,quiz:C.gold,discussion:C.purple,lab:C.accent,finished:"rgba(0,0,0,.22)"}
   const phaseLabel={checkin:"签到中",quiz:"抢答中",discussion:"讨论中",lab:"排版中",finished:"已结束"}
 
   if(loading) return(
@@ -1289,7 +1289,7 @@ function THistory({onResume}){
 
             {/* Expanded detail */}
             {isOpen&&(
-              <div style={{borderTop:`1px solid ${C.border}`,padding:"16px 18px",background:"rgba(255,255,255,.015)"}}>
+              <div style={{borderTop:`1px solid ${C.border}`,padding:"16px 18px",background:"rgba(0,0,0,.01)"}}>
                 {!d?(
                   <div style={{color:C.muted,fontSize:13}}>加载中…</div>
                 ):(
@@ -1316,7 +1316,7 @@ function THistory({onResume}){
                         const g=d.groups.find(x=>x.id===st.group_id)
                         return(
                           <div key={st.name} style={{padding:"8px 12px",borderRadius:9,
-                            background:"rgba(255,255,255,.03)",border:`1px solid ${C.border}`,
+                            background:"rgba(0,0,0,.02)",border:`1px solid ${C.border}`,
                             borderLeft:`3px solid ${g?.color||C.border}`}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                               <div>
@@ -1402,7 +1402,7 @@ function TSettings(){
           <div style={{fontSize:13,color:msg.ok?C.accent:C.red,marginBottom:12}}>{msg.text}</div>
         )}
         <Btn onClick={changePw} disabled={loading}>{loading?"保存中…":"更新密码"}</Btn>
-        <div style={{marginTop:16,padding:"12px 14px",borderRadius:9,background:"rgba(255,255,255,.03)",
+        <div style={{marginTop:16,padding:"12px 14px",borderRadius:9,background:"rgba(0,0,0,.02)",
           border:`1px solid ${C.border}`,fontSize:12,color:C.muted}}>
           默认密码：<span style={{color:C.text,fontFamily:FM}}>lulu2025</span>
           <br/>建议首次登录后立即修改
