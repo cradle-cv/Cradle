@@ -1866,158 +1866,325 @@ function LayoutTaskEditor({task,onSave,onBack}){
 
 
 // ══════════════════════════════════════════════════════════════
-// EXCEL FORMULA ENGINE
+// EXCEL FORMULA ENGINE  (expanded: SUM/AVERAGE/MAX/MIN/IF/VLOOKUP/etc.)
 // ══════════════════════════════════════════════════════════════
 const EXCEL_RAW = [
-  ['KH001','普通会员','202X-01-15','广东',638,'是'],
-  ['KH002','黄金会员','202X-03-22','浙江',1580,'是'],
-  ['KH003','白金会员','202X-02-10','北京',3260,'是'],
-  ['KH004','普通会员','202X-05-08','湖南',296,'否'],
-  ['KH005','白银会员','202X-04-16','江苏',890,'是'],
-  ['KH006','普通会员','202X-06-23','上海',450,'否'],
-  ['KH007','黄金会员','202X-01-30','四川',1680,'是'],
-  ['KH008','普通会员','202X-07-11','重庆',358,'否'],
-  ['KH009','白银会员','202X-03-05','湖北',920,'是'],
-  ['KH010','白金会员','202X-02-18','福建',2850,'是'],
-  ['KH011','黄金会员','202X-05-27','河南',1420,'是'],
-  ['KH012','普通会员','202X-06-09','陕西',580,'否'],
-  ['KH013','普通会员','202X-04-30','天津',720,'否'],
-  ['KH014','普通会员','202X-07-25','安徽',398,'否'],
-  ['KH015','白银会员','202X-01-08','广西',850,'是'],
-  ['KH016','普通会员','202X-03-14','云南',420,'否'],
-  ['KH017','黄金会员','202X-05-12','贵州',1360,'是'],
-  ['KH018','普通会员','202X-06-17','甘肃',560,'否'],
-  ['KH019','白银会员','202X-02-24','青海',980,'是'],
-  ['KH020','黄金会员','202X-04-03','宁夏',1250,'是'],
-  ['KH021','白金会员','202X-01-22','黑龙江',3580,'是'],
-  ['KH022','普通会员','202X-03-30','吉林',650,'否'],
-  ['KH023','黄金会员','202X-05-01','辽宁',1720,'是'],
-  ['KH024','普通会员','202X-06-28','内蒙古',480,'否'],
-  ['KH025','白银会员','202X-02-05','新疆',1050,'是'],
-  ['KH026','黄金会员','202X-04-19','海南',1480,'是'],
-  ['KH027','普通会员','202X-07-04','西藏',380,'否'],
-  ['KH028','普通会员','202X-01-12','台湾',750,'否'],
-  ['KH029','白金会员','202X-03-18','香港',2980,'是'],
-  ['KH030','黄金会员','202X-05-21','澳门',1650,'是'],
+  ['KH001','普通会员','202X-01-15','广东',638,'是'],['KH002','黄金会员','202X-03-22','浙江',1580,'是'],
+  ['KH003','白金会员','202X-02-10','北京',3260,'是'],['KH004','普通会员','202X-05-08','湖南',296,'否'],
+  ['KH005','白银会员','202X-04-16','江苏',890,'是'],['KH006','普通会员','202X-06-23','上海',450,'否'],
+  ['KH007','黄金会员','202X-01-30','四川',1680,'是'],['KH008','普通会员','202X-07-11','重庆',358,'否'],
+  ['KH009','白银会员','202X-03-05','湖北',920,'是'],['KH010','白金会员','202X-02-18','福建',2850,'是'],
+  ['KH011','黄金会员','202X-05-27','河南',1420,'是'],['KH012','普通会员','202X-06-09','陕西',580,'否'],
+  ['KH013','普通会员','202X-04-30','天津',720,'否'],['KH014','普通会员','202X-07-25','安徽',398,'否'],
+  ['KH015','白银会员','202X-01-08','广西',850,'是'],['KH016','普通会员','202X-03-14','云南',420,'否'],
+  ['KH017','黄金会员','202X-05-12','贵州',1360,'是'],['KH018','普通会员','202X-06-17','甘肃',560,'否'],
+  ['KH019','白银会员','202X-02-24','青海',980,'是'],['KH020','黄金会员','202X-04-03','宁夏',1250,'是'],
+  ['KH021','白金会员','202X-01-22','黑龙江',3580,'是'],['KH022','普通会员','202X-03-30','吉林',650,'否'],
+  ['KH023','黄金会员','202X-05-01','辽宁',1720,'是'],['KH024','普通会员','202X-06-28','内蒙古',480,'否'],
+  ['KH025','白银会员','202X-02-05','新疆',1050,'是'],['KH026','黄金会员','202X-04-19','海南',1480,'是'],
+  ['KH027','普通会员','202X-07-04','西藏',380,'否'],['KH028','普通会员','202X-01-12','台湾',750,'否'],
+  ['KH029','白金会员','202X-03-18','香港',2980,'是'],['KH030','黄金会员','202X-05-21','澳门',1650,'是'],
 ]
 const EXCEL_COL_LABELS = ['客户ID','会员等级','注册时间','所属省份','累计消费金额（元）','是否复购','客户消费排名','等级','会员数量','销售金额总和']
-const EXCEL_COL_LETTERS = ['A','B','C','D','E','F','G','H','I','J']
+const EXCEL_COL_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 const EXCEL_COL_W = [72,82,96,76,140,66,96,76,80,120]
 const EXCEL_SUMMARY = ['普通会员','白银会员','白金会员','黄金会员']
 
+// ── Address / range helpers ─────────────────────────────────
 function exParseAddr(raw){
   const s=raw.replace(/\$/g,'').toUpperCase()
   const m=s.match(/^([A-Z]+)(\d+)$/)
-  if(!m) return null
+  if(!m)return null
   const c=m[1].split('').reduce((n,ch)=>n*26+(ch.charCodeAt(0)-64),0)-1
-  return {r:parseInt(m[2])-1, c}
+  return{r:parseInt(m[2])-1,c}
 }
 function exGetRange(s){
-  const [a,b]=s.split(':')
-  const from=exParseAddr(a),to=exParseAddr(b)
-  if(!from||!to) return []
-  const out=[]
-  for(let r=from.r;r<=to.r;r++) for(let c=from.c;c<=to.c;c++) out.push({r,c})
+  const[a,b]=s.split(':'); const from=exParseAddr(a),to=exParseAddr(b)
+  if(!from||!to)return[]; const out=[]
+  for(let r=from.r;r<=to.r;r++)for(let c=from.c;c<=to.c;c++)out.push({r,c})
   return out
 }
 function exSplitArgs(s){
   const args=[];let depth=0,cur=''
   for(const ch of s){
-    if(ch==='('){depth++;cur+=ch}
-    else if(ch===')'){depth--;cur+=ch}
-    else if(ch===','&&depth===0){args.push(cur.trim());cur=''}
-    else{cur+=ch}
+    if(ch==='('){depth++;cur+=ch}else if(ch===')'){depth--;cur+=ch}
+    else if(ch===','&&depth===0){args.push(cur.trim());cur=''}else cur+=ch
   }
-  if(cur.trim()) args.push(cur.trim())
-  return args
+  if(cur.trim())args.push(cur.trim()); return args
 }
 
-function buildExcelStaticGrid(){
+// ── Build static grid from task data ───────────────────────
+function buildExcelGrid(task){
+  const data = task?.initial_data
+  const headers = task?.col_headers || EXCEL_COL_LABELS
+  const colCount = headers.length || 10
+  if(data&&data.length>0){
+    const rowCount = data.length+1
+    const g = Array.from({length:rowCount},()=>Array(colCount).fill(null))
+    headers.forEach((h,c)=>{g[0][c]=h})
+    data.forEach((row,ri)=>{row.forEach((v,c)=>{g[ri+1][c]=v})})
+    ;(task?.raw_cells||[]).forEach(({r,c,v})=>{if(g[r])g[r][c]=v})
+    return g
+  }
+  // Default: 教案2
   const g=Array.from({length:51},()=>Array(10).fill(null))
   EXCEL_COL_LABELS.forEach((h,c)=>{g[0][c]=h})
   EXCEL_RAW.forEach((row,i)=>{for(let c=0;c<6;c++)g[i+1][c]=row[c]})
   EXCEL_SUMMARY.forEach((t,i)=>{g[i+1][7]=t})
+  ;(task?.raw_cells||[]).forEach(({r,c,v})=>{if(g[r])g[r][c]=v})
   return g
 }
-const EX_STATIC = buildExcelStaticGrid()
 
-function exGetCellVal(r,c,userForms){
-  if(r<0||r>50||c<0||c>9) return ''
+// ── Cell value resolution ───────────────────────────────────
+function exGetCellVal(r,c,userForms,staticGrid){
+  if(r<0||c<0)return''
   const key=`${r},${c}`
   if(userForms&&userForms[key]!==undefined){
-    const f=userForms[key]
-    if(!f) return ''
-    if(typeof f==='string'&&f.startsWith('=')) return exEval(f,userForms)
+    const f=userForms[key]; if(!f)return''
+    if(typeof f==='string'&&f.startsWith('='))return exEvalFull(f,userForms,staticGrid)
     const n=Number(f); return isNaN(n)?f:n
   }
-  return EX_STATIC[r]?.[c]??''
+  return staticGrid?.[r]?.[c]??''
 }
-function exResolveArg(arg,userForms){
+
+function exResolveArg(arg,userForms,grid){
   const t=arg.trim()
-  if((t.startsWith('"')&&t.endsWith('"'))||(t.startsWith("'")&&t.endsWith("'"))) return t.slice(1,-1)
-  const n=Number(t); if(!isNaN(n)&&t!=='') return n
+  if((t.startsWith('"')&&t.endsWith('"'))||(t.startsWith("'")&&t.endsWith("'")))return t.slice(1,-1)
+  const n=Number(t); if(!isNaN(n)&&t!=='')return n
   const addr=exParseAddr(t.replace(/\$/g,''))
-  if(addr) return exGetCellVal(addr.r,addr.c,userForms)
+  if(addr)return exGetCellVal(addr.r,addr.c,userForms,grid)
   return t
 }
-function exEval(formula,userForms){
-  if(!formula||typeof formula!=='string') return ''
+
+function exGetRangeVals(rangeStr,userForms,grid){
+  return exGetRange(rangeStr).map(({r,c})=>{
+    const v=exGetCellVal(r,c,userForms,grid)
+    return(v!==null&&v!==''&&!isNaN(Number(v)))?Number(v):null
+  }).filter(v=>v!==null)
+}
+
+// ── Core function evaluator ─────────────────────────────────
+function exEvalFunc(fn,args,userForms,grid){
+  const up=fn.toUpperCase()
+  const numVals=a=>a.includes(':')?exGetRangeVals(a.trim(),userForms,grid):[Number(exResolveArg(a,userForms,grid))].filter(v=>!isNaN(v))
+
+  switch(up){
+    case 'SUM':{let s=0;args.forEach(a=>numVals(a).forEach(v=>s+=v));return s}
+    case 'AVERAGE':{const v=[].concat(...args.map(numVals));return v.length?v.reduce((s,x)=>s+x,0)/v.length:'#DIV/0!'}
+    case 'MAX':{const v=[].concat(...args.map(numVals));return v.length?Math.max(...v):0}
+    case 'MIN':{const v=[].concat(...args.map(numVals));return v.length?Math.min(...v):0}
+    case 'COUNT':{return[].concat(...args.map(a=>{
+      if(a.includes(':'))return exGetRange(a.trim()).map(({r,c})=>exGetCellVal(r,c,userForms,grid))
+      return[exResolveArg(a,userForms,grid)]
+    })).filter(v=>v!==null&&v!==''&&!isNaN(Number(v))).length}
+    case 'COUNTA':{return[].concat(...args.map(a=>{
+      if(a.includes(':'))return exGetRange(a.trim()).map(({r,c})=>exGetCellVal(r,c,userForms,grid))
+      return[exResolveArg(a,userForms,grid)]
+    })).filter(v=>v!==null&&v!=='').length}
+    case 'PRODUCT':{const v=[].concat(...args.map(numVals));return v.length?v.reduce((p,x)=>p*x,1):0}
+    case 'ROUND':{const v=Number(exResolveArg(args[0],userForms,grid)),d=args[1]?Number(exResolveArg(args[1],userForms,grid)):0;return Math.round(v*Math.pow(10,d))/Math.pow(10,d)}
+    case 'ROUNDUP':{const v=Number(exResolveArg(args[0],userForms,grid)),d=args[1]?Number(exResolveArg(args[1],userForms,grid)):0;const f=Math.pow(10,d);return Math.ceil(v*f)/f}
+    case 'ROUNDDOWN':{const v=Number(exResolveArg(args[0],userForms,grid)),d=args[1]?Number(exResolveArg(args[1],userForms,grid)):0;const f=Math.pow(10,d);return Math.floor(v*f)/f}
+    case 'ABS':return Math.abs(Number(exResolveArg(args[0],userForms,grid)))
+    case 'SQRT':return Math.sqrt(Number(exResolveArg(args[0],userForms,grid)))
+    case 'INT':return Math.floor(Number(exResolveArg(args[0],userForms,grid)))
+    case 'MOD':{const a=Number(exResolveArg(args[0],userForms,grid)),b=Number(exResolveArg(args[1],userForms,grid));return a%b}
+    case 'POWER':return Math.pow(Number(exResolveArg(args[0],userForms,grid)),Number(exResolveArg(args[1],userForms,grid)))
+    case 'CONCATENATE':case 'CONCAT':return args.map(a=>exResolveArg(a,userForms,grid)).join('')
+    case 'LEN':return String(exResolveArg(args[0],userForms,grid)).length
+    case 'LEFT':{const s=String(exResolveArg(args[0],userForms,grid));return s.slice(0,args[1]?Number(exResolveArg(args[1],userForms,grid)):1)}
+    case 'RIGHT':{const s=String(exResolveArg(args[0],userForms,grid));const n=args[1]?Number(exResolveArg(args[1],userForms,grid)):1;return s.slice(-n)}
+    case 'MID':{const s=String(exResolveArg(args[0],userForms,grid));return s.substr(Number(exResolveArg(args[1],userForms,grid))-1,Number(exResolveArg(args[2],userForms,grid)))}
+    case 'UPPER':return String(exResolveArg(args[0],userForms,grid)).toUpperCase()
+    case 'LOWER':return String(exResolveArg(args[0],userForms,grid)).toLowerCase()
+    case 'TRIM':return String(exResolveArg(args[0],userForms,grid)).trim()
+    case 'TEXT':{const v=Number(exResolveArg(args[0],userForms,grid));return isNaN(v)?String(exResolveArg(args[0],userForms,grid)):v.toLocaleString()}
+    case 'VALUE':return Number(exResolveArg(args[0],userForms,grid))
+    case 'ISNUMBER':return!isNaN(Number(exResolveArg(args[0],userForms,grid)))
+    case 'ISBLANK':{const v=exResolveArg(args[0],userForms,grid);return v===null||v===''||v===undefined}
+    case 'NOT':return!exResolveArg(args[0],userForms,grid)
+    case 'AND':return args.every(a=>!!exResolveArg(a,userForms,grid))
+    case 'OR':return args.some(a=>!!exResolveArg(a,userForms,grid))
+    default: return '#FUNC?'
+  }
+}
+
+// ── IF evaluator ────────────────────────────────────────────
+function exEvalIF(inner,userForms,grid){
+  const args=exSplitArgs(inner)
+  if(args.length<2)return '#ERR'
+  const cond=exEvalCond(args[0].trim(),userForms,grid)
+  const tv=args[1]?exResolveArg(args[1].trim(),userForms,grid):''
+  const fv=args[2]?exResolveArg(args[2].trim(),userForms,grid):0
+  return cond?tv:fv
+}
+function exEvalCond(cond,userForms,grid){
+  for(const op of['<>','<=','>=','=','<','<']){
+    const idx=cond.indexOf(op)
+    if(idx>0){
+      const l=exResolveArg(cond.slice(0,idx).trim(),userForms,grid)
+      const r=exResolveArg(cond.slice(idx+op.length).trim(),userForms,grid)
+      const lv=isNaN(Number(l))?String(l):Number(l)
+      const rv=isNaN(Number(r))?String(r):Number(r)
+      if(op==='=')return lv==rv; if(op==='<>')return lv!=rv
+      if(op==='<')return lv<rv; if(op==='>')return lv>rv
+      if(op==='<=')return lv<=rv; if(op==='>=')return lv>=rv
+    }
+  }
+  const v=exResolveArg(cond,userForms,grid)
+  return!!v&&v!=='0'&&v!=='FALSE'&&v!==false
+}
+
+// ── VLOOKUP / HLOOKUP ──────────────────────────────────────
+function exEvalVLOOKUP(inner,userForms,grid){
+  const args=exSplitArgs(inner); if(args.length<3)return '#ERR'
+  const lv=String(exResolveArg(args[0].trim(),userForms,grid))
+  const tbl=exGetRange(args[1].trim())
+  const ci=Number(exResolveArg(args[2].trim(),userForms,grid))-1
+  const exact=args[3]?exResolveArg(args[3].trim(),userForms,grid)===0:true
+  if(!tbl.length)return '#ERR'
+  const minR=Math.min(...tbl.map(x=>x.r)),minC=Math.min(...tbl.map(x=>x.c))
+  for(let r=minR;r<=Math.max(...tbl.map(x=>x.r));r++){
+    if(String(exGetCellVal(r,minC,userForms,grid))===lv)
+      return exGetCellVal(r,minC+ci,userForms,grid)
+  }
+  return '#N/A'
+}
+
+// ── Main formula evaluator ──────────────────────────────────
+function exEvalFull(formula,userForms,grid){
+  if(!formula||typeof formula!=='string')return''
   const f=formula.trim()
   if(!f.startsWith('=')){const n=Number(f);return isNaN(n)?f:n}
-  const expr=f.slice(1).trim(),up=expr.toUpperCase()
+  let s=f.slice(1).trim(); const up=s.toUpperCase()
   try{
+    // Named functions that need special handling
     if(up.startsWith('RANK(')){
-      const args=exSplitArgs(expr.slice(5,-1))
-      const val=Number(exResolveArg(args[0],userForms))
+      const args=exSplitArgs(s.slice(5,-1))
+      const val=Number(exResolveArg(args[0],userForms,grid))
       const cells=exGetRange(args[1].trim())
-      const order=args[2]?Number(exResolveArg(args[2],userForms)):0
-      const vals=cells.map(({r,c})=>{const v=exGetCellVal(r,c,userForms);return(v!==null&&v!==''&&!isNaN(Number(v)))?Number(v):null}).filter(v=>v!==null)
+      const order=args[2]?Number(exResolveArg(args[2],userForms,grid)):0
+      const vals=cells.map(({r,c})=>{const v=exGetCellVal(r,c,userForms,grid);return(v!==null&&v!==''&&!isNaN(Number(v)))?Number(v):null}).filter(v=>v!==null)
       const sorted=order===0?[...vals].sort((a,b)=>b-a):[...vals].sort((a,b)=>a-b)
       const rank=sorted.indexOf(val)+1; return rank>0?rank:'#N/A'
     }
     if(up.startsWith('COUNTIF(')){
-      const args=exSplitArgs(expr.slice(8,-1))
+      const args=exSplitArgs(s.slice(8,-1))
       const cells=exGetRange(args[0].trim())
-      const crit=String(exResolveArg(args[1],userForms))
-      return cells.filter(({r,c})=>String(exGetCellVal(r,c,userForms))===crit).length
+      const crit=String(exResolveArg(args[1],userForms,grid))
+      return cells.filter(({r,c})=>String(exGetCellVal(r,c,userForms,grid))===crit).length
+    }
+    if(up.startsWith('COUNTIFS(')){
+      // COUNTIFS(range1,criteria1,range2,criteria2,...)
+      const args=exSplitArgs(s.slice(9,-1)); let count=0
+      const range0=exGetRange(args[0].trim())
+      range0.forEach(({r,c},i)=>{
+        let match=true
+        for(let k=0;k<args.length;k+=2){
+          const rng=exGetRange(args[k].trim()); const crit=String(exResolveArg(args[k+1],userForms,grid))
+          if(rng[i]&&String(exGetCellVal(rng[i].r,rng[i].c,userForms,grid))!==crit)match=false
+        }
+        if(match)count++
+      }); return count
     }
     if(up.startsWith('SUMIF(')){
-      const args=exSplitArgs(expr.slice(6,-1))
+      const args=exSplitArgs(s.slice(6,-1))
       const cells=exGetRange(args[0].trim())
-      const crit=String(exResolveArg(args[1],userForms))
-      const sumCells=exGetRange(args[2].trim())
-      let sum=0
+      const crit=String(exResolveArg(args[1],userForms,grid))
+      const sc=exGetRange(args[2].trim()); let sum=0
       cells.forEach(({r,c},i)=>{
-        if(String(exGetCellVal(r,c,userForms))===crit){
-          const sv=exGetCellVal(sumCells[i].r,sumCells[i].c,userForms)
+        if(String(exGetCellVal(r,c,userForms,grid))===crit){
+          const sv=exGetCellVal(sc[i].r,sc[i].c,userForms,grid)
           if(sv!==null&&sv!==''&&!isNaN(Number(sv)))sum+=Number(sv)
         }
       }); return sum
     }
-    const addr=exParseAddr(expr.replace(/\$/g,''))
-    if(addr) return exGetCellVal(addr.r,addr.c,userForms)
-    return '#UNSUP'
-  }catch(e){return '#ERR'}
+    if(up.startsWith('SUMIFS(')){
+      const args=exSplitArgs(s.slice(7,-1))
+      const sumRng=exGetRange(args[0].trim()); let sum=0
+      sumRng.forEach(({r,c},i)=>{
+        let match=true
+        for(let k=1;k<args.length;k+=2){
+          const rng=exGetRange(args[k].trim()); const crit=String(exResolveArg(args[k+1],userForms,grid))
+          if(rng[i]&&String(exGetCellVal(rng[i].r,rng[i].c,userForms,grid))!==crit)match=false
+        }
+        if(match){const sv=exGetCellVal(r,c,userForms,grid);if(sv!==null&&sv!==''&&!isNaN(Number(sv)))sum+=Number(sv)}
+      }); return sum
+    }
+    if(up.startsWith('IF(')){return exEvalIF(s.slice(3,-1),userForms,grid)}
+    if(up.startsWith('IFS(')){
+      // IFS(cond1,val1,cond2,val2,...)
+      const args=exSplitArgs(s.slice(4,-1))
+      for(let k=0;k<args.length;k+=2){
+        if(exEvalCond(args[k].trim(),userForms,grid))return exResolveArg(args[k+1].trim(),userForms,grid)
+      }
+      return '#N/A'
+    }
+    if(up.startsWith('VLOOKUP(')){return exEvalVLOOKUP(s.slice(8,-1),userForms,grid)}
+    if(up.startsWith('HLOOKUP(')){
+      const args=exSplitArgs(s.slice(8,-1)); if(args.length<3)return '#ERR'
+      const lv=String(exResolveArg(args[0].trim(),userForms,grid))
+      const tbl=exGetRange(args[1].trim()); const ri=Number(exResolveArg(args[2].trim(),userForms,grid))-1
+      const minR=Math.min(...tbl.map(x=>x.r)),minC=Math.min(...tbl.map(x=>x.c))
+      for(let c=minC;c<=Math.max(...tbl.map(x=>x.c));c++){
+        if(String(exGetCellVal(minR,c,userForms,grid))===lv)return exGetCellVal(minR+ri,c,userForms,grid)
+      }
+      return '#N/A'
+    }
+
+    // Expression engine: process nested function calls, then evaluate arithmetic
+    let expr=s
+    for(let i=0;i<8;i++){
+      const prev=expr
+      expr=expr.replace(/\b([A-Z]+)\(([^()]*)\)/gi,(match,fn,argStr)=>{
+        const r=exEvalFunc(fn,exSplitArgs(argStr),userForms,grid)
+        return String(r??0)
+      })
+      if(expr===prev)break
+    }
+    // Replace remaining cell references
+    expr=expr.replace(/\$?[A-Z]+\$?\d+/gi,m=>{
+      const addr=exParseAddr(m.replace(/\$/g,''))
+      if(!addr)return'0'
+      const v=exGetCellVal(addr.r,addr.c,userForms,grid)
+      return(v===null||v===''||isNaN(Number(v)))?`"${v}"`:String(Number(v))
+    })
+    // Safe arithmetic eval
+    if(/^[\d\s+\-*/%.(),"]+$/.test(expr.replace(/\s/g,''))){
+      try{return Function(`"use strict";return(${expr})`)()}
+      catch(e){return'#ERR'}
+    }
+    return'#UNSUP'
+  }catch(e){return'#ERR'}
 }
 
-function exIsEditable(r,c){
-  if(r===0) return false
-  if(c===6&&r>=1&&r<=30) return true
-  if(c===8&&r>=1&&r<=4) return true
-  if(c===9&&r>=1&&r<=4) return true
+// ── Editable cell check (supports dynamic formula_cells) ───
+function exIsEditable(r,c,task){
+  if(r===0)return false
+  const fc=task?.formula_cells
+  if(fc&&fc.length>0){
+    return fc.some(f=>exGetRange(f.range).some(({r:cr,c:cc})=>cr===r&&cc===c))
+  }
+  // Default 教案2 fallback
+  if(c===6&&r>=1&&r<=30)return true
+  if(c===8&&r>=1&&r<=4)return true
+  if(c===9&&r>=1&&r<=4)return true
   return false
 }
-function exDisplayVal(r,c,userForms){
-  if(exIsEditable(r,c)){
-    const f=userForms[`${r},${c}`]
-    if(!f) return ''
-    if(typeof f==='string'&&f.startsWith('=')){const v=exEval(f,userForms);return v===null?'':String(v)}
-    return String(f)
+
+function exGetHint(r,c,task){
+  const fc=task?.formula_cells||[]
+  for(const f of fc){
+    if(exGetRange(f.range).some(({r:cr,c:cc})=>cr===r&&cc===c))return f.hint||''
   }
-  const v=EX_STATIC[r]?.[c]; return v===null||v===undefined?'':String(v)
+  if(c===6)return'=RANK(...)'
+  if(c===8)return'=COUNTIF(...)'
+  if(c===9)return'=SUMIF(...)'
+  return''
 }
 
-function calcExcelScore(task,userForms,cellStyles){
+// ── Scoring engine ──────────────────────────────────────────
+function calcExcelScore(task,userForms,cellStyles,grid){
   const rules=(task?.scoring_rules)||[
     {id:'rank',keyword:'RANK',cells:'G2:G31',expected:[21,8,2,30,16,25,6,29,15,4,10,22,19,27,17,26,11,23,14,12,1,20,5,24,13,9,28,18,3,7],pts_each:1,total_pts:30,desc:'RANK 函数'},
     {id:'countif',keyword:'COUNTIF',cells:'I2:I5',expected:[13,5,4,8],pts_each:5,total_pts:20,desc:'COUNTIF 函数'},
@@ -2027,27 +2194,33 @@ function calcExcelScore(task,userForms,cellStyles){
   let total=0; const detail={}
   rules.forEach(rule=>{
     if(rule.type==='style'){
-      const headerBold=EXCEL_COL_LABELS.some((_,c)=>cellStyles[`0,${c}`]?.bold)
-      const hasBg=Object.values(cellStyles).some(s=>s.bg&&s.bg!=='#ffffff'&&s.bg!=='')
-      const pts=(headerBold?Math.ceil(rule.pts/2):0)+(hasBg?Math.floor(rule.pts/2):0)
+      const hb=Object.keys(cellStyles).some(k=>k.startsWith('0,')&&cellStyles[k]?.bold)
+      const bg=Object.values(cellStyles).some(s=>s.bg&&s.bg!=='#ffffff'&&s.bg!=='')
+      const pts=(hb?Math.ceil(rule.pts/2):0)+(bg?Math.floor(rule.pts/2):0)
       total+=pts; detail[rule.id]={pts,max:rule.pts,label:rule.desc}
     } else {
-      const cellList=exGetRange(rule.cells)
-      const exp=rule.expected||[]
-      let pts=0; const items=[]
+      const cellList=exGetRange(rule.cells); const exp=rule.expected||[]; let pts=0; const items=[]
+      const kw=rule.keyword||''
       cellList.forEach(({r,c},i)=>{
-        const key=`${r},${c}`
-        const f=userForms[key]||''
-        const hasKw=f.toUpperCase().includes(rule.keyword+'(')
-        const val=hasKw?exEval(f.startsWith('=')?f:`=${f}`,userForms):null
-        const ok=hasKw&&Number(val)===exp[i]
+        const key=`${r},${c}`; const f=userForms[key]||''
+        const hasKw=kw?f.toUpperCase().includes(kw+'('):f.startsWith('=')
+        let val=null
+        if(hasKw||rule.type==='value_match'){
+          val=exEvalFull(f.startsWith('=')?f:`=${f}`,userForms,grid)
+        }
+        const expVal=exp[i]
+        const ok=rule.type==='value_match'
+          ?(String(val)===String(expVal)||Number(val)===Number(expVal))
+          :rule.type==='formula_any'
+          ?(f.startsWith('=')||/^=[\s\S]/.test(f))
+          :(hasKw&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001))
         if(ok) pts+=(rule.pts_each||1)
-        items.push({r,c,ok,val,exp:exp[i]})
+        items.push({r,c,ok,val,exp:expVal})
       })
       total+=pts; detail[rule.id]={pts,max:rule.total_pts,label:rule.desc,items}
     }
   })
-  return {total,rules,detail}
+  return{total,rules,detail}
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2070,8 +2243,14 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
     }
   },[excelTaskId])
 
-  const score=calcExcelScore(task,userForms,cellStyles)
-  const isEdit=(r,c)=>exIsEditable(r,c)
+  // Build grid from task data (dynamic or default)
+  const staticGrid = buildExcelGrid(task)
+  const colHeaders = task?.col_headers || EXCEL_COL_LABELS
+  const colWidths  = task?.col_widths  || EXCEL_COL_W
+  const dataRows   = task?.initial_data ? task.initial_data.length : EXCEL_RAW.length
+
+  const score=calcExcelScore(task,userForms,cellStyles,staticGrid)
+  const isEdit=(r,c)=>exIsEditable(r,c,task)
 
   function selectCell(r,c){
     setSelected({r,c})
@@ -2214,19 +2393,19 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
         <table style={{borderCollapse:"collapse",tableLayout:"fixed",background:"white",userSelect:"none"}}>
           <colgroup>
             <col style={{width:32}}/>
-            {EXCEL_COL_W.map((w,i)=><col key={i} style={{width:w}}/>)}
+            {colWidths.map((w,i)=><col key={i} style={{width:w}}/>)}
           </colgroup>
           <thead style={{position:"sticky",top:0,zIndex:10}}>
             <tr>
               <th style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center"}}>#</th>
-              {EXCEL_COL_LETTERS.map((l,c)=>(
+              {colHeaders.map((_,c)=>(
                 <th key={c} style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",
-                  fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{l}</th>
+                  fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{EXCEL_COL_LETTERS[c]||String.fromCharCode(65+c)}</th>
               ))}
             </tr>
             <tr>
               <td style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>1</td>
-              {EXCEL_COL_LABELS.map((h,c)=>{
+              {colHeaders.map((h,c)=>{
                 const st=cellStyles[`0,${c}`]||{}
                 const isSel=selected?.r===0&&selected?.c===c
                 return(
@@ -2241,7 +2420,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             </tr>
           </thead>
           <tbody>
-            {EXCEL_RAW.map((_,rowIdx)=>{
+            {Array.from({length:dataRows},(_,rowIdx)=>{
               const r=rowIdx+1
               return(
                 <tr key={r}>
@@ -2252,24 +2431,31 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                     const st=cellStyles[key]||{}
                     const edit=isEdit(r,c)
                     const isSel=selected?.r===r&&selected?.c===c
-                    const dv=exDisplayVal(r,c,userForms)
+                    const dv=exDisplayVal(r,c,userForms,staticGrid,task)
                     const isErr=typeof dv==='string'&&dv.startsWith('#')
                     // Cell status
                     let status=null
                     if(edit&&userForms[key]){
-                      const rules=(task?.scoring_rules)||[
-                        {id:'rank',keyword:'RANK',cells:'G2:G31',expected:[21,8,2,30,16,25,6,29,15,4,10,22,19,27,17,26,11,23,14,12,1,20,5,24,13,9,28,18,3,7]},
-                        {id:'countif',keyword:'COUNTIF',cells:'I2:I5',expected:[13,5,4,8]},
-                        {id:'sumif',keyword:'SUMIF',cells:'J2:J5',expected:[6680,4690,12670,12140]},
-                      ]
-                      const rule=c===6?rules[0]:c===8?rules[1]:c===9?rules[2]:null
-                      if(rule){
-                        const cellList=exGetRange(rule.cells)
+                      const f=userForms[key]
+                      const rules=(task?.scoring_rules)||[]
+                      const matchRule=rules.find(ru=>{
+                        if(ru.type==='style')return false
+                        return exGetRange(ru.cells||'').some(({r:cr,c:cc})=>cr===r&&cc===c)
+                      })
+                      if(matchRule){
+                        const cellList=exGetRange(matchRule.cells)
                         const idx=cellList.findIndex(cl=>cl.r===r&&cl.c===c)
-                        const hasKw=userForms[key].toUpperCase().includes(rule.keyword+'(')
-                        const val=hasKw?exEval(userForms[key].startsWith('=')?userForms[key]:('='+userForms[key]),userForms):null
-                        const ok=hasKw&&Number(val)===rule.expected[idx]
+                        const kw=matchRule.keyword||''
+                        const hasKw=kw?f.toUpperCase().includes(kw+'('):f.startsWith('=')
+                        const val=exEvalFull(f.startsWith('=')?f:('='+f),userForms,staticGrid)
+                        const expVal=matchRule.expected?.[idx]
+                        const ok=kw
+                          ?(hasKw&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001))
+                          :(f.startsWith('='))
                         status=ok?'ok':hasKw?'wrong':'nofn'
+                      } else if(f.startsWith('=')){
+                        // No rule but has formula - show neutral
+                        status='nofn'
                       }
                     }
                     return(
@@ -2284,7 +2470,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                           textAlign:(c>=4&&c<=6)?'right':'left',position:"relative"
                         }}>
                         {dv||(!edit?'':<span style={{color:"#ca8a04",fontSize:9,fontStyle:"italic"}}>
-                          {c===6?"=RANK(...)":c===8?"=COUNTIF(...)":"=SUMIF(...)"}
+                          {exGetHint(r,c,task)}
                         </span>)}
                         {status&&<span style={{position:"absolute",top:1,right:2,fontSize:8,
                           color:status==='ok'?"#059669":status==='wrong'?C.red:"#d97706"}}>
@@ -2313,24 +2499,324 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   )
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL TASK EDITOR (teacher backend)
+// ══════════════════════════════════════════════════════════════
+const RULE_TYPES=[
+  {k:'formula_keyword',label:'函数关键词 + 结果验证',hint:'指定函数名且结果正确才得分（如 SUM、RANK、IF）'},
+  {k:'value_match',label:'结果值匹配',hint:'只验证计算结果，不限制用什么函数'},
+  {k:'formula_any',label:'有公式即得分',hint:'只要写了等号开头的公式就得分'},
+  {k:'style',label:'样式美化',hint:'表头加粗 + 单元格填色得分'},
+]
+
+function ExcelTaskEditor({task,onSave,onBack}){
+  const isNew=!task
+  const [title,setTitle]=useState(task?.title||'')
+  const [desc,setDesc]=useState(task?.description||'')
+  const [timeLimit,setTimeLimit]=useState(task?.time_limit||600)
+  const [colHeadersStr,setColHeadersStr]=useState((task?.col_headers||[]).join(','))
+  const [csvData,setCsvData]=useState('')
+  const [initialData,setInitialData]=useState(task?.initial_data||[])
+  const [formulaCells,setFormulaCells]=useState(task?.formula_cells||[{range:'',hint:''}])
+  const [rules,setRules]=useState(task?.scoring_rules||[{id:'r1',type:'formula_keyword',keyword:'',cells:'',expected:[],pts_each:5,total_pts:20,desc:''}])
+  const [tab,setTab]=useState('basic')
+  const [saving,setSaving]=useState(false)
+  const [csvMsg,setCsvMsg]=useState('')
+
+  function parseCsv(){
+    if(!csvData.trim()){setCsvMsg('请先粘贴数据');return}
+    const rows=csvData.trim().split('\n').map(r=>r.split('\t').map(v=>v.trim()))
+    const data=rows.map(row=>row.map(v=>{
+      if(v===''||v===null)return null
+      const n=Number(v); return isNaN(n)?v:n
+    }))
+    setInitialData(data)
+    // Auto-detect headers from first row if they look like text
+    if(rows[0]&&rows[0].some(v=>isNaN(Number(v)))){
+      setColHeadersStr(rows[0].join(','))
+      setInitialData(data.slice(1))
+      setCsvMsg(`已导入 ${data.length-1} 行数据，第一行识别为表头`)
+    } else {
+      setCsvMsg(`已导入 ${data.length} 行数据`)
+    }
+  }
+
+  function addFC(){setFormulaCells(p=>[...p,{range:'',hint:''}])}
+  function updFC(i,f,v){setFormulaCells(p=>p.map((x,idx)=>idx===i?{...x,[f]:v}:x))}
+  function delFC(i){setFormulaCells(p=>p.filter((_,idx)=>idx!==i))}
+
+  function addRule(){setRules(p=>[...p,{id:'r'+(Date.now()),type:'formula_keyword',keyword:'',cells:'',expected:[],pts_each:5,total_pts:20,desc:''}])}
+  function updRule(i,f,v){setRules(p=>p.map((x,idx)=>idx===i?{...x,[f]:v}:x))}
+  function delRule(i){setRules(p=>p.filter((_,idx)=>idx!==i))}
+
+  function parseExpected(str){
+    return str.split(',').map(s=>s.trim()).map(v=>{const n=Number(v);return isNaN(n)?v:n})
+  }
+  function expectedToStr(arr){return(arr||[]).join(',')}
+
+  async function save(){
+    if(!title.trim()){alert('请填写题目名称');return}
+    if(!initialData.length){alert('请先导入表格数据');return}
+    setSaving(true)
+    const headers=colHeadersStr.split(',').map(s=>s.trim()).filter(Boolean)
+    const payload={
+      title,description:desc,time_limit:timeLimit,
+      col_headers:headers,
+      col_widths:headers.map(()=>100),
+      initial_data:initialData,
+      formula_cells:formulaCells.filter(f=>f.range.trim()),
+      scoring_rules:rules.map(r=>({
+        ...r,
+        expected:typeof r.expected==='string'?parseExpected(r.expected):r.expected
+      })),
+      raw_cells:[]
+    }
+    let error
+    if(isNew){({error}=await sb.from('lulu_excel_tasks').insert(payload))}
+    else{({error}=await sb.from('lulu_excel_tasks').update(payload).eq('id',task.id))}
+    setSaving(false)
+    if(error){alert('保存失败:'+error.message)}else{onSave()}
+  }
+
+  const tabBtn=(t,label)=>(
+    <button onClick={()=>setTab(t)} style={{padding:'7px 18px',borderRadius:8,border:'none',
+      cursor:'pointer',fontFamily:F,fontSize:13,fontWeight:700,
+      background:tab===t?C.gold:'transparent',color:tab===t?'white':C.muted}}>
+      {label}
+    </button>
+  )
+
+  return(
+    <div style={{padding:24,fontFamily:F,color:C.text,maxWidth:860}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+        <button onClick={onBack} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14}}>← 返回</button>
+        <div style={{fontSize:16,fontWeight:700}}>{isNew?'新建 Excel 题目':'编辑 Excel 题目'}</div>
+        <div style={{flex:1}}/>
+        <Btn onClick={save} disabled={saving} color={C.gold}>{saving?'保存中…':'保存题目'}</Btn>
+      </div>
+
+      <div style={{display:'flex',gap:4,background:C.panel,padding:4,borderRadius:10,
+        marginBottom:20,width:'fit-content',border:`1px solid ${C.border}`}}>
+        {tabBtn('basic','基本信息')}
+        {tabBtn('data','表格数据')}
+        {tabBtn('formulas','公式格子')}
+        {tabBtn('rules','评分规则')}
+      </div>
+
+      {/* 基本信息 */}
+      {tab==='basic'&&(
+        <Card>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 160px',gap:16,marginBottom:16}}>
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>题目名称 *</div>
+              <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="例：员工销售业绩分析" style={inp()}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>时限（秒）</div>
+              <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))} style={inp({color:C.gold})}/>
+            </div>
+          </div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:7}}>题目描述</div>
+          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="简要描述题目要求" style={inp({marginBottom:16})}/>
+          <div style={{fontSize:12,color:C.muted,marginBottom:7}}>列标题（逗号分隔）</div>
+          <input value={colHeadersStr} onChange={e=>setColHeadersStr(e.target.value)}
+            placeholder="例：姓名,部门,销售额,排名,是否达标" style={inp()}/>
+          <div style={{fontSize:11,color:'#9ca3af',marginTop:6}}>
+            填写每列的标题，会显示在表头行
+          </div>
+        </Card>
+      )}
+
+      {/* 表格数据 */}
+      {tab==='data'&&(
+        <Card>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:6}}>粘贴表格数据</div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:12,lineHeight:1.7}}>
+            从 Excel 中选中数据区域（含表头）复制，粘贴到下方文本框，然后点「导入」。<br/>
+            <b style={{color:C.text}}>公式格子留空</b>（学生需要自己填写的格子，在 Excel 里不要填数据）。
+          </div>
+          <textarea value={csvData} onChange={e=>setCsvData(e.target.value)} rows={10}
+            placeholder={"从 Excel 复制数据粘贴到这里（Tab 分隔）
+姓名\t部门\t销售额\t排名
+张三\t销售部\t\t
+李四\t技术部\t\t"}
+            style={{...inp({resize:'vertical',lineHeight:1.6,fontFamily:"'DM Mono',monospace"}),width:'100%',boxSizing:'border-box',marginBottom:10}}/>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            <Btn small onClick={parseCsv} color={C.gold}>导入数据</Btn>
+            {csvMsg&&<span style={{fontSize:13,color:C.green}}>{csvMsg}</span>}
+          </div>
+          {initialData.length>0&&(
+            <div style={{marginTop:16}}>
+              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>预览（前5行）</div>
+              <div style={{overflow:'auto',borderRadius:8,border:`1px solid ${C.border}`}}>
+                <table style={{borderCollapse:'collapse',fontSize:12,whiteSpace:'nowrap'}}>
+                  {colHeadersStr&&(
+                    <thead>
+                      <tr>
+                        {colHeadersStr.split(',').map((h,i)=>(
+                          <th key={i} style={{background:'#1e3a5f',color:'white',padding:'6px 10px',
+                            border:`1px solid ${C.border}`,fontWeight:700}}>{h.trim()}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                  )}
+                  <tbody>
+                    {initialData.slice(0,5).map((row,ri)=>(
+                      <tr key={ri}>
+                        {row.map((v,ci)=>(
+                          <td key={ci} style={{padding:'5px 10px',border:`1px solid ${C.border}`,
+                            background:v===null?'#fefce8':undefined,color:v===null?'#ca8a04':undefined}}>
+                            {v===null?'（公式格）':String(v)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6}}>黄色格子 = 学生需要填写公式的位置</div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* 公式格子 */}
+      {tab==='formulas'&&(
+        <Card>
+          <div style={{display:'flex',alignItems:'center',marginBottom:14}}>
+            <div style={{flex:1,fontSize:13,color:C.muted}}>定义哪些格子是公式格（学生需要填写）</div>
+            <Btn small onClick={addFC} color={C.gold}>＋ 添加</Btn>
+          </div>
+          {formulaCells.map((fc,i)=>(
+            <div key={i} style={{display:'grid',gridTemplateColumns:'140px 1fr auto',gap:10,marginBottom:10,alignItems:'end'}}>
+              <div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:5}}>单元格范围</div>
+                <input value={fc.range} onChange={e=>updFC(i,'range',e.target.value)}
+                  placeholder="如 D2:D20" style={inp({fontFamily:"'DM Mono',monospace"})}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:5}}>给学生的提示（显示在格子里）</div>
+                <input value={fc.hint} onChange={e=>updFC(i,'hint',e.target.value)}
+                  placeholder="如 =RANK(D2,$D$2:$D$20,0)" style={inp({fontFamily:"'DM Mono',monospace"})}/>
+              </div>
+              <button onClick={()=>delFC(i)} style={{background:'none',border:'none',
+                color:C.red,cursor:'pointer',fontSize:18,paddingBottom:2}}>×</button>
+            </div>
+          ))}
+          {!formulaCells.length&&<div style={{color:C.muted,fontSize:13}}>暂无公式格定义</div>}
+          <div style={{marginTop:14,padding:'10px 14px',borderRadius:8,background:'#f8fafc',
+            border:`1px solid ${C.border}`,fontSize:12,color:C.muted}}>
+            💡 范围格式：A1 (单格) 或 D2:D20 (区域)。导入数据时留空的格子会自动标黄，也可以在这里手动指定。
+          </div>
+        </Card>
+      )}
+
+      {/* 评分规则 */}
+      {tab==='rules'&&(
+        <div>
+          <div style={{display:'flex',alignItems:'center',marginBottom:14}}>
+            <div style={{flex:1,fontSize:13,color:C.muted}}>设置评分规则，系统自动检验</div>
+            <Btn small onClick={addRule} color={C.gold}>＋ 添加规则</Btn>
+          </div>
+          {rules.map((r,i)=>(
+            <Card key={r.id||i} style={{marginBottom:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'200px 1fr auto',gap:10,marginBottom:12,alignItems:'start'}}>
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>评分类型</div>
+                  <select value={r.type} onChange={e=>updRule(i,'type',e.target.value)}
+                    style={{...inp({padding:'8px 10px',cursor:'pointer'})}}>
+                    {RULE_TYPES.map(t=><option key={t.k} value={t.k}>{t.label}</option>)}
+                  </select>
+                  <div style={{fontSize:10,color:'#9ca3af',marginTop:4}}>
+                    {RULE_TYPES.find(t=>t.k===r.type)?.hint}
+                  </div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>显示给学生的说明</div>
+                  <input value={r.desc} onChange={e=>updRule(i,'desc',e.target.value)}
+                    placeholder="例：用 RANK 函数计算销售排名" style={inp()}/>
+                </div>
+                <button onClick={()=>delRule(i)} style={{background:'none',border:'none',
+                  color:C.red,cursor:'pointer',fontSize:18,marginTop:20}}>×</button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'130px 1fr 80px 80px',gap:10,alignItems:'end'}}>
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>检验单元格范围</div>
+                  <input value={r.cells||''} onChange={e=>updRule(i,'cells',e.target.value)}
+                    placeholder="如 D2:D20" style={inp({fontFamily:"'DM Mono',monospace"})}/>
+                </div>
+                {r.type==='formula_keyword'&&(
+                  <div>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:5}}>必须包含的函数名</div>
+                    <input value={r.keyword||''} onChange={e=>updRule(i,'keyword',e.target.value.toUpperCase())}
+                      placeholder="如 SUM / RANK / IF" style={inp({fontFamily:"'DM Mono',monospace"})}/>
+                  </div>
+                )}
+                {(r.type==='formula_keyword'||r.type==='value_match')&&(
+                  <div style={{gridColumn:r.type==='value_match'?'2/4':'auto',flex:1}}>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:5}}>期望结果（逗号分隔）</div>
+                    <input value={expectedToStr(r.expected)} onChange={e=>updRule(i,'expected',parseExpected(e.target.value))}
+                      placeholder="如 100,200,300" style={inp({fontFamily:"'DM Mono',monospace"})}/>
+                  </div>
+                )}
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>每格分值</div>
+                  <input type="number" value={r.pts_each||0} min={0}
+                    onChange={e=>{const v=Number(e.target.value);const cells=exGetRange(r.cells||'');updRule(i,'pts_each',v);updRule(i,'total_pts',v*cells.length)}}
+                    style={inp({color:C.gold})}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>总分</div>
+                  <input type="number" value={r.total_pts||r.pts||0} readOnly
+                    style={inp({color:C.gold,background:'#f9fafb'})}/>
+                </div>
+              </div>
+              <div style={{marginTop:10,fontSize:11,color:C.muted}}>
+                预计 {r.type==='style'?'—':exGetRange(r.cells||'').length} 格 × {r.pts_each||0} 分 = {r.total_pts||0} 分
+              </div>
+            </Card>
+          ))}
+          {rules.length>0&&(
+            <div style={{marginTop:6,padding:'10px 14px',borderRadius:8,
+              background:'rgba(217,119,6,.06)',border:`1px solid ${C.gold}33`,fontSize:13,color:C.muted}}>
+              总分：<span style={{color:C.gold,fontWeight:700}}>{rules.reduce((s,r)=>s+(Number(r.total_pts)||Number(r.pts)||0),0)}</span> 分
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════
 // EXCEL TASK LIBRARY (teacher backend)
 // ══════════════════════════════════════════════════════════════
 function ExcelTaskLibrary({onSelect,selectedId}){
   const [tasks,setTasks]=useState([])
   const [loading,setLoading]=useState(true)
+  const [editing,setEditing]=useState(null) // null=list, task|"new"=editor
 
-  useEffect(()=>{
+  const load=()=>{
+    setLoading(true)
     sb.from("lulu_excel_tasks").select("id,title,description,scoring_rules,time_limit")
       .order("created_at",{ascending:false})
       .then(({data})=>{if(data)setTasks(data);setLoading(false)})
-  },[])
+  }
+  useEffect(()=>{load()},[])
 
   async function del(id,e){
     e.stopPropagation()
     if(!confirm("确定删除这道题？")) return
     await sb.from("lulu_excel_tasks").delete().eq("id",id)
     setTasks(p=>p.filter(t=>t.id!==id))
+  }
+
+  if(editing!==null){
+    return <ExcelTaskEditor
+      task={editing==="new"?null:editing}
+      onSave={()=>{setEditing(null);load()}}
+      onBack={()=>setEditing(null)}/>
   }
 
   if(loading) return <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
@@ -2342,32 +2828,36 @@ function ExcelTaskLibrary({onSelect,selectedId}){
           <div style={{fontSize:16,fontWeight:700}}>表格题库</div>
           <div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道 Excel 题目</div>
         </div>
+        <Btn small onClick={()=>setEditing("new")} color={C.gold}>＋ 新建题目</Btn>
       </div>
-      {!tasks.length&&<Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无题目</Card>}
+      {!tasks.length&&<Card style={{textAlign:"center",padding:48,color:C.muted}}>
+        暂无题目，点「新建题目」创建
+      </Card>}
       {tasks.map(t=>(
         <Card key={t.id} style={{marginBottom:12,cursor:"pointer",
-          border:selectedId===t.id?`2px solid ${C.accent}`:`1px solid ${C.border}`}}
+          border:selectedId===t.id?`2px solid ${C.gold}`:`1px solid ${C.border}`}}
           onClick={()=>onSelect&&onSelect(t)}>
           <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{t.title}</div>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>📊 {t.title}</div>
               {t.description&&<div style={{fontSize:13,color:C.muted,marginBottom:8}}>{t.description}</div>}
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {(t.scoring_rules||[]).map((r,i)=>(
                   <span key={i} style={{fontSize:11,padding:"2px 8px",borderRadius:5,
                     background:"rgba(217,119,6,.08)",color:C.gold,border:`1px solid ${C.gold}22`}}>
-                    {r.total_pts||r.pts}分 · {r.desc}
+                    {r.total_pts||r.pts||0}分 · {r.desc}
                   </span>
                 ))}
               </div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-              <span style={{fontSize:12,color:C.muted,fontFamily:"'DM Mono',monospace"}}>{Math.floor(t.time_limit/60)}分钟</span>
+              <span style={{fontSize:12,color:C.muted,fontFamily:"'DM Mono',monospace"}}>{Math.floor((t.time_limit||600)/60)}分钟</span>
+              <Btn small onClick={e=>{e.stopPropagation();setEditing(t)}} style={{background:"rgba(0,0,0,.06)",color:C.text}}>编辑</Btn>
               <button onClick={e=>del(t.id,e)} style={{background:"none",border:"none",
                 color:"rgba(220,38,38,.5)",cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
             </div>
           </div>
-          {selectedId===t.id&&<div style={{marginTop:8,fontSize:12,color:C.accent,fontWeight:700}}>✓ 已选择此题</div>}
+          {selectedId===t.id&&<div style={{marginTop:8,fontSize:12,color:C.gold,fontWeight:700}}>✓ 已选择此题</div>}
         </Card>
       ))}
     </div>
