@@ -650,6 +650,163 @@ function TDash({session:init,onBack}){
   )
 }
 
+// ── QUIZ RESULT SCREEN ───────────────────────────────────────
+function QuizResultScreen({groups,checkins,answers,questions,isTeacher,onNext,onLab}){
+  const [show,setShow]=useState(false)
+  useEffect(()=>{ setTimeout(()=>setShow(true),300) },[])
+
+  // Calculate quiz scores
+  const quizScores={}
+  answers.forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
+
+  // Group scores
+  const groupData=groups.map(g=>{
+    const members=checkins.filter(c=>c.group_id===g.id)
+    const names=members.map(m=>m.student_name)
+    const total=names.reduce((s,n)=>s+(quizScores[n]||0),0)
+    const avg=names.length?Math.round(total/names.length):0
+    const top=names.sort((a,b)=>(quizScores[b]||0)-(quizScores[a]||0))[0]
+    return{...g,members:names.length,total,avg,top,topScore:quizScores[top]||0}
+  }).sort((a,b)=>b.total-a.total)
+
+  // Individual top 5
+  const allStudents=[...new Set(checkins.map(c=>c.student_name))]
+  const indvTop=allStudents
+    .map(name=>({name,score:quizScores[name]||0,group_id:checkins.find(c=>c.student_name===name)?.group_id}))
+    .sort((a,b)=>b.score-a.score).slice(0,5)
+
+  const medals=["🥇","🥈","🥉","4️⃣","5️⃣"]
+  const totalQs=questions.length
+  const totalPts=questions.reduce((s,q)=>s+q.points,0)
+
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e3a5f 0%,#0f2027 100%)",
+      fontFamily:F,color:"white",padding:isTeacher?"24px":"0",
+      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+      <div style={{width:"100%",maxWidth:860,padding:"32px 24px"}}>
+        {/* Title */}
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:12,letterSpacing:4,color:"rgba(255,255,255,.5)",marginBottom:8,fontFamily:FM}}>
+            ROUND 1 · 抢答热身
+          </div>
+          <div style={{fontSize:36,fontWeight:900,letterSpacing:-1}}>
+            📊 第一阶段结算
+          </div>
+          {isTeacher&&totalQs>0&&(
+            <div style={{fontSize:13,color:"rgba(255,255,255,.5)",marginTop:8}}>
+              共 {totalQs} 题 · 满分 {totalPts} 分
+            </div>
+          )}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:isTeacher?"1fr 280px":"1fr",gap:20,marginBottom:28}}>
+          {/* Group ranking */}
+          <div>
+            <div style={{fontSize:12,letterSpacing:2,color:"rgba(255,255,255,.4)",marginBottom:16,fontFamily:FM}}>
+              小组排名
+            </div>
+            {groupData.map((g,i)=>(
+              <div key={g.id} style={{
+                marginBottom:12,padding:"16px 20px",borderRadius:14,
+                background:i===0?"rgba(245,200,66,.12)":"rgba(255,255,255,.06)",
+                border:`1px solid ${i===0?"rgba(245,200,66,.4)":"rgba(255,255,255,.1)"}`,
+                transform:show?"translateY(0)":"translateY(20px)",
+                opacity:show?1:0,
+                transition:`all .5s ease ${i*0.12}s`
+              }}>
+                <div style={{display:"flex",alignItems:"center",gap:14}}>
+                  <span style={{fontSize:28,minWidth:36}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}</span>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                      <div style={{width:12,height:12,borderRadius:3,background:g.color,flexShrink:0}}/>
+                      <span style={{fontSize:17,fontWeight:900}}>{g.name}</span>
+                      <span style={{fontSize:12,color:"rgba(255,255,255,.4)"}}>{g.members}人</span>
+                    </div>
+                    {g.top&&(
+                      <div style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>
+                        ⭐ 本组最高分：{g.top} · {g.topScore}分
+                      </div>
+                    )}
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:32,fontWeight:900,color:i===0?C.gold:"white",fontFamily:FM}}>
+                      {g.total}
+                    </div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>总分</div>
+                  </div>
+                  {/* Score bar */}
+                  <div style={{position:"absolute"}}/>
+                </div>
+                {/* Progress bar */}
+                <div style={{marginTop:10,height:4,borderRadius:2,background:"rgba(255,255,255,.1)"}}>
+                  <div style={{
+                    height:"100%",borderRadius:2,background:g.color,
+                    width:show&&groupData[0].total>0?`${Math.round(g.total/groupData[0].total*100)}%`:"0%",
+                    transition:`width .8s ease ${i*0.12+0.3}s`
+                  }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Individual top */}
+          {isTeacher&&(
+            <div>
+              <div style={{fontSize:12,letterSpacing:2,color:"rgba(255,255,255,.4)",marginBottom:16,fontFamily:FM}}>
+                个人TOP 5
+              </div>
+              {indvTop.map((s,i)=>{
+                const g=groups.find(x=>x.id===s.group_id)
+                return(
+                  <div key={s.name} style={{
+                    marginBottom:10,padding:"12px 16px",borderRadius:10,
+                    background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",
+                    transform:show?"translateX(0)":"translateX(20px)",
+                    opacity:show?1:0,
+                    transition:`all .5s ease ${i*0.1+0.4}s`
+                  }}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:18,minWidth:28}}>{medals[i]}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700}}>{s.name}</div>
+                        {g&&<div style={{fontSize:11,color:g.color}}>{g.name}</div>}
+                      </div>
+                      <span style={{fontSize:18,fontWeight:900,color:C.gold,fontFamily:FM}}>{s.score}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Teacher controls */}
+        {isTeacher&&(
+          <div style={{display:"flex",gap:12,justifyContent:"center"}}>
+            <button onClick={onNext} style={{
+              padding:"14px 36px",borderRadius:12,border:`2px solid ${C.purple}`,
+              background:"transparent",color:C.purple,fontSize:15,fontWeight:700,
+              fontFamily:F,cursor:"pointer"
+            }}>→ 进入讨论</button>
+            <button onClick={onLab} style={{
+              padding:"14px 36px",borderRadius:12,border:"none",
+              background:C.accent,color:"white",fontSize:15,fontWeight:700,
+              fontFamily:F,cursor:"pointer"
+            }}>→ 开始排版竞赛</button>
+          </div>
+        )}
+        {!isTeacher&&(
+          <div style={{textAlign:"center",color:"rgba(255,255,255,.4)",fontSize:13,marginTop:8}}>
+            等待老师进入下一阶段…
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function GroupRankPanel({groupRank,label}){
   return(
     <div>
@@ -976,6 +1133,17 @@ function SMain({session:init,studentName}){
           )}
         </div>
       </div>
+    )
+  }
+
+  // Quiz result screen
+  if(sess.phase==="quiz_result"){
+    return(
+      <QuizResultScreen
+        groups={groups} checkins={checkins} answers={answers}
+        questions={[]} isTeacher={false}
+        onNext={()=>{}} onLab={()=>{}}
+      />
     )
   }
 
