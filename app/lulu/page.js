@@ -44,60 +44,145 @@ const DEFAULT_QS=[
   {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
 ]
 
-const TASK={
-  maxScore:100,timeLimit:600,
-  rawHtml:`<p>春季电商大促 — 精选商品推荐</p>
-<p>欢迎来到本季最受期待的电商大促活动！以下商品均为限时特惠，数量有限，先到先得。</p>
-<p>潮流服饰</p>
-<p>本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
-<p>数码电器</p>
-<p>全系旗舰产品降价幅度最高达 30%，含保修与正品认证。</p>
-<p>美妆护肤</p>
-<p>精选国际大牌与国货新星，买二送一，直播间专属优惠码 PROMO2025。</p>
-<p>活动有效期至月底，请尽快下单。</p>`,
-  targetHtml:`<h1 style="font-size:22px;font-weight:900;margin:0 0 8px;color:#111">春季电商大促 — 精选商品推荐</h1>
-<p style="margin:0 0 14px;color:#444">欢迎来到本季最受期待的电商大促活动！以下商品均为<strong>限时特惠</strong>，数量有限，先到先得。</p>
-<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#2563eb">潮流服饰</h2>
-<p style="margin:0 0 14px;color:#444">本季主打简约风格与高性价比，适合日常通勤与休闲出行。</p>
-<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#dc2626">数码电器</h2>
-<p style="margin:0 0 14px;color:#444">全系旗舰产品<strong>降价幅度最高达 30%</strong>，含保修与正品认证。</p>
-<h2 style="font-size:17px;font-weight:800;margin:18px 0 6px;color:#059669">美妆护肤</h2>
-<p style="margin:0 0 14px;color:#444">精选国际大牌与国货新星，<strong>买二送一</strong>，直播间专属优惠码 PROMO2025。</p>
-<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
-  <tr style="background:#f0f4f8">
-    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">商品</th>
-    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">单价</th>
-    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">折扣价</th>
-    <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;font-weight:700">备注</th>
-  </tr>
-  <tr>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">休闲上衣</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">199</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">149</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">限量 200 件</td>
-  </tr>
-  <tr style="background:#f8fafc">
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">无线耳机</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">399</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">279</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">赠品耳机包</td>
-  </tr>
-  <tr>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">护肤套装</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">580</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">399</td>
-    <td style="border:1px solid #cbd5e1;padding:8px 12px">买二送一</td>
-  </tr>
-</table>
-<p style="margin:0;color:#777;font-size:12px">活动有效期至月底，请尽快下单。</p>`,
-  reqs:[
-    {id:"h1",pts:20,desc:"将大标题设为 H1 样式"},
-    {id:"h2x3",pts:20,desc:"将三个分类名设为 H2（≥3 个）"},
-    {id:"table",pts:20,desc:"插入 ≥3行×2列 价格对比表格"},
-    {id:"bold",pts:20,desc:"促销词加粗（≥2 处）"},
-    {id:"color",pts:20,desc:"为 H2 标题添加任意文字颜色"},
-  ]
+// ── Generic rule evaluator (replaces hardcoded checkReqs) ────
+function evalRules(el, rules){
+  const done=new Set()
+  if(!el||!rules) return done
+  rules.forEach(rule=>{
+    switch(rule.type){
+      case "h1":
+        if(el.querySelector("h1")) done.add(rule.id)
+        break
+      case "h2_count":
+        if(el.querySelectorAll("h2").length>=(rule.count||1)) done.add(rule.id)
+        break
+      case "table":{
+        const t=el.querySelector("table")
+        if(!t) break
+        const rows=t.querySelectorAll("tr").length
+        const cols=t.querySelector("tr")?.querySelectorAll("td,th").length||0
+        if(rows>=(rule.rows||1)&&cols>=(rule.cols||1)) done.add(rule.id)
+        break
+      }
+      case "bold":
+        if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold'],[style*='font-weight: 700'],[style*='font-weight:700']").length>=(rule.count||1)) done.add(rule.id)
+        break
+      case "color_h2":{
+        const h2s=Array.from(el.querySelectorAll("h2"))
+        const colored=h2s.filter(h=>hasColorApplied(h))
+        if(colored.length>=(rule.count||rule.min||1)) done.add(rule.id)
+        break
+      }
+      case "align_center":
+        if(el.querySelectorAll("[style*='text-align: center'],[style*='text-align:center'],center").length>=(rule.count||1)) done.add(rule.id)
+        break
+    }
+  })
+  return done
 }
+
+// Fallback task (used if DB load fails)
+const FALLBACK_TASK={
+  id:"fallback",title:"排版练习",
+  time_limit:600,
+  raw_html:"<p>标题文字</p><p>正文内容，请按要求排版。</p>",
+  target_html:"<h1>标题文字</h1><p>正文内容。</p>",
+  scoring_rules:[{id:"h1",type:"h1",pts:100,desc:"将标题设为 H1"}]
+}
+
+// Rule type definitions (for the editor UI)
+const RULE_TYPES=[
+  {type:"h1",      label:"H1 大标题",    params:[],                          defaultDesc:"将大标题设为 H1 样式"},
+  {type:"h2_count",label:"H2 小标题数量",params:[{key:"count",label:"最少数量",default:3}],defaultDesc:"将 {count} 个小标题设为 H2"},
+  {type:"table",   label:"插入表格",      params:[{key:"rows",label:"最少行数",default:3},{key:"cols",label:"最少列数",default:2}],defaultDesc:"插入 ≥{rows}行×{cols}列 表格"},
+  {type:"bold",    label:"文字加粗",      params:[{key:"count",label:"最少处数",default:2}],defaultDesc:"关键词加粗（≥{count} 处）"},
+  {type:"color_h2",label:"H2 标题颜色",  params:[{key:"count",label:"最少数量",default:3}],defaultDesc:"为 {count} 个 H2 标题设置颜色"},
+  {type:"align_center",label:"居中对齐", params:[{key:"count",label:"最少处数",default:1}],defaultDesc:"至少 {count} 处居中对齐"},
+]
+
+
+// ── DECLARATIVE SCORING ENGINE ────────────────────────────────
+const REQ_TYPES = {
+  h1:       {label:"H1大标题",    toolbar:"h1",    params:[],                    hint:"选中大标题，点工具栏 H1"},
+  h2:       {label:"H2小标题",    toolbar:"h2",    params:[{k:"min",label:"至少几个",default:1}], hint:"选中各小标题，点工具栏 H2"},
+  table:    {label:"插入表格",    toolbar:"table", params:[{k:"min_rows",label:"至少几行（含表头）",default:3},{k:"min_cols",label:"至少几列",default:2}], hint:"点工具栏「插入表格」"},
+  bold:     {label:"加粗文字",    toolbar:"bold",  params:[{k:"min",label:"至少几处",default:2}],  hint:"选中文字，点工具栏「加粗」"},
+  color_h2: {label:"H2标题颜色", toolbar:"color", params:[{k:"min",label:"至少几个H2上色",default:3}], hint:"选中H2内文字，点「文字颜色」选色"},
+  align:    {label:"居中对齐",    toolbar:"align", params:[{k:"min",label:"至少几处",default:1}],  hint:"选中文字，点工具栏「居中」"},
+  list:     {label:"插入列表",    toolbar:"list",  params:[{k:"type",label:"类型(ul/ol)",default:"ul"}], hint:"点工具栏「无序列表」或「有序列表」"},
+}
+
+// Check if an element specifically has a color applied (not just any style)
+function hasColorApplied(h){
+  // Direct color on the h2 itself
+  if(h.style.color && h.style.color !== "" && h.style.color !== "inherit") return true
+  // <font color="..."> child
+  if(h.querySelector("font[color]")) return true
+  // <span style="color:..."> or similar with actual color value
+  for(const el of h.querySelectorAll("[style]")){
+    if(el.style.color && el.style.color !== "" && el.style.color !== "inherit") return true
+  }
+  return false
+}
+
+function evalReqs(el, reqs) {
+  const nd = new Set()
+  for(const r of reqs){
+    switch(r.type){
+      case "h1":
+        if(el.querySelector("h1")) nd.add(r.id)
+        break
+      case "h2":
+        if(el.querySelectorAll("h2").length>=(r.min||1)) nd.add(r.id)
+        break
+      case "table": {
+        const t=el.querySelector("table")
+        if(t){
+          const rows=t.querySelectorAll("tr").length
+          // Use MAX cols across all rows (handles varied row structures)
+          let maxCols=0
+          t.querySelectorAll("tr").forEach(tr=>{
+            const c=tr.querySelectorAll("td,th").length
+            if(c>maxCols) maxCols=c
+          })
+          if(rows>=(r.min_rows||1) && maxCols>=(r.min_cols||1)) nd.add(r.id)
+        }
+        break
+      }
+      case "bold": {
+        // Count distinct bold regions (not nested bold inside bold)
+        const boldEls=el.querySelectorAll("b,strong")
+        // Also check spans with explicit font-weight
+        const boldSpans=Array.from(el.querySelectorAll("[style]")).filter(e=>{
+          const fw=e.style.fontWeight
+          return fw==="bold"||fw==="700"||fw==="800"||fw==="900"
+        })
+        const total=boldEls.length+boldSpans.length
+        if(total>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "color_h2": {
+        // Use specific color check to avoid false positives from bold/other styles
+        const colored=Array.from(el.querySelectorAll("h2")).filter(h=>hasColorApplied(h))
+        if(colored.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "align": {
+        // Only match actual text-align:center, not other CSS containing "center"
+        const aligned=Array.from(el.querySelectorAll("[style],[align]")).filter(e=>{
+          return e.style.textAlign==="center"||e.getAttribute("align")==="center"
+        })
+        if(aligned.length>=(r.min||1)) nd.add(r.id)
+        break
+      }
+      case "list":
+        if(el.querySelector("ul,ol")) nd.add(r.id)
+        break
+    }
+  }
+  return nd
+}
+
 
 const genCode=()=>Math.random().toString(36).slice(2,7).toUpperCase()
 const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`
@@ -156,6 +241,20 @@ function Home({onTeacher,onStudent}){
 function TSetup({onCreate}){
   const [title,setTitle]=useState("Word 排版教学课堂")
   const [timeLab,setTimeLab]=useState(600)
+  const [taskLibrary,setTaskLibrary]=useState([])
+  const [selectedTaskId,setSelectedTaskId]=useState(null)
+
+  useEffect(()=>{
+    sb.from("lulu_task_library").select("id,title,description,scoring_rules,time_limit")
+      .order("created_at",{ascending:false})
+      .then(({data})=>{
+        if(data&&data.length){
+          setTaskLibrary(data)
+          setSelectedTaskId(data[0].id) // default to first task
+          setTimeLab(data[0].time_limit)
+        }
+      })
+  },[])
   const [groups,setGroups]=useState([
     {seq:1,name:"第一组",color:GROUP_COLORS[0]},
     {seq:2,name:"第二组",color:GROUP_COLORS[1]},
@@ -170,6 +269,12 @@ function TSetup({onCreate}){
   const [editQ,setEditQ]=useState(null)
   const [tab,setTab]=useState("groups")
   const [loading,setLoading]=useState(false)
+  const [layoutTasks,setLayoutTasks]=useState([])
+  const [layoutTaskId,setLayoutTaskId]=useState(null)
+  useEffect(()=>{
+    sb.from("lulu_layout_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
+      .then(({data})=>{ if(data){setLayoutTasks(data);if(data[0]){setLayoutTaskId(data[0].id);setTimeLab(data[0].time_limit)}} })
+  },[])
 
   const addGroup=()=>{const s=groups.length+1;setGroups(p=>[...p,{seq:s,name:`第${s}组`,color:GROUP_COLORS[(s-1)%GROUP_COLORS.length]}])}
   const updGroup=(i,f,v)=>setGroups(p=>p.map((g,idx)=>idx===i?{...g,[f]:v}:g))
@@ -185,7 +290,7 @@ function TSetup({onCreate}){
     setLoading(true)
     const code=genCode()
     const {data:sess,error}=await sb.from("word_lab_sessions").insert({
-      code,title,task_id:"ecommerce_v1",status:"active",
+      code,title,task_id:"ecommerce_v1",status:"active",layout_task_id:layoutTaskId||null,
       time_limit:timeLab,phase:"checkin",started_at:new Date().toISOString()
     }).select().single()
     if(error){alert("创建失败:"+error.message);setLoading(false);return}
@@ -219,9 +324,58 @@ function TSetup({onCreate}){
               <input value={title} onChange={e=>setTitle(e.target.value)} style={inp()}/>
             </div>
             <div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>排版时限（秒）</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:7}}>排版时限（跟随题目）</div>
               <input type="number" value={timeLab} onChange={e=>setTimeLab(Number(e.target.value))} style={inp({color:C.accent})}/>
             </div>
+          </div>
+          <div style={{marginTop:16}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:8}}>选择排版题目 *</div>
+            {layoutTasks.length===0?(
+              <div style={{padding:"10px 14px",borderRadius:8,background:"rgba(220,38,38,.06)",
+                border:"1px solid rgba(220,38,38,.2)",fontSize:13,color:C.red}}>
+                ⚠ 题库为空，请先在「排版题库」标签创建题目
+              </div>
+            ):(
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {layoutTasks.map(t=>(
+                  <button key={t.id} onClick={()=>{setLayoutTaskId(t.id);setTimeLab(t.time_limit)}} style={{
+                    padding:"9px 18px",borderRadius:9,cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+                    border:`2px solid ${t.id===layoutTaskId?C.gold:C.border}`,
+                    background:t.id===layoutTaskId?"rgba(217,119,6,.08)":"transparent",
+                    color:t.id===layoutTaskId?C.gold:C.muted
+                  }}>{t.title}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Task picker */}
+        <Card style={{marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>排版竞赛题目</div>
+          {!taskLibrary.length&&(
+            <div style={{fontSize:13,color:C.muted}}>题目库为空，请先在「题目库」标签中创建题目</div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10}}>
+            {taskLibrary.map(t=>(
+              <div key={t.id} onClick={()=>{setSelectedTaskId(t.id);setTimeLab(t.time_limit)}}
+                style={{padding:"12px 14px",borderRadius:10,cursor:"pointer",
+                  border:`2px solid ${selectedTaskId===t.id?C.accent:C.border}`,
+                  background:selectedTaskId===t.id?"rgba(37,99,235,.06)":"rgba(0,0,0,.02)"}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:4,
+                  color:selectedTaskId===t.id?C.accent:C.text}}>{t.title}</div>
+                {t.description&&<div style={{fontSize:11,color:C.muted,marginBottom:6}}>{t.description}</div>}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {(t.scoring_rules||[]).map(r=>(
+                    <span key={r.id} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
+                      background:"rgba(0,0,0,.05)",color:C.muted}}>{r.pts}分</span>
+                  ))}
+                  <span style={{fontSize:10,color:C.muted}}>
+                    满分{(t.scoring_rules||[]).reduce((s,r)=>s+r.pts,0)}分 · {Math.floor(t.time_limit/60)}分钟
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
 
@@ -625,7 +779,7 @@ function TDash({session:init,onBack}){
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
                       {members.map(m=>{
                         const sub=submissions.find(x=>x.student_name===m.student_name)
-                        const pct=sub?Math.round(sub.score/TASK.maxScore*100):0
+                        const pct=sub?Math.round(sub.score/100*100):0
                         return(
                           <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(0,0,0,.02)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
@@ -870,6 +1024,671 @@ function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
   )
 }
 
+
+// ── TASK LIBRARY (teacher backend tab) ───────────────────────
+function TTaskLibrary(){
+  const [tasks,setTasks]=useState([])
+  const [loading,setLoading]=useState(true)
+  const [editing,setEditing]=useState(null) // null=list, 'new'=new, task=edit
+
+  useEffect(()=>{ loadTasks() },[])
+
+  async function loadTasks(){
+    setLoading(true)
+    const {data}=await sb.from("lulu_task_library").select().order("created_at",{ascending:false})
+    if(data) setTasks(data)
+    setLoading(false)
+  }
+
+  async function deleteTask(id,e){
+    e.stopPropagation()
+    if(!confirm("确定删除这道题目？")) return
+    await sb.from("lulu_task_library").delete().eq("id",id)
+    setTasks(p=>p.filter(t=>t.id!==id))
+  }
+
+  if(editing) return(
+    <TaskEditor
+      task={editing==="new"?null:editing}
+      onSave={t=>{
+        if(editing==="new") setTasks(p=>[t,...p])
+        else setTasks(p=>p.map(x=>x.id===t.id?t:x))
+        setEditing(null)
+      }}
+      onCancel={()=>setEditing(null)}
+    />
+  )
+
+  return(
+    <div style={{padding:28,maxWidth:900}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,fontWeight:700}}>排版题目库</div>
+          <div style={{fontSize:13,color:C.muted,marginTop:2}}>共 {tasks.length} 道题目，创建课堂时可选用</div>
+        </div>
+        <Btn onClick={()=>setEditing("new")} color={C.accent}>＋ 新建题目</Btn>
+      </div>
+      {loading&&<div style={{color:C.muted,fontSize:13}}>加载中…</div>}
+      {!loading&&!tasks.length&&(
+        <Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无题目，点「新建题目」创建</Card>
+      )}
+      {tasks.map(t=>(
+        <Card key={t.id} style={{marginBottom:12,padding:0,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700}}>{t.title}</div>
+              {t.description&&<div style={{fontSize:12,color:C.muted,marginTop:2}}>{t.description}</div>}
+              <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                {(t.scoring_rules||[]).map(r=>(
+                  <span key={r.id} style={{fontSize:11,padding:"2px 8px",borderRadius:5,
+                    background:"rgba(37,99,235,.08)",color:C.accent,border:`1px solid ${C.accent}33`}}>
+                    {r.desc} · {r.pts}分
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div style={{fontSize:12,color:C.muted,textAlign:"right",flexShrink:0}}>
+              <div>时限 {Math.floor(t.time_limit/60)}分钟</div>
+              <div style={{marginTop:4}}>满分 {(t.scoring_rules||[]).reduce((s,r)=>s+r.pts,0)} 分</div>
+            </div>
+            <Btn small onClick={()=>setEditing(t)} style={{background:"rgba(0,0,0,.06)",color:C.text}}>编辑</Btn>
+            <button onClick={e=>deleteTask(t.id,e)} style={{background:"none",border:"none",
+              color:"rgba(220,38,38,.5)",cursor:"pointer",fontSize:18,lineHeight:1}}>✕</button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ── TASK EDITOR ───────────────────────────────────────────────
+function TaskEditor({task,onSave,onCancel}){
+  const [title,setTitle]=useState(task?.title||"")
+  const [description,setDescription]=useState(task?.description||"")
+  const [rawHtml,setRawHtml]=useState(task?.raw_html||"")
+  const [targetHtml,setTargetHtml]=useState(task?.target_html||"")
+  const [rules,setRules]=useState(task?.scoring_rules||[])
+  const [timeLimit,setTimeLimit]=useState(task?.time_limit||600)
+  const [tab,setTab]=useState("content") // content | rules | target
+  const [aiLoading,setAiLoading]=useState(false)
+  const [saving,setSaving]=useState(false)
+  const [previewTarget,setPreviewTarget]=useState(false)
+
+  function addRule(type){
+    const def=RULE_TYPES.find(r=>r.type===type)
+    if(!def) return
+    const params={}
+    def.params.forEach(p=>{ params[p.key]=p.default })
+    let desc=def.defaultDesc
+    def.params.forEach(p=>{ desc=desc.replace(`{${p.key}}`,p.default) })
+    setRules(prev=>[...prev,{id:type+"_"+Date.now(),type,...params,pts:20,desc}])
+  }
+
+  function updateRule(idx,field,val){
+    setRules(prev=>prev.map((r,i)=>{
+      if(i!==idx) return r
+      const updated={...r,[field]:field==="pts"?Number(val):val}
+      // Auto-update desc from template
+      const def=RULE_TYPES.find(x=>x.type===r.type)
+      if(def&&field!=="desc"){
+        let desc=def.defaultDesc
+        def.params.forEach(p=>{ desc=desc.replace(`{${p.key}}`,updated[p.key]??p.default) })
+        updated.desc=desc
+      }
+      return updated
+    }))
+  }
+
+  function removeRule(idx){ setRules(prev=>prev.filter((_,i)=>i!==idx)) }
+
+  async function generateTarget(){
+    if(!rawHtml.trim()){alert("请先填写原始文档内容");return}
+    if(!rules.length){alert("请先添加至少一条评分规则");return}
+    setAiLoading(true)
+    try{
+      const rulesDesc=rules.map((r,i)=>`${i+1}. ${r.desc}（${r.pts}分）`).join("\n")
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",max_tokens:2000,
+          messages:[{role:"user",content:`你是一个 Word 文档排版助手。下面是一段未经排版的纯文本文档，请根据评分要求生成格式化后的 HTML 版本作为"目标效果"供学生参考。
+
+原始文档内容：
+${rawHtml}
+
+评分要求（学生需要完成这些操作才能得分）：
+${rulesDesc}
+
+要求：
+1. 只返回 HTML 片段（不需要 html/head/body 标签）
+2. 使用语义化标签：h1、h2、p、strong、table 等
+3. 为每个 H2 标题加不同的 inline color 样式（如 color:#2563eb）
+4. 表格使用 border="1" style="border-collapse:collapse;width:100%"，td/th 用 padding:8px 12px
+5. 加粗使用 <strong> 标签
+6. 不要添加任何 CSS class，只用 inline style
+7. 直接返回 HTML，不要任何解释文字`}]
+        })
+      })
+      const data=await resp.json()
+      const html=data.content?.find(c=>c.type==="text")?.text||""
+      // Strip markdown code fences if present
+      const clean=html.replace(/^```html?\n?/,"").replace(/\n?```$/,"").trim()
+      setTargetHtml(clean)
+      setTab("target")
+    }catch(e){alert("生成失败："+e.message)}
+    setAiLoading(false)
+  }
+
+  async function save(){
+    if(!title.trim()){alert("请填写题目名称");return}
+    if(!rawHtml.trim()){alert("请填写原始文档内容");return}
+    if(!rules.length){alert("请添加至少一条评分规则");return}
+    setSaving(true)
+    const payload={title,description,raw_html:rawHtml,target_html:targetHtml,
+      scoring_rules:rules,time_limit:timeLimit}
+    let result
+    if(task?.id){
+      const {data}=await sb.from("lulu_task_library").update(payload).eq("id",task.id).select().single()
+      result=data
+    } else {
+      const {data}=await sb.from("lulu_task_library").insert(payload).select().single()
+      result=data
+    }
+    setSaving(false)
+    if(result) onSave(result)
+    else alert("保存失败，请重试")
+  }
+
+  const totalPts=rules.reduce((s,r)=>s+r.pts,0)
+  const tabBtn=(t,label)=>(
+    <button onClick={()=>setTab(t)} style={{padding:"8px 20px",borderRadius:8,border:"none",
+      cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+      background:tab===t?C.accent:"transparent",color:tab===t?"#ffffff":C.muted}}>
+      {label}
+    </button>
+  )
+
+  return(
+    <div style={{padding:28,maxWidth:860,fontFamily:F,color:C.text}}>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
+        <button onClick={onCancel} style={{background:"none",border:"none",
+          color:C.muted,cursor:"pointer",fontSize:22,lineHeight:1}}>←</button>
+        <div style={{flex:1}}>
+          <div style={{fontSize:18,fontWeight:700}}>{task?"编辑题目":"新建题目"}</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:2}}>满分 <span style={{color:C.accent,fontWeight:700}}>{totalPts}</span> 分</div>
+        </div>
+        <Btn onClick={save} disabled={saving}>{saving?"保存中…":"保存题目"}</Btn>
+      </div>
+
+      {/* Basic info */}
+      <Card style={{marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 120px",gap:14}}>
+          <div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:6}}>题目名称</div>
+            <input value={title} onChange={e=>setTitle(e.target.value)} style={inp()}/>
+          </div>
+          <div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:6}}>题目说明（选填）</div>
+            <input value={description} onChange={e=>setDescription(e.target.value)} style={inp()}/>
+          </div>
+          <div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:6}}>时限（秒）</div>
+            <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))}
+              style={inp({color:C.accent})}/>
+          </div>
+        </div>
+      </Card>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,background:C.panel,padding:5,borderRadius:10,
+        marginBottom:16,width:"fit-content",border:`1px solid ${C.border}`}}>
+        {tabBtn("content","原始文档")}
+        {tabBtn("rules","评分规则")}
+        {tabBtn("target","目标效果")}
+      </div>
+
+      {/* Content tab */}
+      {tab==="content"&&(
+        <Card>
+          <div style={{fontSize:13,color:C.muted,marginBottom:10}}>
+            粘贴未经排版的纯文本文档（使用 &lt;p&gt; 标签或纯文本均可）
+          </div>
+          <textarea value={rawHtml} onChange={e=>setRawHtml(e.target.value)} rows={12}
+            placeholder="<p>在这里粘贴原始文档内容...</p>"
+            style={{...inp({resize:"vertical",lineHeight:1.7,fontFamily:"'DM Mono',monospace",fontSize:12}),width:"100%",boxSizing:"border-box"}}/>
+        </Card>
+      )}
+
+      {/* Rules tab */}
+      {tab==="rules"&&(
+        <div>
+          <Card style={{marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>添加评分规则</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {RULE_TYPES.map(rt=>(
+                <Btn key={rt.type} small onClick={()=>addRule(rt.type)}
+                  style={{background:"rgba(0,0,0,.05)",color:C.text}}>
+                  ＋ {rt.label}
+                </Btn>
+              ))}
+            </div>
+          </Card>
+          {!rules.length&&(
+            <Card style={{textAlign:"center",padding:32,color:C.muted}}>暂无规则，点上方按钮添加</Card>
+          )}
+          {rules.map((rule,idx)=>{
+            const def=RULE_TYPES.find(r=>r.type===rule.type)
+            return(
+              <Card key={rule.id} style={{marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                      <span style={{fontSize:12,padding:"3px 10px",borderRadius:5,background:"rgba(37,99,235,.1)",
+                        color:C.accent,fontWeight:700}}>{def?.label||rule.type}</span>
+                      <span style={{fontSize:12,color:C.muted}}>→</span>
+                      <input value={rule.desc} onChange={e=>updateRule(idx,"desc",e.target.value)}
+                        style={{...inp({flex:1,fontSize:12})}}/>
+                    </div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+                      {def?.params.map(p=>(
+                        <div key={p.key} style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:11,color:C.muted}}>{p.label}</span>
+                          <input type="number" value={rule[p.key]??p.default}
+                            onChange={e=>updateRule(idx,p.key,Number(e.target.value))} min={1}
+                            style={{...inp({width:60,padding:"5px 8px",fontSize:12,textAlign:"center"})}}/>
+                        </div>
+                      ))}
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:11,color:C.muted}}>分值</span>
+                        <input type="number" value={rule.pts}
+                          onChange={e=>updateRule(idx,"pts",e.target.value)} min={1}
+                          style={{...inp({width:60,padding:"5px 8px",fontSize:12,textAlign:"center",color:C.accent})}}/>
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={()=>removeRule(idx)} style={{background:"none",border:"none",
+                    color:"rgba(220,38,38,.5)",cursor:"pointer",fontSize:18,marginTop:2}}>✕</button>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Target tab */}
+      {tab==="target"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center"}}>
+            <Btn onClick={generateTarget} disabled={aiLoading} color={C.purple}>
+              {aiLoading?"AI 生成中…":"✨ AI 一键生成目标效果"}
+            </Btn>
+            <span style={{fontSize:12,color:C.muted}}>根据原始文档和评分规则自动生成</span>
+            {targetHtml&&(
+              <button onClick={()=>setPreviewTarget(p=>!p)}
+                style={{marginLeft:"auto",background:"none",border:`1px solid ${C.border}`,
+                borderRadius:7,padding:"6px 14px",cursor:"pointer",fontSize:12,color:C.muted}}>
+                {previewTarget?"查看 HTML":"预览效果"}
+              </button>
+            )}
+          </div>
+          {previewTarget&&targetHtml?(
+            <Card>
+              <div style={{fontSize:11,color:C.muted,marginBottom:10}}>目标效果预览</div>
+              <div style={{background:"white",padding:"28px 36px",borderRadius:6,
+                border:`1px solid ${C.border}`,fontFamily:"Georgia,serif",fontSize:14,lineHeight:1.9}}
+                dangerouslySetInnerHTML={{__html:targetHtml}}/>
+            </Card>
+          ):(
+            <Card>
+              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>目标效果 HTML（可手动编辑）</div>
+              <textarea value={targetHtml} onChange={e=>setTargetHtml(e.target.value)} rows={14}
+                placeholder="点击上方「AI 一键生成」，或手动粘贴 HTML..."
+                style={{...inp({resize:"vertical",lineHeight:1.6,fontFamily:"'DM Mono',monospace",fontSize:11}),width:"100%",boxSizing:"border-box"}}/>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// LAYOUT TASK LIBRARY
+// ══════════════════════════════════════════════════════════════
+function LayoutTaskLibrary({onEdit,onSelect,selectedId}){
+  const [tasks,setTasks]=useState([])
+  const [loading,setLoading]=useState(true)
+
+  const load=async()=>{
+    setLoading(true)
+    const {data}=await sb.from("lulu_layout_tasks").select().order("created_at",{ascending:false})
+    if(data) setTasks(data)
+    setLoading(false)
+  }
+  useEffect(()=>{load()},[])
+
+  async function del(id,e){
+    e.stopPropagation()
+    if(!confirm("确定删除这道题？")) return
+    await sb.from("lulu_layout_tasks").delete().eq("id",id)
+    setTasks(p=>p.filter(t=>t.id!==id))
+  }
+
+  if(loading) return <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
+
+  return(
+    <div style={{padding:24}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,fontWeight:700}}>排版题库</div>
+          <div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道题目</div>
+        </div>
+        <Btn small onClick={()=>onEdit(null)} color={C.accent}>＋ 新建排版题</Btn>
+      </div>
+      {!tasks.length&&(
+        <Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无题目，点「新建排版题」创建第一道</Card>
+      )}
+      {tasks.map(t=>(
+        <Card key={t.id} style={{marginBottom:12,
+          border:selectedId===t.id?`2px solid ${C.accent}`:`1px solid ${C.border}`,
+          cursor:"pointer"}} onClick={()=>onSelect&&onSelect(t)}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{t.title}</div>
+              {t.description&&<div style={{fontSize:13,color:C.muted,marginBottom:8}}>{t.description}</div>}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {(t.requirements||[]).map((r,i)=>(
+                  <span key={i} style={{fontSize:11,padding:"2px 8px",borderRadius:5,
+                    background:"rgba(37,99,235,.08)",color:C.accent,border:`1px solid ${C.accent}22`}}>
+                    {r.pts}分 · {r.desc}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexShrink:0,alignItems:"center"}}>
+              <span style={{fontSize:12,color:C.muted,fontFamily:FM}}>{Math.floor(t.time_limit/60)}分钟</span>
+              <Btn small onClick={e=>{e.stopPropagation();onEdit(t)}} style={{background:"rgba(0,0,0,.06)",color:C.text}}>编辑</Btn>
+              <button onClick={e=>del(t.id,e)} style={{background:"none",border:"none",
+                color:"rgba(220,38,38,.5)",cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
+            </div>
+          </div>
+          {selectedId===t.id&&(
+            <div style={{marginTop:8,fontSize:12,color:C.accent,fontWeight:700}}>✓ 已选择此题</div>
+          )}
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// LAYOUT TASK EDITOR
+// ══════════════════════════════════════════════════════════════
+function LayoutTaskEditor({task,onSave,onBack}){
+  const isNew=!task
+  const [title,setTitle]=useState(task?.title||"")
+  const [desc,setDesc]=useState(task?.description||"")
+  const [rawHtml,setRawHtml]=useState(task?.raw_html||"")
+  const [timeLimit,setTimeLimit]=useState(task?.time_limit||600)
+  const [reqs,setReqs]=useState(task?.requirements||[])
+  const [saving,setSaving]=useState(false)
+  const [tab,setTab]=useState("basic") // basic | target | reqs
+  const targetRef=useRef(null)
+
+  useEffect(()=>{
+    if(tab==="target"&&targetRef.current&&task?.target_html){
+      targetRef.current.innerHTML=task.target_html
+    }
+  },[tab])
+
+  function addReq(){
+    const id="req_"+Date.now()
+    setReqs(p=>[...p,{id,type:"h1",pts:20,desc:""}])
+  }
+  function updReq(i,f,v){setReqs(p=>p.map((r,idx)=>idx===i?{...r,[f]:v}:r))}
+  function delReq(i){setReqs(p=>p.filter((_,idx)=>idx!==i))}
+  function autoDesc(i,type){
+    const t=REQ_TYPES[type]
+    if(t) updReq(i,"desc",t.label)
+  }
+
+  async function save(){
+    if(!title.trim()){alert("请填写题目名称");return}
+    if(!rawHtml.trim()){alert("请填写学生初始文本");return}
+    setSaving(true)
+    const targetHtml=targetRef.current?.innerHTML||""
+    const payload={title,description:desc,raw_html:rawHtml,target_html:targetHtml,requirements:reqs,time_limit:timeLimit}
+    let error
+    if(isNew){
+      ({error}=await sb.from("lulu_layout_tasks").insert(payload))
+    } else {
+      ({error}=await sb.from("lulu_layout_tasks").update(payload).eq("id",task.id))
+    }
+    if(error){alert("保存失败:"+error.message)}
+    else{onSave()}
+    setSaving(false)
+  }
+
+  // Editor CSS
+  const docCSS=`
+    .te-paper h1{font-size:22px;font-weight:900;color:#111827;line-height:1.3;margin:0 0 10px;font-family:Georgia,serif;}
+    .te-paper h2{font-size:17px;font-weight:800;margin:20px 0 6px;font-family:Georgia,serif;}
+    .te-paper p{margin:0 0 12px;color:#374151;font-family:Georgia,serif;}
+    .te-paper table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+    .te-paper td,.te-paper th{border:1px solid #cbd5e1;padding:8px 12px;text-align:left;}
+    .te-paper th{background:#f0f4f8;font-weight:700;}
+    .te-paper strong,.te-paper b{font-weight:700;}
+  `
+
+  const savedSelE=useRef(null)
+  function saveSelE(){const s=window.getSelection();if(s&&s.rangeCount>0)savedSelE.current=s.getRangeAt(0).cloneRange()}
+  function restSelE(){if(!savedSelE.current)return;const s=window.getSelection();s.removeAllRanges();s.addRange(savedSelE.current)}
+  function execE(cmd,val=null){targetRef.current?.focus();restSelE();document.execCommand(cmd,false,val)}
+  const [showColorE,setShowColorE]=useState(false)
+
+  const tabBtn2=(t,label)=>(
+    <button onClick={()=>setTab(t)} style={{padding:"7px 18px",borderRadius:8,border:"none",
+      cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
+      background:tab===t?C.accent:"transparent",color:tab===t?"white":C.muted}}>
+      {label}
+    </button>
+  )
+
+  return(
+    <div style={{padding:24,fontFamily:F,color:C.text,maxWidth:900}}>
+      <style>{docCSS}</style>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14}}>← 返回</button>
+        <div style={{fontSize:16,fontWeight:700}}>{isNew?"新建排版题":"编辑排版题"}</div>
+        <div style={{flex:1}}/>
+        <Btn onClick={save} disabled={saving}>{saving?"保存中…":"保存题目"}</Btn>
+      </div>
+
+      <div style={{display:"flex",gap:4,background:C.panel,padding:4,borderRadius:10,
+        marginBottom:20,width:"fit-content",border:`1px solid ${C.border}`}}>
+        {tabBtn2("basic","基本信息")}
+        {tabBtn2("target","制作样板")}
+        {tabBtn2("reqs","评分规则")}
+      </div>
+
+      {/* Basic info */}
+      {tab==="basic"&&(
+        <div style={{display:"grid",gap:16,maxWidth:600}}>
+          <Card>
+            <div style={{fontSize:12,color:C.muted,marginBottom:7}}>题目名称 *</div>
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="例：春季电商文案排版"
+              style={inp()}/>
+            <div style={{fontSize:12,color:C.muted,marginTop:14,marginBottom:7}}>题目描述（可选）</div>
+            <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="例：将电商文案排版成规范的 Word 格式"
+              style={inp()}/>
+            <div style={{fontSize:12,color:C.muted,marginTop:14,marginBottom:7}}>排版时限（秒）</div>
+            <input type="number" value={timeLimit} onChange={e=>setTimeLimit(Number(e.target.value))} min={60}
+              style={inp({width:100,color:C.accent})}/>
+          </Card>
+          <Card>
+            <div style={{fontSize:12,color:C.muted,marginBottom:4}}>学生初始文本（纯文字，学生从这里开始排版）</div>
+            <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>
+              每段用空行隔开，系统会自动转换成段落。不要在这里加任何格式。
+            </div>
+            <textarea value={rawHtml} onChange={e=>setRawHtml(e.target.value)} rows={10}
+              placeholder={"大标题
+
+第一段正文
+
+小标题一
+
+正文…"}
+              style={{...inp(),resize:"vertical",lineHeight:1.7,whiteSpace:"pre-wrap"}}/>
+            <div style={{marginTop:10}}>
+              <Btn small onClick={()=>{
+                // Convert plain text to <p> tags
+                const converted=rawHtml.split(/
+\s*
+/).map(s=>s.trim()).filter(Boolean).map(s=>`<p>${s}</p>`).join("
+")
+                setRawHtml(converted)
+              }} style={{background:"rgba(0,0,0,.06)",color:C.text}}>转换为段落格式</Btn>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Target editor */}
+      {tab==="target"&&(
+        <div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:14}}>
+            在下方制作「标准答案」样板文档。学生在比赛时会看到这个效果作为参考目标。
+          </div>
+          {/* Mini toolbar */}
+          <div style={{display:"flex",gap:6,padding:"8px 12px",background:"#1e3a5f",
+            borderRadius:"10px 10px 0 0",flexWrap:"wrap",alignItems:"center"}}>
+            {[["H1",()=>execE("formatBlock","h1")],["H2",()=>execE("formatBlock","h2")],
+              ["加粗",()=>execE("bold")],["居中",()=>execE("justifyCenter")],
+              ["左对齐",()=>execE("justifyLeft")]].map(([label,action])=>(
+              <button key={label} onMouseDown={e=>{e.preventDefault();saveSelE();action()}} style={{
+                padding:"5px 12px",borderRadius:6,border:"none",background:"rgba(255,255,255,.15)",
+                color:"white",fontSize:12,cursor:"pointer",fontFamily:F,fontWeight:700}}>
+                {label}
+              </button>
+            ))}
+            <div style={{position:"relative"}}>
+              <button onMouseDown={e=>{e.preventDefault();saveSelE();setShowColorE(p=>!p)}}
+                style={{padding:"5px 12px",borderRadius:6,border:"none",
+                  background:"rgba(255,255,255,.15)",color:"white",fontSize:12,cursor:"pointer",fontFamily:F,fontWeight:700}}>
+                颜色 ▾
+              </button>
+              {showColorE&&(
+                <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:200,
+                  display:"flex",gap:5,background:"white",padding:6,borderRadius:8,
+                  boxShadow:"0 4px 16px rgba(0,0,0,.15)",border:`1px solid ${C.border}`}}>
+                  {["#2563eb","#dc2626","#059669","#d97706","#7c3aed","#0284c7","#111827"].map(col=>(
+                    <div key={col} onMouseDown={e=>{e.preventDefault();execE("foreColor",col);setShowColorE(false)}}
+                      style={{width:24,height:24,borderRadius:5,background:col,cursor:"pointer",
+                        border:"2px solid white",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onMouseDown={e=>{e.preventDefault();
+              const rows=parseInt(prompt("行数（含表头）","4")||"4")
+              const cols=parseInt(prompt("列数","3")||"3")
+              if(!rows||!cols) return
+              let h="<table><tr>"+Array(cols).fill(0).map((_,i)=>`<th>列${i+1}</th>`).join("")+"</tr>"
+              for(let r=1;r<rows;r++) h+="<tr>"+Array(cols).fill(0).map((_,i)=>`<td>内容${r}-${i+1}</td>`).join("")+"</tr>"
+              h+="</table>"
+              targetRef.current?.focus();execE("insertHTML",h)
+            }} style={{padding:"5px 12px",borderRadius:6,border:"none",
+              background:"rgba(255,255,255,.15)",color:"white",fontSize:12,cursor:"pointer",fontFamily:F,fontWeight:700}}>
+              表格
+            </button>
+          </div>
+          {/* Editor area */}
+          <div className="te-paper" style={{background:"white",padding:"32px 40px",
+            borderRadius:"0 0 10px 10px",border:`1px solid ${C.border}`,minHeight:400,
+            boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+            <div ref={targetRef} contentEditable suppressContentEditableWarning
+              onMouseUp={saveSelE} onKeyDown={saveSelE}
+              style={{minHeight:360,outline:"none",fontSize:14,lineHeight:1.9,
+                color:"#1a1a1a",fontFamily:"Georgia,serif"}}/>
+          </div>
+          <div style={{marginTop:10,fontSize:12,color:C.muted}}>
+            提示：选中文字后点工具栏按钮应用格式。此处的样式会原样显示给学生作为参考目标。
+          </div>
+        </div>
+      )}
+
+      {/* Requirements */}
+      {tab==="reqs"&&(
+        <div style={{maxWidth:700}}>
+          <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
+            <div style={{flex:1,fontSize:13,color:C.muted}}>设置评分规则，系统将自动检验学生操作</div>
+            <Btn small onClick={addReq} color={C.blue}>＋ 添加评分项</Btn>
+          </div>
+          {!reqs.length&&(
+            <Card style={{textAlign:"center",padding:40,color:C.muted}}>暂无评分项，点右上角添加</Card>
+          )}
+          {reqs.map((r,i)=>(
+            <Card key={r.id} style={{marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"160px 1fr 80px auto",gap:10,alignItems:"start"}}>
+                {/* Type */}
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>检验类型</div>
+                  <select value={r.type} onChange={e=>{updReq(i,"type",e.target.value);autoDesc(i,e.target.value)}}
+                    style={{...inp({padding:"8px 10px"}),cursor:"pointer"}}>
+                    {Object.entries(REQ_TYPES).map(([k,v])=>(
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                  <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>{REQ_TYPES[r.type]?.hint}</div>
+                </div>
+                {/* Desc */}
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>显示给学生的任务说明</div>
+                  <input value={r.desc} onChange={e=>updReq(i,"desc",e.target.value)}
+                    placeholder="例：将大标题设为 H1 样式" style={inp()}/>
+                  {/* Type-specific params */}
+                  {(REQ_TYPES[r.type]?.params||[]).length>0&&(
+                    <div style={{display:"flex",gap:10,marginTop:8}}>
+                      {REQ_TYPES[r.type].params.map(p=>(
+                        <div key={p.k}>
+                          <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{p.label}</div>
+                          <input type="number" min={1} max={20}
+                            value={r[p.k]??p.default}
+                            onChange={e=>updReq(i,p.k,Number(e.target.value))}
+                            style={inp({width:60,padding:"5px 8px",fontSize:13})}/>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Points */}
+                <div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:5}}>分值</div>
+                  <input type="number" value={r.pts} min={1} max={100}
+                    onChange={e=>updReq(i,"pts",Number(e.target.value))}
+                    style={inp({color:C.accent,fontWeight:700})}/>
+                </div>
+                {/* Delete */}
+                <button onClick={()=>delReq(i)} style={{background:"none",border:"none",
+                  color:C.red,cursor:"pointer",fontSize:20,marginTop:24}}>×</button>
+              </div>
+            </Card>
+          ))}
+          {reqs.length>0&&(
+            <div style={{marginTop:8,padding:"10px 14px",borderRadius:8,
+              background:"rgba(37,99,235,.06)",border:`1px solid ${C.accent}22`,fontSize:13,color:C.muted}}>
+              总分：<span style={{color:C.accent,fontWeight:700}}>{reqs.reduce((s,r)=>s+r.pts,0)}</span> 分
+              · {reqs.length} 项评分规则
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function GroupRankPanel({groupRank,label}){
   return(
     <div>
@@ -934,6 +1753,8 @@ function SJoin({onJoin}){
 // ── STUDENT MAIN ─────────────────────────────────────────────
 function SMain({session:init,studentName}){
   const [sess,setSess]=useState(init)
+  const [task,setTask]=useState(FALLBACK_TASK)
+  const [taskLoaded,setTaskLoaded]=useState(false)
   const [groups,setGroups]=useState([])
   const [myGroupId,setMyGroupId]=useState(null)
   const [checkedIn,setCheckedIn]=useState(false)
@@ -949,7 +1770,7 @@ function SMain({session:init,studentName}){
   const editorRef=useRef(null)
   const savedSel=useRef(null)
   const [done,setDone]=useState(new Set())
-  const [labTime,setLabTime]=useState(init.time_limit)
+  const [labTime,setLabTime]=useState(task?.time_limit||init.time_limit)
   const [submitted,setSubmitted]=useState(false)
   const [subId,setSubId]=useState(null)
   const [finalScore,setFinalScore]=useState(0)
@@ -958,6 +1779,7 @@ function SMain({session:init,studentName}){
   const [tRows,setTRows]=useState(3)
   const [tCols,setTCols]=useState(2)
   const [flash,setFlash]=useState(null)
+  const [activeTask,setActiveTask]=useState(null) // loaded from DB
 
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
@@ -965,6 +1787,14 @@ function SMain({session:init,studentName}){
       .then(()=>setCheckedIn(true))
     sb.from("word_lab_checkins").select("group_id").eq("session_id",init.id).eq("student_name",studentName).single()
       .then(({data})=>{ if(data?.group_id) setMyGroupId(data.group_id) })
+    // Load task from library
+    if(init.task_id){
+      sb.from("lulu_task_library").select().eq("id",init.task_id).single()
+        .then(({data})=>{
+          if(data) setTask(data)
+          setTaskLoaded(true)
+        })
+    } else { setTaskLoaded(true) }
   },[])
 
   useEffect(()=>{
@@ -986,7 +1816,7 @@ function SMain({session:init,studentName}){
             if(s.phase==="lab"){
               // upsert to avoid duplicate error if student reconnects
               const {data:sub}=await sb.from("word_lab_submissions").upsert(
-                {session_id:s.id,student_name:studentName,score:0,max_score:TASK.maxScore,completed_tasks:[]},
+                {session_id:s.id,student_name:studentName,score:0,max_score:((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0),completed_tasks:[]},
                 {onConflict:"session_id,student_name",ignoreDuplicates:false}
               ).select().single()
               if(sub) setSubId(sub.id)
@@ -1004,7 +1834,7 @@ function SMain({session:init,studentName}){
     return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
   },[init.id])
 
-  useEffect(()=>{ if(sess.phase==="lab"&&editorRef.current) editorRef.current.innerHTML=TASK.rawHtml },[sess.phase])
+  useEffect(()=>{ if(sess.phase==="lab"&&editorRef.current) editorRef.current.innerHTML=task.raw_html },[sess.phase])
 
   useEffect(()=>{
     if(sess.phase!=="lab"||submitted) return
@@ -1056,25 +1886,15 @@ function SMain({session:init,studentName}){
 
   function checkReqs(){
     if(!editorRef.current) return
-    const el=editorRef.current,nd=new Set()
-    if(el.querySelector("h1")) nd.add("h1")
-    if(el.querySelectorAll("h2").length>=3) nd.add("h2x3")
-    if(el.querySelector("table")) nd.add("table")
-    if(el.querySelectorAll("b,strong,[style*='font-weight: bold'],[style*='font-weight:bold'],[style*='font-weight: 700'],[style*='font-weight:700']").length>=2) nd.add("bold")
-    // Color check: ALL 3 H2s must have color applied
-    const h2list=Array.from(el.querySelectorAll("h2"))
-    const h2withColor=h2list.filter(h=>{
-      const html=h.innerHTML.toLowerCase()
-      return h.style.color||h.querySelector("font")||h.querySelector("[style]")||
-        html.includes("color")||html.includes("<font")
-    })
-    if(h2withColor.length>=3) nd.add("color")
+    const reqs=(activeTask?.requirements)||TASK.reqs
+    const nd=evalReqs(editorRef.current,reqs)
     setDone(nd)
   }
 
   async function save(){
     if(!subId) return
-    const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    const taskReqs=(activeTask?.requirements)||TASK.reqs
+    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
     await sb.from("word_lab_submissions").update({
       score,completed_tasks:[...done],
       html_content:editorRef.current?.innerHTML||"",
@@ -1085,7 +1905,8 @@ function SMain({session:init,studentName}){
   async function handleSubmit(){
     if(submitted) return
     await save()
-    const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    const taskReqs=(activeTask?.requirements)||TASK.reqs
+    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
     await sb.from("word_lab_submissions").update({submitted:true,score}).eq("id",subId)
     setFinalScore(score);setSubmitted(true)
   }
@@ -1100,7 +1921,8 @@ function SMain({session:init,studentName}){
   }
 
   const myGroup=groups.find(g=>g.id===myGroupId)
-  const score=TASK.reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+  const taskReqs=(activeTask?.requirements)||TASK.reqs
+    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
 
   // Checkin screen
   if(!checkedIn||sess.phase==="checkin"){
@@ -1277,6 +2099,7 @@ function SMain({session:init,studentName}){
   }
 
   // Lab screen
+  if(sess.phase==="lab"&&!taskLoaded) return <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:F,color:C.muted}}>题目加载中…</div>
   if(sess.phase==="lab"){
     // Shared CSS injected into both panels so styles are identical
     const docCSS = `
@@ -1309,9 +2132,24 @@ function SMain({session:init,studentName}){
           {myGroup&&<span style={{fontSize:11,color:myGroup.color,fontWeight:700,
             background:"rgba(255,255,255,.1)",padding:"2px 8px",borderRadius:5}}>▪ {myGroup.name}</span>}
           <div style={{width:1,height:20,background:"rgba(255,255,255,.2)",margin:"0 6px"}}/>
-          {toolBtn("H1",()=>exec("formatBlock","h1"),{background:"#1d4ed8",color:"white",border:"none"})}
-          {toolBtn("H2",()=>exec("formatBlock","h2"),{background:"#334155",color:"white",border:"none"})}
-          {toolBtn("加粗 B",()=>exec("bold"),{background:"#334155",color:"white",border:"none",fontStyle:"italic"})}
+          {/* Dynamic toolbar - shows only buttons needed by this task */}
+          {(()=>{
+            const needs=new Set(taskReqs.map(r=>REQ_TYPES[r.type]?.toolbar))
+            const s={background:"#334155",color:"white",border:"none"}
+            return <>
+              {(needs.has("h1")||needs.has("h2"))&&toolBtn("H1",()=>exec("formatBlock","h1"),{background:"#1d4ed8",color:"white",border:"none",fontWeight:900})}
+              {needs.has("h2")&&toolBtn("H2",()=>exec("formatBlock","h2"),{...s})}
+              {needs.has("bold")&&toolBtn("B 加粗",()=>exec("bold"),{...s,fontWeight:900,fontStyle:"italic"})}
+              {needs.has("align")&&<>
+                {toolBtn("居中",()=>exec("justifyCenter"),{...s})}
+                {toolBtn("左对齐",()=>exec("justifyLeft"),{...s})}
+              </>}
+              {needs.has("list")&&<>
+                {toolBtn("• 无序列表",()=>exec("insertUnorderedList"),{...s})}
+                {toolBtn("1. 有序列表",()=>exec("insertOrderedList"),{...s})}
+              </>}
+            </>
+          })()}
           {/* Color picker */}
           <div style={{position:"relative"}}>
             <button onMouseDown={e=>{e.preventDefault();saveSel();setShowColor(p=>!p)}} style={{
@@ -1366,7 +2204,7 @@ function SMain({session:init,studentName}){
           </div>
           <div style={{flex:1}}/>
           <span style={{fontSize:15,color:"white",fontWeight:900,fontFamily:FM}}>
-            {score}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{TASK.maxScore}</span>
+            {score}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)}</span>
           </span>
           {!submitted&&<Btn small onClick={handleSubmit} color="#f59e0b">提交答卷</Btn>}
           {submitted&&<span style={{fontSize:12,color:"#6ee7b7",fontWeight:700}}>✓ 已提交</span>}
@@ -1387,7 +2225,7 @@ function SMain({session:init,studentName}){
               <div className="doc-paper" style={{background:"white",padding:"32px 40px",
                 borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
                 fontSize:14,lineHeight:1.9}}>
-                <div dangerouslySetInnerHTML={{__html:TASK.targetHtml}}/>
+                <div dangerouslySetInnerHTML={{__html:task.target_html}}/>
               </div>
             </div>
           </div>
@@ -1418,7 +2256,7 @@ function SMain({session:init,studentName}){
               <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:2}}>完成即自动得分</div>
             </div>
             <div style={{padding:14,flex:1}}>
-              {TASK.reqs.map((r,i)=>{
+              {((activeTask?.requirements)||TASK.reqs).map((r,i)=>{
                 const ok=done.has(r.id)
                 return(
                   <div key={r.id} style={{marginBottom:14,padding:"12px 14px",borderRadius:10,
@@ -1449,7 +2287,7 @@ function SMain({session:init,studentName}){
               <div style={{fontSize:36,fontWeight:900,color:C.accent,fontFamily:FM,lineHeight:1}}>
                 {score}
               </div>
-              <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {TASK.maxScore} 分</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)} 分</div>
             </div>
           </div>
 
@@ -1532,8 +2370,15 @@ function TBackend(){
   const [tab,setTab]=useState("new")
   const [sess,setSess]=useState(null)
   const [inDash,setInDash]=useState(false)
+  const [editingTask,setEditingTask]=useState(null)
 
   if(inDash&&sess) return <TDash session={sess} onBack={()=>{setInDash(false);setSess(null)}}/>
+  if(tab==="tasks"&&editingTask!==null){
+    return <LayoutTaskEditor
+      task={editingTask==="new"?null:editingTask}
+      onSave={()=>setEditingTask(null)}
+      onBack={()=>setEditingTask(null)}/>
+  }
 
   const tabBtn=(t,label,col=C.accent)=>(
     <button onClick={()=>setTab(t)} style={{padding:"9px 22px",borderRadius:8,border:"none",
@@ -1546,27 +2391,21 @@ function TBackend(){
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-      {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:16,padding:"14px 28px",
         background:C.panel,borderBottom:`1px solid ${C.border}`}}>
         <div style={{fontSize:20,fontWeight:900}}>录录 <span style={{color:C.accent}}>教师后台</span></div>
         <div style={{flex:1}}/>
-        <div style={{display:"flex",gap:4,background:"#f0f4f8",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
+        <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
+          {tabBtn("tasks","排版题库",C.gold)}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
         </div>
       </div>
-
-      {tab==="new"&&(
-        <TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>
-      )}
-      {tab==="history"&&(
-        <THistory onResume={s=>{setSess(s);setInDash(true)}}/>
-      )}
-      {tab==="settings"&&(
-        <TSettings/>
-      )}
+      {tab==="new"&&<TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>}
+      {tab==="tasks"&&<LayoutTaskLibrary onEdit={t=>setEditingTask(t||"new")} selectedId={null}/>}
+      {tab==="history"&&<THistory onResume={s=>{setSess(s);setInDash(true)}}/>}
+      {tab==="settings"&&<TSettings/>}
     </div>
   )
 }
