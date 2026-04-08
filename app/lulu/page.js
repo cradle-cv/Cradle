@@ -615,6 +615,7 @@ function TDash({session:init,onBack}){
   const [submissions,setSubmissions]=useState([])
   const [qTimer,setQTimer]=useState(0)
   const timerRef=useRef(null)
+  const [bonusStep,setBonusStep]=useState(5)
 
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
@@ -675,11 +676,15 @@ function TDash({session:init,onBack}){
   const quizScores={}; answers.forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
   const labScores={}; submissions.forEach(s=>{labScores[s.student_name]=s.score})
   const allStudents=[...new Set(checkins.map(c=>c.student_name))]
-  const studentRank=allStudents.map(name=>({
-    name,group_id:checkins.find(c=>c.student_name===name)?.group_id,
-    quiz:quizScores[name]||0,lab:labScores[name]||0,
-    total:(quizScores[name]||0)+(labScores[name]||0)
-  })).sort((a,b)=>b.total-a.total)
+  const studentRank=allStudents.map(name=>{
+    const ci=checkins.find(c=>c.student_name===name)
+    const bonus=ci?.bonus_pts||0
+    return{
+      name,group_id:ci?.group_id,
+      quiz:quizScores[name]||0,lab:labScores[name]||0,bonus,
+      total:(quizScores[name]||0)+(labScores[name]||0)+bonus
+    }
+  }).sort((a,b)=>b.total-a.total)
 
   const groupRank=groups.map(g=>{
     const members=checkins.filter(c=>c.group_id===g.id)
@@ -839,19 +844,54 @@ function TDash({session:init,onBack}){
             <div>
               {activeDis?(
                 <>
-                  <div style={{fontSize:15,fontWeight:700,marginBottom:16,padding:"12px 16px",
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,padding:"12px 16px",
                     background:"rgba(124,58,237,.08)",borderRadius:10,border:`1px solid ${C.purple}44`}}>
-                    💬 {activeDis.topic}
+                    <div style={{fontSize:15,fontWeight:700,flex:1}}>💬 {activeDis.topic}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+                      <span style={{fontSize:11,color:C.muted}}>加分：</span>
+                      {[2,3,5,10].map(n=>(
+                        <button key={n} onClick={()=>setBonusStep(n)} style={{
+                          padding:"3px 9px",borderRadius:6,border:`1px solid ${bonusStep===n?C.gold:C.border}`,
+                          background:bonusStep===n?"rgba(217,119,6,.1)":"transparent",
+                          color:bonusStep===n?C.gold:C.muted,cursor:"pointer",
+                          fontSize:12,fontWeight:700,fontFamily:F
+                        }}>+{n}</button>
+                      ))}
+                    </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
                     {activePosts.map(p=>{
                       const g=groups.find(x=>x.id===p.group_id)
                       return(
-                        <Card key={p.id} style={{borderLeft:`3px solid ${g?.color||C.border}`}}>
-                          <div style={{fontSize:11,color:g?.color||C.muted,fontWeight:700,marginBottom:6}}>
-                            {p.student_name}{g?` · ${g.name}`:""}
+                        <Card key={p.id} style={{borderLeft:`3px solid ${g?.color||C.border}`,padding:"12px 14px"}}>
+                          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:11,color:g?.color||C.muted,fontWeight:700,marginBottom:5}}>
+                                {p.student_name}{g?` · ${g.name}`:""}
+                                {/* Show student's bonus pts */}
+                                {(checkins.find(c=>c.student_name===p.student_name)?.bonus_pts||0)>0&&(
+                                  <span style={{marginLeft:6,fontSize:10,color:C.gold,background:"rgba(217,119,6,.1)",
+                                    padding:"1px 6px",borderRadius:4,fontWeight:700}}>
+                                    +{checkins.find(c=>c.student_name===p.student_name)?.bonus_pts}分
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{fontSize:13,lineHeight:1.6}}>{p.content}</div>
+                            </div>
+                            {/* Bonus point button */}
+                            <button onClick={async()=>{
+                              const ci=checkins.find(c=>c.student_name===p.student_name)
+                              if(!ci) return
+                              const newPts=(ci.bonus_pts||0)+bonusStep
+                              await sb.from("word_lab_checkins").update({bonus_pts:newPts})
+                                .eq("session_id",sess.id).eq("student_name",p.student_name)
+                              setCheckins(prev=>prev.map(c=>c.student_name===p.student_name?{...c,bonus_pts:newPts}:c))
+                            }} style={{
+                              padding:"5px 10px",borderRadius:8,border:`1px solid ${C.gold}`,
+                              background:"rgba(217,119,6,.08)",color:C.gold,cursor:"pointer",
+                              fontSize:12,fontWeight:700,fontFamily:F,flexShrink:0,whiteSpace:"nowrap"
+                            }}>＋{bonusStep}</button>
                           </div>
-                          <div style={{fontSize:13,lineHeight:1.6}}>{p.content}</div>
                         </Card>
                       )
                     })}
@@ -985,7 +1025,10 @@ function TDash({session:init,onBack}){
                       <span style={{fontSize:13,color:i<3?C.gold:C.muted,width:22,fontFamily:FM}}>{i+1}</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700}}>{r.name}</div>
-                        {g&&<div style={{fontSize:11,color:g.color}}>{g.name}</div>}
+                        <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                          {g&&<span style={{color:g.color}}>{g.name} · </span>}
+                          抢答{r.quiz} · 排版{r.lab}{r.bonus>0?` · 讨论+${r.bonus}`:''}
+                        </div>
                       </div>
                       <span style={{fontSize:16,fontWeight:900,color:C.accent,fontFamily:FM}}>{r.total}</span>
                     </div>
@@ -1592,8 +1635,10 @@ function LayoutTaskEditor({task,onSave,onBack}){
   const targetRef=useRef(null)
 
   useEffect(()=>{
-    if(tab==="target"&&targetRef.current&&task?.target_html){
-      targetRef.current.innerHTML=task.target_html||''
+    if(tab==="target"&&targetRef.current){
+      // Init with target_html if exists, otherwise start with raw_html as base
+      const base=task?.target_html&&task.target_html.trim()?task.target_html:(task?.raw_html||'')
+      if(!targetRef.current.innerHTML.trim()) targetRef.current.innerHTML=base
     }
   },[tab])
 
@@ -1613,7 +1658,10 @@ function LayoutTaskEditor({task,onSave,onBack}){
     if(!rawHtml.trim()){alert("请填写学生初始文本");return}
     setSaving(true)
     const targetHtml=targetRef.current?.innerHTML||""
-    const payload={title,description:desc,raw_html:rawHtml,target_html:targetHtml,requirements:reqs,time_limit:timeLimit}
+    const payload={title,description:desc,raw_html:rawHtml,
+      // If no sample created yet, store empty so it shows the "no sample" notice
+      target_html:targetHtml.replace(/<[^>]*>/g,'').trim()?targetHtml:"",
+      requirements:reqs,time_limit:timeLimit}
     let error
     if(isNew){
       ({error}=await sb.from("lulu_layout_tasks").insert(payload))
@@ -3480,7 +3528,13 @@ function SMain({session:init,studentName}){
               <div className="doc-paper" style={{background:"white",padding:"32px 40px",
                 borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
                 fontSize:14,lineHeight:1.9}}>
-                <div dangerouslySetInnerHTML={{__html:activeTask?.target_html||TASK.targetHtml}}/>
+                <div dangerouslySetInnerHTML={{__html:
+                    (activeTask?.target_html&&activeTask.target_html.trim())
+                      ? activeTask.target_html
+                      : (activeTask?.raw_html
+                          ? `<div style="color:#6b7280;font-size:12px;padding:8px 0 16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px">⚠ 此题暂无样板效果，请参考任务清单完成排版</div>${activeTask.raw_html}`
+                          : TASK.targetHtml)
+                  }}/>
               </div>
             </div>
           </div>
