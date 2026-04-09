@@ -191,6 +191,7 @@ const EXCEL_RAW=[
 const EXCEL_COL_LABELS=['客户ID','会员等级','注册时间','所属省份','累计消费金额（元）','是否复购','客户消费排名','等级','会员数量','销售金额总和']
 const EXCEL_COL_LETTERS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 const EXCEL_COL_W=[72,82,96,76,140,66,96,76,80,120]
+const EXCEL_SUMMARY=['普通会员','白银会员','白金会员','黄金会员']
 
 function Home({onTeacher,onStudent}){
   return(
