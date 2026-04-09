@@ -695,7 +695,7 @@ function TDash({session:init,onBack}){
     return{...g,memberCount:names.length,labAvg,quizSum,total:quizSum+labAvg}
   }).sort((a,b)=>b.total-a.total)
 
-  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","Word排版"],["excel","Excel制表"],["finished","结果"]]
+  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","Word排版"],["excel","Excel制表"],["files","文件审阅"],["finished","结果"]]
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
@@ -996,6 +996,11 @@ function TDash({session:init,onBack}){
             </div>
             <GroupRankPanel groupRank={groupRank} label="Excel 积分排名"/>
           </div>
+        )}
+
+        {/* FILE REVIEW - accessible anytime */}
+        {sess.phase==="files"&&(
+          <FileReviewPanel sessionId={sess.id}/>
         )}
 
         {/* FINISHED */}
@@ -2499,6 +2504,14 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
       return next
     })
   }
+  function setFontColor(col){
+    const cells=getSelCells(); if(!cells.length) return
+    setCellStyles(p=>{
+      const next={...p}
+      cells.forEach(({r,c})=>{const k=`${r},${c}`;const cur=next[k]||{};next[k]={...cur,color:col}})
+      return next
+    })
+  }
   function toggleCurrency(){
     const cells=getSelCells(); if(!cells.length) return
     const anyCurr=cells.some(({r,c})=>cellStyles[`${r},${c}`]?.currency)
@@ -2665,6 +2678,13 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             width:16,height:16,borderRadius:3,background:col,cursor:"pointer",
             border:`2px solid ${selSt.bg===col?"#333":C.border}`}}/>
         ))}
+        <div style={{width:1,height:18,background:C.border}}/>
+        <span style={{fontSize:11,color:C.muted}}>字色:</span>
+        {['#111827','#dc2626','#2563eb','#059669','#d97706','#7c3aed','#ffffff'].map(col=>(
+          <div key={col} onMouseDown={e=>{e.preventDefault();setFontColor(col)}} style={{
+            width:16,height:16,borderRadius:3,background:col,cursor:"pointer",
+            border:`2px solid ${selSt.color===col?"#333":C.border}`}}/>
+        ))}
       </div>
       {/* Grid */}
       <div style={{overflow:"auto",background:"#e8ecf1"}}>
@@ -2689,7 +2709,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                 const isHeaderEdit=exIsEditable(0,c,task)
                 const headerVal=userForms[`0,${c}`]||h
                 return(
-                  <td key={c} onClick={()=>selectCell(0,c)} style={{
+                  <td key={c} onClick={e=>selectCell(0,c,e.shiftKey)} style={{
                     border:`${isSel?2:1}px solid ${isSel?C.accent:isHeaderEdit?"#ca8a04":"#9ca3af"}`,
                     padding:"4px 5px",fontSize:11,
                     fontWeight:st.bold?700:400,
@@ -3154,7 +3174,7 @@ function ExcelTaskLibrary({onSelect,selectedId}){
 // ══════════════════════════════════════════════════════════════
 // UPLOAD SCORE PANEL (file-based scoring via Edge Function)
 // ══════════════════════════════════════════════════════════════
-function UploadScorePanel({fileType, scoringRules, onScore}){
+function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentName, taskId}){
   const [loading,setLoading]=useState(false)
   const [result,setResult]=useState(null)
   const [error,setError]=useState(null)
@@ -3182,6 +3202,16 @@ function UploadScorePanel({fileType, scoringRules, onScore}){
       if(data.error) throw new Error(data.error)
       setResult(data)
       if(onScore) onScore(data)
+      // Save to DB if sessionId and taskId provided
+      if(sessionId&&taskId){
+        await sb.from("lulu_file_submissions").insert({
+          session_id:sessionId, student_name:studentName||"匿名",
+          task_id:taskId, file_name:file.name,
+          file_base64:b64, file_type:fileType,
+          auto_score:data.total, auto_max:data.max,
+          auto_detail:data.details||[]
+        })
+      }
     }catch(err){
       setError(err.message)
     }
@@ -3240,6 +3270,204 @@ function UploadScorePanel({fileType, scoringRules, onScore}){
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// INLINE FILE VIEWER
+// ══════════════════════════════════════════════════════════════
+function InlineFileViewer({sub}){
+  const [html,setHtml]=useState(null)
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState(null)
+
+  async function renderFile(){
+    if(html)return  // already rendered
+    setLoading(true); setError(null)
+    try{
+      const b64=sub.file_base64
+      if(!b64){setError("无文件数据");setLoading(false);return}
+      if(sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')){
+        // Use SheetJS to parse and render as HTML table
+        const XLSX=await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs')
+        const raw=b64.replace(/^data:[^;]+;base64,/,'')
+        const wb=XLSX.read(raw,{type:'base64'})
+        const wsName=wb.SheetNames[0]
+        const ws=wb.Sheets[wsName]
+        const tableHtml=XLSX.utils.sheet_to_html(ws,{id:'preview-table',editable:false})
+        setHtml(`<style>
+          #preview-table{border-collapse:collapse;font-size:12px;font-family:system-ui;}
+          #preview-table td,#preview-table th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap;}
+          #preview-table tr:first-child td,#preview-table tr:first-child th{background:#f3f4f6;font-weight:700;}
+        </style>${tableHtml}`)
+      } else if(sub.file_type==='docx'||sub.file_name?.endsWith('.docx')){
+        // Use mammoth to convert docx to HTML
+        const mammoth=await import('https://esm.sh/mammoth@1.7.0')
+        const raw=b64.replace(/^data:[^;]+;base64,/,'')
+        const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0))
+        const result=await mammoth.convertToHtml({arrayBuffer:bytes.buffer})
+        setHtml(`<style>
+          .doc-preview{font-family:Georgia,serif;line-height:1.8;color:#1a1a1a;padding:8px;}
+          .doc-preview h1{font-size:20px;font-weight:900;margin:12px 0 8px;}
+          .doc-preview h2{font-size:16px;font-weight:800;margin:10px 0 6px;}
+          .doc-preview p{margin:0 0 10px;}
+          .doc-preview table{border-collapse:collapse;width:100%;margin:12px 0;}
+          .doc-preview td,.doc-preview th{border:1px solid #cbd5e1;padding:6px 10px;}
+        </style><div class="doc-preview">${result.value}</div>`)
+      } else {
+        setError("不支持此文件类型的在线预览")
+      }
+    }catch(e){setError("预览失败："+e.message)}
+    setLoading(false)
+  }
+
+  return(
+    <div style={{marginTop:12,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+      {!html&&!loading&&(
+        <button onClick={renderFile} style={{
+          width:"100%",padding:"12px",background:"#f8fafc",border:"none",
+          cursor:"pointer",fontSize:13,color:C.accent,fontFamily:F,fontWeight:700
+        }}>📄 点击在线预览文件</button>
+      )}
+      {loading&&<div style={{padding:20,textAlign:"center",color:C.muted,fontSize:13}}>解析中…</div>}
+      {error&&<div style={{padding:12,color:C.red,fontSize:12}}>{error}</div>}
+      {html&&(
+        <div style={{maxHeight:500,overflow:"auto",padding:12,background:"white"}}
+          dangerouslySetInnerHTML={{__html:html}}/>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// FILE REVIEW PANEL (teacher: view submitted files + score)
+// ══════════════════════════════════════════════════════════════
+function FileReviewPanel({sessionId}){
+  const [subs,setSubs]=useState([])
+  const [loading,setLoading]=useState(true)
+  const [expanded,setExpanded]=useState(null)
+  const [editScore,setEditScore]=useState({})
+  const [editNote,setEditNote]=useState({})
+  const [saving,setSaving]=useState({})
+
+  useEffect(()=>{
+    if(!sessionId){setLoading(false);return}
+    sb.from("lulu_file_submissions")
+      .select("id,student_name,file_name,file_type,file_base64,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
+      .eq("session_id",sessionId)
+      .order("created_at",{ascending:false})
+      .then(({data})=>{if(data)setSubs(data);setLoading(false)})
+  },[sessionId])
+
+  async function saveScore(id){
+    setSaving(p=>({...p,[id]:true}))
+    const score=editScore[id]
+    const note=editNote[id]||''
+    await sb.from("lulu_file_submissions").update({
+      teacher_score:score!==undefined?Number(score):null,
+      teacher_note:note
+    }).eq("id",id)
+    setSubs(p=>p.map(s=>s.id===id?{...s,teacher_score:score!==undefined?Number(score):null,teacher_note:note}:s))
+    setSaving(p=>({...p,[id]:false}))
+  }
+
+  if(loading) return <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
+  if(!subs.length) return(
+    <div style={{padding:40,textAlign:"center",color:C.muted}}>
+      暂无提交的文件。学生上传文件后会在此显示。
+    </div>
+  )
+
+  return(
+    <div style={{padding:16,fontFamily:F}}>
+      <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>
+        文件提交记录 · {subs.length} 份
+      </div>
+      {subs.map(sub=>{
+        const isOpen=expanded===sub.id
+        const detail=sub.auto_detail||[]
+        const finalScore=sub.teacher_score!==null&&sub.teacher_score!==undefined
+          ?sub.teacher_score:sub.auto_score
+        return(
+          <Card key={sub.id} style={{marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:700}}>{sub.student_name}</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  {sub.file_name||"未命名"} · {new Date(sub.created_at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}
+                </div>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.muted}}>自动评分</div>
+                <div style={{fontSize:18,fontWeight:900,color:C.gold,fontFamily:FM}}>
+                  {sub.auto_score}<span style={{fontSize:11,color:C.muted}}>/{sub.auto_max}</span>
+                </div>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.muted}}>最终分</div>
+                <div style={{fontSize:18,fontWeight:900,color:C.accent,fontFamily:FM}}>
+                  {finalScore}<span style={{fontSize:11,color:C.muted}}>/{sub.auto_max}</span>
+                </div>
+              </div>
+              <button onClick={()=>setExpanded(isOpen?null:sub.id)} style={{
+                background:isOpen?C.accent:"none",
+                border:`1px solid ${isOpen?C.accent:C.border}`,borderRadius:7,
+                padding:"5px 14px",cursor:"pointer",fontSize:12,
+                color:isOpen?"white":C.muted,fontFamily:F
+              }}>{isOpen?"收起▲":"查看▼"}</button>
+            </div>
+
+            {isOpen&&(
+              <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+                {/* Inline file preview */}
+                <InlineFileViewer sub={sub}/>
+
+                {/* Auto score detail */}
+                {detail.length>0&&(
+                  <div style={{margin:"14px 0"}}>
+                    <div style={{fontSize:12,color:C.muted,marginBottom:8}}>自动评分详情：</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {detail.map((d,i)=>(
+                        <span key={i} style={{fontSize:11,padding:"3px 10px",borderRadius:6,
+                          background:d.ok?"rgba(5,150,105,.08)":"rgba(220,38,38,.06)",
+                          border:`1px solid ${d.ok?"rgba(5,150,105,.3)":"rgba(220,38,38,.2)"}`,
+                          color:d.ok?"#059669":C.red}}>
+                          {d.ok?"✓":"✗"} {d.desc}{d.pts>0&&d.ok?` +${d.pts}分`:""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Teacher score override */}
+                <div style={{display:"grid",gridTemplateColumns:"120px 1fr auto",gap:10,alignItems:"end",
+                  padding:"12px",borderRadius:8,background:"rgba(37,99,235,.04)",border:`1px solid ${C.accent}22`}}>
+                  <div>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:5}}>老师定分（覆盖自动分）</div>
+                    <input type="number" min={0} max={sub.auto_max}
+                      value={editScore[sub.id]!==undefined?editScore[sub.id]:(sub.teacher_score??sub.auto_score)}
+                      onChange={e=>setEditScore(p=>({...p,[sub.id]:e.target.value}))}
+                      style={inp({color:C.accent,fontWeight:700})}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:C.muted,marginBottom:5}}>评语</div>
+                    <input
+                      value={editNote[sub.id]!==undefined?editNote[sub.id]:(sub.teacher_note||'')}
+                      onChange={e=>setEditNote(p=>({...p,[sub.id]:e.target.value}))}
+                      placeholder="如：图表缺少标题，扣2分"
+                      style={inp()}/>
+                  </div>
+                  <Btn small onClick={()=>saveScore(sub.id)} disabled={saving[sub.id]} color={C.accent}>
+                    {saving[sub.id]?"保存…":"确认分数"}
+                  </Btn>
+                </div>
+              </div>
+            )}
+          </Card>
+        )
+      })}
     </div>
   )
 }
@@ -3953,6 +4181,9 @@ function SMain({session:init,studentName}){
               <UploadScorePanel
                 fileType="docx"
                 scoringRules={(activeTask?.requirements)||TASK.reqs}
+                sessionId={init.id}
+                studentName={studentName}
+                taskId={activeTask?.id||null}
                 onScore={null}
               />
             </div>
