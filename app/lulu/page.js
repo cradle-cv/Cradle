@@ -30,22 +30,24 @@ const sb = createClient(SB_URL, SB_KEY)
 const SCORE_OFFICE_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/functions/v1/score-office"
 const STORAGE_BASE = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/storage/v1/object/public/lulu-submissions"
 
-async function uploadFileToStorage(b64, fileName){
-  try{
-    const raw = b64.replace(/^data:[^;]+;base64,/, '')
-    const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
-    const ext = fileName.split('.').pop()
-    const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      : 'application/octet-stream'
-    const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${fileName}`
-    const {data, error} = await sb.storage.from('lulu-submissions').upload(path, bytes, {contentType: mime})
-    if(error) throw error
-    return `${STORAGE_BASE}/${path}`
-  } catch(e) {
-    console.warn('Storage upload failed:', e.message)
-    return null
-  }
+function uploadFileToStorage(b64, fileName){
+  return new Promise(async(resolve)=>{
+    try{
+      const raw = b64.replace(/^data:[^;]+;base64,/, '')
+      const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+      const ext = fileName.split('.').pop()
+      const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/octet-stream'
+      const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${fileName}`
+      const {data, error} = await sb.storage.from('lulu-submissions').upload(path, bytes, {contentType: mime})
+      if(error) throw error
+      resolve(`${STORAGE_BASE}/${path}`)
+    } catch(e) {
+      console.warn('Storage upload failed:', e.message)
+      resolve(null)
+    }
+  })
 }
 
 const C = {
