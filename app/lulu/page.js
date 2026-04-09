@@ -2289,15 +2289,14 @@ function calcExcelScore(task,userForms,cellStyles,grid){
   let total=0; const detail={}
   rules.forEach(rule=>{
     if(rule.type==='style'){
-      // Bold: any cell styled as bold
+      // Any styling done (bold OR fill on any cell) → full marks
       const hb=Object.values(cellStyles).some(s=>s?.bold)
-      // Fill: any data row (row>=1) has non-white background color applied
       const bg=Object.entries(cellStyles).some(([k,s])=>{
         const rowIdx=parseInt(k.split(',')[0])
         return rowIdx>=1&&s.bg&&s.bg!=='#ffffff'&&s.bg!==''
       })
-      const pts=(hb?Math.ceil(rule.pts/2):0)+(bg?Math.floor(rule.pts/2):0)
-      total+=pts; detail[rule.id]={pts,max:rule.pts,label:rule.desc}
+      const beautyPts=(hb||bg)?rule.pts:0
+      total+=beautyPts; detail[rule.id]={pts:beautyPts,max:rule.pts,label:rule.desc}
     } else {
       // text_match: check if cell contains a substring
       if(rule.type==='text_match'){
@@ -2314,7 +2313,10 @@ function calcExcelScore(task,userForms,cellStyles,grid){
           if(ok) pts+=(rule.pts_each||rule.pts||0)
           items.push({r,c,ok,val})
         })
-        total+=pts; detail[rule.id]={pts,max:rule.total_pts||rule.pts||0,label:rule.desc,items}
+        const maxPts=rule.total_pts||rule.pts||pts
+      // If correct count >= max points threshold, award full marks
+      const cappedPts=pts>=maxPts?maxPts:pts
+      total+=cappedPts; detail[rule.id]={pts:cappedPts,max:maxPts,label:rule.desc,items}
         return
       }
       const cellList=exGetRange(rule.cells); const exp=rule.expected||[]; let pts=0; const items=[]
