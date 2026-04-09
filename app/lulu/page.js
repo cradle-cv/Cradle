@@ -2636,7 +2636,9 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                 body:JSON.stringify({fileBase64:b64,fileType:'xlsx',scoringRules:sc.rules})})
               const data=await resp.json()
               if(!data.error){
-                alert(`文件评分：${data.total}/${data.max} 分\n${data.details?.map(d=>`${d.ok?'✓':'✗'} ${d.desc} ${d.pts||0}分`).join('\n')}`)
+                // Show result then mark as submitted with file score
+                const scoreLines=(data.details||[]).map(d=>`${d.ok?'✓':'✗'} ${d.desc} ${d.pts||0}分`).join('\n')
+                alert(`文件评分：${data.total}/${data.max} 分\n${scoreLines}\n\n文件评分已自动提交，无需再点「提交」按钮`)
                 // Save to DB so teacher can review
                 if(sessionId){
                   await sb.from("lulu_file_submissions").insert({
@@ -2646,6 +2648,13 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                     auto_score:data.total, auto_max:data.max||0,
                     auto_detail:data.details||[]
                   })
+                  // Also submit score to word_lab_submissions so it counts in rankings
+                  await sb.from("word_lab_submissions").upsert({
+                    session_id:sessionId, student_name:studentName,
+                    score:data.total, max_score:data.max||0,
+                    submitted:true, phase:'excel',
+                    completed_tasks:(data.details||[]).filter(d=>d.ok).map(d=>d.id)
+                  },{onConflict:'session_id,student_name,phase'})
                 }
               } else alert('解析失败：'+data.error)
               e.target.value=''
@@ -3404,13 +3413,23 @@ function FileReviewPanel({sessionId}){
 
   async function saveScore(id){
     setSaving(p=>({...p,[id]:true}))
-    const score=editScore[id]
-    const note=editNote[id]||''
+    const sub=subs.find(s=>s.id===id)
+    const score=editScore[id]!==undefined?Number(editScore[id]):(sub?.teacher_score??sub?.auto_score??0)
+    const note=editNote[id]!==undefined?editNote[id]:(sub?.teacher_note||'')
+    // Update file submission record
     await sb.from("lulu_file_submissions").update({
-      teacher_score:score!==undefined?Number(score):null,
-      teacher_note:note
+      teacher_score:score, teacher_note:note
     }).eq("id",id)
-    setSubs(p=>p.map(s=>s.id===id?{...s,teacher_score:score!==undefined?Number(score):null,teacher_note:note}:s))
+    // Sync final score to word_lab_submissions for rankings
+    if(sub?.session_id&&sub?.student_name){
+      await sb.from("word_lab_submissions").upsert({
+        session_id:sub.session_id, student_name:sub.student_name,
+        score:score, max_score:sub.auto_max||0,
+        submitted:true, phase:'excel',
+        completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
+      },{onConflict:'session_id,student_name,phase'})
+    }
+    setSubs(p=>p.map(s=>s.id===id?{...s,teacher_score:score,teacher_note:note}:s))
     setSaving(p=>({...p,[id]:false}))
   }
 
