@@ -3513,7 +3513,22 @@ function SMain({session:init,studentName}){
       </div>
     )
   }
-  // Finished
+  // Finished - poll score from DB every 3s (teacher may confirm after session ends)
+  useEffect(()=>{
+    if(sess.phase!=="finished") return
+    const poll=setInterval(()=>{
+      sb.from("word_lab_submissions").select("score,phase")
+        .eq("session_id",init.id).eq("student_name",studentName)
+        .then(({data})=>{
+          if(data&&data.length>0){
+            const total=data.reduce((s,r)=>s+(r.score||0),0)
+            setFinalScore(total)
+          }
+        })
+    },3000)
+    return()=>clearInterval(poll)
+  },[sess.phase])
+
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
       alignItems:"center",justifyContent:"center",fontFamily:F,gap:16,padding:24}}>
