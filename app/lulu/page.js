@@ -2337,7 +2337,9 @@ function calcExcelScore(task,userForms,cellStyles,grid){
         if(ok) pts+=(rule.pts_each||1)
         items.push({r,c,ok,val,exp:expVal})
       })
-      total+=pts; detail[rule.id]={pts,max:rule.total_pts,label:rule.desc,items}
+      const maxPts2=rule.total_pts||rule.pts||pts
+      const finalPts=pts>=maxPts2?maxPts2:pts
+      total+=finalPts; detail[rule.id]={pts:finalPts,max:maxPts2,label:rule.desc,items}
     }
   })
   return{total,rules,detail}
