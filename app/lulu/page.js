@@ -2400,6 +2400,13 @@ function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentNa
           auto_score:data.total, auto_max:data.max,
           auto_detail:data.details||[]
         })
+        // Create placeholder so teacher confirm fires UPDATE (not INSERT)
+        await sb.from("word_lab_submissions").upsert({
+          session_id:sessionId, student_name:studentName||"匿名",
+          score:data.total, max_score:data.max||0,
+          submitted:true, phase:'excel',
+          completed_tasks:(data.details||[]).filter(d=>d.ok).map(d=>d.id)
+        },{onConflict:'session_id,student_name,phase',ignoreDuplicates:true})
       }
     }catch(err){
       setError(err.message)
@@ -2863,18 +2870,22 @@ function SMain({session:init,studentName}){
         })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"lulu_posts",filter:`session_id=eq.${init.id}`},
         ({new:p})=>setPosts(prev=>[...prev,p]))
-      // Listen for own submission score changes (teacher override)
+      // Listen for own submission score changes (teacher override) - both INSERT and UPDATE
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${init.id}`},
+        ({new:s})=>{
+          if(s.student_name===studentName){
+            sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
+              .then(({data})=>{
+                if(data){const total=data.reduce((sum,r)=>sum+(r.score||0),0);setFinalScore(total)}
+              })
+          }
+        })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${init.id}`},
         ({new:s})=>{
           if(s.student_name===studentName){
-            // Accumulate all phases
-            // fetch updated score
             sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
               .then(({data})=>{
-                if(data){
-                  const total=data.reduce((sum,r)=>sum+(r.score||0),0)
-                  setFinalScore(total)
-                }
+                if(data){const total=data.reduce((sum,r)=>sum+(r.score||0),0);setFinalScore(total)}
               })
           }
         })
