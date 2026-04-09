@@ -2343,7 +2343,12 @@ function calcExcelScore(task,userForms,cellStyles,grid){
       total+=cappedPts; detail[rule.id]={pts:cappedPts,max:maxPts,label:rule.desc,items}
         return
       }
-      const cellList=exGetRange(rule.cells); const exp=rule.expected||[]; let pts=0; const items=[]
+      const cellList=exGetRange(rule.cells||''); const exp=rule.expected||[]; let pts=0; const items=[]
+      // Chart rules cannot be evaluated in browser - skip silently
+      if(rule.type==='chart'||!rule.cells){
+        detail[rule.id]={pts:0,max:rule.pts||0,label:rule.desc,items:[],skipped:true}
+        return
+      }
       const kw=rule.keyword||''
       cellList.forEach(({r,c},i)=>{
         const key=`${r},${c}`; const f=userForms[key]||''
