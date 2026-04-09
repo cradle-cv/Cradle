@@ -696,7 +696,8 @@ function TDash({session:init,onBack}){
   const activePosts=posts.filter(p=>p.discussion_id===activeDis?.id)
 
   const quizScores={}; answers.forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
-  const labScores={}; submissions.forEach(s=>{labScores[s.student_name]=s.score})
+  // Sum ALL phases (lab + excel + any others) per student
+  const labScores={}; submissions.forEach(s=>{labScores[s.student_name]=(labScores[s.student_name]||0)+s.score})
   const allStudents=[...new Set(checkins.map(c=>c.student_name))]
   const studentRank=allStudents.map(name=>{
     const ci=checkins.find(c=>c.student_name===name)
@@ -2665,7 +2666,10 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             </>
           )}
         </div>
-        <button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
+        {!fileScore&&<button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
+}
+        {fileScore&&<div style={{padding:"4px 10px",borderRadius:7,background:"rgba(5,150,105,.2)",
+          color:"#6ee7b7",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>✓ 文件已提交</div>}
           background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
           提交
         </button>
@@ -3469,12 +3473,21 @@ function FileReviewPanel({sessionId}){
     }).eq("id",id)
     // Sync final score to word_lab_submissions for rankings
     if(sub?.session_id&&sub?.student_name){
-      await sb.from("word_lab_submissions").upsert({
-        session_id:sub.session_id, student_name:sub.student_name,
-        score:score, max_score:sub.auto_max||0,
-        submitted:true, phase:'excel',
-        completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
-      },{onConflict:'session_id,student_name,phase'})
+      // Update existing excel record (prefer update over upsert to preserve row)
+      const {data:existing}=await sb.from("word_lab_submissions")
+        .select("id").eq("session_id",sub.session_id)
+        .eq("student_name",sub.student_name).eq("phase","excel")
+        .maybeSingle()
+      if(existing?.id){
+        await sb.from("word_lab_submissions").update({score,max_score:sub.auto_max||0,submitted:true})
+          .eq("id",existing.id)
+      } else {
+        await sb.from("word_lab_submissions").insert({
+          session_id:sub.session_id, student_name:sub.student_name,
+          score, max_score:sub.auto_max||0, submitted:true, phase:'excel',
+          completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
+        })
+      }
     }
     setSubs(p=>p.map(s=>s.id===id?{...s,teacher_score:score,teacher_note:note}:s))
     setSaving(p=>({...p,[id]:false}))
@@ -4439,14 +4452,15 @@ function THistory({onResume}){
     if(detail[sid]) return
     const [{data:checkins},{data:subs},{data:answers},{data:groups}]=await Promise.all([
       sb.from("word_lab_checkins").select("student_name,group_id").eq("session_id",sid),
-      sb.from("word_lab_submissions").select("student_name,score,submitted").eq("session_id",sid),
+      sb.from("word_lab_submissions").select("student_name,score,phase,submitted").eq("session_id",sid),
       sb.from("word_lab_answers").select("student_name,points_earned").eq("session_id",sid),
       sb.from("lulu_groups").select("id,name,color").eq("session_id",sid),
     ])
     const quizScores={}
     ;(answers||[]).forEach(a=>{quizScores[a.student_name]=(quizScores[a.student_name]||0)+a.points_earned})
     const labScores={}
-    ;(subs||[]).forEach(s=>{labScores[s.student_name]=s.score})
+    // Sum ALL phases per student
+    ;(subs||[]).forEach(s=>{labScores[s.student_name]=(labScores[s.student_name]||0)+s.score})
     const students=[...new Set((checkins||[]).map(c=>c.student_name))].map(name=>({
       name,
       group_id:(checkins||[]).find(c=>c.student_name===name)?.group_id,
