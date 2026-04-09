@@ -3364,81 +3364,55 @@ function InlineFileViewer({sub}){
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState(null)
 
-  // Use Office Online viewer if storage_url available, else fallback to SheetJS
   const officeViewerUrl = sub.storage_url
     ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(sub.storage_url)}&wdAllowInteractivity=False&wdDownloadButton=False`
     : null
 
-  async function renderFile(){
+  function renderFile(){
     if(html)return
-    if(officeViewerUrl){setHtml('office_online');return} // handled in render
+    // Office Online: show iframe directly
+    if(officeViewerUrl){setHtml('office_online');return}
+    // Fallback: parse locally with SheetJS / mammoth
     setLoading(true); setError(null)
-    try{
-      const b64=sub.file_base64
-      if(!b64){setError("无文件数据");setLoading(false);return}
-      const raw=b64.replace(/^data:[^;]+;base64,/,'')
+    const b64=sub.file_base64
+    if(!b64){setError("无文件数据");setLoading(false);return}
+    const raw=b64.replace(/^data:[^;]+;base64,/,'')
+    const isXlsx=sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')
+    const isDocx=sub.file_type==='docx'||sub.file_name?.endsWith('.docx')
 
-      if(sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')){
-    if(html)return
-    setLoading(true); setError(null)
-    try{
-      const b64=sub.file_base64
-      if(!b64){setError("无文件数据");setLoading(false);return}
-      const raw=b64.replace(/^data:[^;]+;base64,/,'')
+    function loadScript(src, check){
+      return new Promise((res,rej)=>{
+        if(check()){res();return}
+        const s=document.createElement('script')
+        s.src=src; s.onload=res; s.onerror=rej
+        document.head.appendChild(s)
+      })
+    }
 
-      if(sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')){
-        // SheetJS via CDN script tag
-        await new Promise((res,rej)=>{
-          if(window.XLSX){res();return}
-          const s=document.createElement('script')
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-          s.onload=res; s.onerror=rej
-          document.head.appendChild(s)
+    if(isXlsx){
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',()=>!!window.XLSX)
+        .then(()=>{
+          const wb=window.XLSX.read(raw,{type:'base64'})
+          const tabStyle=`.sheet-tabs{display:flex;gap:4px;padding:6px 8px 0;background:#f3f4f6;border-bottom:1px solid #d1d9e6}.sheet-tab{padding:4px 12px;border-radius:6px 6px 0 0;cursor:pointer;font-size:12px;background:white;border:1px solid #d1d9e6;border-bottom:none;color:#374151}.sheet-tab.active{color:#2563eb;font-weight:700;border-bottom:1px solid white;margin-bottom:-1px}.sheet-content{display:none;padding:8px;overflow:auto}.sheet-content.active{display:block}table{border-collapse:collapse;font-size:12px;font-family:system-ui;min-width:100%}td,th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap}tr:first-child td,tr:first-child th{background:#f3f4f6;font-weight:700}`
+          const tabs=wb.SheetNames.map((n,i)=>`<div class="sheet-tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.sheet-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.sheet-content').forEach(c=>c.classList.remove('active'));document.getElementById('sc${i}').classList.add('active')">${n}</div>`).join('')
+          const sheets=wb.SheetNames.map((n,i)=>`<div id="sc${i}" class="sheet-content${i===0?' active':''}">${window.XLSX.utils.sheet_to_html(wb.Sheets[n])}</div>`).join('')
+          setHtml(`<style>${tabStyle}</style><div class="sheet-tabs">${tabs}</div>${sheets}`)
+          setLoading(false)
+        }).catch(e=>{setError("预览失败："+e.message);setLoading(false)})
+    } else if(isDocx){
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',()=>!!window.mammoth)
+        .then(()=>{
+          const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0))
+          return window.mammoth.convertToHtml({arrayBuffer:bytes.buffer})
         })
-        const wb=window.XLSX.read(raw,{type:'base64'})
-        // Build tabbed HTML for all sheets
-        const tabStyle=`
-          .sheet-tabs{display:flex;gap:4px;padding:6px 8px 0;background:#f3f4f6;border-bottom:1px solid #d1d9e6;}
-          .sheet-tab{padding:4px 12px;border-radius:6px 6px 0 0;cursor:pointer;font-size:12px;
-            background:white;border:1px solid #d1d9e6;border-bottom:none;color:#374151;}
-          .sheet-tab.active{background:white;color:#2563eb;font-weight:700;border-bottom:1px solid white;margin-bottom:-1px;}
-          .sheet-content{display:none;padding:8px;overflow:auto;}
-          .sheet-content.active{display:block;}
-          table{border-collapse:collapse;font-size:12px;font-family:system-ui;min-width:100%;}
-          td,th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap;}
-          tr:first-child td,tr:first-child th{background:#f3f4f6;font-weight:700;}
-        `
-        const tabButtons=wb.SheetNames.map((n,i)=>`<div class="sheet-tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.sheet-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.sheet-content').forEach(c=>c.classList.remove('active'));document.getElementById('sheet-${i}').classList.add('active')">${n}</div>`).join('')
-        const sheetContents=wb.SheetNames.map((n,i)=>{
-          const ws=wb.Sheets[n]
-          const tHtml=window.XLSX.utils.sheet_to_html(ws)
-          return `<div id="sheet-${i}" class="sheet-content${i===0?' active':''}">${tHtml}</div>`
-        }).join('')
-        setHtml(`<style>${tabStyle}</style><div class="sheet-tabs">${tabButtons}</div>${sheetContents}`)
-      } else if(sub.file_type==='docx'||sub.file_name?.endsWith('.docx')){
-        // mammoth via CDN script tag
-        await new Promise((res,rej)=>{
-          if(window.mammoth){res();return}
-          const s=document.createElement('script')
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'
-          s.onload=res; s.onerror=rej
-          document.head.appendChild(s)
-        })
-        const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0))
-        const result=await window.mammoth.convertToHtml({arrayBuffer:bytes.buffer})
-        setHtml(`<style>
-          .doc-preview{font-family:Georgia,serif;line-height:1.8;color:#1a1a1a;padding:8px;}
-          .doc-preview h1{font-size:20px;font-weight:900;margin:12px 0 8px;}
-          .doc-preview h2{font-size:16px;font-weight:800;margin:10px 0 6px;}
-          .doc-preview p{margin:0 0 10px;}
-          .doc-preview table{border-collapse:collapse;width:100%;margin:12px 0;}
-          .doc-preview td,.doc-preview th{border:1px solid #cbd5e1;padding:6px 10px;}
-        </style><div class="doc-preview">${result.value}</div>`)
-      } else {
-        setError("不支持此文件类型的在线预览（支持 .xlsx / .docx）")
-      }
-    }catch(e){setError("预览失败："+e.message)}
-    setLoading(false)
+        .then(result=>{
+          setHtml(`<style>.dp{font-family:Georgia,serif;line-height:1.8;padding:8px}.dp h1{font-size:20px;font-weight:900;margin:12px 0 8px}.dp h2{font-size:16px;font-weight:800;margin:10px 0 6px}.dp p{margin:0 0 10px}.dp table{border-collapse:collapse;width:100%;margin:12px 0}.dp td,.dp th{border:1px solid #cbd5e1;padding:6px 10px}</style><div class="dp">${result.value}</div>`)
+          setLoading(false)
+        }).catch(e=>{setError("预览失败："+e.message);setLoading(false)})
+    } else {
+      setError("不支持此文件类型（支持 .xlsx / .docx）")
+      setLoading(false)
+    }
   }
 
   return(
@@ -3447,18 +3421,14 @@ function InlineFileViewer({sub}){
         <button onClick={renderFile} style={{
           width:"100%",padding:"12px",background:"#f8fafc",border:"none",
           cursor:"pointer",fontSize:13,color:C.accent,fontFamily:F,fontWeight:700
-        }}>📄 点击在线预览文件（含图表）</button>
+        }}>📄 点击在线预览文件{officeViewerUrl?" （Office Online，含图表）":" （本地解析）"}</button>
       )}
       {loading&&<div style={{padding:20,textAlign:"center",color:C.muted,fontSize:13}}>加载中…</div>}
       {error&&<div style={{padding:12,color:C.red,fontSize:12}}>{error}</div>}
       {html==='office_online'&&officeViewerUrl&&(
-        <iframe
-          src={officeViewerUrl}
-          style={{width:"100%",height:500,border:"none",display:"block"}}
-          title="文件预览"
-          onLoad={()=>setLoading(false)}
-          onError={()=>setError("Office Online 加载失败，请稍后重试")}
-        />
+        <iframe src={officeViewerUrl}
+          style={{width:"100%",height:520,border:"none",display:"block"}}
+          title="文件预览"/>
       )}
       {html&&html!=='office_online'&&(
         <div style={{maxHeight:500,overflow:"auto",padding:12,background:"white"}}
