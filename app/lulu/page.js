@@ -442,7 +442,7 @@ function TDash({session:init,onBack}){
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setCheckins(p=>[...p.filter(x=>x.student_name!==r.student_name),r]))
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${init.id}`},
-        ({new:r})=>setCheckins(p=>p.map(x=>x.student_name===r.student_name?r:x)))
+        ({new:r})=>setCheckins(p=>p.some(x=>x.student_name===r.student_name)?p.map(x=>x.student_name===r.student_name?r:x):[...p,r]))
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_answers",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setAnswers(p=>[...p,r]))
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"lulu_posts",filter:`session_id=eq.${init.id}`},
@@ -454,7 +454,12 @@ function TDash({session:init,onBack}){
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
         ({new:r})=>setSess(r))
       .subscribe()
-    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
+    // Fallback poll every 6s in case realtime misses events
+    const pollRef=setInterval(()=>{
+      sb.from("word_lab_checkins").select().eq("session_id",init.id)
+        .then(({data})=>data&&setCheckins(data))
+    },6000)
+    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
   useEffect(()=>{
     if(sess.phase==="quiz"&&sess.current_question>0){
@@ -2874,7 +2879,12 @@ function SMain({session:init,studentName}){
           }
         })
       .subscribe()
-    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
+    // Fallback poll every 6s in case realtime misses events
+    const pollRef=setInterval(()=>{
+      sb.from("word_lab_checkins").select().eq("session_id",init.id)
+        .then(({data})=>data&&setCheckins(data))
+    },6000)
+    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
 
   // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
