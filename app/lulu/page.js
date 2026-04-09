@@ -1789,6 +1789,30 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             background:"rgba(255,255,255,.15)",color:"white",fontSize:12,cursor:"pointer",
             fontWeight:700,fontFamily:F,whiteSpace:"nowrap"}}>📎 上传文件评分</label>
         </div>
+        <div style={{width:1,height:18,background:"rgba(255,255,255,.2)"}}/>
+        <div style={{position:"relative"}}>
+          <input type="file" accept="image/*" id="exScreenshot" style={{display:"none"}}
+            onChange={async e=>{
+              const file=e.target.files?.[0]; if(!file) return
+              const b64=await new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(file)})
+              if(sessionId){
+                // Find latest file submission for this student/session and attach screenshot
+                const {data:latest}=await sb.from("lulu_file_submissions")
+                  .select("id").eq("session_id",sessionId).eq("student_name",studentName)
+                  .order("created_at",{ascending:false}).limit(1).maybeSingle()
+                if(latest?.id){
+                  await sb.from("lulu_file_submissions").update({screenshot_base64:b64}).eq("id",latest.id)
+                  alert("截图已上传，老师可在文件审阅中查看")
+                } else {
+                  alert("请先上传文件评分，再上传截图")
+                }
+              }
+              e.target.value=''
+            }}/>
+          <label htmlFor="exScreenshot" style={{padding:"6px 14px",borderRadius:7,
+            background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.85)",fontSize:12,cursor:"pointer",
+            fontWeight:700,fontFamily:F,whiteSpace:"nowrap"}}>🖼 上传图表截图</label>
+        </div>
       </div>
       {/* Toolbar */}
       <div style={{background:C.panel,borderBottom:`1px solid ${C.border}`,
@@ -2513,6 +2537,24 @@ function InlineFileViewer({sub}){
         <div style={{maxHeight:500,overflow:"auto",padding:12,background:"white"}}
           dangerouslySetInnerHTML={{__html:html}}/>
       )}
+      {/* Screenshot section */}
+      {sub.screenshot_base64&&(
+        <div style={{borderTop:`1px solid ${C.border}`}}>
+          <div style={{padding:"8px 12px",fontSize:12,color:C.muted,background:"#f8fafc",fontWeight:700}}>
+            📊 图表截图
+          </div>
+          <div style={{padding:12,background:"white",textAlign:"center"}}>
+            <img src={sub.screenshot_base64} alt="图表截图"
+              style={{maxWidth:"100%",maxHeight:400,borderRadius:6,border:`1px solid ${C.border}`}}/>
+          </div>
+        </div>
+      )}
+      {!sub.screenshot_base64&&html&&(
+        <div style={{padding:"8px 12px",fontSize:11,color:C.muted,background:"#f8fafc",
+          borderTop:`1px solid ${C.border}`,textAlign:"center"}}>
+          暂无图表截图（学生可点「🖼 上传图表截图」上传）
+        </div>
+      )}
     </div>
   )
 }
@@ -2531,7 +2573,7 @@ function FileReviewPanel({sessionId}){
   useEffect(()=>{
     if(!sessionId){setLoading(false);return}
     sb.from("lulu_file_submissions")
-      .select("id,session_id,student_name,file_name,file_type,file_base64,storage_url,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
+      .select("id,session_id,student_name,file_name,file_type,file_base64,storage_url,screenshot_base64,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
       .eq("session_id",sessionId)
       .order("created_at",{ascending:false})
       .then(({data})=>{if(data)setSubs(data);setLoading(false)})
