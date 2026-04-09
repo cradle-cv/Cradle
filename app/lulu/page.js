@@ -2821,10 +2821,14 @@ function SMain({session:init,studentName}){
     sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
       .then(({data})=>{
         if(data&&data.length>0){
-          const total=data.reduce((sum,r)=>sum+(r.score||0),0)
-          setFinalScore(total)
+          const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+          const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
+          setLabScore(lab); setExcelScore(excel); setFinalScore(lab+excel)
         }
       })
+    // Load bonus pts
+    sb.from("word_lab_checkins").select("bonus_pts").eq("session_id",init.id).eq("student_name",studentName).maybeSingle()
+      .then(({data})=>{ if(data) setBonusScore(data.bonus_pts||0) })
     // Load layout task from library
     if(init.layout_task_id){
       sb.from("lulu_layout_tasks").select().eq("id",init.layout_task_id).single()
