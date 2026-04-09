@@ -199,12 +199,12 @@ function Home({onTeacher,onStudent}){
       alignItems:"center",justifyContent:"center",fontFamily:F,padding:24,gap:48}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:11,letterSpacing:5,color:"#94a3b8",marginBottom:16,fontFamily:FM}}>高职信息技术 · WORD 教学工具</div>
+        <div style={{fontSize:11,letterSpacing:5,color:"#94a3b8",marginBottom:16,fontFamily:FM}}>信息技术基础 · 教学工具</div>
         <div style={{fontSize:72,fontWeight:900,color:"#0f172a",lineHeight:1,letterSpacing:-2}}>
           录<span style={{color:C.accent}}>录</span>
         </div>
         <div style={{fontSize:13,color:C.muted,marginTop:16,lineHeight:2.2}}>
-          签到 &nbsp;·&nbsp; 抢答 &nbsp;·&nbsp; 小组讨论 &nbsp;·&nbsp; 排版竞赛
+          签到 &nbsp;·&nbsp; 抢答 &nbsp;·&nbsp; 小组讨论 &nbsp;·&nbsp; 实操竞赛
         </div>
       </div>
       <div style={{display:"flex",gap:14}}>
@@ -219,7 +219,7 @@ function Home({onTeacher,onStudent}){
   )
 }
 function TSetup({onCreate}){
-  const [title,setTitle]=useState("Word 排版教学课堂")
+  const [title,setTitle]=useState("信息技术基础教学课堂")
   const [timeLab,setTimeLab]=useState(600)
   const [groups,setGroups]=useState([
     {seq:1,name:"第一组",color:GROUP_COLORS[0]},{seq:2,name:"第二组",color:GROUP_COLORS[1]},
@@ -2826,7 +2826,7 @@ function SMain({session:init,studentName}){
   },[])
 
   useEffect(()=>{
-    const ch=sb.channel(`smain-${init.id}-${studentName}`)
+    const ch=sb.channel(`smain-${init.id}`)
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
         async({new:s})=>{
           try {
