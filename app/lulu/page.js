@@ -3319,14 +3319,25 @@ function InlineFileViewer({sub}){
           document.head.appendChild(s)
         })
         const wb=window.XLSX.read(raw,{type:'base64'})
-        const wsName=wb.SheetNames[0]
-        const ws=wb.Sheets[wsName]
-        const tableHtml=window.XLSX.utils.sheet_to_html(ws,{id:'preview-table'})
-        setHtml(`<style>
-          #preview-table{border-collapse:collapse;font-size:12px;font-family:system-ui;min-width:100%;}
-          #preview-table td,#preview-table th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap;}
-          #preview-table tr:first-child td,#preview-table tr:first-child th{background:#f3f4f6;font-weight:700;}
-        </style>${tableHtml}`)
+        // Build tabbed HTML for all sheets
+        const tabStyle=`
+          .sheet-tabs{display:flex;gap:4px;padding:6px 8px 0;background:#f3f4f6;border-bottom:1px solid #d1d9e6;}
+          .sheet-tab{padding:4px 12px;border-radius:6px 6px 0 0;cursor:pointer;font-size:12px;
+            background:white;border:1px solid #d1d9e6;border-bottom:none;color:#374151;}
+          .sheet-tab.active{background:white;color:#2563eb;font-weight:700;border-bottom:1px solid white;margin-bottom:-1px;}
+          .sheet-content{display:none;padding:8px;overflow:auto;}
+          .sheet-content.active{display:block;}
+          table{border-collapse:collapse;font-size:12px;font-family:system-ui;min-width:100%;}
+          td,th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap;}
+          tr:first-child td,tr:first-child th{background:#f3f4f6;font-weight:700;}
+        `
+        const tabButtons=wb.SheetNames.map((n,i)=>`<div class="sheet-tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.sheet-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.sheet-content').forEach(c=>c.classList.remove('active'));document.getElementById('sheet-${i}').classList.add('active')">${n}</div>`).join('')
+        const sheetContents=wb.SheetNames.map((n,i)=>{
+          const ws=wb.Sheets[n]
+          const tHtml=window.XLSX.utils.sheet_to_html(ws)
+          return `<div id="sheet-${i}" class="sheet-content${i===0?' active':''}">${tHtml}</div>`
+        }).join('')
+        setHtml(`<style>${tabStyle}</style><div class="sheet-tabs">${tabButtons}</div>${sheetContents}`)
       } else if(sub.file_type==='docx'||sub.file_name?.endsWith('.docx')){
         // mammoth via CDN script tag
         await new Promise((res,rej)=>{
