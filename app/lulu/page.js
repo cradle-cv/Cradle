@@ -2401,10 +2401,12 @@ function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentNa
           auto_detail:data.details||[]
         })
         // Create placeholder so teacher confirm fires UPDATE (not INSERT)
+        // docx→lab phase, xlsx→excel phase
+        const uploadPhase=(fileType==='docx')?'lab':'excel'
         await sb.from("word_lab_submissions").upsert({
           session_id:sessionId, student_name:studentName||"匿名",
           score:data.total, max_score:data.max||0,
-          submitted:true, phase:'excel',
+          submitted:true, phase:uploadPhase,
           completed_tasks:(data.details||[]).filter(d=>d.ok).map(d=>d.id)
         },{onConflict:'session_id,student_name,phase',ignoreDuplicates:true})
       }
@@ -2600,13 +2602,15 @@ function FileReviewPanel({sessionId}){
     await sb.from("lulu_file_submissions").update({
       teacher_score:score, teacher_note:note
     }).eq("id",id)
-    // Sync final score to word_lab_submissions for rankings
+    // Sync final score to word_lab_submissions
     const sid=sub?.session_id
     const sname=sub?.student_name
+    // docx=文字排版(lab), xlsx=表格制作(excel)
+    const subPhase=(sub?.file_type==='docx'||sub?.file_name?.toLowerCase().endsWith('.docx'))?'lab':'excel'
     if(sid&&sname){
       await sb.from("word_lab_submissions").upsert({
         session_id:sid, student_name:sname,
-        score, max_score:sub.auto_max||0, submitted:true, phase:'excel',
+        score, max_score:sub.auto_max||0, submitted:true, phase:subPhase,
         completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
       },{onConflict:'session_id,student_name,phase',ignoreDuplicates:false})
     } else {
