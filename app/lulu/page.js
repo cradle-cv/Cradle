@@ -2303,7 +2303,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   function selectCell(r,c){
     setSelected({r,c})
     const key=`${r},${c}`
-    setEditVal(isEdit(r,c)?(userForms[key]||''):String(EX_STATIC[r]?.[c]??''))
+    setEditVal(isEdit(r,c)?(userForms[key]||''):String(staticGrid?.[r]?.[c]??''))
     if(isEdit(r,c)) setTimeout(()=>fbarRef.current?.focus(),10)
   }
 
@@ -2417,7 +2417,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
         </div>
         <div style={{width:1,height:18,background:C.border}}/>
         <span style={{fontSize:12,color:C.muted}}>fx</span>
-        <input ref={fbarRef} value={fbarEditable?editVal:String(EX_STATIC[selected?.r]?.[selected?.c]??'')}
+        <input ref={fbarRef} value={fbarEditable?editVal:String(staticGrid?.[selected?.r]?.[selected?.c]??'')}
           onChange={e=>fbarEditable&&setEditVal(e.target.value)}
           onKeyDown={onKey} onBlur={commitEdit}
           readOnly={!fbarEditable}
