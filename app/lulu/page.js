@@ -2667,12 +2667,11 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           )}
         </div>
         {!fileScore&&<button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
-}
-        {fileScore&&<div style={{padding:"4px 10px",borderRadius:7,background:"rgba(5,150,105,.2)",
-          color:"#6ee7b7",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>✓ 文件已提交</div>}
           background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
           提交
-        </button>
+        </button>}
+        {fileScore&&<div style={{padding:"4px 10px",borderRadius:7,background:"rgba(5,150,105,.2)",
+          color:"#6ee7b7",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>✓ 文件已提交</div>}
         <div style={{width:1,height:18,background:"rgba(255,255,255,.2)"}}/>
         <div style={{position:"relative"}}>
           <input type="file" accept=".xlsx,.xls" id="exUpload" style={{display:"none"}}
