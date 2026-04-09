@@ -192,20 +192,6 @@ const EXCEL_COL_LABELS=['客户ID','会员等级','注册时间','所属省份',
 const EXCEL_COL_LETTERS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 const EXCEL_COL_W=[72,82,96,76,140,66,96,76,80,120]
 
-class ErrorBoundary extends Component{
-  constructor(p){super(p);this.state={err:null}}
-  static getDerivedStateFromError(e){return{err:e}}
-  render(){
-    if(this.state.err)return(
-      <div style={{padding:40,fontFamily:"system-ui",color:"#dc2626"}}>
-        <h2>页面发生错误</h2>
-        <pre style={{fontSize:12,color:"#6b7280"}}>{this.state.err.message}</pre>
-        <button onClick={()=>window.location.reload()} style={{marginTop:16,padding:"10px 24px",borderRadius:8,border:"none",background:"#2563eb",color:"white",cursor:"pointer"}}>刷新页面</button>
-      </div>
-    )
-    return this.props.children
-  }
-}
 function Home({onTeacher,onStudent}){
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0f4ff 0%,#e8f4f8 100%)",display:"flex",flexDirection:"column",
