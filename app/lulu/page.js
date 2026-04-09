@@ -2051,9 +2051,9 @@ function exEvalFunc(fn,args,userForms,grid){
     case 'VALUE':return Number(exResolveArg(args[0],userForms,grid))
     case 'ISNUMBER':return!isNaN(Number(exResolveArg(args[0],userForms,grid)))
     case 'ISBLANK':{const v=exResolveArg(args[0],userForms,grid);return v===null||v===''||v===undefined}
-    case 'NOT':return!exResolveArg(args[0],userForms,grid)
-    case 'AND':return args.every(a=>!!exResolveArg(a,userForms,grid))
-    case 'OR':return args.some(a=>!!exResolveArg(a,userForms,grid))
+    case 'NOT':return!exEvalCond(args[0].trim(),userForms,grid)
+    case 'AND':return args.every(a=>exEvalCond(a.trim(),userForms,grid))
+    case 'OR':return args.some(a=>exEvalCond(a.trim(),userForms,grid))
     default: return '#FUNC?'
   }
 }
@@ -2062,13 +2062,21 @@ function exEvalFunc(fn,args,userForms,grid){
 function exEvalIF(inner,userForms,grid){
   const args=exSplitArgs(inner)
   if(args.length<2)return '#ERR'
-  const cond=exEvalCond(args[0].trim(),userForms,grid)
+  const condStr=args[0].trim()
+  let cond
+  // If condition is a function call (AND/OR/NOT/etc.), evaluate via formula engine
+  if(/^[A-Z]+\(/i.test(condStr)){
+    const r=exEvalFull('='+condStr,userForms,grid)
+    cond=r!==false&&r!==0&&r!==''&&r!=='FALSE'&&r!==null
+  } else {
+    cond=exEvalCond(condStr,userForms,grid)
+  }
   const tv=args[1]?exResolveArg(args[1].trim(),userForms,grid):''
-  const fv=args[2]?exResolveArg(args[2].trim(),userForms,grid):0
+  const fv=args[2]!==undefined?exResolveArg(args[2].trim(),userForms,grid):''
   return cond?tv:fv
 }
 function exEvalCond(cond,userForms,grid){
-  for(const op of['<>','<=','>=','=','<','<']){
+  for(const op of['<>','<=','>=','=','<','>']){
     const idx=cond.indexOf(op)
     if(idx>0){
       const l=exResolveArg(cond.slice(0,idx).trim(),userForms,grid)
