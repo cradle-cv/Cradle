@@ -2348,14 +2348,20 @@ function calcExcelScore(task,userForms,cellStyles,grid){
           val=exEvalFull(f.startsWith('=')?f:`=${f}`,userForms,grid)
         }
         const expVal=exp[i]
+        // Value comparison: support both string and number
+        function valMatch(v,e){
+          if(e===undefined||e===null)return true
+          if(String(v)===String(e))return true
+          const nv=Number(v),ne=Number(e)
+          return!isNaN(nv)&&!isNaN(ne)&&Math.abs(nv-ne)<0.01
+        }
         const ok=rule.type==='value_match'
-          ?(String(val)===String(expVal)||Math.abs(Number(val)-Number(expVal))<0.001)
+          ?valMatch(val,expVal)
           :rule.type==='formula_any'
           ?(f.startsWith('='))
-          // formula_keyword: if keyword empty, just need formula + correct result; if keyword set, need keyword + correct result
           :(!kw
-            ?(f.startsWith('=')&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001))
-            :(hasKw&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001)))
+            ?(f.startsWith('=')&&valMatch(val,expVal))
+            :(hasKw&&valMatch(val,expVal)))
         if(ok) pts+=(rule.pts_each||1)
         items.push({r,c,ok,val,exp:expVal})
       })
@@ -2376,6 +2382,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   const [cellStyles,setCellStyles]=useState({})
   const [selected,setSelected]=useState(null)
   const [editVal,setEditVal]=useState('')
+  const [selRange,setSelRange]=useState(null) // {r1,c1,r2,c2} for multi-select
   const [submitted,setSubmitted]=useState(false)
   const [finalScore,setFinalScore]=useState(null)
   const fbarRef=useRef(null)
@@ -2405,7 +2412,16 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   const score=calcExcelScore(task,userForms,cellStyles,staticGrid)
   const isEdit=(r,c)=>exIsEditable(r,c,task)
 
-  function selectCell(r,c){
+  function selectCell(r,c,shiftKey=false){
+    if(shiftKey&&selected){
+      // Extend selection range
+      setSelRange({
+        r1:Math.min(selected.r,r),c1:Math.min(selected.c,c),
+        r2:Math.max(selected.r,r),c2:Math.max(selected.c,c)
+      })
+      return
+    }
+    setSelRange(null)
     setSelected({r,c})
     const key=`${r},${c}`
     setEditVal(isEdit(r,c)?(userForms[key]||''):String(staticGrid?.[r]?.[c]??''))
@@ -2417,10 +2433,15 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
     setUserForms(p=>({...p,[`${selected.r},${selected.c}`]:editVal}))
   }
 
-  // Fill formula down the column from selected cell
+  // Fill formula down: works on range selection too
   function fillDown(){
-    if(!selected||!editVal.startsWith('=')) return
-    const {r,c}=selected
+    if(!editVal.startsWith('=')) return
+    // If range selected, fill from top of range to bottom
+    const startR=selRange?selRange.r1:selected?.r
+    const col=selRange?selRange.c1:selected?.c
+    if(startR===undefined||col===undefined) return
+    const endR=selRange?selRange.r2:null
+    const {r,c}=selected||{r:startR,c:col}
     // Find all editable cells below in same column
     const fc=task?.formula_cells||[]
     const editableRows=[]
@@ -2449,20 +2470,43 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
     if(e.key==='Tab'){e.preventDefault();commitEdit()}
   }
 
+  // Get all cells in current selection (single or range)
+  function getSelCells(){
+    if(selRange){
+      const cells=[]
+      for(let r=selRange.r1;r<=selRange.r2;r++)
+        for(let c=selRange.c1;c<=selRange.c2;c++)
+          cells.push({r,c})
+      return cells
+    }
+    return selected?[selected]:[]
+  }
+
   function toggleBold(){
-    if(!selected) return
-    const key=`${selected.r},${selected.c}`
-    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,bold:!cur.bold}}})
+    const cells=getSelCells(); if(!cells.length) return
+    const anyBold=cells.some(({r,c})=>cellStyles[`${r},${c}`]?.bold)
+    setCellStyles(p=>{
+      const next={...p}
+      cells.forEach(({r,c})=>{const k=`${r},${c}`;const cur=next[k]||{};next[k]={...cur,bold:!anyBold}})
+      return next
+    })
   }
   function setBg(col){
-    if(!selected) return
-    const key=`${selected.r},${selected.c}`
-    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,bg:col}}})
+    const cells=getSelCells(); if(!cells.length) return
+    setCellStyles(p=>{
+      const next={...p}
+      cells.forEach(({r,c})=>{const k=`${r},${c}`;const cur=next[k]||{};next[k]={...cur,bg:col}})
+      return next
+    })
   }
   function toggleCurrency(){
-    if(!selected) return
-    const key=`${selected.r},${selected.c}`
-    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,currency:!cur.currency}}})
+    const cells=getSelCells(); if(!cells.length) return
+    const anyCurr=cells.some(({r,c})=>cellStyles[`${r},${c}`]?.currency)
+    setCellStyles(p=>{
+      const next={...p}
+      cells.forEach(({r,c})=>{const k=`${r},${c}`;const cur=next[k]||{};next[k]={...cur,currency:!anyCurr}})
+      return next
+    })
   }
 
   async function handleSubmit(){
@@ -2676,6 +2720,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                     const st=cellStyles[key]||{}
                     const edit=isEdit(r,c)
                     const isSel=selected?.r===r&&selected?.c===c
+                    const inRange=selRange&&r>=selRange.r1&&r<=selRange.r2&&c>=selRange.c1&&c<=selRange.c2
                     const rawDv=exDisplayVal(r,c,userForms,staticGrid,task)
                     const isCurrency=cellStyles[`${r},${c}`]?.currency
                     const dv=isCurrency&&rawDv!==''&&!isNaN(Number(rawDv))?'¥'+Number(rawDv).toFixed(2):rawDv
@@ -2706,9 +2751,10 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                       }
                     }
                     return(
-                      <td key={c} onClick={()=>selectCell(r,c)}
+                      <td key={c} onClick={e=>selectCell(r,c,e.shiftKey)}
                         style={{
-                          border:`${isSel?2:1}px solid ${isSel?C.accent:edit?"#ca8a0499":C.border}`,
+                          border:`${isSel?2:inRange?1:1}px solid ${isSel?C.accent:inRange?"#93c5fd":edit?"#ca8a0499":C.border}`,
+                          background: inRange&&!isSel?(edit?"#fef9c3":"#eff6ff"):undefined,
                           padding:"2px 5px",fontSize:11,
                           background:st.bg||(edit?"#fefce8":"white"),
                           color:isErr?C.red:st.color||C.text,
@@ -2735,7 +2781,10 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
       {/* Status bar */}
       <div style={{background:C.panel,borderTop:`1px solid ${C.border}`,padding:"4px 14px",
         display:"flex",gap:14,fontSize:11,color:C.muted,alignItems:"center"}}>
-        <span>💡 点击黄色单元格 → 公式栏输入 → Enter 确认 &nbsp;|&nbsp; 输完第一格公式后点「⬇ 向下填充」批量填充</span>
+        <span>💡 Shift+点击 多选单元格 → 可批量设置格式 &nbsp;|&nbsp; 输完公式后点「⬇ 向下填充」批量填充</span>
+        {selRange&&<span style={{color:C.gold,fontWeight:700}}>
+          已选 {(selRange.r2-selRange.r1+1)*(selRange.c2-selRange.c1+1)} 格
+        </span>}
         <div style={{flex:1}}/>
         {sc.rules.map(r=>{const d=sc.detail[r.id];if(!d)return null;return(
           <span key={r.id}>{d.label.split('(')[0]} {d.pts}/{d.max}</span>
