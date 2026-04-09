@@ -2799,6 +2799,9 @@ function SMain({session:init,studentName}){
   const [submitted,setSubmitted]=useState(false)
   const [subId,setSubId]=useState(null)
   const [finalScore,setFinalScore]=useState(0)
+  const [labScore,setLabScore]=useState(0)
+  const [excelScore,setExcelScore]=useState(0)
+  const [bonusScore,setBonusScore]=useState(0)
   const [showTable,setShowTable]=useState(false)
   const [showColor,setShowColor]=useState(false)
   const [tRows,setTRows]=useState(3)
@@ -2835,15 +2838,24 @@ function SMain({session:init,studentName}){
   // Poll score when finished - hooks must be before any conditional returns
   useEffect(()=>{
     if(sess.phase!=="finished") return
+    function applyScores(data){
+      if(!data||!data.length) return
+      const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+      const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
+      setLabScore(lab); setExcelScore(excel); setFinalScore(lab+excel)
+    }
+    // Initial load
+    sb.from("word_lab_submissions").select("score,phase")
+      .eq("session_id",init.id).eq("student_name",studentName)
+      .then(({data})=>applyScores(data))
+    // Also load bonus from checkin
+    sb.from("word_lab_checkins").select("bonus_pts")
+      .eq("session_id",init.id).eq("student_name",studentName).single()
+      .then(({data})=>{ if(data) setBonusScore(data.bonus_pts||0) })
     const poll=setInterval(()=>{
       sb.from("word_lab_submissions").select("score,phase")
         .eq("session_id",init.id).eq("student_name",studentName)
-        .then(({data})=>{
-          if(data&&data.length>0){
-            const total=data.reduce((s,r)=>s+(r.score||0),0)
-            setFinalScore(total)
-          }
-        })
+        .then(({data})=>applyScores(data))
     },3000)
     return()=>clearInterval(poll)
   },[sess.phase])
@@ -2892,7 +2904,11 @@ function SMain({session:init,studentName}){
           if(s.student_name===studentName){
             sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
               .then(({data})=>{
-                if(data){const total=data.reduce((sum,r)=>sum+(r.score||0),0);setFinalScore(total)}
+                if(data){
+                  const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+                  const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
+                  setLabScore(lab);setExcelScore(excel);setFinalScore(lab+excel)
+                }
               })
           }
         })
@@ -2901,7 +2917,11 @@ function SMain({session:init,studentName}){
           if(s.student_name===studentName){
             sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
               .then(({data})=>{
-                if(data){const total=data.reduce((sum,r)=>sum+(r.score||0),0);setFinalScore(total)}
+                if(data){
+                  const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+                  const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
+                  setLabScore(lab);setExcelScore(excel);setFinalScore(lab+excel)
+                }
               })
           }
         })
@@ -3537,17 +3557,25 @@ function SMain({session:init,studentName}){
       <div style={{fontSize:28,fontWeight:900}}>{studentName}</div>
       {myGroup&&<div style={{fontSize:14,color:myGroup.color,fontWeight:700}}>{myGroup.name}</div>}
       <div style={{display:"flex",gap:14,marginTop:8}}>
-        <Card style={{textAlign:"center",padding:"18px 28px"}}>
+        <Card style={{textAlign:"center",padding:"14px 20px"}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:4}}>抢答</div>
-          <div style={{fontSize:32,fontWeight:900,color:C.blue,fontFamily:FM}}>{quizPts}</div>
+          <div style={{fontSize:28,fontWeight:900,color:C.blue,fontFamily:FM}}>{quizPts}</div>
         </Card>
-        <Card style={{textAlign:"center",padding:"18px 28px"}}>
-          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>排版</div>
-          <div style={{fontSize:32,fontWeight:900,color:C.accent,fontFamily:FM}}>{finalScore||score}</div>
+        {bonusScore>0&&<Card style={{textAlign:"center",padding:"14px 20px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>讨论</div>
+          <div style={{fontSize:28,fontWeight:900,color:C.purple,fontFamily:FM}}>+{bonusScore}</div>
+        </Card>}
+        <Card style={{textAlign:"center",padding:"14px 20px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>文字排版</div>
+          <div style={{fontSize:28,fontWeight:900,color:C.accent,fontFamily:FM}}>{labScore||score}</div>
         </Card>
-        <Card style={{textAlign:"center",padding:"18px 28px"}}>
+        <Card style={{textAlign:"center",padding:"14px 20px"}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:4}}>表格制作</div>
+          <div style={{fontSize:28,fontWeight:900,color:C.green,fontFamily:FM}}>{excelScore}</div>
+        </Card>
+        <Card style={{textAlign:"center",padding:"14px 20px",border:`2px solid ${C.gold}22`}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:4}}>总分</div>
-          <div style={{fontSize:32,fontWeight:900,color:C.gold,fontFamily:FM}}>{quizPts+(finalScore||score)}</div>
+          <div style={{fontSize:28,fontWeight:900,color:C.gold,fontFamily:FM}}>{quizPts+bonusScore+(finalScore||score)}</div>
         </Card>
       </div>
     </div>
