@@ -27,6 +27,7 @@ class ErrorBoundary extends Component {
 const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4"
 const sb = createClient(SB_URL, SB_KEY)
+const SCORE_OFFICE_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/functions/v1/score-office" 
 
 const C = {
   bg:"#f0f4f8",panel:"#ffffff",panel2:"#f3f6fa",
@@ -2407,6 +2408,23 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
           提交
         </button>
+        <div style={{width:1,height:18,background:"rgba(255,255,255,.2)"}}/>
+        <div style={{position:"relative"}}>
+          <input type="file" accept=".xlsx,.xls" id="exUpload" style={{display:"none"}}
+            onChange={async e=>{
+              const file=e.target.files?.[0]; if(!file) return
+              const b64=await new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(file)})
+              const resp=await fetch(SCORE_OFFICE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({fileBase64:b64,fileType:'xlsx',scoringRules:sc.rules})})
+              const data=await resp.json()
+              if(!data.error) alert(`文件评分：${data.total}/${data.max} 分\n${data.details?.map(d=>`${d.ok?'✓':'✗'} ${d.desc} ${d.pts||0}分`).join('\n')}`)
+              else alert('解析失败：'+data.error)
+              e.target.value=''
+            }}/>
+          <label htmlFor="exUpload" style={{padding:"6px 14px",borderRadius:7,
+            background:"rgba(255,255,255,.15)",color:"white",fontSize:12,cursor:"pointer",
+            fontWeight:700,fontFamily:F,whiteSpace:"nowrap"}}>📎 上传文件评分</label>
+        </div>
       </div>
       {/* Toolbar */}
       <div style={{background:C.panel,borderBottom:`1px solid ${C.border}`,
@@ -2899,6 +2917,100 @@ function ExcelTaskLibrary({onSelect,selectedId}){
           {selectedId===t.id&&<div style={{marginTop:8,fontSize:12,color:C.gold,fontWeight:700}}>✓ 已选择此题</div>}
         </Card>
       ))}
+    </div>
+  )
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// UPLOAD SCORE PANEL (file-based scoring via Edge Function)
+// ══════════════════════════════════════════════════════════════
+function UploadScorePanel({fileType, scoringRules, onScore}){
+  const [loading,setLoading]=useState(false)
+  const [result,setResult]=useState(null)
+  const [error,setError]=useState(null)
+  const inputRef=useRef(null)
+
+  async function handleFile(e){
+    const file=e.target.files?.[0]
+    if(!file) return
+    setLoading(true); setResult(null); setError(null)
+    try{
+      // Read as base64
+      const b64=await new Promise((res,rej)=>{
+        const reader=new FileReader()
+        reader.onload=()=>res(reader.result)
+        reader.onerror=()=>rej(reader.error)
+        reader.readAsDataURL(file)
+      })
+      const resp=await fetch(SCORE_OFFICE_URL,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({fileBase64:b64,fileType,scoringRules})
+      })
+      if(!resp.ok) throw new Error(`服务器错误 ${resp.status}`)
+      const data=await resp.json()
+      if(data.error) throw new Error(data.error)
+      setResult(data)
+      if(onScore) onScore(data)
+    }catch(err){
+      setError(err.message)
+    }
+    setLoading(false)
+    e.target.value=''
+  }
+
+  return(
+    <div style={{marginTop:16,padding:"14px 16px",borderRadius:10,
+      background:"rgba(5,150,105,.06)",border:"1px solid rgba(5,150,105,.2)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#059669",marginBottom:2}}>
+            📎 上传真实文件评分
+          </div>
+          <div style={{fontSize:11,color:C.muted}}>
+            上传你在本机 {fileType==='xlsx'?'Excel':'Word'} 中完成的文件，获得更精准的评分
+          </div>
+        </div>
+        <input ref={inputRef} type="file"
+          accept={fileType==='xlsx'?'.xlsx,.xls':'.docx'}
+          onChange={handleFile} style={{display:'none'}}/>
+        <button onClick={()=>inputRef.current?.click()} disabled={loading} style={{
+          padding:"8px 16px",borderRadius:8,border:"1px solid #059669",
+          background:loading?"rgba(5,150,105,.1)":"white",
+          color:"#059669",cursor:loading?"wait":"pointer",
+          fontSize:12,fontWeight:700,fontFamily:F,whiteSpace:"nowrap"
+        }}>{loading?"解析中…":"选择文件"}</button>
+      </div>
+      {error&&(
+        <div style={{marginTop:10,padding:"8px 12px",borderRadius:7,
+          background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.2)",
+          fontSize:12,color:C.red}}>⚠ {error}</div>
+      )}
+      {result&&(
+        <div style={{marginTop:12}}>
+          <div style={{fontSize:12,color:C.muted,marginBottom:8}}>文件评分结果：</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+            {result.details?.map((d,i)=>(
+              <div key={i} style={{padding:"6px 12px",borderRadius:8,fontSize:12,
+                background:d.ok?"rgba(5,150,105,.08)":"rgba(220,38,38,.06)",
+                border:`1px solid ${d.ok?"rgba(5,150,105,.3)":"rgba(220,38,38,.2)"}`,
+                color:d.ok?"#059669":C.red}}>
+                {d.ok?"✓":"✗"} {d.desc}
+                {d.pts>0&&d.ok&&<span style={{marginLeft:4,fontWeight:700}}>+{d.pts}</span>}
+                {d.items&&<span style={{marginLeft:4,color:C.muted}}>
+                  ({d.items.filter((x)=>x.ok).length}/{d.items.length})
+                </span>}
+              </div>
+            ))}
+          </div>
+          <div style={{padding:"8px 14px",borderRadius:8,
+            background:"rgba(5,150,105,.1)",border:"1px solid rgba(5,150,105,.3)",
+            fontSize:14,fontWeight:700,color:"#059669",textAlign:"center"}}>
+            文件评分：{result.total} / {result.max} 分
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3606,6 +3718,14 @@ function SMain({session:init,studentName}){
                 {score}
               </div>
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)} 分</div>
+            </div>
+            {/* Upload file scoring */}
+            <div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
+              <UploadScorePanel
+                fileType="docx"
+                scoringRules={(activeTask?.requirements)||TASK.reqs}
+                onScore={null}
+              />
             </div>
           </div>
 
