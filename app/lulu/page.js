@@ -3690,6 +3690,14 @@ function SMain({session:init,studentName}){
       .then(()=>setCheckedIn(true))
     sb.from("word_lab_checkins").select("group_id").eq("session_id",init.id).eq("student_name",studentName).single()
       .then(({data})=>{ if(data?.group_id) setMyGroupId(data.group_id) })
+    // Load existing total score from all phases
+    sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
+      .then(({data})=>{
+        if(data&&data.length>0){
+          const total=data.reduce((sum,r)=>sum+(r.score||0),0)
+          setFinalScore(total)
+        }
+      })
     // Load layout task from library
     if(init.layout_task_id){
       sb.from("lulu_layout_tasks").select().eq("id",init.layout_task_id).single()
@@ -3738,6 +3746,21 @@ function SMain({session:init,studentName}){
         })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"lulu_posts",filter:`session_id=eq.${init.id}`},
         ({new:p})=>setPosts(prev=>[...prev,p]))
+      // Listen for own submission score changes (teacher override)
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${init.id}`},
+        ({new:s})=>{
+          if(s.student_name===studentName){
+            // Accumulate all phases
+            // fetch updated score
+            sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
+              .then(({data})=>{
+                if(data){
+                  const total=data.reduce((sum,r)=>sum+(r.score||0),0)
+                  setFinalScore(total)
+                }
+              })
+          }
+        })
       .subscribe()
     return()=>{sb.removeChannel(ch);clearInterval(timerRef.current)}
   },[init.id])
