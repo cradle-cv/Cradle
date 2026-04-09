@@ -2331,6 +2331,15 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   const colHeaders = task?.col_headers || EXCEL_COL_LABELS
   const colWidths  = task?.col_widths  || EXCEL_COL_W
   const dataRows   = task?.initial_data ? task.initial_data.length : EXCEL_RAW.length
+  // Compute extra columns needed by formula_cells beyond colHeaders
+  const formulaMaxCol = (task?.formula_cells||[]).reduce((mx,f)=>{
+    const cells=exGetRange(f.range); 
+    const maxC=cells.reduce((m,{c})=>Math.max(m,c),-1)
+    return Math.max(mx,maxC)
+  },-1)
+  const totalCols = Math.max(colHeaders.length, formulaMaxCol+1)
+  const extHeaders = Array.from({length:totalCols},(_, i)=>colHeaders[i]||'')
+  const extWidths  = Array.from({length:totalCols},(_, i)=>colWidths[i]||80)
 
   const score=calcExcelScore(task,userForms,cellStyles,staticGrid)
   const isEdit=(r,c)=>exIsEditable(r,c,task)
@@ -2518,7 +2527,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           onChange={e=>fbarEditable&&setEditVal(e.target.value)}
           onKeyDown={onKey} onBlur={commitEdit}
           readOnly={!fbarEditable}
-          placeholder={fbarEditable?"输入公式，如 =RANK(E2,$E$2:$E$31,0)":"只读"}
+          placeholder={fbarEditable?(selected?.r===0?"输入列标题，如：优质订单判断":`输入公式，如 ${exGetHint(selected?.r,selected?.c,task)||'=IF(...)'}`): "只读"}
           style={{flex:1,padding:"4px 8px",borderRadius:6,fontSize:12,fontFamily:"'DM Mono',monospace",
             border:`1px solid ${fbarEditable?"#ca8a04":C.border}`,
             background:fbarEditable?"#fefce8":"#f9fafb",outline:"none",minWidth:180}}/>
@@ -2548,29 +2557,30 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
         <table style={{borderCollapse:"collapse",tableLayout:"fixed",background:"white",userSelect:"none"}}>
           <colgroup>
             <col style={{width:32}}/>
-            {colWidths.map((w,i)=><col key={i} style={{width:w}}/>)}
+            {extWidths.map((w,i)=><col key={i} style={{width:w}}/>)}
           </colgroup>
           <thead style={{position:"sticky",top:0,zIndex:10}}>
             <tr>
               <th style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center"}}>#</th>
-              {colHeaders.map((_,c)=>(
+              {extHeaders.map((_,c)=>(
                 <th key={c} style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",
                   fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{EXCEL_COL_LETTERS[c]||String.fromCharCode(65+c)}</th>
               ))}
             </tr>
             <tr>
               <td style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"3px",fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>1</td>
-              {colHeaders.map((h,c)=>{
+              {extHeaders.map((h,c)=>{
                 const st=cellStyles[`0,${c}`]||{}
                 const isSel=selected?.r===0&&selected?.c===c
                 const isHeaderEdit=exIsEditable(0,c,task)
                 const headerVal=userForms[`0,${c}`]||h
                 return(
                   <td key={c} onClick={()=>selectCell(0,c)} style={{
-                    border:`${isSel?2:1}px solid ${isSel?C.accent:isHeaderEdit?"#ca8a04":C.border}`,
-                    padding:"4px 5px",fontSize:11,fontWeight:st.bold?700:700,
-                    background:st.bg||(isHeaderEdit?"#fef3c7":"#1e3a5f"),
-                    color:st.color||(isHeaderEdit?"#92400e":"white"),
+                    border:`${isSel?2:1}px solid ${isSel?C.accent:isHeaderEdit?"#ca8a04":"#9ca3af"}`,
+                    padding:"4px 5px",fontSize:11,
+                    fontWeight:st.bold?700:400,
+                    background:st.bg||(isHeaderEdit?"#fef3c7":"#f3f4f6"),
+                    color:st.color||(isHeaderEdit?"#92400e":"#374151"),
                     cursor:isHeaderEdit?"cell":"default",
                     whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"
                   }}>
@@ -2591,7 +2601,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                 <tr key={r}>
                   <td style={{background:"#e8ecf1",border:`1px solid ${C.border}`,padding:"2px 3px",
                     fontSize:10,color:C.muted,textAlign:"center",fontFamily:"'DM Mono',monospace"}}>{r+1}</td>
-                  {EXCEL_COL_LETTERS.map((_,c)=>{
+                  {extHeaders.map((_,c)=>{
                     const key=`${r},${c}`
                     const st=cellStyles[key]||{}
                     const edit=isEdit(r,c)
@@ -2634,8 +2644,8 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                           whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
                           textAlign:(c>=4&&c<=6)?'right':'left',position:"relative"
                         }}>
-                        {dv||(!edit?'':<span style={{color:"#ca8a04",fontSize:9,fontStyle:"italic"}}>
-                          {exGetHint(r,c,task)}
+                        {dv||(!edit?'':<span style={{color:"#ca8a04",fontSize:9,fontStyle:"italic",opacity:.6}}>
+                          {(()=>{const h=exGetHint(r,c,task);if(!h)return'输入公式';if(r===0)return'点击输入列标题';const fn=h.replace(/^=/,'').split('(')[0].toUpperCase();return fn?`=${fn}(…)`:'输入公式'})()}
                         </span>)}
                         {status&&<span style={{position:"absolute",top:1,right:2,fontSize:8,
                           color:status==='ok'?"#059669":status==='wrong'?C.red:"#d97706"}}>
