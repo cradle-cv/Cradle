@@ -2233,6 +2233,16 @@ function exGetHint(r,c,task){
 }
 
 // ── Scoring engine ──────────────────────────────────────────
+function exDisplayVal(r,c,userForms,grid,task){
+  if(exIsEditable(r,c,task)){
+    const f=userForms[`${r},${c}`]
+    if(!f) return ''
+    if(typeof f==='string'&&f.startsWith('=')){const v=exEvalFull(f,userForms,grid);return v===null?'':String(v)}
+    return String(f)
+  }
+  const v=grid?.[r]?.[c]; return v===null||v===undefined?'':String(v)
+}
+
 function calcExcelScore(task,userForms,cellStyles,grid){
   const rules=(task?.scoring_rules)||[
     {id:'rank',keyword:'RANK',cells:'G2:G31',expected:[21,8,2,30,16,25,6,29,15,4,10,22,19,27,17,26,11,23,14,12,1,20,5,24,13,9,28,18,3,7],pts_each:1,total_pts:30,desc:'RANK 函数'},
