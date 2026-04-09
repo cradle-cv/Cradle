@@ -3302,30 +3302,42 @@ function InlineFileViewer({sub}){
   const [error,setError]=useState(null)
 
   async function renderFile(){
-    if(html)return  // already rendered
+    if(html)return
     setLoading(true); setError(null)
     try{
       const b64=sub.file_base64
       if(!b64){setError("无文件数据");setLoading(false);return}
+      const raw=b64.replace(/^data:[^;]+;base64,/,'')
+
       if(sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')){
-        // Use SheetJS to parse and render as HTML table
-        const XLSX=await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs')
-        const raw=b64.replace(/^data:[^;]+;base64,/,'')
-        const wb=XLSX.read(raw,{type:'base64'})
+        // SheetJS via CDN script tag
+        await new Promise((res,rej)=>{
+          if(window.XLSX){res();return}
+          const s=document.createElement('script')
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+          s.onload=res; s.onerror=rej
+          document.head.appendChild(s)
+        })
+        const wb=window.XLSX.read(raw,{type:'base64'})
         const wsName=wb.SheetNames[0]
         const ws=wb.Sheets[wsName]
-        const tableHtml=XLSX.utils.sheet_to_html(ws,{id:'preview-table',editable:false})
+        const tableHtml=window.XLSX.utils.sheet_to_html(ws,{id:'preview-table'})
         setHtml(`<style>
-          #preview-table{border-collapse:collapse;font-size:12px;font-family:system-ui;}
+          #preview-table{border-collapse:collapse;font-size:12px;font-family:system-ui;min-width:100%;}
           #preview-table td,#preview-table th{border:1px solid #d1d9e6;padding:4px 8px;white-space:nowrap;}
           #preview-table tr:first-child td,#preview-table tr:first-child th{background:#f3f4f6;font-weight:700;}
         </style>${tableHtml}`)
       } else if(sub.file_type==='docx'||sub.file_name?.endsWith('.docx')){
-        // Use mammoth to convert docx to HTML
-        const mammoth=await import('https://esm.sh/mammoth@1.7.0')
-        const raw=b64.replace(/^data:[^;]+;base64,/,'')
+        // mammoth via CDN script tag
+        await new Promise((res,rej)=>{
+          if(window.mammoth){res();return}
+          const s=document.createElement('script')
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'
+          s.onload=res; s.onerror=rej
+          document.head.appendChild(s)
+        })
         const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0))
-        const result=await mammoth.convertToHtml({arrayBuffer:bytes.buffer})
+        const result=await window.mammoth.convertToHtml({arrayBuffer:bytes.buffer})
         setHtml(`<style>
           .doc-preview{font-family:Georgia,serif;line-height:1.8;color:#1a1a1a;padding:8px;}
           .doc-preview h1{font-size:20px;font-weight:900;margin:12px 0 8px;}
@@ -3335,7 +3347,7 @@ function InlineFileViewer({sub}){
           .doc-preview td,.doc-preview th{border:1px solid #cbd5e1;padding:6px 10px;}
         </style><div class="doc-preview">${result.value}</div>`)
       } else {
-        setError("不支持此文件类型的在线预览")
+        setError("不支持此文件类型的在线预览（支持 .xlsx / .docx）")
       }
     }catch(e){setError("预览失败："+e.message)}
     setLoading(false)
