@@ -2444,7 +2444,7 @@ function InlineFileViewer({sub}){
   const [error,setError]=useState(null)
 
   const officeViewerUrl = sub.storage_url
-    ? `https://view.xdocin.com/view?src=${encodeURIComponent(sub.storage_url)}`
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(sub.storage_url)}&wdAllowInteractivity=False&wdDownloadButton=False`
     : null
 
   function renderFile(){
@@ -2500,7 +2500,7 @@ function InlineFileViewer({sub}){
         <button onClick={renderFile} style={{
           width:"100%",padding:"12px",background:"#f8fafc",border:"none",
           cursor:"pointer",fontSize:13,color:C.accent,fontFamily:F,fontWeight:700
-        }}>📄 点击在线预览文件{officeViewerUrl?" （在线预览，含图表）":" （本地解析）"}</button>
+        }}>📄 点击在线预览文件{officeViewerUrl?" （Office Online，含图表）":" （本地解析）"}</button>
       )}
       {loading&&<div style={{padding:20,textAlign:"center",color:C.muted,fontSize:13}}>加载中…</div>}
       {error&&<div style={{padding:12,color:C.red,fontSize:12}}>{error}</div>}
