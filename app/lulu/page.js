@@ -27,7 +27,26 @@ class ErrorBoundary extends Component {
 const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4"
 const sb = createClient(SB_URL, SB_KEY)
-const SCORE_OFFICE_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/functions/v1/score-office" 
+const SCORE_OFFICE_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/functions/v1/score-office"
+const STORAGE_BASE = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/storage/v1/object/public/lulu-submissions"
+
+async function uploadFileToStorage(b64, fileName){
+  try{
+    const raw = b64.replace(/^data:[^;]+;base64,/, '')
+    const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+    const ext = fileName.split('.').pop()
+    const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : 'application/octet-stream'
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${fileName}`
+    const {data, error} = await sb.storage.from('lulu-submissions').upload(path, bytes, {contentType: mime})
+    if(error) throw error
+    return `${STORAGE_BASE}/${path}`
+  } catch(e) {
+    console.warn('Storage upload failed:', e.message)
+    return null
+  }
+}
 
 const C = {
   bg:"#f0f4f8",panel:"#ffffff",panel2:"#f3f6fa",
@@ -2397,6 +2416,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   const [selRange,setSelRange]=useState(null) // {r1,c1,r2,c2} for multi-select
   const [submitted,setSubmitted]=useState(false)
   const [finalScore,setFinalScore]=useState(null)
+  const [fileScore,setFileScore]=useState(null) // score from file upload
   const fbarRef=useRef(null)
 
   useEffect(()=>{
@@ -2611,16 +2631,37 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           ⬇ 下载原始表
         </button>
         <div style={{flex:1}}/>
-        <div style={{display:"flex",gap:6}}>
-          {sc.rules.map(r=>{
-            const d=sc.detail[r.id]; if(!d) return null
-            return <span key={r.id} style={{fontSize:11,padding:"2px 7px",borderRadius:4,
-              background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.85)"}}>
-              {d.label.split('(')[0]} {d.pts}/{d.max}
-            </span>
-          })}
-          <span style={{fontSize:14,fontWeight:900,color:sc.total>=60?"#6ee7b7":"#fcd34d",
-            fontFamily:"'DM Mono',monospace",marginLeft:4}}>{sc.total}/{sc.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0)}</span>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {fileScore?(
+            <>
+              {fileScore.details.map((d,i)=>(
+                <span key={i} style={{fontSize:11,padding:"2px 7px",borderRadius:4,
+                  background:d.ok?"rgba(110,231,183,.25)":"rgba(255,255,255,.12)",
+                  color:d.ok?"#6ee7b7":"rgba(255,255,255,.6)"}}>
+                  {d.ok?"✓":"✗"} {(d.desc||'').split('（')[0]} {d.pts||0}/{d.max||0}
+                </span>
+              ))}
+              <span style={{fontSize:14,fontWeight:900,color:"#6ee7b7",
+                fontFamily:"'DM Mono',monospace",marginLeft:4}}>
+                {fileScore.total}/{fileScore.max}
+                <span style={{fontSize:10,color:"rgba(255,255,255,.6)",marginLeft:3}}>文件分✓</span>
+              </span>
+            </>
+          ):(
+            <>
+              {sc.rules.map(r=>{
+                const d=sc.detail[r.id]; if(!d) return null
+                return <span key={r.id} style={{fontSize:11,padding:"2px 7px",borderRadius:4,
+                  background:"rgba(255,255,255,.12)",color:"rgba(255,255,255,.85)"}}>
+                  {d.label?.split('(')[0]} {d.pts}/{d.max}
+                </span>
+              })}
+              <span style={{fontSize:14,fontWeight:900,color:sc.total>=60?"#6ee7b7":"#fcd34d",
+                fontFamily:"'DM Mono',monospace",marginLeft:4}}>
+                {sc.total}/{sc.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0)}
+              </span>
+            </>
+          )}
         </div>
         <button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
           background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
@@ -2641,10 +2682,12 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                 alert(`文件评分：${data.total}/${data.max} 分\n${scoreLines}\n\n文件评分已自动提交，无需再点「提交」按钮`)
                 // Save to DB so teacher can review
                 if(sessionId){
+                  const storageUrl = await uploadFileToStorage(b64, file.name)
                   await sb.from("lulu_file_submissions").insert({
                     session_id:sessionId, student_name:studentName,
                     task_id:excelTaskId||null, file_name:file.name,
                     file_base64:b64, file_type:'xlsx',
+                    storage_url:storageUrl,
                     auto_score:data.total, auto_max:data.max||0,
                     auto_detail:data.details||[]
                   })
@@ -2656,6 +2699,8 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                     completed_tasks:(data.details||[]).filter(d=>d.ok).map(d=>d.id)
                   },{onConflict:'session_id,student_name,phase'})
                 }
+                // Update UI to show file score
+                setFileScore({total:data.total,max:data.max||0,details:data.details||[]})
               } else alert('解析失败：'+data.error)
               e.target.value=''
             }}/>
@@ -2828,7 +2873,12 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
       {/* Status bar */}
       <div style={{background:C.panel,borderTop:`1px solid ${C.border}`,padding:"4px 14px",
         display:"flex",gap:14,fontSize:11,color:C.muted,alignItems:"center"}}>
-        <span>💡 Shift+点击 多选单元格 → 可批量设置格式 &nbsp;|&nbsp; 输完公式后点「⬇ 向下填充」批量填充</span>
+        {fileScore&&(
+          <span style={{color:"#059669",fontWeight:700}}>
+            ✓ 文件已提交 · 得分 {fileScore.total}/{fileScore.max} 分（已计入排名）
+          </span>
+        )}
+        {!fileScore&&<span>💡 Shift+点击 多选单元格 → 批量设置格式 &nbsp;|&nbsp; 图表题请下载原始表在Excel制作后上传文件评分</span>}
         {selRange&&<span style={{color:C.gold,fontWeight:700}}>
           已选 {(selRange.r2-selRange.r1+1)*(selRange.c2-selRange.c1+1)} 格
         </span>}
@@ -3231,10 +3281,12 @@ function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentNa
       if(onScore) onScore(data)
       // Save to DB if sessionId and taskId provided
       if(sessionId&&taskId){
+        const storageUrl2 = await uploadFileToStorage(b64, file.name)
         await sb.from("lulu_file_submissions").insert({
           session_id:sessionId, student_name:studentName||"匿名",
           task_id:taskId, file_name:file.name,
           file_base64:b64, file_type:fileType,
+          storage_url:storageUrl2||null,
           auto_score:data.total, auto_max:data.max,
           auto_detail:data.details||[]
         })
@@ -3310,7 +3362,21 @@ function InlineFileViewer({sub}){
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState(null)
 
+  // Use Office Online viewer if storage_url available, else fallback to SheetJS
+  const officeViewerUrl = sub.storage_url
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(sub.storage_url)}&wdAllowInteractivity=False&wdDownloadButton=False`
+    : null
+
   async function renderFile(){
+    if(html)return
+    if(officeViewerUrl){setHtml('office_online');return} // handled in render
+    setLoading(true); setError(null)
+    try{
+      const b64=sub.file_base64
+      if(!b64){setError("无文件数据");setLoading(false);return}
+      const raw=b64.replace(/^data:[^;]+;base64,/,'')
+
+      if(sub.file_type==='xlsx'||sub.file_name?.endsWith('.xlsx')||sub.file_name?.endsWith('.xls')){
     if(html)return
     setLoading(true); setError(null)
     try{
@@ -3379,11 +3445,20 @@ function InlineFileViewer({sub}){
         <button onClick={renderFile} style={{
           width:"100%",padding:"12px",background:"#f8fafc",border:"none",
           cursor:"pointer",fontSize:13,color:C.accent,fontFamily:F,fontWeight:700
-        }}>📄 点击在线预览文件</button>
+        }}>📄 点击在线预览文件（含图表）</button>
       )}
-      {loading&&<div style={{padding:20,textAlign:"center",color:C.muted,fontSize:13}}>解析中…</div>}
+      {loading&&<div style={{padding:20,textAlign:"center",color:C.muted,fontSize:13}}>加载中…</div>}
       {error&&<div style={{padding:12,color:C.red,fontSize:12}}>{error}</div>}
-      {html&&(
+      {html==='office_online'&&officeViewerUrl&&(
+        <iframe
+          src={officeViewerUrl}
+          style={{width:"100%",height:500,border:"none",display:"block"}}
+          title="文件预览"
+          onLoad={()=>setLoading(false)}
+          onError={()=>setError("Office Online 加载失败，请稍后重试")}
+        />
+      )}
+      {html&&html!=='office_online'&&(
         <div style={{maxHeight:500,overflow:"auto",padding:12,background:"white"}}
           dangerouslySetInnerHTML={{__html:html}}/>
       )}
@@ -3405,7 +3480,7 @@ function FileReviewPanel({sessionId}){
   useEffect(()=>{
     if(!sessionId){setLoading(false);return}
     sb.from("lulu_file_submissions")
-      .select("id,student_name,file_name,file_type,file_base64,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
+      .select("id,student_name,file_name,file_type,file_base64,storage_url,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
       .eq("session_id",sessionId)
       .order("created_at",{ascending:false})
       .then(({data})=>{if(data)setSubs(data);setLoading(false)})
