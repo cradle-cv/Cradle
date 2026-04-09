@@ -3455,7 +3455,7 @@ function FileReviewPanel({sessionId}){
   useEffect(()=>{
     if(!sessionId){setLoading(false);return}
     sb.from("lulu_file_submissions")
-      .select("id,student_name,file_name,file_type,file_base64,storage_url,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
+      .select("id,session_id,student_name,file_name,file_type,file_base64,storage_url,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
       .eq("session_id",sessionId)
       .order("created_at",{ascending:false})
       .then(({data})=>{if(data)setSubs(data);setLoading(false)})
@@ -3471,22 +3471,16 @@ function FileReviewPanel({sessionId}){
       teacher_score:score, teacher_note:note
     }).eq("id",id)
     // Sync final score to word_lab_submissions for rankings
-    if(sub?.session_id&&sub?.student_name){
-      // Update existing excel record (prefer update over upsert to preserve row)
-      const {data:existing}=await sb.from("word_lab_submissions")
-        .select("id").eq("session_id",sub.session_id)
-        .eq("student_name",sub.student_name).eq("phase","excel")
-        .maybeSingle()
-      if(existing?.id){
-        await sb.from("word_lab_submissions").update({score,max_score:sub.auto_max||0,submitted:true})
-          .eq("id",existing.id)
-      } else {
-        await sb.from("word_lab_submissions").insert({
-          session_id:sub.session_id, student_name:sub.student_name,
-          score, max_score:sub.auto_max||0, submitted:true, phase:'excel',
-          completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
-        })
-      }
+    const sid=sub?.session_id
+    const sname=sub?.student_name
+    if(sid&&sname){
+      await sb.from("word_lab_submissions").upsert({
+        session_id:sid, student_name:sname,
+        score, max_score:sub.auto_max||0, submitted:true, phase:'excel',
+        completed_tasks:(sub.auto_detail||[]).filter(d=>d.ok).map(d=>d.id)
+      },{onConflict:'session_id,student_name,phase',ignoreDuplicates:false})
+    } else {
+      console.warn("saveScore: missing session_id or student_name", {sid,sname,sub})
     }
     setSubs(p=>p.map(s=>s.id===id?{...s,teacher_score:score,teacher_note:note}:s))
     setSaving(p=>({...p,[id]:false}))
