@@ -2342,17 +2342,20 @@ function calcExcelScore(task,userForms,cellStyles,grid){
       const kw=rule.keyword||''
       cellList.forEach(({r,c},i)=>{
         const key=`${r},${c}`; const f=userForms[key]||''
-        const hasKw=kw?f.toUpperCase().includes(kw+'('):f.startsWith('=')
+        const hasKw=kw?f.toUpperCase().includes(kw+'('):(f.startsWith('=')||f.length>0)
         let val=null
         if(hasKw||rule.type==='value_match'){
           val=exEvalFull(f.startsWith('=')?f:`=${f}`,userForms,grid)
         }
         const expVal=exp[i]
         const ok=rule.type==='value_match'
-          ?(String(val)===String(expVal)||Number(val)===Number(expVal))
+          ?(String(val)===String(expVal)||Math.abs(Number(val)-Number(expVal))<0.001)
           :rule.type==='formula_any'
-          ?(f.startsWith('=')||/^=[\s\S]/.test(f))
-          :(hasKw&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001))
+          ?(f.startsWith('='))
+          // formula_keyword: if keyword empty, just need formula + correct result; if keyword set, need keyword + correct result
+          :(!kw
+            ?(f.startsWith('=')&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001))
+            :(hasKw&&(expVal===undefined||Math.abs(Number(val)-Number(expVal))<0.001)))
         if(ok) pts+=(rule.pts_each||1)
         items.push({r,c,ok,val,exp:expVal})
       })
