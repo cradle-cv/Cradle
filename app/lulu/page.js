@@ -2289,13 +2289,32 @@ function calcExcelScore(task,userForms,cellStyles,grid){
   let total=0; const detail={}
   rules.forEach(rule=>{
     if(rule.type==='style'){
-      // Any styling done (bold OR fill on any cell) → full marks
-      const hb=Object.values(cellStyles).some(s=>s?.bold)
-      const bg=Object.entries(cellStyles).some(([k,s])=>{
-        const rowIdx=parseInt(k.split(',')[0])
-        return rowIdx>=1&&s.bg&&s.bg!=='#ffffff'&&s.bg!==''
-      })
-      const beautyPts=(hb||bg)?rule.pts:0
+      let beautyPts=0
+      if(rule.id==='currency'){
+        // Check if D(col3) and F(col5) columns have currency style applied
+        const dCurr=Object.entries(cellStyles).some(([k,s])=>{
+          const[r,c]=k.split(',').map(Number); return c===3&&r>=1&&s?.currency
+        })
+        const fCurr=Object.entries(cellStyles).some(([k,s])=>{
+          const[r,c]=k.split(',').map(Number); return c===5&&r>=1&&s?.currency
+        })
+        beautyPts=(dCurr||fCurr)?rule.pts:0
+      } else if(rule.id==='header_fmt'){
+        // Check if header row (row 0) has bold or color applied
+        const headerStyled=Object.entries(cellStyles).some(([k,s])=>{
+          const rowIdx=parseInt(k.split(',')[0])
+          return rowIdx===0&&(s?.bold||(s?.bg&&s.bg!=='#ffffff'&&s.bg!=='')||(s?.color&&s.color!=='#111827'))
+        })
+        beautyPts=headerStyled?rule.pts:0
+      } else {
+        // Generic: any styling done → full marks
+        const hb=Object.values(cellStyles).some(s=>s?.bold)
+        const bg=Object.entries(cellStyles).some(([k,s])=>{
+          const rowIdx=parseInt(k.split(',')[0])
+          return rowIdx>=1&&s.bg&&s.bg!=='#ffffff'&&s.bg!==''
+        })
+        beautyPts=(hb||bg)?rule.pts:0
+      }
       total+=beautyPts; detail[rule.id]={pts:beautyPts,max:rule.pts,label:rule.desc}
     } else {
       // text_match: check if cell contains a substring
@@ -2436,6 +2455,11 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
     if(!selected) return
     const key=`${selected.r},${selected.c}`
     setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,bg:col}}})
+  }
+  function toggleCurrency(){
+    if(!selected) return
+    const key=`${selected.r},${selected.c}`
+    setCellStyles(p=>{const cur=p[key]||{};return{...p,[key]:{...cur,currency:!cur.currency}}})
   }
 
   async function handleSubmit(){
@@ -2584,6 +2608,10 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           padding:"4px 10px",borderRadius:5,border:`1px solid ${C.border}`,
           background:selSt.bold?"rgba(37,99,235,.1)":"white",
           color:selSt.bold?C.accent:C.text,fontWeight:900,cursor:"pointer",fontSize:13}}>B</button>
+        <button onMouseDown={e=>{e.preventDefault();toggleCurrency()}} title="货币格式（¥）" style={{
+          padding:"4px 10px",borderRadius:5,border:`1px solid ${selSt.currency?"#059669":C.border}`,
+          background:selSt.currency?"rgba(5,150,105,.1)":"white",
+          color:selSt.currency?"#059669":C.text,fontWeight:700,cursor:"pointer",fontSize:13}}>¥</button>
         <span style={{fontSize:11,color:C.muted}}>填充:</span>
         {BG_COLS.map(col=>(
           <div key={col} onMouseDown={e=>{e.preventDefault();setBg(col)}} style={{
@@ -2645,7 +2673,9 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                     const st=cellStyles[key]||{}
                     const edit=isEdit(r,c)
                     const isSel=selected?.r===r&&selected?.c===c
-                    const dv=exDisplayVal(r,c,userForms,staticGrid,task)
+                    const rawDv=exDisplayVal(r,c,userForms,staticGrid,task)
+                    const isCurrency=cellStyles[`${r},${c}`]?.currency
+                    const dv=isCurrency&&rawDv!==''&&!isNaN(Number(rawDv))?'¥'+Number(rawDv).toFixed(2):rawDv
                     const isErr=typeof dv==='string'&&dv.startsWith('#')
                     // Cell status
                     let status=null
