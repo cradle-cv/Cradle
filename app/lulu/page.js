@@ -975,7 +975,7 @@ function TDash({session:init,onBack}){
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
                       {members.map(m=>{
                         const sub=submissions.find(x=>x.student_name===m.student_name&&x.phase==='excel')
-                        const pct=sub?Math.round(sub.score/80*100):0
+                        const pct=sub?Math.round(sub.score/(sub.max_score||80)*100):0
                         return(
                           <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(0,0,0,.03)"}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5}}>
@@ -2404,7 +2404,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
     if(sessionId){
       await sb.from("word_lab_submissions").upsert({
         session_id:sessionId,student_name:studentName,
-        score:finalS.total,max_score:80,submitted:true,phase:'excel',
+        score:finalS.total,max_score:finalS.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0),submitted:true,phase:'excel',
         completed_tasks:Object.keys(finalS.detail).filter(k=>finalS.detail[k].pts>0)
       },{onConflict:'session_id,student_name,phase'})
     }
@@ -2440,7 +2440,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
           boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
           <div style={{fontSize:12,color:C.muted,marginBottom:3}}>总分</div>
           <div style={{fontSize:48,fontWeight:900,color:C.accent,fontFamily:"'DM Mono',monospace"}}>{fs.total}</div>
-          <div style={{fontSize:12,color:C.muted}}>/ 80 分</div>
+          <div style={{fontSize:12,color:C.muted}}>/ {fs.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0)} 分</div>
         </div>
       </div>
     )
@@ -2490,7 +2490,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             </span>
           })}
           <span style={{fontSize:14,fontWeight:900,color:sc.total>=60?"#6ee7b7":"#fcd34d",
-            fontFamily:"'DM Mono',monospace",marginLeft:4}}>{sc.total}/80</span>
+            fontFamily:"'DM Mono',monospace",marginLeft:4}}>{sc.total}/{sc.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0)}</span>
         </div>
         <button onClick={handleSubmit} style={{padding:"6px 16px",borderRadius:7,border:"none",
           background:"#f59e0b",color:"white",fontSize:12,fontWeight:700,fontFamily:F,cursor:"pointer"}}>
@@ -2668,7 +2668,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
         {sc.rules.map(r=>{const d=sc.detail[r.id];if(!d)return null;return(
           <span key={r.id}>{d.label.split('(')[0]} {d.pts}/{d.max}</span>
         )})}
-        <span style={{color:C.accent,fontWeight:700}}>总分 {sc.total}/80</span>
+        <span style={{color:C.accent,fontWeight:700}}>总分 {sc.total}/{sc.rules.reduce((s,r)=>s+(r.total_pts||r.pts||0),0)}</span>
       </div>
     </div>
   )
