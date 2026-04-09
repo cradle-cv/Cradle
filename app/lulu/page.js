@@ -2635,8 +2635,19 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
               const resp=await fetch(SCORE_OFFICE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({fileBase64:b64,fileType:'xlsx',scoringRules:sc.rules})})
               const data=await resp.json()
-              if(!data.error) alert(`文件评分：${data.total}/${data.max} 分\n${data.details?.map(d=>`${d.ok?'✓':'✗'} ${d.desc} ${d.pts||0}分`).join('\n')}`)
-              else alert('解析失败：'+data.error)
+              if(!data.error){
+                alert(`文件评分：${data.total}/${data.max} 分\n${data.details?.map(d=>`${d.ok?'✓':'✗'} ${d.desc} ${d.pts||0}分`).join('\n')}`)
+                // Save to DB so teacher can review
+                if(sessionId){
+                  await sb.from("lulu_file_submissions").insert({
+                    session_id:sessionId, student_name:studentName,
+                    task_id:excelTaskId||null, file_name:file.name,
+                    file_base64:b64, file_type:'xlsx',
+                    auto_score:data.total, auto_max:data.max||0,
+                    auto_detail:data.details||[]
+                  })
+                }
+              } else alert('解析失败：'+data.error)
               e.target.value=''
             }}/>
           <label htmlFor="exUpload" style={{padding:"6px 14px",borderRadius:7,
