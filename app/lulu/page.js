@@ -2067,7 +2067,13 @@ function exEvalIF(inner,userForms,grid){
   // If condition is a function call (AND/OR/NOT/etc.), evaluate via formula engine
   if(/^[A-Z]+\(/i.test(condStr)){
     const r=exEvalFull('='+condStr,userForms,grid)
-    cond=r!==false&&r!==0&&r!==''&&r!=='FALSE'&&r!==null
+    // r will be 1/0 (after engine boolean fix), or '#UNSUP'/'#ERR' on failure
+    // Fall back to direct exEvalCond if engine returns error
+    if(typeof r==='string'&&r.startsWith('#')){
+      cond=exEvalCond(condStr,userForms,grid)
+    } else {
+      cond=r===true||(typeof r==='number'&&r!==0)||(typeof r==='string'&&r!==''&&r!=='0'&&r.toUpperCase()!=='FALSE'&&!r.startsWith('#'))
+    }
   } else {
     cond=exEvalCond(condStr,userForms,grid)
   }
@@ -2076,6 +2082,13 @@ function exEvalIF(inner,userForms,grid){
   return cond?tv:fv
 }
 function exEvalCond(cond,userForms,grid){
+  const ct=cond.trim()
+  // Handle function calls directly: AND(...), OR(...), NOT(...)
+  const fnM=ct.match(/^([A-Z]+)\(([\s\S]*)\)$/i)
+  if(fnM){
+    const r=exEvalFunc(fnM[1],exSplitArgs(fnM[2]),userForms,grid)
+    return r!==false&&r!==0&&r!==''&&r!=='FALSE'&&r!==null
+  }
   for(const op of['<>','<=','>=','=','<','>']){
     const idx=cond.indexOf(op)
     if(idx>0){
@@ -2188,6 +2201,18 @@ function exEvalFull(formula,userForms,grid){
       }
       return '#N/A'
     }
+    // AND/OR/NOT handled here to preserve boolean result (expression engine converts to string)
+    if(up.startsWith('AND(')){
+      const args=exSplitArgs(s.slice(4,-1))
+      return args.every(a=>exEvalCond(a.trim(),userForms,grid))
+    }
+    if(up.startsWith('OR(')){
+      const args=exSplitArgs(s.slice(3,-1))
+      return args.some(a=>exEvalCond(a.trim(),userForms,grid))
+    }
+    if(up.startsWith('NOT(')){
+      return !exEvalCond(s.slice(4,-1).trim(),userForms,grid)
+    }
 
     // Expression engine: process nested function calls, then evaluate arithmetic
     let expr=s
@@ -2195,6 +2220,8 @@ function exEvalFull(formula,userForms,grid){
       const prev=expr
       expr=expr.replace(/\b([A-Z]+)\(([^()]*)\)/gi,(match,fn,argStr)=>{
         const r=exEvalFunc(fn,exSplitArgs(argStr),userForms,grid)
+        // Convert booleans to 1/0 so arithmetic eval works
+        if(typeof r==='boolean') return r?'1':'0'
         return String(r??0)
       })
       if(expr===prev)break
