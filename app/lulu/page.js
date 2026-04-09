@@ -2333,11 +2333,11 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   async function handleSubmit(){
     const finalS=calcExcelScore(task,userForms,cellStyles,staticGrid)
     if(sessionId){
-      await sb.from("word_lab_submissions").insert({
+      await sb.from("word_lab_submissions").upsert({
         session_id:sessionId,student_name:studentName,
         score:finalS.total,max_score:80,submitted:true,phase:'excel',
         completed_tasks:Object.keys(finalS.detail).filter(k=>finalS.detail[k].pts>0)
-      })
+      },{onConflict:'session_id,student_name,phase'})
     }
     setFinalScore(finalS); setSubmitted(true)
     if(onSubmit) onSubmit(finalS.total)
@@ -3460,7 +3460,7 @@ function SMain({session:init,studentName}){
     return(
       <ExcelSheet
         task={null}
-        excelTaskId={init.excel_task_id}
+        excelTaskId={sess.excel_task_id}
         studentName={studentName}
         sessionId={init.id}
         onBack={null}
