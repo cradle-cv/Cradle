@@ -3181,6 +3181,51 @@ function SMain({session:init,studentName}){
 
   // Lab screen
   if(sess.phase==="lab"&&!taskLoaded) return <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:F,color:C.muted}}>题目加载中…</div>
+
+  // Open-ended subjective task: upload-only UI, no browser editor
+  const isOpenEnded=activeTask?.target_html==='__open_ended__'||(activeTask&&!(activeTask.requirements||[]).length&&!activeTask.target_html)
+  if(sess.phase==="lab"&&taskLoaded&&isOpenEnded){
+    return(
+      <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+        <div style={{background:"#1e3a5f",padding:"14px 24px",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{color:"white",fontWeight:700,fontSize:15}}>📝 {activeTask?.title||"排版作业"}</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.6)",flex:1}}>主观排版 · 老师评分</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:FM}}>{studentName}</div>
+        </div>
+        <div style={{maxWidth:800,margin:"40px auto",padding:"0 24px"}}>
+          <Card style={{marginBottom:20}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:8,color:C.accent}}>📋 作业要求</div>
+            <div style={{fontSize:13,color:C.muted,lineHeight:1.8}}>{activeTask?.description}</div>
+            <div style={{fontSize:12,color:C.muted,borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:12}}>
+              根据以下原始数据，在本机 Word 中自由设计一份完整的数据分析报告，完成后保存为 .docx 上传
+            </div>
+          </Card>
+          <Card style={{marginBottom:20,background:"#f8fafc"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:10}}>📄 原始数据素材</div>
+            <div style={{fontSize:13,lineHeight:2,color:C.text,fontFamily:"Georgia,serif"}}
+              dangerouslySetInnerHTML={{__html:activeTask?.raw_html||""}}/>
+          </Card>
+          <Card style={{border:`2px solid ${C.accent}22`,background:"rgba(37,99,235,.03)"}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:6}}>📤 上传完成的报告</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>在本机 Word 完成排版后，另存为 .docx 格式上传，由老师查阅评分</div>
+            <UploadScorePanel
+              fileType="docx"
+              scoringRules={[]}
+              sessionId={init.id}
+              studentName={studentName}
+              taskId={activeTask?.id||null}
+              onScore={null}
+            />
+            <div style={{marginTop:12,fontSize:12,color:C.muted,textAlign:"center"}}>
+              上传后老师会在「文件审阅」中查看你的报告并手动打分
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   if(sess.phase==="lab"){
     // Shared CSS injected into both panels so styles are identical
     const docCSS = `
