@@ -2209,11 +2209,12 @@ function exEvalFull(formula,userForms,grid){
 
 // ── Editable cell check (supports dynamic formula_cells) ───
 function exIsEditable(r,c,task){
-  if(r===0)return false
+  // Always check formula_cells first (supports both header row 0 and data rows)
   const fc=task?.formula_cells
   if(fc&&fc.length>0){
     return fc.some(f=>exGetRange(f.range).some(({r:cr,c:cc})=>cr===r&&cc===c))
   }
+  if(r===0)return false
   // Default 教案2 fallback
   if(c===6&&r>=1&&r<=30)return true
   if(c===8&&r>=1&&r<=4)return true
@@ -2253,11 +2254,34 @@ function calcExcelScore(task,userForms,cellStyles,grid){
   let total=0; const detail={}
   rules.forEach(rule=>{
     if(rule.type==='style'){
-      const hb=Object.keys(cellStyles).some(k=>k.startsWith('0,')&&cellStyles[k]?.bold)
-      const bg=Object.values(cellStyles).some(s=>s.bg&&s.bg!=='#ffffff'&&s.bg!=='')
+      // Bold: any cell styled as bold
+      const hb=Object.values(cellStyles).some(s=>s?.bold)
+      // Fill: any data row (row>=1) has non-white background color applied
+      const bg=Object.entries(cellStyles).some(([k,s])=>{
+        const rowIdx=parseInt(k.split(',')[0])
+        return rowIdx>=1&&s.bg&&s.bg!=='#ffffff'&&s.bg!==''
+      })
       const pts=(hb?Math.ceil(rule.pts/2):0)+(bg?Math.floor(rule.pts/2):0)
       total+=pts; detail[rule.id]={pts,max:rule.pts,label:rule.desc}
     } else {
+      // text_match: check if cell contains a substring
+      if(rule.type==='text_match'){
+        const cells=exGetRange(rule.cells||'')
+        let pts=0; const items=[]
+        cells.forEach(({r,c},i)=>{
+          const key=`${r},${c}`
+          // For row 0 (header), check colHeaders first, then userForms
+          let val=''
+          if(r===0) val=String(userForms[key]||grid?.[r]?.[c]||'')
+          else val=String(exGetCellVal(r,c,userForms,grid)||'')
+          const match=rule.match||''
+          const ok=match?val.includes(match):val.trim().length>0
+          if(ok) pts+=(rule.pts_each||rule.pts||0)
+          items.push({r,c,ok,val})
+        })
+        total+=pts; detail[rule.id]={pts,max:rule.total_pts||rule.pts||0,label:rule.desc,items}
+        return
+      }
       const cellList=exGetRange(rule.cells); const exp=rule.expected||[]; let pts=0; const items=[]
       const kw=rule.keyword||''
       cellList.forEach(({r,c},i)=>{
@@ -2321,6 +2345,32 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   function commitEdit(){
     if(!selected||!isEdit(selected.r,selected.c)) return
     setUserForms(p=>({...p,[`${selected.r},${selected.c}`]:editVal}))
+  }
+
+  // Fill formula down the column from selected cell
+  function fillDown(){
+    if(!selected||!editVal.startsWith('=')) return
+    const {r,c}=selected
+    // Find all editable cells below in same column
+    const fc=task?.formula_cells||[]
+    const editableRows=[]
+    for(let row=r+1;row<=200;row++){
+      if(exIsEditable(row,c,task)) editableRows.push(row)
+      else if(editableRows.length>0) break // stop at first non-editable
+    }
+    if(!editableRows.length) return
+    // Adjust row references in formula: replace non-$ row numbers
+    setUserForms(p=>{
+      const next={...p}
+      editableRows.forEach(targetRow=>{
+        const adjusted=editVal.replace(/(?<!\$)([A-Za-z]+)(\d+)/g,(match,col,rowNum)=>{
+          if(parseInt(rowNum)===r+1) return col+(targetRow+1)
+          return match
+        })
+        next[`${targetRow},${c}`]=adjusted
+      })
+      return next
+    })
   }
 
   function onKey(e){
@@ -2391,6 +2441,20 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
   const selKey=selected?`${selected.r},${selected.c}`:null
   const selSt=selKey?cellStyles[selKey]||{}:{}
   const fbarEditable=selected&&isEdit(selected.r,selected.c)
+
+  function downloadCSV(){
+    const headers=colHeaders
+    const rows=(task?.initial_data)||EXCEL_RAW.map(r=>[...r,null])
+    const lines=[headers,...rows].map(row=>
+      row.map(v=>v===null?'':'"'+String(v).replace(/"/g,'""')+'"').join(',')
+    )
+    const csv='\uFEFF'+lines.join('\n')
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'})
+    const url=URL.createObjectURL(blob)
+    const a=document.createElement('a')
+    a.href=url;a.download=(task?.title||'表格题目')+'.csv';a.click()
+    URL.revokeObjectURL(url)
+  }
   const sc=score // alias for use in render
 
   return(
@@ -2402,6 +2466,11 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
         {onBack&&<button onClick={onBack} style={{background:"rgba(255,255,255,.15)",border:"none",
           color:"white",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:12,fontFamily:F}}>← 返回</button>}
         <div style={{fontSize:14,fontWeight:700}}>📊 Excel 制表 · {studentName}</div>
+        <button onClick={downloadCSV} style={{padding:"4px 12px",borderRadius:6,border:"1px solid rgba(255,255,255,.3)",
+          background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.85)",cursor:"pointer",
+          fontSize:11,fontFamily:F,whiteSpace:"nowrap"}} title="下载原始表格到本地Excel操作后上传">
+          ⬇ 下载原始表
+        </button>
         <div style={{flex:1}}/>
         <div style={{display:"flex",gap:6}}>
           {sc.rules.map(r=>{
@@ -2454,6 +2523,15 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
             border:`1px solid ${fbarEditable?"#ca8a04":C.border}`,
             background:fbarEditable?"#fefce8":"#f9fafb",outline:"none",minWidth:180}}/>
         <div style={{width:1,height:18,background:C.border}}/>
+        {/* Fill down button */}
+        {fbarEditable&&editVal.startsWith('=')&&(
+          <button onMouseDown={e=>{e.preventDefault();fillDown()}} style={{
+            padding:"4px 10px",borderRadius:5,border:`1px solid ${C.gold}`,
+            background:"rgba(217,119,6,.08)",color:C.gold,cursor:"pointer",
+            fontSize:12,fontWeight:700,fontFamily:F,whiteSpace:"nowrap"
+          }} title="把当前公式填充到下方所有空白格">⬇ 向下填充</button>
+        )}
+        <div style={{width:1,height:18,background:C.border}}/>
         <button onMouseDown={e=>{e.preventDefault();toggleBold()}} style={{
           padding:"4px 10px",borderRadius:5,border:`1px solid ${C.border}`,
           background:selSt.bold?"rgba(37,99,235,.1)":"white",
@@ -2485,13 +2563,23 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
               {colHeaders.map((h,c)=>{
                 const st=cellStyles[`0,${c}`]||{}
                 const isSel=selected?.r===0&&selected?.c===c
+                const isHeaderEdit=exIsEditable(0,c,task)
+                const headerVal=userForms[`0,${c}`]||h
                 return(
                   <td key={c} onClick={()=>selectCell(0,c)} style={{
-                    border:`${isSel?2:1}px solid ${isSel?C.accent:C.border}`,
+                    border:`${isSel?2:1}px solid ${isSel?C.accent:isHeaderEdit?"#ca8a04":C.border}`,
                     padding:"4px 5px",fontSize:11,fontWeight:st.bold?700:700,
-                    background:st.bg||"#1e3a5f",color:st.color||"white",
-                    cursor:"default",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"
-                  }}>{h}</td>
+                    background:st.bg||(isHeaderEdit?"#fef3c7":"#1e3a5f"),
+                    color:st.color||(isHeaderEdit?"#92400e":"white"),
+                    cursor:isHeaderEdit?"cell":"default",
+                    whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"
+                  }}>
+                    {isHeaderEdit
+                      ? (userForms[`0,${c}`]
+                          ? userForms[`0,${c}`]
+                          : <span style={{opacity:.5,fontSize:9,fontStyle:"italic"}}>输入列标题</span>)
+                      : h}
+                  </td>
                 )
               })}
             </tr>
@@ -2565,7 +2653,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
       {/* Status bar */}
       <div style={{background:C.panel,borderTop:`1px solid ${C.border}`,padding:"4px 14px",
         display:"flex",gap:14,fontSize:11,color:C.muted,alignItems:"center"}}>
-        <span>💡 点击黄色单元格 → 公式栏输入公式 → Enter 确认</span>
+        <span>💡 点击黄色单元格 → 公式栏输入 → Enter 确认 &nbsp;|&nbsp; 输完第一格公式后点「⬇ 向下填充」批量填充</span>
         <div style={{flex:1}}/>
         {sc.rules.map(r=>{const d=sc.detail[r.id];if(!d)return null;return(
           <span key={r.id}>{d.label.split('(')[0]} {d.pts}/{d.max}</span>
