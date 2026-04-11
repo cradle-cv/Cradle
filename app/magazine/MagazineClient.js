@@ -176,26 +176,39 @@ function EmptyState({ text, sub }) {
 
 function ChronicleCarousel({ chronicleList }) {
   const [activeIdx, setActiveIdx] = useState(0)
-  const [fading, setFading] = useState(false)
+  const [flipState, setFlipState] = useState('idle')
+  const [flipDir, setFlipDir] = useState('next')
   const active = chronicleList[activeIdx]
   const others = chronicleList.filter((_, i) => i !== activeIdx)
 
   function goTo(idx) {
-    if (idx === activeIdx || fading) return
-    setFading(true)
-    setTimeout(() => { setActiveIdx(idx); setFading(false) }, 300)
+    if (idx === activeIdx || flipState !== 'idle') return
+    setFlipDir(idx > activeIdx ? 'next' : 'prev')
+    setFlipState('flip-out')
+    setTimeout(() => {
+      setActiveIdx(idx)
+      setFlipState('flip-in')
+      setTimeout(() => setFlipState('idle'), 500)
+    }, 400)
   }
 
+  const flipStyle = flipState === 'flip-out'
+    ? { transform: `perspective(1200px) rotateY(${flipDir === 'next' ? '-12deg' : '12deg'}) scale(0.95)`, opacity: 0.3, transition: 'transform 0.4s ease-in, opacity 0.4s ease-in' }
+    : flipState === 'flip-in'
+    ? { transform: 'perspective(1200px) rotateY(0deg) scale(1)', opacity: 1, transition: 'transform 0.5s ease-out, opacity 0.3s ease-out' }
+    : {}
+
   return (
-    <div className="space-y-8">
-      {/* 主展示大图 */}
+    <div className="space-y-5">
       <div className="relative">
         <Link href={`/magazine/view/${active.id}`} className="group block">
           <div className="relative rounded-lg overflow-hidden" style={{
             height: '420px',
-            opacity: fading ? 0 : 1,
-            transition: 'opacity 0.3s ease',
+            transformOrigin: flipDir === 'next' ? 'left center' : 'right center',
+            ...flipStyle,
           }}>
+            <div className="absolute inset-0 z-[2] pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(0,0,0,0.02) 100%)' }} />
+
             {active.cover_image ? (
               <img src={active.cover_image} alt={active.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -207,69 +220,50 @@ function ChronicleCarousel({ chronicleList }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
             <div className="absolute top-5 left-5 flex items-center gap-3">
-              <span className="px-4 py-1.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B', letterSpacing: '2px' }}>
-                CHRONICLE
-              </span>
-              {chronicleList.length > 1 && (
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  {activeIdx + 1} / {chronicleList.length}
-                </span>
-              )}
+              <span className="px-4 py-1.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B', letterSpacing: '2px' }}>CHRONICLE</span>
+              {chronicleList.length > 1 && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{activeIdx + 1} / {chronicleList.length}</span>}
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8">
-              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
-                {activeIdx === 0 ? '本期专栏' : '往期专栏'}
-              </p>
+              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>{activeIdx === 0 ? '本期专栏' : '往期专栏'}</p>
               <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{active.title}</h2>
-              {active.subtitle && (
-                <p className="text-sm text-white/70 mb-4 max-w-lg">{active.subtitle}</p>
-              )}
-              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform"
-                style={{ color: '#F59E0B' }}>
-                深度阅读 →
-              </span>
+              {active.subtitle && <p className="text-sm text-white/70 mb-4 max-w-lg">{active.subtitle}</p>}
+              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform" style={{ color: '#F59E0B' }}>深度阅读 →</span>
             </div>
           </div>
         </Link>
 
-        {/* 左右箭头 */}
         {chronicleList.length > 1 && (
           <>
             <button onClick={() => goTo(activeIdx === 0 ? chronicleList.length - 1 : activeIdx - 1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/30 transition z-10 text-xl backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
-              ‹
-            </button>
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition z-10 text-xl backdrop-blur-sm"
+              style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' }}
+              onMouseEnter={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' })}
+              onMouseLeave={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' })}>‹</button>
             <button onClick={() => goTo((activeIdx + 1) % chronicleList.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/30 transition z-10 text-xl backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
-              ›
-            </button>
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition z-10 text-xl backdrop-blur-sm"
+              style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' }}
+              onMouseEnter={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' })}
+              onMouseLeave={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' })}>›</button>
           </>
         )}
       </div>
 
-      {/* 其他期（排除当前展示的） */}
       {others.length > 0 && (
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {others.map(mag => {
             const origIdx = chronicleList.findIndex(c => c.id === mag.id)
             return (
               <div key={mag.id} className="group cursor-pointer" onClick={() => goTo(origIdx)}>
-                <div className="relative rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                <div className="relative rounded-lg overflow-hidden" style={{ height: '140px' }}>
                   {mag.cover_image ? (
-                    <img src={mag.cover_image} alt={mag.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={mag.cover_image} alt={mag.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#374151' }}>
-                      <span className="text-3xl">📖</span>
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#374151' }}><span className="text-3xl">📖</span></div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-base font-bold text-white leading-snug line-clamp-2">{mag.title}</h3>
-                    {mag.subtitle && <p className="text-xs text-white/60 mt-1 line-clamp-1">{mag.subtitle}</p>}
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{mag.title}</h3>
                   </div>
                 </div>
               </div>
