@@ -33,33 +33,33 @@ const FONT_LIST = [
   { value: '"Helvetica Neue", sans-serif', label: 'Helvetica' },
 ]
 
-function TextElement({ el, isSel, scale, onUpdate, borderStyle, shadowStyle }) {
+function TextElement({ el, isSel, isEditing, scale, onUpdate, onStartEdit, borderStyle, shadowStyle }) {
   const ref = useRef(null)
-  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
-    if (!editing && ref.current) {
+    if (!isEditing && ref.current) {
       ref.current.innerHTML = (el.content || '').replace(/\n/g, '<br>')
     }
-  }, [el.content, editing])
+  }, [el.content, isEditing])
 
-  function handleFocus() {
-    setEditing(true)
-    if (el.content === '标题文字' || el.content === '双击编辑文字') {
-      setTimeout(() => {
-        if (ref.current) {
-          const range = document.createRange()
-          range.selectNodeContents(ref.current)
-          const sel = window.getSelection()
-          sel.removeAllRanges()
-          sel.addRange(range)
-        }
-      }, 0)
+  useEffect(() => {
+    if (isEditing && ref.current) {
+      ref.current.focus()
+      if (el.content === '标题文字' || el.content === '双击编辑文字') {
+        setTimeout(() => {
+          if (ref.current) {
+            const range = document.createRange()
+            range.selectNodeContents(ref.current)
+            const sel = window.getSelection()
+            sel.removeAllRanges()
+            sel.addRange(range)
+          }
+        }, 0)
+      }
     }
-  }
+  }, [isEditing])
 
   function handleBlur() {
-    setEditing(false)
     if (!ref.current) return
     const html = ref.current.innerHTML
     const text = html
@@ -77,10 +77,10 @@ function TextElement({ el, isSel, scale, onUpdate, borderStyle, shadowStyle }) {
 
   return (
     <div ref={ref} className="w-full h-full overflow-hidden"
-      contentEditable={isSel && !el.locked} suppressContentEditableWarning
-      onFocus={handleFocus}
+      contentEditable={isEditing && !el.locked} suppressContentEditableWarning
       onBlur={handleBlur}
-      onMouseDown={e => { if (isSel) e.stopPropagation() }}
+      onDoubleClick={e => { e.stopPropagation(); if (isSel && !el.locked) onStartEdit() }}
+      onMouseDown={e => { if (isEditing) e.stopPropagation() }}
       style={{
         fontSize: `${(el.style?.fontSize || 16) * scale}px`,
         fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
@@ -90,7 +90,7 @@ function TextElement({ el, isSel, scale, onUpdate, borderStyle, shadowStyle }) {
         backgroundColor: el.style?.backgroundColor || 'transparent',
         border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
         boxShadow: shadowStyle,
-        padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+        padding: '4px', cursor: isEditing ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap',
       }}
     />
   )
@@ -114,6 +114,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
   const [redoStack, setRedoStack] = useState([])
   const [deletedSpreadIds, setDeletedSpreadIds] = useState([])
   const [fullscreen, setFullscreen] = useState(false)
+  const [editingTextId, setEditingTextId] = useState(null)
   const canvasRef = useRef(null)
   const fileRef = useRef(null)
   const bgFileRef = useRef(null)
@@ -225,7 +226,10 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
       if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) { undo(); e.preventDefault() }
       if ((e.key === 'y' && (e.ctrlKey || e.metaKey)) || (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.shiftKey)) { redo(); e.preventDefault() }
       if (e.key === 'd' && (e.ctrlKey || e.metaKey)) { if (selectedEl) { duplicateSelected(); e.preventDefault() } }
-      if (e.key === 'Escape' && fullscreen) { setFullscreen(false); e.preventDefault() }
+      if (e.key === 'Escape') {
+        if (editingTextId) { setEditingTextId(null); e.preventDefault() }
+        else if (fullscreen) { setFullscreen(false); e.preventDefault() }
+      }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedEl) {
         e.preventDefault()
         const step = e.shiftKey ? 10 : 1
@@ -425,6 +429,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
     if (el?.locked) { alert('元素已锁定'); return }
     updateElements(elements.filter(el => el.id !== selectedEl))
     setSelectedEl(null)
+    setEditingTextId(null)
   }
 
   function duplicateSelected() {
@@ -463,9 +468,10 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
   function handleMouseDown(e, elId) {
     e.stopPropagation()
     const el = elements.find(el => el.id === elId)
-    if (elId === selectedEl && el?.type === 'text' && !el.locked) {
-      return
-    }
+    // If clicking on a text element that is in editing mode, let contentEditable handle it
+    if (elId === editingTextId) return
+    // If switching to a different element, exit text editing
+    if (editingTextId && elId !== editingTextId) setEditingTextId(null)
     setSelectedEl(elId)
     if (!el || el.locked) return
     pushUndo()
@@ -698,7 +704,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
             backgroundImage: spread?.background_image ? `url(${spread.background_image})` : 'none',
             backgroundSize: 'cover', backgroundPosition: 'center',
           }}
-          onClick={e => { if (e.target === e.currentTarget) setSelectedEl(null) }}>
+          onClick={e => { if (e.target === e.currentTarget) { setSelectedEl(null); setEditingTextId(null) } }}>
 
           <div className="absolute top-0 bottom-0 left-1/2 pointer-events-none" style={{ width: '1px', background: 'repeating-linear-gradient(to bottom, #C4B5FD 0, #C4B5FD 4px, transparent 4px, transparent 8px)', zIndex: 50, opacity: 0.5 }} />
 
@@ -720,7 +726,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
                 left: l, top: t, width: w, height: h,
                 outline: isSel ? '2px solid #7C3AED' : 'none', outlineOffset: '1px',
                 zIndex: (isSel && (dragging?.elId === el.id || resizing?.elId === el.id)) ? 999 : elIdx + 1,
-                cursor: el.locked ? 'not-allowed' : (dragging?.elId === el.id ? 'grabbing' : 'grab'),
+                cursor: el.locked ? 'not-allowed' : (editingTextId === el.id ? 'text' : (dragging?.elId === el.id ? 'grabbing' : 'grab')),
                 opacity: el.locked && !isSel ? 0.8 : 1,
               }}
                 onMouseDown={e => handleMouseDown(e, el.id)}
@@ -730,11 +736,13 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
                   <TextElement
                     el={el}
                     isSel={isSel}
+                    isEditing={editingTextId === el.id}
                     scale={canvasRef.current ? canvasRef.current.offsetWidth / canvasW : 1}
                     onUpdate={(content) => {
                       pushUndo()
                       updateElement(el.id, { content })
                     }}
+                    onStartEdit={() => setEditingTextId(el.id)}
                     borderStyle={borderStyle}
                     shadowStyle={shadowStyle}
                   />
@@ -780,7 +788,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
       <div className="bg-white border-t px-3 py-2 flex items-center gap-2 overflow-x-auto" style={{ borderColor: '#E5E7EB' }}>
         {spreads.map((s, i) => (
           <div key={s.id || i} className="relative flex-shrink-0 group">
-            <button onClick={() => { setCurrentSpread(i); setSelectedEl(null); setPlacementSide('left') }}
+            <button onClick={() => { setCurrentSpread(i); setSelectedEl(null); setEditingTextId(null); setPlacementSide('left') }}
               className="rounded overflow-hidden transition-all"
               style={{ width: 100, height: Math.round(100 * canvasH / canvasW), border: i === currentSpread ? '3px solid #7C3AED' : '2px solid #E5E7EB', backgroundColor: s.background_color || '#FFF',
                 backgroundImage: s.background_image ? `url(${s.background_image})` : 'none', backgroundSize: 'cover' }}>
