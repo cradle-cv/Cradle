@@ -57,7 +57,7 @@ export default function StudioMagazineEditPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage })
       })
-      alert('✅ 信息已保存')
+      alert('信息已保存')
     } catch (err) { alert('保存失败: ' + err.message) }
     finally { setSaving(false) }
   }
@@ -70,7 +70,7 @@ export default function StudioMagazineEditPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage, status: 'published' })
       })
-      alert('✅ 杂志已发布')
+      alert('杂志已发布')
       loadMagazine()
     } catch (err) { alert('发布失败: ' + err.message) }
   }
@@ -107,14 +107,31 @@ export default function StudioMagazineEditPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" placeholder="副标题（可选）" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>封面图</label>
-              <div className="flex items-center gap-3">
+              <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
+                封面图 <span className="text-xs font-normal" style={{ color: '#9CA3AF' }}>（可选，编辑完内容后再设置）</span>
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
                 {coverImage && <img src={coverImage} className="w-20 h-14 rounded-lg object-cover" />}
                 <input ref={coverRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
                 <button onClick={() => coverRef.current?.click()}
                   className="px-4 py-2 rounded-lg text-sm border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
                   📤 {coverImage ? '更换' : '上传'}封面
                 </button>
+                {spreads.length > 0 && (
+                  <button onClick={() => {
+                    const firstSpread = spreads[0]
+                    const firstImage = (firstSpread?.elements || []).find(el => el.type === 'image' && el.content)
+                    if (firstImage) { setCoverImage(firstImage.content); alert('已使用第一页图片作为封面，记得点保存') }
+                    else alert('第一页没有找到图片元素')
+                  }}
+                    className="px-4 py-2 rounded-lg text-sm border hover:bg-amber-50" style={{ color: '#B45309', borderColor: '#FCD34D' }}>
+                    🎨 使用第一页图片
+                  </button>
+                )}
+                {coverImage && (
+                  <button onClick={() => setCoverImage('')}
+                    className="px-3 py-2 rounded-lg text-xs border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>清除</button>
+                )}
               </div>
             </div>
             <div className="flex items-end gap-3">
