@@ -255,7 +255,7 @@ function ChronicleCarousel({ chronicleList }) {
             const origIdx = chronicleList.findIndex(c => c.id === mag.id)
             return (
               <div key={mag.id} className="group cursor-pointer" onClick={() => goTo(origIdx)}>
-                <div className="relative rounded-lg overflow-hidden" style={{ height: '140px' }}>
+                <div className="relative rounded-lg overflow-hidden" style={{ height: '60px' }}>
                   {mag.cover_image ? (
                     <img src={mag.cover_image} alt={mag.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
