@@ -176,152 +176,105 @@ function EmptyState({ text, sub }) {
 
 function ChronicleCarousel({ chronicleList }) {
   const [activeIdx, setActiveIdx] = useState(0)
-  const [transitioning, setTransitioning] = useState(false)
-  const timerRef = useRef(null)
+  const [fading, setFading] = useState(false)
   const active = chronicleList[activeIdx]
-
-  // 自动轮播（8秒）
-  useEffect(() => {
-    if (chronicleList.length <= 1) return
-    timerRef.current = setInterval(() => {
-      setTransitioning(true)
-      setTimeout(() => {
-        setActiveIdx(prev => (prev + 1) % chronicleList.length)
-        setTransitioning(false)
-      }, 400)
-    }, 8000)
-    return () => clearInterval(timerRef.current)
-  }, [chronicleList.length])
+  const others = chronicleList.filter((_, i) => i !== activeIdx)
 
   function goTo(idx) {
-    if (idx === activeIdx) return
-    clearInterval(timerRef.current)
-    setTransitioning(true)
-    setTimeout(() => {
-      setActiveIdx(idx)
-      setTransitioning(false)
-    }, 400)
-  }
-
-  function goPrev() {
-    goTo(activeIdx === 0 ? chronicleList.length - 1 : activeIdx - 1)
-  }
-
-  function goNext() {
-    goTo((activeIdx + 1) % chronicleList.length)
+    if (idx === activeIdx || fading) return
+    setFading(true)
+    setTimeout(() => { setActiveIdx(idx); setFading(false) }, 300)
   }
 
   return (
-    <div>
-      {/* 主展示区 */}
-      <Link href={`/magazine/view/${active.id}`} className="group block">
-        <div className="relative overflow-hidden" style={{ height: '440px', borderRadius: '4px' }}>
-          {/* 背景模糊层 */}
-          {active.cover_image && (
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url(${active.cover_image})`,
-              backgroundSize: 'cover', backgroundPosition: 'center',
-              filter: 'blur(40px) brightness(0.3)', transform: 'scale(1.2)',
-            }} />
-          )}
-          {!active.cover_image && <div className="absolute inset-0" style={{ backgroundColor: '#111827' }} />}
-
-          {/* 内容 */}
-          <div className="absolute inset-0 flex items-stretch" style={{
-            opacity: transitioning ? 0 : 1,
-            transform: transitioning ? 'translateY(20px)' : 'translateY(0)',
-            transition: 'opacity 0.4s ease, transform 0.4s ease',
+    <div className="space-y-8">
+      {/* 主展示大图 */}
+      <div className="relative">
+        <Link href={`/magazine/view/${active.id}`} className="group block">
+          <div className="relative rounded-lg overflow-hidden" style={{
+            height: '420px',
+            opacity: fading ? 0 : 1,
+            transition: 'opacity 0.3s ease',
           }}>
-            {/* 左侧：封面图 */}
-            <div className="w-1/2 flex items-center justify-center p-8">
-              {active.cover_image ? (
-                <div className="relative" style={{ maxHeight: '380px', aspectRatio: '4/3' }}>
-                  <img src={active.cover_image} alt={active.title}
-                    className="h-full w-auto object-cover rounded shadow-2xl group-hover:scale-[1.02] transition-transform duration-700"
-                    style={{ maxHeight: '380px' }} />
-                  {/* 期号角标 */}
-                  <div className="absolute -top-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                    style={{ backgroundColor: '#F59E0B', color: '#111827', fontSize: '11px', fontWeight: 700 }}>
-                    {String(activeIdx + 1).padStart(2, '0')}
-                  </div>
-                </div>
-              ) : (
-                <div className="w-64 h-48 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                  <span className="text-6xl">📖</span>
-                </div>
+            {active.cover_image ? (
+              <img src={active.cover_image} alt={active.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1F2937' }}>
+                <span className="text-6xl">📖</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+            <div className="absolute top-5 left-5 flex items-center gap-3">
+              <span className="px-4 py-1.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B', letterSpacing: '2px' }}>
+                CHRONICLE
+              </span>
+              {chronicleList.length > 1 && (
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {activeIdx + 1} / {chronicleList.length}
+                </span>
               )}
             </div>
 
-            {/* 右侧：文字信息 */}
-            <div className="w-1/2 flex flex-col justify-center pr-10 py-8">
-              <div className="mb-4">
-                <span className="px-3 py-1 rounded-sm text-xs font-medium" style={{ backgroundColor: 'rgba(245,158,11,0.2)', color: '#F59E0B', letterSpacing: '3px' }}>
-                  CHRONICLE
-                </span>
-              </div>
-
-              <h2 className="text-3xl font-bold text-white mb-3 leading-tight">{active.title}</h2>
+            <div className="absolute bottom-0 left-0 right-0 p-8">
+              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+                {activeIdx === 0 ? '本期专栏' : '往期专栏'}
+              </p>
+              <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{active.title}</h2>
               {active.subtitle && (
-                <p className="text-base mb-6 leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>{active.subtitle}</p>
+                <p className="text-sm text-white/70 mb-4 max-w-lg">{active.subtitle}</p>
               )}
-
-              {/* 页数 */}
-              {active.pages_count > 0 && (
-                <p className="text-xs mb-6" style={{ color: 'rgba(255,255,255,0.35)' }}>{active.pages_count} 页</p>
-              )}
-
-              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-2 transition-transform duration-300"
+              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform"
                 style={{ color: '#F59E0B' }}>
                 深度阅读 →
               </span>
             </div>
           </div>
+        </Link>
 
-          {/* 左右箭头 */}
-          {chronicleList.length > 1 && (
-            <>
-              <button onClick={e => { e.preventDefault(); e.stopPropagation(); goPrev() }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition z-10 text-xl">
-                ‹
-              </button>
-              <button onClick={e => { e.preventDefault(); e.stopPropagation(); goNext() }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition z-10 text-xl">
-                ›
-              </button>
-            </>
-          )}
-        </div>
-      </Link>
-
-      {/* 底部缩略图指示器 */}
-      {chronicleList.length > 1 && (
-        <div className="flex items-center gap-3 mt-4 justify-center">
-          {chronicleList.map((mag, i) => (
-            <button key={mag.id} onClick={() => goTo(i)}
-              className="group/thumb flex items-center gap-2 transition-all duration-300"
-              style={{
-                opacity: i === activeIdx ? 1 : 0.5,
-                transform: i === activeIdx ? 'scale(1)' : 'scale(0.95)',
-              }}>
-              {/* 缩略封面 */}
-              <div className="overflow-hidden flex-shrink-0 transition-all duration-300" style={{
-                width: i === activeIdx ? '56px' : '44px',
-                height: i === activeIdx ? '38px' : '30px',
-                borderRadius: '3px',
-                border: i === activeIdx ? '2px solid #F59E0B' : '1.5px solid #E5E7EB',
-              }}>
-                {mag.cover_image ? (
-                  <img src={mag.cover_image} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>📖</div>
-                )}
-              </div>
-              {/* 当前选中时显示标题 */}
-              {i === activeIdx && (
-                <span className="text-xs font-medium truncate max-w-24" style={{ color: '#111827' }}>{mag.title}</span>
-              )}
+        {/* 左右箭头 */}
+        {chronicleList.length > 1 && (
+          <>
+            <button onClick={() => goTo(activeIdx === 0 ? chronicleList.length - 1 : activeIdx - 1)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/30 transition z-10 text-xl backdrop-blur-sm"
+              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+              ‹
             </button>
-          ))}
+            <button onClick={() => goTo((activeIdx + 1) % chronicleList.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/30 transition z-10 text-xl backdrop-blur-sm"
+              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 其他期（排除当前展示的） */}
+      {others.length > 0 && (
+        <div className="grid md:grid-cols-3 gap-5">
+          {others.map(mag => {
+            const origIdx = chronicleList.findIndex(c => c.id === mag.id)
+            return (
+              <div key={mag.id} className="group cursor-pointer" onClick={() => goTo(origIdx)}>
+                <div className="relative rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                  {mag.cover_image ? (
+                    <img src={mag.cover_image} alt={mag.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#374151' }}>
+                      <span className="text-3xl">📖</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="text-base font-bold text-white leading-snug line-clamp-2">{mag.title}</h3>
+                    {mag.subtitle && <p className="text-xs text-white/60 mt-1 line-clamp-1">{mag.subtitle}</p>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
