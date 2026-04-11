@@ -7,6 +7,95 @@ const DEFAULT_W = 800
 const DEFAULT_H = 450
 const SNAP_THRESHOLD = 6
 const MAX_UNDO = 30
+const FONT_LIST = [
+  { value: '"Noto Serif SC", serif', label: '思源宋体' },
+  { value: '"Noto Sans SC", sans-serif', label: '思源黑体' },
+  { value: '"ZCOOL XiaoWei", serif', label: '站酷小薇' },
+  { value: '"ZCOOL KuaiLe", sans-serif', label: '站酷快乐' },
+  { value: '"Ma Shan Zheng", cursive', label: '马善政楷' },
+  { value: '"Liu Jian Mao Cao", cursive', label: '刘建毛草' },
+  { value: '"Zhi Mang Xing", cursive', label: '志莽行书' },
+  { value: '"Playfair Display", serif', label: 'Playfair Display' },
+  { value: '"Cormorant Garamond", serif', label: 'Cormorant' },
+  { value: '"Libre Baskerville", serif', label: 'Baskerville' },
+  { value: '"DM Serif Display", serif', label: 'DM Serif' },
+  { value: '"Lora", serif', label: 'Lora' },
+  { value: '"Montserrat", sans-serif', label: 'Montserrat' },
+  { value: '"Raleway", sans-serif', label: 'Raleway' },
+  { value: '"Poppins", sans-serif', label: 'Poppins' },
+  { value: '"Space Grotesk", sans-serif', label: 'Space Grotesk' },
+  { value: '"IBM Plex Sans", sans-serif', label: 'IBM Plex' },
+  { value: '"Courier Prime", monospace', label: 'Courier Prime' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: '"Times New Roman", serif', label: 'Times New Roman' },
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: '"Helvetica Neue", sans-serif', label: 'Helvetica' },
+]
+
+function TextElement({ el, isSel, scale, onUpdate, borderStyle, shadowStyle }) {
+  const ref = useRef(null)
+  const [editing, setEditing] = useState(false)
+
+  // 非编辑状态时同步内容
+  useEffect(() => {
+    if (!editing && ref.current) {
+      ref.current.innerHTML = (el.content || '').replace(/\n/g, '<br>')
+    }
+  }, [el.content, editing])
+
+  function handleFocus() {
+    setEditing(true)
+    // 如果是默认文字，全选方便替换
+    if (el.content === '标题文字' || el.content === '双击编辑文字') {
+      setTimeout(() => {
+        if (ref.current) {
+          const range = document.createRange()
+          range.selectNodeContents(ref.current)
+          const sel = window.getSelection()
+          sel.removeAllRanges()
+          sel.addRange(range)
+        }
+      }, 0)
+    }
+  }
+
+  function handleBlur() {
+    setEditing(false)
+    if (!ref.current) return
+    const html = ref.current.innerHTML
+    const text = html
+      .replace(/<div><br\s*\/?><\/div>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/div><div>/gi, '\n')
+      .replace(/<\/?div>/gi, '')
+      .replace(/<\/?span[^>]*>/gi, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+    onUpdate(text)
+  }
+
+  return (
+    <div ref={ref} className="w-full h-full overflow-hidden"
+      contentEditable={isSel && !el.locked} suppressContentEditableWarning
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onMouseDown={e => { if (isSel) e.stopPropagation() }}
+      style={{
+        fontSize: `${(el.style?.fontSize || 16) * scale}px`,
+        fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
+        color: el.style?.color || '#333', fontWeight: el.style?.fontWeight || 'normal',
+        fontStyle: el.style?.fontStyle || 'normal', textDecoration: el.style?.textDecoration || 'none',
+        textAlign: el.style?.textAlign || 'left', lineHeight: el.style?.lineHeight || 1.8,
+        backgroundColor: el.style?.backgroundColor || 'transparent',
+        border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
+        boxShadow: shadowStyle,
+        padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+      }}
+    />
+  )
+}
 
 export default function MagazineEditor({ magazineId, initialSpreads = [], coverImage, onSave }) {
   const [spreads, setSpreads] = useState(initialSpreads.length > 0 ? initialSpreads : [{ id: 'temp_0', spread_index: 0, elements: [], background_color: '#FFFFFF', background_image: '' }])
@@ -570,7 +659,9 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
       {selEl && (
         <div className="bg-white border-b px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderColor: '#E5E7EB' }}>
           {selEl.type === 'text' && (
-            <>
+            <> <select value={selEl.style?.fontFamily || '"Noto Serif SC", serif'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontFamily: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB', maxWidth: '120px' }}>
+  {FONT_LIST.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+</select>
               <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>字号:<input type="number" value={selEl.style?.fontSize || 16} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontSize: parseInt(e.target.value) || 16 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
               <input type="color" value={selEl.style?.color || '#333'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, color: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" />
               <button onClick={() => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontWeight: selEl.style?.fontWeight === 'bold' ? 'normal' : 'bold' } })}
@@ -664,37 +755,19 @@ function genId() { return 'el_' + Date.now() + '_' + Math.random().toString(36).
                 onMouseDown={e => handleMouseDown(e, el.id)}
                 onClick={e => { e.stopPropagation(); setSelectedEl(el.id) }}>
 
-              {el.type === 'text' && (
-                  <div className="w-full h-full overflow-hidden"
-                    contentEditable={isSel && !el.locked} suppressContentEditableWarning
-                    onBlur={e => {
-                      pushUndo()
-                      const html = e.target.innerHTML
-                      const text = html
-                        .replace(/<div><br\s*\/?><\/div>/gi, '\n')
-                        .replace(/<br\s*\/?>/gi, '\n')
-                        .replace(/<\/div><div>/gi, '\n')
-                        .replace(/<\/?div>/gi, '')
-                        .replace(/<\/?span[^>]*>/gi, '')
-                        .replace(/&nbsp;/gi, ' ')
-                        .replace(/&amp;/gi, '&')
-                        .replace(/&lt;/gi, '<')
-                        .replace(/&gt;/gi, '>')
-                      updateElement(el.id, { content: text })
-                    }}
-                    dangerouslySetInnerHTML={{ __html: (el.content || '').replace(/\n/g, '<br>') }}
-                    style={{
-                      fontSize: `${(el.style?.fontSize || 16) * (canvasRef.current ? canvasRef.current.offsetWidth / canvasW : 1)}px`,
-                      fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
-                      color: el.style?.color || '#333', fontWeight: el.style?.fontWeight || 'normal',
-                      fontStyle: el.style?.fontStyle || 'normal', textDecoration: el.style?.textDecoration || 'none',
-                      textAlign: el.style?.textAlign || 'left', lineHeight: el.style?.lineHeight || 1.8,
-                      backgroundColor: el.style?.backgroundColor || 'transparent',
-                      border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
-                      boxShadow: shadowStyle,
-                      padding: '4px', cursor: isSel && !el.locked ? 'text' : 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap',
-                    }} />
-                )}
+             {el.type === 'text' && (
+    <TextElement
+      el={el}
+      isSel={isSel}
+      scale={canvasRef.current ? canvasRef.current.offsetWidth / canvasW : 1}
+      onUpdate={(content) => {
+        pushUndo()
+        updateElement(el.id, { content })
+      }}
+      borderStyle={borderStyle}
+      shadowStyle={shadowStyle}
+    />
+  )}
 
                 {el.type === 'image' && (
                   <img src={el.content} alt="" draggable={false} className="w-full h-full pointer-events-none" style={{
