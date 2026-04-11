@@ -21,6 +21,7 @@ export default function AdminMagazineEditPage() {
   const [coverImage, setCoverImage] = useState('')
   const [status, setStatus] = useState('draft')
   const [sourceType, setSourceType] = useState('official')
+  const [tier, setTier] = useState('daily')
   const [galleryWorks, setGalleryWorks] = useState([])
   const [sourceWorkId, setSourceWorkId] = useState('')
 
@@ -43,6 +44,7 @@ export default function AdminMagazineEditPage() {
         setCoverImage(data.magazine.cover_image || '')
         setStatus(data.magazine.status || 'draft')
         setSourceType(data.magazine.source_type || 'official')
+        setTier(data.magazine.tier || 'daily')
         setSourceWorkId(data.magazine.source_work_id || '')
       } else {
         alert('杂志不存在')
@@ -61,6 +63,17 @@ export default function AdminMagazineEditPage() {
     } catch (err) { alert('上传失败: ' + err.message) }
   }
 
+  function useFirstPageImage() {
+    const firstSpread = spreads[0]
+    const firstImage = (firstSpread?.elements || []).find(el => el.type === 'image' && el.content)
+    if (firstImage) {
+      setCoverImage(firstImage.content)
+      alert('已使用第一页图片作为封面，记得点保存')
+    } else {
+      alert('第一页没有找到图片元素')
+    }
+  }
+
   async function saveInfo() {
     setSaving(true)
     try {
@@ -69,12 +82,12 @@ export default function AdminMagazineEditPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage, status })
       })
-      alert('✅ 信息已保存')
+      await supabase.from('magazines').update({ tier }).eq('id', id)
+      alert('信息已保存')
     } catch (err) { alert('保存失败: ' + err.message) }
     finally { setSaving(false) }
   }
 
-  // ========== 从日课导入内容 ==========
   async function importFromRike() {
     const workId = magazine?.source_work_id || sourceWorkId
     if (!workId) { alert('请先在上方关联一个阅览室作品'); return }
@@ -90,7 +103,6 @@ export default function AdminMagazineEditPage() {
 
       if (!work) { alert('找不到关联作品'); return }
 
-      // 尝试获取旧日课杂志页面
       let rikePages = []
       if (work.rike_article_id) {
         try {
@@ -100,7 +112,6 @@ export default function AdminMagazineEditPage() {
         } catch (e) { console.error(e) }
       }
 
-      // 获取文章内容
       let article = null
       if (work.rike_article_id) {
         const { data: a } = await supabase.from('articles').select('*').eq('id', work.rike_article_id).single()
@@ -111,7 +122,6 @@ export default function AdminMagazineEditPage() {
       const newSpreads = []
 
       if (rikePages.length > 0) {
-        // 从旧杂志页面导入
         rikePages.forEach((page, i) => {
           const elements = []
           if (page.title) {
@@ -142,10 +152,8 @@ export default function AdminMagazineEditPage() {
           if (elements.length > 0) newSpreads.push({ elements })
         })
       } else if (article) {
-        // 从文章内容导入
         const paragraphs = (article.content || '').split('\n\n').filter(p => p.trim())
 
-        // 第一页：封面+标题+简介
         const page1 = []
         if (work.cover_image) {
           page1.push({
@@ -179,7 +187,6 @@ export default function AdminMagazineEditPage() {
         }
         newSpreads.push({ elements: page1 })
 
-        // 后续页：段落左右交替
         let pageEls = []
         let side = 'left'
         paragraphs.forEach((para, i) => {
@@ -198,7 +205,6 @@ export default function AdminMagazineEditPage() {
 
       if (newSpreads.length === 0) { alert('没有找到可导入的内容'); return }
 
-      // 删除旧跨页
       const oldResp = await fetch(`/api/magazine?id=${id}`)
       const oldData = await oldResp.json()
       if (oldData.spreads) {
@@ -210,7 +216,6 @@ export default function AdminMagazineEditPage() {
         }
       }
 
-      // 创建新跨页
       for (let i = 0; i < newSpreads.length; i++) {
         const addResp = await fetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -225,7 +230,6 @@ export default function AdminMagazineEditPage() {
         }
       }
 
-      // 同步封面图
       if (work.cover_image && !coverImage) {
         setCoverImage(work.cover_image)
         await fetch('/api/magazine', {
@@ -234,7 +238,7 @@ export default function AdminMagazineEditPage() {
         })
       }
 
-      alert(`✅ 导入成功！共 ${newSpreads.length} 页`)
+      alert(`导入成功！共 ${newSpreads.length} 页`)
       window.location.reload()
     } catch (err) {
       alert('导入失败: ' + err.message)
@@ -251,6 +255,9 @@ export default function AdminMagazineEditPage() {
       <div className="flex items-center gap-4 mb-6">
         <Link href="/admin/magazine" style={{ color: '#6B7280' }}>← 返回杂志列表</Link>
         <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>编辑杂志</h1>
+        {tier === 'chronicle' && (
+          <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B' }}>CHRONICLE 专栏</span>
+        )}
         {(magazine?.source_work_id || sourceWorkId) && (
           <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>关联阅览室作品</span>
         )}
@@ -271,14 +278,28 @@ export default function AdminMagazineEditPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900" placeholder="副标题（可选）" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>封面图</label>
-            <div className="flex items-center gap-3">
+            <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
+              封面图 <span className="text-xs font-normal" style={{ color: '#9CA3AF' }}>（可选，编辑完内容后再设置也行）</span>
+            </label>
+            <div className="flex items-center gap-3 flex-wrap">
               {coverImage && <img src={coverImage} className="w-20 h-14 rounded-lg object-cover" />}
               <input ref={coverRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
               <button onClick={() => coverRef.current?.click()}
                 className="px-4 py-2 rounded-lg text-sm border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
                 📤 {coverImage ? '更换' : '上传'}封面
               </button>
+              {spreads.length > 0 && (
+                <button onClick={useFirstPageImage}
+                  className="px-4 py-2 rounded-lg text-sm border hover:bg-amber-50" style={{ color: '#B45309', borderColor: '#FCD34D' }}>
+                  🎨 使用第一页图片
+                </button>
+              )}
+              {coverImage && (
+                <button onClick={() => setCoverImage('')}
+                  className="px-3 py-2 rounded-lg text-xs border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>
+                  清除
+                </button>
+              )}
             </div>
           </div>
           <div>
@@ -290,6 +311,15 @@ export default function AdminMagazineEditPage() {
             </select>
           </div>
           <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>层级</label>
+            <select value={tier} onChange={e => setTier(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
+              <option value="chronicle">📖 Chronicle 深度专栏</option>
+              <option value="daily">📖 Daily 官方日课</option>
+              <option value="select">⭐ Select 用户创作</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>杂志类型</label>
             <select value={sourceType} onChange={async (e) => {
               const val = e.target.value
@@ -297,8 +327,8 @@ export default function AdminMagazineEditPage() {
               await supabase.from('magazines').update({ source_type: val }).eq('id', id)
             }}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900">
-              <option value="official">📖 官方 (Daily)</option>
-              <option value="user">👤 用户 (Select)</option>
+              <option value="official">📖 官方</option>
+              <option value="user">👤 用户</option>
             </select>
           </div>
           <div className="md:col-span-2">
@@ -324,7 +354,7 @@ export default function AdminMagazineEditPage() {
         </button>
       </div>
 
-      {/* 从日课导入（关联作品且内容为空时显示） */}
+      {/* 从日课导入 */}
       {(magazine?.source_work_id || sourceWorkId) && !hasContent && (
         <div className="rounded-lg p-6 mb-6" style={{ backgroundColor: '#F5F3FF', border: '1px solid #E9D5FF' }}>
           <div className="flex items-center gap-4">
@@ -333,7 +363,7 @@ export default function AdminMagazineEditPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold mb-1" style={{ color: '#7C3AED' }}>检测到关联阅览室作品</h3>
-              <p className="text-sm" style={{ color: '#6B7280' }}>可以从作品的日课内容（文章或旧版杂志页面）自动导入并排版</p>
+              <p className="text-sm" style={{ color: '#6B7280' }}>可以从作品的日课内容自动导入并排版</p>
             </div>
             <button onClick={importFromRike} disabled={importing}
               className="px-6 py-3 rounded-lg text-sm font-medium text-white flex-shrink-0 disabled:opacity-50"
@@ -344,7 +374,6 @@ export default function AdminMagazineEditPage() {
         </div>
       )}
 
-      {/* 已有内容时也提供重新导入选项 */}
       {(magazine?.source_work_id || sourceWorkId) && hasContent && (
         <div className="flex items-center gap-3 mb-4">
           <button onClick={importFromRike} disabled={importing}
@@ -361,7 +390,7 @@ export default function AdminMagazineEditPage() {
         <MagazineEditor magazineId={id} initialSpreads={spreads} coverImage={coverImage} />
       </div>
 
-      {/* 预览链接 */}
+      {/* 预览 */}
       <div className="bg-white rounded-lg shadow p-6 flex items-center justify-between">
         <p className="text-sm" style={{ color: '#6B7280' }}>编辑完成后可预览效果</p>
         <a href={`/magazine/view/${id}`} target="_blank"
