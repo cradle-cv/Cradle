@@ -89,6 +89,15 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
                 style={{ backgroundColor: Math.abs(zoom - z) < 0.05 ? 'rgba(255,255,255,0.25)' : 'transparent', color: '#FFFFFF' }}>{z}×</button>
             ))}
           </div>
+              <button onClick={() => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+  } else {
+    document.documentElement.requestFullscreen()
+  }
+}} className="px-3 py-1 rounded text-xs font-medium transition hover:bg-white/10" style={{ color: '#FFFFFF' }}>
+  {typeof document !== 'undefined' && document.fullscreenElement ? '退出全屏' : '⛶ 全屏'}
+</button>
           <span className="text-white/50 text-sm">{currentSpread + 1} / {spreads.length}</span>
           {onClose && <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 text-lg">✕</button>}
         </div>
