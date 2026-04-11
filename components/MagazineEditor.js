@@ -572,19 +572,19 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
         <button onClick={() => avatarRef.current?.click()} className="px-2.5 py-1.5 rounded text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }} title="圆形头像">👤 头像</button>
         <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
 
-        <button onClick={() => addShape('rect')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100" title="矩形">▭</button>
-        <button onClick={() => addShape('circle')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100" title="圆形">○</button>
-        <button onClick={() => addShape('line')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100" title="分割线">─</button>
+        <button onClick={() => addShape('rect')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="矩形">▭</button>
+        <button onClick={() => addShape('circle')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="圆形">○</button>
+        <button onClick={() => addShape('line')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="分割线">─</button>
         <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
 
-        <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: '#6B7280' }}>
+        <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: '#374151' }}>
           背景色:
           <input type="color" value={spread?.background_color || '#FFFFFF'} onChange={e => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_color: e.target.value } : s)); setDirty(true) }}
             className="w-5 h-5 rounded border-0 cursor-pointer" />
         </label>
         <input ref={bgFileRef} type="file" accept="image/*" onChange={handleBgImage} className="hidden" />
-        <button onClick={() => bgFileRef.current?.click()} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100" title="背景图片">🖼️ 背景图</button>
-        {spread?.background_image && <button onClick={() => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_image: '' } : s)); setDirty(true) }} className="px-1.5 py-1 rounded text-xs hover:bg-red-50 text-red-400" title="移除背景图">✕</button>}
+        <button onClick={() => bgFileRef.current?.click()} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="背景图片">🖼️ 背景图</button>
+        {spread?.background_image && <button onClick={() => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_image: '' } : s)); setDirty(true) }} className="px-1.5 py-1 rounded text-xs hover:bg-red-50 text-red-600" title="移除背景图">✕</button>}
         <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
 
         {selectedEl && (
@@ -598,15 +598,15 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
           </>
         )}
 
-        <button onClick={() => setFullscreen(f => !f)} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100" title={fullscreen ? '退出全屏 Esc' : '全屏编辑'}>
+        <button onClick={() => setFullscreen(f => !f)} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title={fullscreen ? '退出全屏 Esc' : '全屏编辑'}>
           {fullscreen ? '⬜ 退出' : '⛶ 全屏'}
         </button>
         <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
 
-        <button onClick={undo} disabled={undoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30" title="撤销 Ctrl+Z">↩</button>
-        <button onClick={redo} disabled={redoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30" title="重做 Ctrl+Y">↪</button>
+        <button onClick={undo} disabled={undoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="撤销 Ctrl+Z">↩</button>
+        <button onClick={redo} disabled={redoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="重做 Ctrl+Y">↪</button>
 
-        <div className="flex items-center gap-1 text-xs ml-auto" style={{ color: '#6B7280' }}>
+        <div className="flex items-center gap-1 text-xs ml-auto" style={{ color: '#374151' }}>
           <input type="number" value={canvasW} onChange={e => setCanvasW(Math.max(200, parseInt(e.target.value) || DEFAULT_W))} className="w-12 px-1 py-1 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
           <span>×</span>
           <input type="number" value={canvasH} onChange={e => setCanvasH(Math.max(100, parseInt(e.target.value) || DEFAULT_H))} className="w-12 px-1 py-1 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
@@ -636,7 +636,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
               <select value={selEl.style?.fontFamily || '"Noto Serif SC", serif'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontFamily: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB', maxWidth: '120px' }}>
                 {FONT_LIST.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
               </select>
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>字号:<input type="number" value={selEl.style?.fontSize || 16} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontSize: parseInt(e.target.value) || 16 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>字号:<input type="number" value={selEl.style?.fontSize || 16} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontSize: parseInt(e.target.value) || 16 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
               <input type="color" value={selEl.style?.color || '#333'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, color: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" />
               <button onClick={() => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontWeight: selEl.style?.fontWeight === 'bold' ? 'normal' : 'bold' } })}
                 className={`px-1.5 py-0.5 rounded text-xs font-bold ${selEl.style?.fontWeight === 'bold' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.fontWeight !== 'bold' ? { borderColor: '#D1D5DB' } : {}}>B</button>
@@ -647,9 +647,9 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
               <select value={selEl.style?.textAlign || 'left'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, textAlign: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
                 <option value="left">左</option><option value="center">中</option><option value="right">右</option>
               </select>
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>行高:<input type="number" step="0.1" value={selEl.style?.lineHeight || 1.8} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, lineHeight: parseFloat(e.target.value) || 1.8 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>行高:<input type="number" step="0.1" value={selEl.style?.lineHeight || 1.8} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, lineHeight: parseFloat(e.target.value) || 1.8 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
               <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>背景:<input type="color" value={selEl.style?.backgroundColor || '#FFFFFF'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>背景:<input type="color" value={selEl.style?.backgroundColor || '#FFFFFF'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
               <button onClick={() => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: '' } })} className="text-xs hover:bg-gray-100 px-1 rounded" style={{ color: '#9CA3AF' }}>✕</button>
             </>
           )}
@@ -674,12 +674,12 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
                 </>
               )}
               {selEl.type === 'shape' && (
-                <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>填充:<input type="color" value={selEl.style?.backgroundColor || '#E5E7EB'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
+                <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>填充:<input type="color" value={selEl.style?.backgroundColor || '#E5E7EB'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
               )}
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>圆角:<input type="number" value={selEl.style?.borderRadius || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderRadius: parseInt(e.target.value) || 0 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>边框:<input type="color" value={selEl.style?.borderColor || '#000000'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderColor: e.target.value, borderWidth: selEl.style?.borderWidth || 1 } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>圆角:<input type="number" value={selEl.style?.borderRadius || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderRadius: parseInt(e.target.value) || 0 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>边框:<input type="color" value={selEl.style?.borderColor || '#000000'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderColor: e.target.value, borderWidth: selEl.style?.borderWidth || 1 } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
               <input type="number" value={selEl.style?.borderWidth || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderWidth: parseInt(e.target.value) || 0 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="边框粗细" />
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#6B7280' }}>透明:<input type="range" min="0" max="100" value={Math.round((selEl.style?.opacity ?? 1) * 100)} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, opacity: parseInt(e.target.value) / 100 } })} className="w-14" /></label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>透明:<input type="range" min="0" max="100" value={Math.round((selEl.style?.opacity ?? 1) * 100)} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, opacity: parseInt(e.target.value) / 100 } })} className="w-14" /></label>
               <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: selEl.style?.shadow ? '#7C3AED' : '#9CA3AF' }}>
                 <input type="checkbox" checked={selEl.style?.shadow || false} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, shadow: e.target.checked } })} className="w-3 h-3" />阴影
               </label>
@@ -698,7 +698,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
             backgroundImage: spread?.background_image ? `url(${spread.background_image})` : 'none',
             backgroundSize: 'cover', backgroundPosition: 'center',
           }}
-          onClick={() => setSelectedEl(null)}>
+          onClick={e => { if (e.target === e.currentTarget) setSelectedEl(null) }}>
 
           <div className="absolute top-0 bottom-0 left-1/2 pointer-events-none" style={{ width: '1px', background: 'repeating-linear-gradient(to bottom, #C4B5FD 0, #C4B5FD 4px, transparent 4px, transparent 8px)', zIndex: 50, opacity: 0.5 }} />
 
