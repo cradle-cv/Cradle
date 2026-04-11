@@ -52,6 +52,19 @@ export default function AdminMagazinesPage() {
     loadMagazines()
   }
 
+  async function changeTier(id, newTier) {
+    try {
+      const { error } = await supabase
+        .from('magazines')
+        .update({ tier: newTier })
+        .eq('id', id)
+      if (error) throw error
+      loadMagazines()
+    } catch (err) {
+      alert('修改失败: ' + err.message)
+    }
+  }
+
   async function deleteMagazine(id) {
     if (!confirm('确定删除？')) return
     await fetch(`/api/magazine?id=${id}`, { method: 'DELETE' })
@@ -61,7 +74,8 @@ export default function AdminMagazinesPage() {
   const filtered = filter === 'all' ? magazines :
     filter === 'official' ? magazines.filter(m => m.source_type === 'official') :
     filter === 'user' ? magazines.filter(m => m.source_type === 'user') :
-    filter === 'featured' ? magazines.filter(m => m.is_featured) : magazines
+    filter === 'featured' ? magazines.filter(m => m.is_featured) :
+    filter === 'chronicle' ? magazines.filter(m => m.tier === 'chronicle') : magazines
 
   const statusColors = {
     draft: { bg: '#FEF3C7', color: '#B45309', text: '草稿' },
@@ -69,12 +83,18 @@ export default function AdminMagazinesPage() {
     featured: { bg: '#FEF3C7', color: '#D97706', text: '⭐ 精选' },
   }
 
+  const tierConfig = {
+    chronicle: { label: '📖 专栏', bg: '#111827', color: '#F59E0B' },
+    daily: { label: '📖 Daily', bg: '#EFF6FF', color: '#2563EB' },
+    select: { label: '⭐ Select', bg: '#F5F3FF', color: '#7C3AED' },
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>📖 杂志管理</h1>
-          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>管理摇篮Daily和摇篮Select</p>
+          <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>管理摇篮 Chronicle · Daily · Select</p>
         </div>
         <button onClick={createMagazine} disabled={creating}
           className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
@@ -85,6 +105,7 @@ export default function AdminMagazinesPage() {
       <div className="flex gap-2 mb-6">
         {[
           { key: 'all', label: '全部' },
+          { key: 'chronicle', label: '📖 专栏' },
           { key: 'official', label: '📖 官方' },
           { key: 'user', label: '👤 用户' },
           { key: 'featured', label: '⭐ 精选' },
@@ -110,7 +131,7 @@ export default function AdminMagazinesPage() {
               <tr style={{ backgroundColor: '#F9FAFB' }}>
                 <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>杂志</th>
                 <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>作者</th>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>类型</th>
+                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>层级</th>
                 <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>状态</th>
                 <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>页数</th>
                 <th className="text-right px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>操作</th>
@@ -119,6 +140,7 @@ export default function AdminMagazinesPage() {
             <tbody>
               {filtered.map(m => {
                 const sc = statusColors[m.status] || statusColors.draft
+                const tc = tierConfig[m.tier] || tierConfig.daily
                 return (
                   <tr key={m.id} className="border-t hover:bg-gray-50" style={{ borderColor: '#F3F4F6' }}>
                     <td className="px-5 py-4">
@@ -136,12 +158,13 @@ export default function AdminMagazinesPage() {
                     </td>
                     <td className="px-5 py-4 text-sm" style={{ color: '#6B7280' }}>{m.users?.username || '-'}</td>
                     <td className="px-5 py-4">
-                      <span className="px-2.5 py-1 rounded-full text-xs" style={{
-                        backgroundColor: m.source_type === 'official' ? '#EFF6FF' : '#F5F3FF',
-                        color: m.source_type === 'official' ? '#2563EB' : '#7C3AED'
-                      }}>
-                        {m.source_type === 'official' ? '官方' : '用户'}
-                      </span>
+                      <select value={m.tier || 'daily'} onChange={(e) => changeTier(m.id, e.target.value)}
+                        className="text-xs px-2 py-1.5 rounded border border-gray-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                        style={{ backgroundColor: tc.bg, color: tc.color, fontWeight: 500 }}>
+                        <option value="chronicle">📖 Chronicle 专栏</option>
+                        <option value="daily">📖 Daily 日课</option>
+                        <option value="select">⭐ Select 用户</option>
+                      </select>
                     </td>
                     <td className="px-5 py-4">
                       <span className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
@@ -153,7 +176,6 @@ export default function AdminMagazinesPage() {
                           <input type="checkbox" checked={m.is_featured || false} onChange={() => toggleFeatured(m.id, m.is_featured)} className="w-3 h-3" />
                           精选
                         </label>
-                        
                         <Link href={`/admin/magazine/${m.id}`} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>编辑</Link>
                         <button onClick={() => deleteMagazine(m.id)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>删除</button>
                       </div>
