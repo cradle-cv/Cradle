@@ -424,6 +424,23 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
     setDirty(true)
   }
 
+  // ========== 对齐 ==========
+  function alignElement(direction) {
+    const el = elements.find(e => e.id === selectedEl)
+    if (!el || el.locked) return
+    pushUndo()
+    const updates = {}
+    switch (direction) {
+      case 'left': updates.x = 0; break
+      case 'center-h': updates.x = (canvasW - el.width) / 2; break
+      case 'right': updates.x = canvasW - el.width; break
+      case 'top': updates.y = 0; break
+      case 'center-v': updates.y = (canvasH - el.height) / 2; break
+      case 'bottom': updates.y = canvasH - el.height; break
+    }
+    updateElement(selectedEl, updates)
+  }
+
   function deleteSelected() {
     if (!selectedEl) return
     const el = elements.find(e => e.id === selectedEl)
@@ -560,141 +577,117 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
 
   return (
     <div className={`bg-gray-100 overflow-hidden ${fullscreen ? 'fixed inset-0 z-[9999] rounded-none flex flex-col' : 'rounded-xl'}`}>
-      {/* 工具栏 */}
-      <div className="bg-white border-b px-3 py-1.5 flex items-center gap-1.5 flex-wrap" style={{ borderColor: '#E5E7EB' }}>
-        <button onClick={addTitle} className="px-2.5 py-1.5 rounded text-xs font-medium bg-gray-900 text-white hover:bg-gray-800" title="标题">T 标题</button>
-        <button onClick={addText} className="px-2.5 py-1.5 rounded text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }} title="正文">T 正文</button>
-        <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
+      {/* 工具栏 + 属性面板合并 */}
+      <div className="bg-white border-b px-3 py-1 flex items-center gap-1.5 flex-wrap" style={{ borderColor: '#E5E7EB', minHeight: '36px' }}>
+        <button onClick={addTitle} className="px-2 py-1 rounded text-xs font-medium bg-gray-900 text-white hover:bg-gray-800" title="标题">T标题</button>
+        <button onClick={addText} className="px-2 py-1 rounded text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }} title="正文">T正文</button>
+        <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
 
         <input ref={fileRef} type="file" accept="image/*" onChange={addImage} className="hidden" />
-        <div className="relative group">
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-2.5 py-1.5 rounded text-xs font-medium border hover:bg-gray-50 disabled:opacity-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-            {uploading ? '...' : '📷 图片'}
-          </button>
-          <div className="absolute left-0 top-full mt-1 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-30" style={{ backgroundColor: '#111827', color: '#FDE68A' }}>💡 请尽量上传无水印原画</div>
-        </div>
-        {coverImage && <button onClick={useCoverImage} className="px-2.5 py-1.5 rounded text-xs font-medium border hover:bg-purple-50" style={{ color: '#7C3AED', borderColor: '#C4B5FD' }}>🖼️ 封面图</button>}
-
+        <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-2 py-1 rounded text-xs font-medium border hover:bg-gray-50 disabled:opacity-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+          {uploading ? '...' : '📷'}
+        </button>
+        {coverImage && <button onClick={useCoverImage} className="px-2 py-1 rounded text-xs font-medium border hover:bg-purple-50" style={{ color: '#7C3AED', borderColor: '#C4B5FD' }}>🖼️</button>}
         <input ref={avatarRef} type="file" accept="image/*" onChange={addAvatar} className="hidden" />
-        <button onClick={() => avatarRef.current?.click()} className="px-2.5 py-1.5 rounded text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }} title="圆形头像">👤 头像</button>
-        <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
+        <button onClick={() => avatarRef.current?.click()} className="px-2 py-1 rounded text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }} title="圆形头像">👤</button>
+        <button onClick={() => addShape('rect')} className="px-1.5 py-1 rounded text-xs hover:bg-gray-100 text-gray-700" title="矩形">▭</button>
+        <button onClick={() => addShape('circle')} className="px-1.5 py-1 rounded text-xs hover:bg-gray-100 text-gray-700" title="圆形">○</button>
+        <button onClick={() => addShape('line')} className="px-1.5 py-1 rounded text-xs hover:bg-gray-100 text-gray-700" title="分割线">─</button>
+        <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
 
-        <button onClick={() => addShape('rect')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="矩形">▭</button>
-        <button onClick={() => addShape('circle')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="圆形">○</button>
-        <button onClick={() => addShape('line')} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="分割线">─</button>
-        <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
-
-        <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: '#374151' }}>
-          背景色:
-          <input type="color" value={spread?.background_color || '#FFFFFF'} onChange={e => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_color: e.target.value } : s)); setDirty(true) }}
-            className="w-5 h-5 rounded border-0 cursor-pointer" />
-        </label>
+        <input type="color" value={spread?.background_color || '#FFFFFF'} onChange={e => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_color: e.target.value } : s)); setDirty(true) }}
+          className="w-4 h-4 rounded border-0 cursor-pointer" title="背景色" />
         <input ref={bgFileRef} type="file" accept="image/*" onChange={handleBgImage} className="hidden" />
-        <button onClick={() => bgFileRef.current?.click()} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title="背景图片">🖼️ 背景图</button>
-        {spread?.background_image && <button onClick={() => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_image: '' } : s)); setDirty(true) }} className="px-1.5 py-1 rounded text-xs hover:bg-red-50 text-red-600" title="移除背景图">✕</button>}
-        <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
+        <button onClick={() => bgFileRef.current?.click()} className="px-1.5 py-1 rounded text-xs hover:bg-gray-100 text-gray-700" title="背景图片">🖼️</button>
+        {spread?.background_image && <button onClick={() => { pushUndo(); setSpreads(prev => prev.map((s, i) => i === currentSpread ? { ...s, background_image: '' } : s)); setDirty(true) }} className="px-1 py-0.5 rounded text-xs hover:bg-red-50 text-red-600" title="移除背景图">✕</button>}
+        <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
 
-        {selectedEl && (
+        {/* 选中元素时的操作和属性 */}
+        {selEl && (
           <>
-            <button onClick={duplicateSelected} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100" title="复制 Ctrl+D">📋</button>
-            <button onClick={bringForward} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100" title="上移一层">⬆</button>
-            <button onClick={sendBackward} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100" title="下移一层">⬇</button>
-            <button onClick={toggleLock} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100" title={selEl?.locked ? '解锁' : '锁定'}>{selEl?.locked ? '🔒' : '🔓'}</button>
-            <button onClick={deleteSelected} className="px-1.5 py-1.5 rounded text-xs hover:bg-red-50 text-red-500" title="删除 Del">🗑</button>
-            <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
+            <button onClick={duplicateSelected} className="px-1 py-1 rounded text-xs hover:bg-gray-100" title="复制">📋</button>
+            <button onClick={bringForward} className="px-1 py-1 rounded text-xs hover:bg-gray-100" title="上移">⬆</button>
+            <button onClick={sendBackward} className="px-1 py-1 rounded text-xs hover:bg-gray-100" title="下移">⬇</button>
+            <button onClick={toggleLock} className="px-1 py-1 rounded text-xs hover:bg-gray-100" title={selEl?.locked ? '解锁' : '锁定'}>{selEl?.locked ? '🔒' : '🔓'}</button>
+            <button onClick={deleteSelected} className="px-1 py-1 rounded text-xs hover:bg-red-50 text-red-500" title="删除">🗑</button>
+            <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
+            <button onClick={() => alignElement('left')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="左对齐">⫷</button>
+            <button onClick={() => alignElement('center-h')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="水平居中">⫿</button>
+            <button onClick={() => alignElement('right')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="右对齐">⫸</button>
+            <button onClick={() => alignElement('top')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="顶对齐">⏶</button>
+            <button onClick={() => alignElement('center-v')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="垂直居中">⏸</button>
+            <button onClick={() => alignElement('bottom')} className="px-1 py-1 rounded text-xs hover:bg-gray-100 text-gray-600" title="底对齐">⏷</button>
+            <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
           </>
         )}
 
-        <button onClick={() => setFullscreen(f => !f)} className="px-2 py-1.5 rounded text-xs hover:bg-gray-100 text-gray-700" title={fullscreen ? '退出全屏 Esc' : '全屏编辑'}>
-          {fullscreen ? '⬜ 退出' : '⛶ 全屏'}
-        </button>
-        <div className="w-px h-5" style={{ backgroundColor: '#E5E7EB' }} />
-
-        <button onClick={undo} disabled={undoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="撤销 Ctrl+Z">↩</button>
-        <button onClick={redo} disabled={redoStack.length === 0} className="px-1.5 py-1.5 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="重做 Ctrl+Y">↪</button>
-
-        <div className="flex items-center gap-1 text-xs ml-auto" style={{ color: '#374151' }}>
-          <input type="number" value={canvasW} onChange={e => setCanvasW(Math.max(200, parseInt(e.target.value) || DEFAULT_W))} className="w-12 px-1 py-1 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
-          <span>×</span>
-          <input type="number" value={canvasH} onChange={e => setCanvasH(Math.max(100, parseInt(e.target.value) || DEFAULT_H))} className="w-12 px-1 py-1 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
-          <button onClick={() => { setCanvasW(800); setCanvasH(450) }} className="px-1 py-1 rounded hover:bg-gray-100 text-xs">16:9</button>
-          <button onClick={() => { setCanvasW(800); setCanvasH(600) }} className="px-1 py-1 rounded hover:bg-gray-100 text-xs">4:3</button>
-        </div>
-        <div className="flex items-center gap-2 ml-2">
-          {lastSaved && <span className="text-xs" style={{ color: '#9CA3AF' }}>{lastSaved.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>}
-          {dirty && !saving && (
-            <span className="px-2 py-1 rounded text-xs font-medium animate-pulse" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-              ⚠️ 未保存
-            </span>
-          )}
-          <button onClick={() => doSave(false)} disabled={saving}
-            className="px-3 py-1.5 rounded text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: dirty ? '#EF4444' : '#3B82F6' }}>
-            {saving ? '保存中...' : dirty ? '💾 立即保存' : '💾 已保存'}
-          </button>
-        </div>
-      </div>
-
-      {/* 属性面板 - 始终占位防止画布跳动 */}
-      <div className="bg-white border-b px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderColor: '#E5E7EB', minHeight: '36px' }}>
+        {/* 文字属性 */}
         {selEl && selEl.type === 'text' && (
           <>
-            <select value={selEl.style?.fontFamily || '"Noto Serif SC", serif'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontFamily: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB', maxWidth: '120px' }}>
-              {FONT_LIST.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+            <select value={selEl.style?.fontFamily || '"Noto Serif SC", serif'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontFamily: e.target.value } })} className="px-1 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB', maxWidth: '90px' }}>
+              {FONT_LIST.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>字号:<input type="number" value={selEl.style?.fontSize || 16} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontSize: parseInt(e.target.value) || 16 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
-            <input type="color" value={selEl.style?.color || '#333'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, color: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" />
+            <input type="number" value={selEl.style?.fontSize || 16} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontSize: parseInt(e.target.value) || 16 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="字号" />
+            <input type="color" value={selEl.style?.color || '#333'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, color: e.target.value } })} className="w-4 h-4 rounded border-0 cursor-pointer" title="文字颜色" />
             <button onClick={() => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontWeight: selEl.style?.fontWeight === 'bold' ? 'normal' : 'bold' } })}
-              className={`px-1.5 py-0.5 rounded text-xs font-bold ${selEl.style?.fontWeight === 'bold' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.fontWeight !== 'bold' ? { borderColor: '#D1D5DB' } : {}}>B</button>
+              className={`px-1 py-0.5 rounded text-xs font-bold ${selEl.style?.fontWeight === 'bold' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.fontWeight !== 'bold' ? { borderColor: '#D1D5DB' } : {}}>B</button>
             <button onClick={() => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontStyle: selEl.style?.fontStyle === 'italic' ? 'normal' : 'italic' } })}
-              className={`px-1.5 py-0.5 rounded text-xs italic ${selEl.style?.fontStyle === 'italic' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.fontStyle !== 'italic' ? { borderColor: '#D1D5DB' } : {}}>I</button>
+              className={`px-1 py-0.5 rounded text-xs italic ${selEl.style?.fontStyle === 'italic' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.fontStyle !== 'italic' ? { borderColor: '#D1D5DB' } : {}}>I</button>
             <button onClick={() => updateElementWithUndo(selEl.id, { style: { ...selEl.style, textDecoration: selEl.style?.textDecoration === 'underline' ? 'none' : 'underline' } })}
-              className={`px-1.5 py-0.5 rounded text-xs underline ${selEl.style?.textDecoration === 'underline' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.textDecoration !== 'underline' ? { borderColor: '#D1D5DB' } : {}}>U</button>
-            <select value={selEl.style?.textAlign || 'left'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, textAlign: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+              className={`px-1 py-0.5 rounded text-xs underline ${selEl.style?.textDecoration === 'underline' ? 'bg-gray-900 text-white' : 'border'}`} style={selEl.style?.textDecoration !== 'underline' ? { borderColor: '#D1D5DB' } : {}}>U</button>
+            <select value={selEl.style?.textAlign || 'left'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, textAlign: e.target.value } })} className="px-1 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
               <option value="left">左</option><option value="center">中</option><option value="right">右</option>
             </select>
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>行高:<input type="number" step="0.1" value={selEl.style?.lineHeight || 1.8} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, lineHeight: parseFloat(e.target.value) || 1.8 } })} className="w-10 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
-            <div className="w-px h-4" style={{ backgroundColor: '#E5E7EB' }} />
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>背景:<input type="color" value={selEl.style?.backgroundColor || '#FFFFFF'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
-            <button onClick={() => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: '' } })} className="text-xs hover:bg-gray-100 px-1 rounded" style={{ color: '#9CA3AF' }}>✕</button>
+            <input type="number" step="0.1" value={selEl.style?.lineHeight || 1.8} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, lineHeight: parseFloat(e.target.value) || 1.8 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="行高" />
+            <input type="color" value={selEl.style?.backgroundColor || '#FFFFFF'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-4 h-4 rounded border-0 cursor-pointer" title="文字背景" />
+            <button onClick={() => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: '' } })} className="text-xs hover:bg-gray-100 px-0.5 rounded" style={{ color: '#9CA3AF' }} title="清除背景">✕</button>
           </>
         )}
+
+        {/* 图片/形状属性 */}
         {selEl && (selEl.type === 'image' || selEl.type === 'shape') && (
           <>
             {selEl.type === 'image' && (
               <>
-                <select value={selEl.style?.objectFit || 'cover'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, objectFit: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+                <select value={selEl.style?.objectFit || 'cover'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, objectFit: e.target.value } })} className="px-1 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
                   <option value="cover">填充</option><option value="contain">适应</option>
                 </select>
-                <select value={selEl.style?.clipShape || 'none'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, clipShape: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
-                  <option value="none">无裁切</option>
-                  <option value="circle">⭕ 圆形</option>
-                  <option value="ellipse">🥚 椭圆</option>
-                  <option value="inset10">▢ 内缩10%</option>
-                  <option value="inset20">▢ 内缩20%</option>
-                  <option value="triangle">△ 三角</option>
-                  <option value="diamond">◇ 菱形</option>
-                  <option value="hexagon">⬡ 六边形</option>
-                  <option value="star">☆ 五角星</option>
+                <select value={selEl.style?.clipShape || 'none'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, clipShape: e.target.value } })} className="px-1 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB' }}>
+                  <option value="none">无裁切</option><option value="circle">圆形</option><option value="ellipse">椭圆</option><option value="triangle">三角</option><option value="diamond">菱形</option><option value="hexagon">六边形</option><option value="star">五角星</option>
                 </select>
               </>
             )}
             {selEl.type === 'shape' && (
-              <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>填充:<input type="color" value={selEl.style?.backgroundColor || '#E5E7EB'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
+              <input type="color" value={selEl.style?.backgroundColor || '#E5E7EB'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, backgroundColor: e.target.value } })} className="w-4 h-4 rounded border-0 cursor-pointer" title="填充色" />
             )}
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>圆角:<input type="number" value={selEl.style?.borderRadius || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderRadius: parseInt(e.target.value) || 0 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} /></label>
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>边框:<input type="color" value={selEl.style?.borderColor || '#000000'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderColor: e.target.value, borderWidth: selEl.style?.borderWidth || 1 } })} className="w-5 h-5 rounded border-0 cursor-pointer" /></label>
-            <input type="number" value={selEl.style?.borderWidth || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderWidth: parseInt(e.target.value) || 0 } })} className="w-8 px-1 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="边框粗细" />
-            <label className="flex items-center gap-1 text-xs" style={{ color: '#374151' }}>透明:<input type="range" min="0" max="100" value={Math.round((selEl.style?.opacity ?? 1) * 100)} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, opacity: parseInt(e.target.value) / 100 } })} className="w-14" /></label>
-            <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: selEl.style?.shadow ? '#7C3AED' : '#9CA3AF' }}>
-              <input type="checkbox" checked={selEl.style?.shadow || false} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, shadow: e.target.checked } })} className="w-3 h-3" />阴影
+            <input type="number" value={selEl.style?.borderRadius || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderRadius: parseInt(e.target.value) || 0 } })} className="w-7 px-0.5 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="圆角" />
+            <input type="color" value={selEl.style?.borderColor || '#000000'} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderColor: e.target.value, borderWidth: selEl.style?.borderWidth || 1 } })} className="w-4 h-4 rounded border-0 cursor-pointer" title="边框色" />
+            <input type="number" value={selEl.style?.borderWidth || 0} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, borderWidth: parseInt(e.target.value) || 0 } })} className="w-7 px-0.5 py-0.5 border rounded text-xs text-gray-900 text-center" style={{ borderColor: '#D1D5DB' }} title="边框粗细" />
+            <input type="range" min="0" max="100" value={Math.round((selEl.style?.opacity ?? 1) * 100)} onChange={e => updateElement(selEl.id, { style: { ...selEl.style, opacity: parseInt(e.target.value) / 100 } })} className="w-12" title="透明度" />
+            <label className="flex items-center gap-0.5 text-xs cursor-pointer" style={{ color: selEl.style?.shadow ? '#7C3AED' : '#9CA3AF' }}>
+              <input type="checkbox" checked={selEl.style?.shadow || false} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, shadow: e.target.checked } })} className="w-3 h-3" />影
             </label>
           </>
         )}
-        {selEl && (
-          <span className="text-xs ml-auto" style={{ color: '#D1D5DB' }}>{Math.round(selEl.x)},{Math.round(selEl.y)} {Math.round(selEl.width)}×{Math.round(selEl.height)}</span>
-        )}
-        {!selEl && <span className="text-xs" style={{ color: '#D1D5DB' }}>单击选中元素 · 双击编辑文字</span>}
+
+        {/* 右侧：坐标+尺寸+全屏+撤销+保存 */}
+        <div className="flex items-center gap-1 ml-auto">
+          {selEl && <span className="text-xs" style={{ color: '#D1D5DB' }}>{Math.round(selEl.x)},{Math.round(selEl.y)}</span>}
+          <button onClick={undo} disabled={undoStack.length === 0} className="px-1 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="撤销">↩</button>
+          <button onClick={redo} disabled={redoStack.length === 0} className="px-1 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="重做">↪</button>
+          <button onClick={() => setFullscreen(f => !f)} className="px-1.5 py-1 rounded text-xs hover:bg-gray-100 text-gray-700" title={fullscreen ? '退出全屏 Esc' : '全屏编辑'}>
+            {fullscreen ? '⬜' : '⛶'}
+          </button>
+          <input type="number" value={canvasW} onChange={e => setCanvasW(Math.max(200, parseInt(e.target.value) || DEFAULT_W))} className="w-10 px-0.5 py-0.5 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
+          <span className="text-xs text-gray-400">×</span>
+          <input type="number" value={canvasH} onChange={e => setCanvasH(Math.max(100, parseInt(e.target.value) || DEFAULT_H))} className="w-10 px-0.5 py-0.5 border rounded text-center text-gray-900 text-xs" style={{ borderColor: '#D1D5DB' }} />
+          {dirty && !saving && <span className="px-1.5 py-0.5 rounded text-xs font-medium animate-pulse" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>⚠️</span>}
+          <button onClick={() => doSave(false)} disabled={saving}
+            className="px-2.5 py-1 rounded text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: dirty ? '#EF4444' : '#3B82F6' }}>
+            {saving ? '...' : dirty ? '💾 保存' : '💾'}
+          </button>
+        </div>
       </div>
 
       {/* 画布 */}
