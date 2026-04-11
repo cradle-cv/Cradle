@@ -179,7 +179,6 @@ function ChronicleCarousel({ chronicleList }) {
   const [flipState, setFlipState] = useState('idle')
   const [flipDir, setFlipDir] = useState('next')
   const active = chronicleList[activeIdx]
-  const others = chronicleList.filter((_, i) => i !== activeIdx)
 
   function goTo(idx) {
     if (idx === activeIdx || flipState !== 'idle') return
@@ -249,26 +248,25 @@ function ChronicleCarousel({ chronicleList }) {
         )}
       </div>
 
-      {others.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {others.map(mag => {
-            const origIdx = chronicleList.findIndex(c => c.id === mag.id)
-            return (
-              <div key={mag.id} className="group cursor-pointer" onClick={() => goTo(origIdx)}>
-                <div className="relative rounded-lg overflow-hidden" style={{ height: '60px' }}>
-                  {mag.cover_image ? (
-                    <img src={mag.cover_image} alt={mag.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#374151' }}><span className="text-3xl">📖</span></div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{mag.title}</h3>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+      {chronicleList.length > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3">
+          {chronicleList.map((mag, i) => (
+            <button key={mag.id} onClick={() => goTo(i)}
+              className="flex-shrink-0 overflow-hidden transition-all duration-300"
+              style={{
+                width: i === activeIdx ? '64px' : '48px',
+                height: i === activeIdx ? '40px' : '32px',
+                borderRadius: '4px',
+                border: i === activeIdx ? '2px solid #B45309' : '1.5px solid #D1D5DB',
+                opacity: i === activeIdx ? 1 : 0.6,
+              }}>
+              {mag.cover_image ? (
+                <img src={mag.cover_image} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>📖</div>
+              )}
+            </button>
+          ))}
         </div>
       )}
     </div>
