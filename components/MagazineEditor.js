@@ -81,6 +81,7 @@ function TextElement({ el, isSel, isEditing, scale, onUpdate, onStartEdit, borde
       onBlur={handleBlur}
       onDoubleClick={e => { e.stopPropagation(); if (isSel && !el.locked) onStartEdit() }}
       onMouseDown={e => { if (isEditing) e.stopPropagation() }}
+        onPaste={e => { e.preventDefault(); const text = e.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text) }}
       style={{
         fontSize: `${(el.style?.fontSize || 16) * scale}px`,
         fontFamily: el.style?.fontFamily || '"Noto Serif SC", serif',
