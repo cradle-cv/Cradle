@@ -102,8 +102,8 @@ if (body.sourceWorkId !== undefined) updates.source_work_id = body.sourceWorkId
     }
 
     // 保存跨页
-    if (action === 'save_spread') {
-      const { spreadId, elements, backgroundColor, backgroundImage } = body
+if (action === 'save_spread') {
+  const { spreadId, elements, backgroundColor, backgroundImage, spreadIndex } = body
       const updates = { updated_at: new Date().toISOString() }
       if (elements !== undefined) updates.elements = elements
       if (backgroundColor !== undefined) updates.background_color = backgroundColor
