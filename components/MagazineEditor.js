@@ -636,9 +636,9 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
       </div>
 
       {/* 属性面板 */}
-      {selEl && (
-        <div className="bg-white border-b px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderColor: '#E5E7EB' }}>
-          {selEl.type === 'text' && (
+     <div className="bg-white border-b px-3 py-1.5 flex items-center gap-2 flex-wrap" style={{ borderColor: '#E5E7EB', minHeight: '36px' }}>
+  {selEl && selEl.type === 'text' && (
+
             <>
               <select value={selEl.style?.fontFamily || '"Noto Serif SC", serif'} onChange={e => updateElementWithUndo(selEl.id, { style: { ...selEl.style, fontFamily: e.target.value } })} className="px-1.5 py-0.5 border rounded text-xs text-gray-900" style={{ borderColor: '#D1D5DB', maxWidth: '120px' }}>
                 {FONT_LIST.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
@@ -692,9 +692,10 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
               </label>
             </>
           )}
-          <span className="text-xs ml-auto" style={{ color: '#D1D5DB' }}>{Math.round(selEl.x)},{Math.round(selEl.y)} {Math.round(selEl.width)}×{Math.round(selEl.height)}</span>
-        </div>
-      )}
+<span className="text-xs ml-auto" style={{ color: '#D1D5DB' }}>{Math.round(selEl.x)},{Math.round(selEl.y)} {Math.round(selEl.width)}×{Math.round(selEl.height)}</span>
+  )}
+  {!selEl && <span className="text-xs" style={{ color: '#D1D5DB' }}>单击选中元素 · 双击编辑文字</span>}
+</div>
 
       {/* 画布 */}
       <div className={`p-4 flex justify-center ${fullscreen ? 'flex-1 overflow-auto' : ''}`} style={{ backgroundColor: '#D1D5DB' }}>
