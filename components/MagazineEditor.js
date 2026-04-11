@@ -550,17 +550,18 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
         setDeletedSpreadIds([])
         await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId, canvasWidth: canvasW, canvasHeight: canvasH }) })
-        for (const s of spreads) {
+        for (let i = 0; i < spreads.length; i++) {
+          const s = spreads[i]
           if (s.id && !s.id.startsWith('temp_')) {
             await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'save_spread', spreadId: s.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image }) })
+              body: JSON.stringify({ action: 'save_spread', spreadId: s.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image, spreadIndex: i }) })
           } else {
             const resp = await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'add_spread', magazineId, spreadIndex: s.spread_index }) })
+              body: JSON.stringify({ action: 'add_spread', magazineId, spreadIndex: i }) })
             const data = await resp.json()
             if (data.spread) {
               await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save_spread', spreadId: data.spread.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image }) })
+                body: JSON.stringify({ action: 'save_spread', spreadId: data.spread.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image, spreadIndex: i }) })
               setSpreads(prev => prev.map(sp => sp.id === s.id ? { ...sp, id: data.spread.id } : sp))
             }
           }
