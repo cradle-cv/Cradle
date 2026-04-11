@@ -108,6 +108,7 @@ if (action === 'save_spread') {
       if (elements !== undefined) updates.elements = elements
       if (backgroundColor !== undefined) updates.background_color = backgroundColor
       if (backgroundImage !== undefined) updates.background_image = backgroundImage
+  if (spreadIndex !== undefined) updates.spread_index = spreadIndex
 
       const { error } = await supabase.from('magazine_spreads').update(updates).eq('id', spreadId)
       if (error) throw error
