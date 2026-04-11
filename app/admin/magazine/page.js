@@ -71,6 +71,75 @@ export default function AdminMagazinesPage() {
     loadMagazines()
   }
 
+  async function copyMagazine(mag) {
+    if (!confirm(`复制杂志「${mag.title}」？将创建一个草稿副本，包含所有页面内容。`)) return
+    try {
+      // 1. 获取原杂志的完整数据（含页面）
+      const resp = await fetch(`/api/magazine?id=${mag.id}`)
+      const data = await resp.json()
+      if (!data.magazine) throw new Error('找不到原杂志')
+
+      // 2. 获取当前用户
+      const { data: { session } } = await supabase.auth.getSession()
+      const { data: user } = await supabase.from('users').select('id').eq('auth_id', session.user.id).single()
+
+      // 3. 创建新杂志
+      const createResp = await fetch('/api/magazine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          title: `${mag.title}（副本）`,
+          authorId: user.id,
+          sourceType: mag.source_type || 'official',
+        })
+      })
+      const createData = await createResp.json()
+      if (!createData.magazine) throw new Error('创建副本失败')
+
+      const newId = createData.magazine.id
+
+      // 4. 更新副本信息
+      await supabase.from('magazines').update({
+        subtitle: mag.subtitle,
+        cover_image: mag.cover_image,
+        tier: mag.tier || 'daily',
+        canvas_width: data.magazine.canvas_width || 800,
+        canvas_height: data.magazine.canvas_height || 450,
+      }).eq('id', newId)
+
+      // 5. 复制所有页面
+      const originalSpreads = data.spreads || []
+      for (let i = 0; i < originalSpreads.length; i++) {
+        const addResp = await fetch('/api/magazine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add_spread', magazineId: newId, spreadIndex: i })
+        })
+        const addData = await addResp.json()
+        if (addData.spread) {
+          await fetch('/api/magazine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'save_spread',
+              spreadId: addData.spread.id,
+              elements: originalSpreads[i].elements || [],
+              backgroundColor: originalSpreads[i].background_color,
+              backgroundImage: originalSpreads[i].background_image,
+            })
+          })
+        }
+      }
+
+      alert(`复制成功！共 ${originalSpreads.length} 页`)
+      window.location.href = `/admin/magazine/${newId}`
+    } catch (err) {
+      alert('复制失败: ' + err.message)
+      console.error(err)
+    }
+  }
+
   const filtered = filter === 'all' ? magazines :
     filter === 'official' ? magazines.filter(m => m.source_type === 'official') :
     filter === 'user' ? magazines.filter(m => m.source_type === 'user') :
@@ -177,6 +246,7 @@ export default function AdminMagazinesPage() {
                           精选
                         </label>
                         <Link href={`/admin/magazine/${m.id}`} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>编辑</Link>
+                        <button onClick={() => copyMagazine(m)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-blue-50" style={{ color: '#2563EB', borderColor: '#93C5FD' }}>复制</button>
                         <button onClick={() => deleteMagazine(m.id)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>删除</button>
                       </div>
                     </td>
