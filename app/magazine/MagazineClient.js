@@ -3,137 +3,237 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-export default function MagazineClient({ dailyList = [], selectList = [] }) {
-  const [viewTab, setViewTab] = useState('daily')
+const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
+
+export default function MagazineClient({ chronicleList = [], dailyList = [], selectList = [] }) {
+  const [showAllDaily, setShowAllDaily] = useState(false)
+  const [showAllSelect, setShowAllSelect] = useState(false)
+
+  const visibleDaily = showAllDaily ? dailyList : dailyList.slice(0, 6)
+  const visibleSelect = showAllSelect ? selectList : selectList.slice(0, 6)
 
   return (
-    <>
-      <section className="px-6 pb-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setViewTab('daily')}
-              className="px-6 py-3 rounded-full text-sm font-medium transition-all"
-              style={{
-                backgroundColor: viewTab === 'daily' ? '#111827' : '#F3F4F6',
-                color: viewTab === 'daily' ? '#FFFFFF' : '#6B7280'
-              }}>
-              📖 摇篮 Daily ({dailyList.length})
-            </button>
-            <button onClick={() => setViewTab('select')}
-              className="px-6 py-3 rounded-full text-sm font-medium transition-all"
-              style={{
-                backgroundColor: viewTab === 'select' ? '#7C3AED' : '#F3F4F6',
-                color: viewTab === 'select' ? '#FFFFFF' : '#6B7280'
-              }}>
-              ⭐ 摇篮 Select ({selectList.length})
-            </button>
-          </div>
+    <div className="max-w-6xl mx-auto px-6">
+
+      {/* ═══ 摇篮 Chronicle · 深度专栏 ═══ */}
+      <section className="py-8">
+        <div className="flex items-center gap-2 mb-6">
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+          <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Chronicle · 深度专栏</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
         </div>
+
+        {chronicleList.length > 0 ? (
+          <div className="space-y-8">
+            {/* 最新一期大图 */}
+            {chronicleList[0] && (
+              <Link href={`/magazine/view/${chronicleList[0].id}`} className="group block">
+                <div className="relative rounded-lg overflow-hidden" style={{ height: '420px' }}>
+                  {chronicleList[0].cover_image ? (
+                    <img src={chronicleList[0].cover_image} alt={chronicleList[0].title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1F2937' }}>
+                      <span className="text-6xl">📖</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                  {/* 标签 */}
+                  <div className="absolute top-5 left-5">
+                    <span className="px-4 py-1.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B', letterSpacing: '2px' }}>
+                      CHRONICLE
+                    </span>
+                  </div>
+
+                  {/* 内容 */}
+                  <div className="absolute bottom-0 left-0 right-0 p-8">
+                    <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+                      本期专栏
+                    </p>
+                    <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{chronicleList[0].title}</h2>
+                    {chronicleList[0].subtitle && (
+                      <p className="text-sm text-white/70 mb-4 max-w-lg">{chronicleList[0].subtitle}</p>
+                    )}
+                    <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform"
+                      style={{ color: '#F59E0B' }}>
+                      深度阅读 →
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* 往期 Chronicle */}
+            {chronicleList.length > 1 && (
+              <div className="grid md:grid-cols-3 gap-5">
+                {chronicleList.slice(1).map(mag => (
+                  <Link key={mag.id} href={`/magazine/view/${mag.id}`} className="group">
+                    <div className="relative rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                      {mag.cover_image ? (
+                        <img src={mag.cover_image} alt={mag.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#374151' }}>
+                          <span className="text-3xl">📖</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <h3 className="text-base font-bold text-white leading-snug line-clamp-2">{mag.title}</h3>
+                        {mag.subtitle && <p className="text-xs text-white/60 mt-1 line-clamp-1">{mag.subtitle}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-12" style={{ backgroundColor: '#FAFAF9', borderRadius: '8px' }}>
+            <div className="text-4xl mb-3">📖</div>
+            <p style={{ color: '#6B7280', fontSize: '14px' }}>深度专栏即将上线</p>
+            <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>围绕艺术家、风格、社会话题的深度策展叙事</p>
+          </div>
+        )}
       </section>
 
-      {viewTab === 'daily' && (
-        <section className="px-6 pb-20">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-              <p className="text-sm" style={{ color: '#9CA3AF' }}>官方艺术日课 · 沉浸式图文导读</p>
-            </div>
-            {dailyList.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {dailyList.map(mag => (
-                  <MagazineCard key={mag.id} magazine={mag} badge="📖 摇篮 Daily" badgeColor="#7C3AED" label="官方日课杂志" labelColor="#7C3AED" />
-                ))}
-              </div>
-            ) : (
-              <EmptyState icon="📖" text="日课内容即将上线" />
-            )}
-          </div>
-        </section>
-      )}
+      {/* ═══ 摇篮 Daily · 官方日常 ═══ */}
+      <section className="py-8">
+        <div className="flex items-center gap-2 mb-1">
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+          <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Daily · 官方日课</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+        </div>
+        <p className="text-center text-xs mb-6" style={{ color: '#9CA3AF' }}>沉浸式图文导读</p>
 
-      {viewTab === 'select' && (
-        <section className="px-6 pb-20">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-              <p className="text-sm" style={{ color: '#9CA3AF' }}>用户原创杂志精选 · 由社区创作者出品</p>
+        {dailyList.length > 0 ? (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleDaily.map(mag => (
+                <MagazineCard key={mag.id} magazine={mag} tier="daily" />
+              ))}
             </div>
-            {selectList.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {selectList.map(mag => (
-                  <MagazineCard key={mag.id} magazine={mag} badge="⭐ 摇篮 Select" badgeColor="#F59E0B" showAuthor={true} />
-                ))}
+            {dailyList.length > 6 && !showAllDaily && (
+              <div className="text-center mt-6">
+                <button onClick={() => setShowAllDaily(true)}
+                  className="text-sm px-6 py-2.5 rounded-lg border border-gray-200 hover:border-gray-400 transition"
+                  style={{ color: '#6B7280' }}>
+                  查看全部 {dailyList.length} 期 →
+                </button>
               </div>
-            ) : (
-              <EmptyState icon="⭐" text="精选杂志即将上线" subtext="达到 Lv.7 解锁杂志创作工具，优秀作品将在此展示" />
             )}
-          </div>
-        </section>
-      )}
-    </>
+          </>
+        ) : (
+          <EmptyState text="日课内容即将上线" />
+        )}
+      </section>
+
+      {/* ═══ 摇篮 Select · 用户创作 ═══ */}
+      <section className="py-8 pb-16">
+        <div className="flex items-center gap-2 mb-1">
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+          <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Select · 用户精选</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+        </div>
+        <p className="text-center text-xs mb-6" style={{ color: '#9CA3AF' }}>由社区创作者出品 · 达到 Lv.7 解锁创作工具</p>
+
+        {selectList.length > 0 ? (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleSelect.map(mag => (
+                <MagazineCard key={mag.id} magazine={mag} tier="select" />
+              ))}
+            </div>
+            {selectList.length > 6 && !showAllSelect && (
+              <div className="text-center mt-6">
+                <button onClick={() => setShowAllSelect(true)}
+                  className="text-sm px-6 py-2.5 rounded-lg border border-gray-200 hover:border-gray-400 transition"
+                  style={{ color: '#6B7280' }}>
+                  查看全部 {selectList.length} 本 →
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState text="精选杂志即将上线" sub="达到 Lv.7 解锁杂志创作工具，优秀作品将在此展示" />
+        )}
+      </section>
+    </div>
   )
 }
 
-function MagazineCard({ magazine, badge, badgeColor, label, labelColor, showAuthor }) {
+function MagazineCard({ magazine, tier }) {
+  const tierConfig = {
+    daily: { badge: '📖 Daily', color: '#111827', accent: '#6B7280' },
+    select: { badge: '⭐ Select', color: '#7C3AED', accent: '#7C3AED' },
+  }
+  const config = tierConfig[tier] || tierConfig.daily
+
   return (
     <Link href={`/magazine/view/${magazine.id}`} className="group">
-      <article className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-        <div className="relative h-64 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
+      <article className="bg-white overflow-hidden transition-all duration-300 border border-gray-100 hover:border-gray-300 hover:shadow-lg"
+        style={{ borderRadius: '4px' }}>
+        <div className="relative overflow-hidden" style={{ height: '220px', backgroundColor: '#F3F4F6' }}>
           {magazine.cover_image ? (
             <img src={magazine.cover_image} alt={magazine.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           ) : (
             <div className="w-full h-full flex items-center justify-center"
-              style={{ background: badgeColor === '#7C3AED' ? 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' : 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
-              <span className="text-5xl">{badgeColor === '#7C3AED' ? '📖' : '⭐'}</span>
+              style={{ background: tier === 'select' ? 'linear-gradient(135deg, #EDE9FE, #C4B5FD)' : 'linear-gradient(135deg, #F3F4F6, #E5E7EB)' }}>
+              <span className="text-4xl">{tier === 'select' ? '⭐' : '📖'}</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-          <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium"
-            style={{ backgroundColor: badgeColor, color: '#FFFFFF' }}>
-            {badge}
+          {/* 标签 */}
+          <div className="absolute top-3 left-3 px-3 py-1 rounded-sm text-xs font-medium"
+            style={{ backgroundColor: config.color, color: '#FFFFFF', letterSpacing: '1px' }}>
+            {config.badge}
           </div>
 
           {magazine.pages_count > 0 && (
-            <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs"
-              style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FFFFFF' }}>
+            <div className="absolute top-3 right-3 px-2.5 py-1 text-xs"
+              style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#FFFFFF', borderRadius: '2px' }}>
               {magazine.pages_count} 页
             </div>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h3 className="text-xl font-bold text-white mb-1 leading-snug line-clamp-2">{magazine.title}</h3>
-            {magazine.subtitle && <p className="text-xs text-white/70">{magazine.subtitle}</p>}
+          {/* 标题叠加在图片底部 */}
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <h3 className="text-lg font-bold text-white leading-snug line-clamp-2">{magazine.title}</h3>
           </div>
         </div>
 
-        <div className="px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {showAuthor && magazine.users && (
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            {tier === 'select' && magazine.users ? (
               <>
                 {magazine.users.avatar_url ? (
-                  <img src={magazine.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  <img src={magazine.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
                 )}
-                <span className="text-xs" style={{ color: '#6B7280' }}>{magazine.users.username || '匿名'}</span>
+                <span className="text-xs truncate" style={{ color: '#6B7280' }}>{magazine.users.username || '匿名'}</span>
               </>
+            ) : (
+              <span className="text-xs" style={{ color: '#9CA3AF' }}>摇篮杂志社</span>
             )}
-            {label && <span className="text-xs" style={{ color: labelColor || '#9CA3AF' }}>{label}</span>}
-            {!showAuthor && !label && <span className="text-xs" style={{ color: '#9CA3AF' }}>摇篮杂志社</span>}
           </div>
-          <span className="text-xs font-medium group-hover:translate-x-1 transition-transform" style={{ color: badgeColor }}>阅读 →</span>
+          <span className="text-xs font-medium group-hover:translate-x-1 transition-transform flex-shrink-0" style={{ color: config.accent }}>
+            阅读 →
+          </span>
         </div>
       </article>
     </Link>
   )
 }
 
-function EmptyState({ icon, text, subtext }) {
+function EmptyState({ text, sub }) {
   return (
-    <div className="text-center py-16">
-      <div className="text-5xl mb-4">{icon}</div>
-      <p className="mb-1" style={{ color: '#9CA3AF' }}>{text}</p>
-      {subtext && <p className="text-xs" style={{ color: '#D1D5DB' }}>{subtext}</p>}
+    <div className="text-center py-12" style={{ backgroundColor: '#FAFAF9', borderRadius: '4px' }}>
+      <p style={{ color: '#9CA3AF', fontSize: '14px' }}>{text}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>{sub}</p>}
     </div>
   )
 }
