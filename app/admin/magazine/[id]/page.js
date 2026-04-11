@@ -63,70 +63,22 @@ export default function AdminMagazineEditPage() {
     } catch (err) { alert('上传失败: ' + err.message) }
   }
 
-  async function useFirstPageImage() {
-    if (spreads.length === 0) { alert('没有页面内容'); return }
-    try {
-      const html2canvas = (await import('html2canvas')).default
-      // 创建临时渲染容器
-      const cw = 800, ch = 450
-      const container = document.createElement('div')
-      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${cw}px;height:${ch}px;overflow:hidden;background:${spreads[0].background_color || '#FFFFFF'};`
-      if (spreads[0].background_image) {
-        container.style.backgroundImage = `url(${spreads[0].background_image})`
-        container.style.backgroundSize = 'cover'
-        container.style.backgroundPosition = 'center'
-      }
-      // 渲染第一页的所有元素
-      ;(spreads[0].elements || []).forEach(el => {
-        const div = document.createElement('div')
-        div.style.cssText = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;overflow:hidden;`
-        if (el.type === 'text') {
-          div.style.fontSize = `${el.style?.fontSize || 16}px`
-          div.style.fontFamily = el.style?.fontFamily || '"Noto Serif SC", serif'
-          div.style.color = el.style?.color || '#333'
-          div.style.fontWeight = el.style?.fontWeight || 'normal'
-          div.style.fontStyle = el.style?.fontStyle || 'normal'
-          div.style.textAlign = el.style?.textAlign || 'left'
-          div.style.lineHeight = el.style?.lineHeight || 1.8
-          div.style.backgroundColor = el.style?.backgroundColor || 'transparent'
-          div.style.padding = '4px'
-          div.style.wordBreak = 'break-word'
-          div.style.whiteSpace = 'pre-wrap'
-          div.innerHTML = (el.content || '').replace(/\n/g, '<br>')
-        } else if (el.type === 'image') {
-          const img = document.createElement('img')
-          img.crossOrigin = 'anonymous'
-          img.src = el.content
-          img.style.cssText = `width:100%;height:100%;object-fit:${el.style?.objectFit || 'cover'};border-radius:${el.style?.borderRadius || 0}px;`
-          div.appendChild(img)
-        } else if (el.type === 'shape') {
-          div.style.backgroundColor = el.content === 'line' ? 'transparent' : (el.style?.backgroundColor || '#E5E7EB')
-          div.style.borderRadius = el.content === 'circle' ? '50%' : `${el.style?.borderRadius || 0}px`
+  const [showImagePicker, setShowImagePicker] = useState(false)
+
+  // 收集所有页面中的图片元素
+  function getAllImages() {
+    const images = []
+    spreads.forEach((s, pageIdx) => {
+      (s.elements || []).forEach(el => {
+        if (el.type === 'image' && el.content) {
+          images.push({ url: el.content, page: pageIdx + 1 })
         }
-        container.appendChild(div)
       })
-      document.body.appendChild(container)
-      // 等图片加载
-      await new Promise(r => setTimeout(r, 500))
-      const canvas = await html2canvas(container, { useCORS: true, allowTaint: true, width: cw, height: ch, scale: 1 })
-      document.body.removeChild(container)
-      // 转 blob 上传
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9))
-      const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' })
-      const { url } = await uploadImage(file, 'magazine-covers')
-      setCoverImage(url)
-      alert('已生成第一页截图作为封面，记得点保存')
-    } catch (err) {
-      console.error(err)
-      // 降级：使用第一张图片元素
-      const firstImage = (spreads[0]?.elements || []).find(el => el.type === 'image' && el.content)
-      if (firstImage) {
-        setCoverImage(firstImage.content)
-        alert('截图功能不可用，已使用第一页中的图片作为封面')
-      } else {
-        alert('生成封面失败: ' + err.message)
+      if (s.background_image) {
+        images.push({ url: s.background_image, page: pageIdx + 1, isBg: true })
       }
-    }
+    })
+    return images
   }
 
   async function saveInfo() {
@@ -344,9 +296,9 @@ export default function AdminMagazineEditPage() {
                 📤 {coverImage ? '更换' : '上传'}封面
               </button>
               {spreads.length > 0 && (
-                <button onClick={useFirstPageImage}
+                <button onClick={() => setShowImagePicker(true)}
                   className="px-4 py-2 rounded-lg text-sm border hover:bg-amber-50" style={{ color: '#B45309', borderColor: '#FCD34D' }}>
-                  🎨 截取第一页为封面
+                  🎨 从内容中选择
                 </button>
               )}
               {coverImage && (
@@ -453,6 +405,38 @@ export default function AdminMagazineEditPage() {
           👁 预览杂志 →
         </a>
       </div>
+
+      {/* 封面图片选择器 */}
+      {showImagePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setShowImagePicker(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold" style={{ color: '#111827' }}>🎨 选择封面图片</h3>
+              <button onClick={() => setShowImagePicker(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
+            <p className="text-sm mb-4" style={{ color: '#9CA3AF' }}>从杂志内容中选择一张图片作为封面</p>
+            {getAllImages().length > 0 ? (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                {getAllImages().map((img, i) => (
+                  <button key={i} onClick={() => { setCoverImage(img.url); setShowImagePicker(false); alert('已设为封面，记得点保存') }}
+                    className="group relative rounded-lg overflow-hidden border-2 border-transparent hover:border-amber-400 transition-all"
+                    style={{ aspectRatio: '16/10' }}>
+                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-0 left-0 right-0 px-2 py-1 text-xs text-white" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                      第 {img.page} 页{img.isBg ? ' · 背景' : ''}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p style={{ color: '#9CA3AF' }}>杂志中还没有图片，请先在编辑器中添加图片</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
