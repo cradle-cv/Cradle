@@ -63,14 +63,69 @@ export default function AdminMagazineEditPage() {
     } catch (err) { alert('上传失败: ' + err.message) }
   }
 
-  function useFirstPageImage() {
-    const firstSpread = spreads[0]
-    const firstImage = (firstSpread?.elements || []).find(el => el.type === 'image' && el.content)
-    if (firstImage) {
-      setCoverImage(firstImage.content)
-      alert('已使用第一页图片作为封面，记得点保存')
-    } else {
-      alert('第一页没有找到图片元素')
+  async function useFirstPageImage() {
+    if (spreads.length === 0) { alert('没有页面内容'); return }
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      // 创建临时渲染容器
+      const cw = 800, ch = 450
+      const container = document.createElement('div')
+      container.style.cssText = `position:fixed;left:-9999px;top:0;width:${cw}px;height:${ch}px;overflow:hidden;background:${spreads[0].background_color || '#FFFFFF'};`
+      if (spreads[0].background_image) {
+        container.style.backgroundImage = `url(${spreads[0].background_image})`
+        container.style.backgroundSize = 'cover'
+        container.style.backgroundPosition = 'center'
+      }
+      // 渲染第一页的所有元素
+      ;(spreads[0].elements || []).forEach(el => {
+        const div = document.createElement('div')
+        div.style.cssText = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;overflow:hidden;`
+        if (el.type === 'text') {
+          div.style.fontSize = `${el.style?.fontSize || 16}px`
+          div.style.fontFamily = el.style?.fontFamily || '"Noto Serif SC", serif'
+          div.style.color = el.style?.color || '#333'
+          div.style.fontWeight = el.style?.fontWeight || 'normal'
+          div.style.fontStyle = el.style?.fontStyle || 'normal'
+          div.style.textAlign = el.style?.textAlign || 'left'
+          div.style.lineHeight = el.style?.lineHeight || 1.8
+          div.style.backgroundColor = el.style?.backgroundColor || 'transparent'
+          div.style.padding = '4px'
+          div.style.wordBreak = 'break-word'
+          div.style.whiteSpace = 'pre-wrap'
+          div.innerHTML = (el.content || '').replace(/\n/g, '<br>')
+        } else if (el.type === 'image') {
+          const img = document.createElement('img')
+          img.crossOrigin = 'anonymous'
+          img.src = el.content
+          img.style.cssText = `width:100%;height:100%;object-fit:${el.style?.objectFit || 'cover'};border-radius:${el.style?.borderRadius || 0}px;`
+          div.appendChild(img)
+        } else if (el.type === 'shape') {
+          div.style.backgroundColor = el.content === 'line' ? 'transparent' : (el.style?.backgroundColor || '#E5E7EB')
+          div.style.borderRadius = el.content === 'circle' ? '50%' : `${el.style?.borderRadius || 0}px`
+        }
+        container.appendChild(div)
+      })
+      document.body.appendChild(container)
+      // 等图片加载
+      await new Promise(r => setTimeout(r, 500))
+      const canvas = await html2canvas(container, { useCORS: true, allowTaint: true, width: cw, height: ch, scale: 1 })
+      document.body.removeChild(container)
+      // 转 blob 上传
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9))
+      const file = new File([blob], `cover_${Date.now()}.jpg`, { type: 'image/jpeg' })
+      const { url } = await uploadImage(file, 'magazine-covers')
+      setCoverImage(url)
+      alert('已生成第一页截图作为封面，记得点保存')
+    } catch (err) {
+      console.error(err)
+      // 降级：使用第一张图片元素
+      const firstImage = (spreads[0]?.elements || []).find(el => el.type === 'image' && el.content)
+      if (firstImage) {
+        setCoverImage(firstImage.content)
+        alert('截图功能不可用，已使用第一页中的图片作为封面')
+      } else {
+        alert('生成封面失败: ' + err.message)
+      }
     }
   }
 
@@ -291,7 +346,7 @@ export default function AdminMagazineEditPage() {
               {spreads.length > 0 && (
                 <button onClick={useFirstPageImage}
                   className="px-4 py-2 rounded-lg text-sm border hover:bg-amber-50" style={{ color: '#B45309', borderColor: '#FCD34D' }}>
-                  🎨 使用第一页图片
+                  🎨 截取第一页为封面
                 </button>
               )}
               {coverImage && (
