@@ -147,7 +147,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
                 const shadowStyle = el.style?.shadow ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
 
                 return (
-                  <div key={el.id} className="absolute" style={{ left: l, top: t, width: w, height: h, overflow: 'hidden', zIndex: elIdx + 1 }}>
+                  <div key={el.id} className="absolute" style={{ left: l, top: t, width: w, height: h, overflow: el.type === 'text' ? 'visible' : 'hidden', zIndex: elIdx + 1 }}>
                     {el.type === 'text' && (
                       <div className="w-full h-full" style={{
                         fontSize: `${el.style?.fontSize || 16}px`,
@@ -158,7 +158,7 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
                         backgroundColor: el.style?.backgroundColor || 'transparent',
                         border: borderStyle, borderRadius: (el.style?.borderRadius || 0) + 'px',
                         boxShadow: shadowStyle,
-                        padding: '4px', wordBreak: 'break-word', overflow: 'hidden', whiteSpace: 'pre-wrap',
+                        padding: '4px', wordBreak: 'break-word', overflow: 'visible', whiteSpace: 'pre-wrap',
                       }}>{el.content}</div>
                     )}
                     {el.type === 'image' && (
