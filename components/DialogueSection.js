@@ -8,6 +8,13 @@ const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'
 function toRoman(n) { return ROMAN[n] || `${n}` }
 const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
 
+// 上少下多排列：5→2+3, 7→3+4, 偶数均分
+function splitRows(artists) {
+  if (artists.length <= 3) return [artists]
+  const topCount = Math.floor(artists.length / 2)
+  return [artists.slice(0, topCount), artists.slice(topCount)]
+}
+
 export default function DialogueSection({ allDialogues = [] }) {
   const [activeIdx, setActiveIdx] = useState(0)
 
@@ -20,6 +27,7 @@ export default function DialogueSection({ allDialogues = [] }) {
 
   const active = allDialogues[activeIdx]
   const isLatest = activeIdx === 0
+  const rows = active.artists ? splitRows(active.artists) : []
 
   return (
     <div>
@@ -101,31 +109,35 @@ export default function DialogueSection({ allDialogues = [] }) {
           borderLeft: allDialogues.length > 1 ? '0.5px solid #E5E7EB' : 'none',
           paddingLeft: allDialogues.length > 1 ? '28px' : '0',
         }}>
-          {/* 艺术家：大头像 + 名字在下 */}
-          {active.artists && active.artists.length > 0 && (
+          {/* 艺术家：上少下多排列 */}
+          {rows.length > 0 && (
             <div style={{ marginBottom: '20px' }}>
               <p className="text-xs mb-5" style={{ color: '#9CA3AF', letterSpacing: '3px', textAlign: 'center' }}>参 展 艺 术 家</p>
-              <div className="flex items-start justify-center gap-6 flex-wrap">
-                {active.artists.map((artist, i) => (
-                  <div key={i} className="flex flex-col items-center" style={{ width: '80px' }}>
-                    <div className="rounded-full overflow-hidden"
-                      style={{ width: '72px', height: '72px', backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
-                      {artist.avatar_url ? (
-                        <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: '#9CA3AF' }}>👤</div>
-                      )}
-                    </div>
-                    <span className="mt-2 text-center leading-tight" style={{ fontSize: '11px', color: '#6B7280' }}>{artist.display_name}</span>
+              <div className="space-y-5">
+                {rows.map((row, ri) => (
+                  <div key={ri} className="flex items-start justify-center gap-6">
+                    {row.map((artist, i) => (
+                      <div key={i} className="flex flex-col items-center" style={{ width: '88px' }}>
+                        <div className="rounded-full overflow-hidden"
+                          style={{ width: '80px', height: '80px', backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
+                          {artist.avatar_url ? (
+                            <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: '#9CA3AF' }}>👤</div>
+                          )}
+                        </div>
+                        <span className="mt-2 text-center leading-tight" style={{ fontSize: '11px', color: '#6B7280' }}>{artist.display_name}</span>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* 引言（紧凑） */}
+          {/* 引言 */}
           {active.quote && (
-            <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '16px', marginBottom: '20px' }}>
+            <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '16px', marginBottom: '16px' }}>
               <p style={{ fontSize: '12px', lineHeight: 1.9, color: '#6B7280', fontStyle: 'italic' }}>
                 "{active.quote}"
               </p>
@@ -137,12 +149,12 @@ export default function DialogueSection({ allDialogues = [] }) {
 
           {/* 作品预览缩略图 */}
           {active.artworks && active.artworks.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <p className="text-xs mb-3" style={{ color: '#D1D5DB', letterSpacing: '2px', textAlign: 'center' }}>{active.artworks.length} 件作品</p>
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {active.artworks.map((aw, i) => (
                   <div key={i} className="rounded overflow-hidden" style={{
-                    width: '56px', height: '56px', backgroundColor: '#F3F4F6',
+                    width: '52px', height: '52px', backgroundColor: '#F3F4F6',
                     border: '1px solid #E5E7EB',
                   }}>
                     {aw.image_url ? (
