@@ -18,8 +18,8 @@ export default function DialogueCoverImage({ src, alt, coverPosition }) {
   return (
     <div
       ref={containerRef}
-      className="rounded-lg overflow-hidden mb-6 relative"
-      style={{ height: '380px', cursor: 'crosshair' }}
+      className="rounded-lg overflow-hidden relative"
+      style={{ height: '100%', minHeight: '380px', cursor: 'crosshair' }}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
