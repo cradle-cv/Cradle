@@ -1,17 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
-import DialogueCoverImage from '@/components/DialogueCoverImage'
+import DialogueSection from '@/components/DialogueSection'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
-function toRoman(n) { return ROMAN[n] || `${n}` }
-
 async function getData() {
-  // 所有展览（只查特别展览，不查对话）
   const { data: allExhibitions } = await supabase
     .from('exhibitions')
     .select('*')
@@ -20,14 +16,12 @@ async function getData() {
 
   const specialExhibitions = (allExhibitions || []).filter(e => e.exhibition_type !== 'dialogue')
 
-  // 对话排期（从 dialogue_curations 表查）
   const { data: allDialogues } = await supabase
     .from('dialogue_curations')
     .select('*')
     .eq('status', 'published')
     .order('issue_number', { ascending: false })
 
-  // 对话：查每个对话的参展艺术家（通过 artwork_ids → artworks → artists）
   const dialogueWithArtists = await Promise.all(
     (allDialogues || []).map(async (d) => {
       if (!d.artwork_ids || d.artwork_ids.length === 0) return { ...d, artworks: [], artists: [] }
@@ -48,25 +42,16 @@ async function getData() {
     })
   )
 
-  const currentDialogue = dialogueWithArtists.length > 0 ? dialogueWithArtists[0] : null
-  const pastDialogues = dialogueWithArtists.slice(1)
-
-  return {
-    currentDialogue,
-    pastDialogues,
-    specialExhibitions,
-  }
+  return { allDialogues: dialogueWithArtists, specialExhibitions }
 }
 
 export default async function ExhibitionsPage() {
-  const { currentDialogue, pastDialogues, specialExhibitions } = await getData()
+  const { allDialogues, specialExhibitions } = await getData()
 
-  const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
   const today = new Date()
   const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
   const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
 
-  // 特别展览分类
   const now = new Date()
   const ongoing = []
   const upcoming = []
@@ -81,7 +66,6 @@ export default async function ExhibitionsPage() {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 导航 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-1 flex justify-between items-center">
           <div className="flex items-center gap-12">
@@ -104,12 +88,9 @@ export default async function ExhibitionsPage() {
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════ */}
-      {/* 当代回响 · 本期对话                      */}
-      {/* ══════════════════════════════════════ */}
+      {/* 当代回响 */}
       <section className="px-6 pt-8 pb-4">
         <div className="max-w-6xl mx-auto">
-          {/* 刊头 */}
           <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
             <div className="flex items-center justify-between">
               <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 当代回响</span>
@@ -117,154 +98,14 @@ export default async function ExhibitionsPage() {
             </div>
           </div>
 
-          {/* 本期对话 */}
-          {currentDialogue ? (
-            <div>
-              {/* 主题区 */}
-              <div style={{ padding: '24px 0 16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', marginBottom: '8px' }}>本 期 对 话</p>
-                {currentDialogue.theme_en && (
-                  <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '38px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>
-                    {currentDialogue.theme_en}
-                  </p>
-                )}
-                {currentDialogue.theme_zh && (
-                  <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '6px' }}>
-                    {currentDialogue.theme_zh}
-                  </p>
-                )}
-                <p className="mt-2" style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
-                  No. {toRoman(currentDialogue.issue_number)}
-                </p>
-              </div>
-
-              <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
-
-              {/* 对话内容 */}
-              <div style={{ padding: '24px 0' }}>
-                {/* 封面图 */}
-                {currentDialogue.cover_image && (
-  <DialogueCoverImage
-    src={currentDialogue.cover_image}
-    alt={currentDialogue.title}
-    coverPosition={currentDialogue.cover_position}
-  />
-)}
-
-                {/* 引言 */}
-                {currentDialogue.quote && (
-                  <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '20px', margin: '0 40px 24px' }}>
-                    <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                      "{currentDialogue.quote}"
-                    </p>
-                    {currentDialogue.quote_author && (
-                      <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>—— {currentDialogue.quote_author}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* 参展艺术家 */}
-                {currentDialogue.artists.length > 0 && (
-                  <div style={{ textAlign: 'center' }}>
-                    <p className="text-xs mb-4" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>参 展 艺 术 家</p>
-                    <div className="flex items-center justify-center gap-6 flex-wrap">
-                      {currentDialogue.artists.map((artist, i) => (
-                        <div key={i} className="flex flex-col items-center gap-2">
-                          <div className="w-16 h-16 rounded-full overflow-hidden"
-                            style={{ backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
-                            {artist.avatar_url ? (
-                              <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: '#9CA3AF' }}>👤</div>
-                            )}
-                          </div>
-                          <span className="text-xs" style={{ color: '#6B7280' }}>{artist.display_name}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs mt-4" style={{ color: '#D1D5DB' }}>{currentDialogue.artworks.length} 件作品</p>
-                    <div className="mt-6">
-                      <Link href={`/dialogue/${currentDialogue.id}`}
-                        className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-white rounded-lg transition hover:opacity-90"
-                        style={{ backgroundColor: '#111827' }}>
-                        查看全部作品 →
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 往期对话 */}
-              {pastDialogues.length > 0 && (
-                <div style={{ padding: '24px 0' }}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
-                    <span className="text-xs px-3" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>往期对话</span>
-                    <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
-                  </div>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {pastDialogues.map(d => (
-                      <Link key={d.id} href={`/dialogue/${d.id}`}
-                        className="block p-5 rounded-lg border border-gray-100 hover:border-gray-300 hover:shadow-md transition-all"
-                        style={{ backgroundColor: '#FAFAF9' }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
-                            No. {toRoman(d.issue_number)}
-                          </span>
-                          {d.theme_en && (
-                            <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: '#111827' }}>{d.theme_en}</span>
-                          )}
-                        </div>
-                        {d.theme_zh && (
-                          <p className="text-xs mb-2" style={{ color: '#6B7280', letterSpacing: '2px' }}>{d.theme_zh}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-3">
-                          {d.artists.slice(0, 4).map((artist, i) => (
-                            <div key={i} className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0"
-                              style={{ backgroundColor: '#F3F4F6', border: '1.5px solid #fff', marginLeft: i > 0 ? '-4px' : 0, position: 'relative', zIndex: 4 - i }}>
-                              {artist.avatar_url ? (
-                                <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#D1D5DB' }}>👤</div>
-                              )}
-                            </div>
-                          ))}
-                          {d.artists.length > 4 && (
-                            <span className="text-xs" style={{ color: '#9CA3AF' }}>+{d.artists.length - 4}</span>
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 阅览室入口 */}
-              <Link href="/gallery"
-                className="group cursor-pointer transition-all duration-300 hover:bg-gray-50 block"
-                style={{ borderTop: '0.5px solid #E5E7EB', padding: '12px 0', textAlign: 'center' }}>
-                <span className="inline-flex items-center gap-2">
-                  <span style={{ fontSize: '11px', letterSpacing: '3px', color: '#9CA3AF' }}>探索经典原作 → 艺术阅览室</span>
-                  <span className="inline-block transition-transform duration-300 group-hover:translate-x-1" style={{ fontSize: '12px', color: '#9CA3AF' }}>→</span>
-                </span>
-              </Link>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '48px 0' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎨</div>
-              <p style={{ fontSize: '14px', color: '#9CA3AF' }}>当代回响即将上线，敬请期待</p>
-            </div>
-          )}
+          <DialogueSection allDialogues={allDialogues} />
         </div>
       </section>
 
-      {/* ══════════════════════════════════════ */}
-      {/* 特别展览                                */}
-      {/* ══════════════════════════════════════ */}
+      {/* 特别展览 */}
       {(ongoing.length > 0 || upcoming.length > 0 || past.length > 0) && (
         <section className="px-6 pt-4 pb-12">
           <div className="max-w-6xl mx-auto">
-            {/* 分隔标题 */}
             <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0', marginBottom: '24px' }}>
               <div className="flex items-center justify-between">
                 <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>特 别 展 览</span>
@@ -274,7 +115,6 @@ export default async function ExhibitionsPage() {
               </div>
             </div>
 
-            {/* 今日推荐大图 */}
             {ongoing.length > 0 && (() => {
               const today = new Date()
               const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
@@ -346,7 +186,6 @@ export default async function ExhibitionsPage() {
               )
             })()}
 
-            {/* 进行中 */}
             {ongoing.length > 0 && (
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-6">
@@ -361,7 +200,6 @@ export default async function ExhibitionsPage() {
               </div>
             )}
 
-            {/* 即将开始 */}
             {upcoming.length > 0 && (
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-6">
@@ -376,7 +214,6 @@ export default async function ExhibitionsPage() {
               </div>
             )}
 
-            {/* 往期 */}
             {past.length > 0 && (
               <div>
                 <div className="flex items-center gap-3 mb-6">
@@ -394,8 +231,7 @@ export default async function ExhibitionsPage() {
         </section>
       )}
 
-      {/* 全部为空 */}
-      {!currentDialogue && specialExhibitions.length === 0 && (
+      {allDialogues.length === 0 && specialExhibitions.length === 0 && (
         <section className="px-6 pb-20">
           <div className="max-w-6xl mx-auto text-center py-20">
             <div className="text-5xl mb-4">🖼️</div>
@@ -404,7 +240,6 @@ export default async function ExhibitionsPage() {
         </section>
       )}
 
-      {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
