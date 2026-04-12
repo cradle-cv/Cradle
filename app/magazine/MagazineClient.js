@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 
 const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
@@ -24,11 +24,7 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
         </div>
 
         {chronicleList.length > 0 ? (
-          <div className="space-y-6">
-            {chronicleList.map((mag, idx) => (
-              <ChronicleSpread key={mag.id} magazine={mag} index={idx} />
-            ))}
-          </div>
+          <ChronicleSlider chronicleList={chronicleList} />
         ) : (
           <div className="text-center py-12" style={{ backgroundColor: '#FAFAF9', borderRadius: '8px' }}>
             <div className="text-4xl mb-3">📖</div>
@@ -38,39 +34,8 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
         )}
       </section>
 
-      {/* ═══ 摇篮 Daily · 官方日课 ═══ */}
+      {/* ═══ 摇篮 Select · 用户精选（提前） ═══ */}
       <section className="py-8">
-        <div className="flex items-center gap-2 mb-1">
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
-          <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Daily · 官方日课</span>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
-        </div>
-        <p className="text-center text-xs mb-6" style={{ color: '#9CA3AF' }}>沉浸式图文导读</p>
-
-        {dailyList.length > 0 ? (
-          <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {visibleDaily.map(mag => (
-                <MagazineCard key={mag.id} magazine={mag} tier="daily" />
-              ))}
-            </div>
-            {dailyList.length > 6 && !showAllDaily && (
-              <div className="text-center mt-6">
-                <button onClick={() => setShowAllDaily(true)}
-                  className="text-sm px-6 py-2.5 rounded-lg border border-gray-200 hover:border-gray-400 transition"
-                  style={{ color: '#6B7280' }}>
-                  查看全部 {dailyList.length} 期 →
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <EmptyState text="日课内容即将上线" />
-        )}
-      </section>
-
-      {/* ═══ 摇篮 Select · 用户精选 ═══ */}
-      <section className="py-8 pb-16">
         <div className="flex items-center gap-2 mb-1">
           <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
           <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Select · 用户精选</span>
@@ -99,100 +64,221 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
           <EmptyState text="精选杂志即将上线" sub="达到 Lv.7 解锁杂志创作工具，优秀作品将在此展示" />
         )}
       </section>
+
+      {/* ═══ 摇篮 Daily · 官方日课（移到后面） ═══ */}
+      <section className="py-8 pb-16">
+        <div className="flex items-center gap-2 mb-1">
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+          <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', textTransform: 'uppercase', fontWeight: 500 }}>摇篮 Daily · 官方日课</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
+        </div>
+        <p className="text-center text-xs mb-6" style={{ color: '#9CA3AF' }}>沉浸式图文导读</p>
+
+        {dailyList.length > 0 ? (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleDaily.map(mag => (
+                <MagazineCard key={mag.id} magazine={mag} tier="daily" />
+              ))}
+            </div>
+            {dailyList.length > 6 && !showAllDaily && (
+              <div className="text-center mt-6">
+                <button onClick={() => setShowAllDaily(true)}
+                  className="text-sm px-6 py-2.5 rounded-lg border border-gray-200 hover:border-gray-400 transition"
+                  style={{ color: '#6B7280' }}>
+                  查看全部 {dailyList.length} 期 →
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState text="日课内容即将上线" />
+        )}
+      </section>
     </div>
   )
 }
 
-// ═══ Chronicle Spread（编辑台式排版） ═══
-function ChronicleSpread({ magazine, index }) {
-  const isEven = index % 2 === 0 // 奇偶交替左右
+// ═══ Chronicle Slider ═══
+function ChronicleSlider({ chronicleList }) {
+  const [activeIdx, setActiveIdx] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const [slideDir, setSlideDir] = useState(null) // 'left' | 'right'
+  const [displayIdx, setDisplayIdx] = useState(0)
+  const containerRef = useRef(null)
+
+  const active = chronicleList[displayIdx]
+
+  function goTo(idx) {
+    if (idx === displayIdx || animating) return
+    const dir = idx > displayIdx ? 'left' : 'right'
+    setSlideDir(dir)
+    setAnimating(true)
+
+    // 阶段1：当前内容滑出
+    setTimeout(() => {
+      setDisplayIdx(idx)
+      setSlideDir(dir === 'left' ? 'enter-from-right' : 'enter-from-left')
+
+      // 阶段2：新内容滑入
+      setTimeout(() => {
+        setSlideDir(null)
+        setAnimating(false)
+        setActiveIdx(idx)
+      }, 450)
+    }, 400)
+  }
+
+  function goPrev() {
+    goTo(displayIdx === 0 ? chronicleList.length - 1 : displayIdx - 1)
+  }
+
+  function goNext() {
+    goTo((displayIdx + 1) % chronicleList.length)
+  }
+
+  // 计算动画样式
+  let slideStyle = {}
+  if (slideDir === 'left') {
+    slideStyle = { transform: 'translateX(-100%)', opacity: 0, transition: 'transform 0.4s ease-in, opacity 0.3s ease-in' }
+  } else if (slideDir === 'right') {
+    slideStyle = { transform: 'translateX(100%)', opacity: 0, transition: 'transform 0.4s ease-in, opacity 0.3s ease-in' }
+  } else if (slideDir === 'enter-from-right') {
+    slideStyle = { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.45s ease-out, opacity 0.35s ease-out' }
+  } else if (slideDir === 'enter-from-left') {
+    slideStyle = { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.45s ease-out, opacity 0.35s ease-out' }
+  }
+
+  // 入场初始位移
+  useEffect(() => {
+    if (slideDir === 'enter-from-right' || slideDir === 'enter-from-left') {
+      const el = containerRef.current
+      if (el) {
+        el.style.transition = 'none'
+        el.style.transform = slideDir === 'enter-from-right' ? 'translateX(60%)' : 'translateX(-60%)'
+        el.style.opacity = '0'
+        // 强制 reflow
+        el.offsetHeight
+        el.style.transition = 'transform 0.45s ease-out, opacity 0.35s ease-out'
+        el.style.transform = 'translateX(0)'
+        el.style.opacity = '1'
+      }
+    }
+  }, [slideDir, displayIdx])
 
   return (
-    <Link href={`/magazine/view/${magazine.id}`} className="group block">
-      <article className="overflow-hidden transition-all duration-500 hover:shadow-lg" style={{
-        border: '1px solid #E5E7EB',
-        borderRadius: '2px',
-        backgroundColor: '#FFFFFF',
-      }}>
-        <div className={`grid md:grid-cols-2 gap-0 ${isEven ? '' : 'direction-rtl'}`} style={{
-          direction: isEven ? 'ltr' : 'rtl',
-        }}>
-          {/* 图片侧 */}
-          <div className="relative overflow-hidden" style={{ direction: 'ltr' }}>
-            <div style={{ height: '360px' }}>
-              {magazine.cover_image ? (
-                <img src={magazine.cover_image} alt={magazine.title}
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-1000" />
+    <div>
+      {/* 内容容器 */}
+      <div className="overflow-hidden" style={{ borderRadius: '4px' }}>
+        <div ref={containerRef} style={slideDir === 'left' || slideDir === 'right' ? slideStyle : {}}>
+          <Link href={`/magazine/view/${active.id}`} className="group block">
+            {/* 图片区 */}
+            <div className="relative overflow-hidden" style={{ height: '400px' }}>
+              {active.cover_image ? (
+                <img src={active.cover_image} alt={active.title}
+                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-1000" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1F2937' }}>
                   <span className="text-6xl">📖</span>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* 文字侧 */}
-          <div className="flex flex-col justify-between p-8" style={{ direction: 'ltr', backgroundColor: '#FAFAF9' }}>
-            {/* 上部 */}
-            <div>
-              {/* CHRONICLE 标识 */}
-              <div className="flex items-center gap-3 mb-6">
-                <span className="px-3 py-1 text-xs font-medium" style={{
+              {/* 只保留角标，不加文字遮罩 */}
+              <div className="absolute top-5 left-5">
+                <span className="px-4 py-1.5 text-xs font-medium" style={{
                   backgroundColor: '#111827', color: '#F59E0B',
-                  letterSpacing: '2px', borderRadius: '1px',
+                  letterSpacing: '2px', borderRadius: '2px',
                 }}>CHRONICLE</span>
-                {magazine.pages_count > 0 && (
-                  <span className="text-xs" style={{ color: '#9CA3AF' }}>{magazine.pages_count} 页</span>
-                )}
               </div>
 
-              {/* 标题 */}
-              <h2 className="mb-3 group-hover:text-gray-600 transition-colors" style={{
-                fontFamily: '"Noto Serif SC", serif',
-                fontSize: '26px', fontWeight: 700, color: '#111827',
-                lineHeight: 1.3, letterSpacing: '1px',
-              }}>{magazine.title}</h2>
-
-              {/* 作者 */}
-              {magazine.users && (
-                <div className="flex items-center gap-2 mb-4">
-                  {magazine.users.avatar_url && (
-                    <img src={magazine.users.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                  )}
-                  <span style={{ fontSize: '13px', color: '#6B7280' }}>{magazine.users.username || '摇篮杂志社'}</span>
+              {chronicleList.length > 1 && (
+                <div className="absolute top-5 right-5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  {displayIdx + 1} / {chronicleList.length}
                 </div>
               )}
-
-              {/* 分割线 */}
-              <div style={{ width: '40px', height: '2px', backgroundColor: '#D1D5DB', margin: '16px 0' }}></div>
-
-              {/* 副标题/摘要 */}
-              {magazine.subtitle ? (
-                <p style={{ fontSize: '14px', lineHeight: 1.9, color: '#6B7280', fontStyle: 'italic' }}>
-                  {magazine.subtitle}
-                </p>
-              ) : (
-                <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#9CA3AF' }}>
-                  深度策展叙事，围绕艺术家、风格与社会话题的长篇图文专栏。
-                </p>
-              )}
             </div>
 
-            {/* 下部：阅读按钮 */}
-            <div className="mt-6">
-              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform"
-                style={{ color: '#B45309', letterSpacing: '1px' }}>
-                深度阅读 →
-              </span>
+            {/* 文字区（白底） */}
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderTop: 'none',
+              padding: '28px 32px',
+            }}>
+              <div className="flex items-start justify-between gap-8">
+                <div className="flex-1">
+                  {/* 标题 */}
+                  <h2 className="group-hover:text-gray-500 transition-colors" style={{
+                    fontFamily: '"Noto Serif SC", serif',
+                    fontSize: '28px',
+                    fontWeight: 800,
+                    color: '#111827',
+                    lineHeight: 1.2,
+                    letterSpacing: '2px',
+                    marginBottom: '10px',
+                  }}>{active.title}</h2>
+
+                  {/* 作者 */}
+                  <div className="flex items-center gap-3">
+                    {active.users && active.users.avatar_url && (
+                      <img src={active.users.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" style={{ border: '1.5px solid #E5E7EB' }} />
+                    )}
+                    <span style={{
+                      fontFamily: serif,
+                      fontStyle: 'italic',
+                      fontSize: '15px',
+                      color: '#6B7280',
+                      letterSpacing: '1px',
+                    }}>{active.users?.username || active.subtitle || '摇篮杂志社'}</span>
+                  </div>
+                </div>
+
+                {/* 右侧：阅读按钮 */}
+                <div className="flex-shrink-0 flex flex-col items-end gap-2 pt-1">
+                  {active.pages_count > 0 && (
+                    <span className="text-xs" style={{ color: '#D1D5DB' }}>{active.pages_count} 页</span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-sm font-medium group-hover:translate-x-1 transition-transform"
+                    style={{ color: '#B45309', letterSpacing: '1px' }}>
+                    深度阅读 →
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
-      </article>
-    </Link>
+      </div>
+
+      {/* 切换控制 */}
+      {chronicleList.length > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-5">
+          <button onClick={goPrev} disabled={animating}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition hover:bg-gray-100 disabled:opacity-30"
+            style={{ border: '1px solid #E5E7EB', color: '#6B7280' }}>‹</button>
+
+          <div className="flex items-center gap-2">
+            {chronicleList.map((mag, i) => (
+              <button key={mag.id} onClick={() => goTo(i)} disabled={animating}
+                className="transition-all duration-300"
+                style={{
+                  width: i === activeIdx ? '24px' : '8px',
+                  height: '8px',
+                  borderRadius: '4px',
+                  backgroundColor: i === activeIdx ? '#111827' : '#D1D5DB',
+                }} />
+            ))}
+          </div>
+
+          <button onClick={goNext} disabled={animating}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition hover:bg-gray-100 disabled:opacity-30"
+            style={{ border: '1px solid #E5E7EB', color: '#6B7280' }}>›</button>
+        </div>
+      )}
+    </div>
   )
 }
 
-// ═══ Magazine Card（Daily / Select 通用） ═══
+// ═══ Magazine Card ═══
 function MagazineCard({ magazine, tier }) {
   const tierConfig = {
     daily: { badge: '📖 Daily', color: '#111827', accent: '#6B7280' },
