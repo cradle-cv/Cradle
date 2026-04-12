@@ -143,13 +143,6 @@ export default async function DialogueDetailPage({ params }) {
 
         <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
 
-        {/* 封面图 */}
-        {dialogue.cover_image && (
-          <div className="my-8 rounded-lg overflow-hidden" style={{ maxHeight: '400px' }}>
-            <img src={dialogue.cover_image} alt={dialogue.theme_zh || dialogue.theme_en} className="w-full h-full object-cover" />
-          </div>
-        )}
-
         {/* 引言 */}
         {dialogue.quote && (
           <div style={{ padding: '8px 0 32px' }}>
