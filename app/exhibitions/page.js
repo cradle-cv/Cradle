@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import DialogueCoverImage from '@/components/DialogueCoverImage'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -143,10 +144,12 @@ export default async function ExhibitionsPage() {
               <div style={{ padding: '24px 0' }}>
                 {/* 封面图 */}
                 {currentDialogue.cover_image && (
-                  <div className="rounded-lg overflow-hidden mb-6" style={{ maxHeight: '320px' }}>
-                    <img src={currentDialogue.cover_image} alt={currentDialogue.title} className="w-full h-full object-cover" />
-                  </div>
-                )}
+  <DialogueCoverImage
+    src={currentDialogue.cover_image}
+    alt={currentDialogue.title}
+    coverPosition={currentDialogue.cover_position}
+  />
+)}
 
                 {/* 引言 */}
                 {currentDialogue.quote && (
