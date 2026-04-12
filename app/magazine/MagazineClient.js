@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 
 const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
@@ -24,7 +24,11 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
         </div>
 
         {chronicleList.length > 0 ? (
-          <ChronicleCarousel chronicleList={chronicleList} />
+          <div className="space-y-6">
+            {chronicleList.map((mag, idx) => (
+              <ChronicleSpread key={mag.id} magazine={mag} index={idx} />
+            ))}
+          </div>
         ) : (
           <div className="text-center py-12" style={{ backgroundColor: '#FAFAF9', borderRadius: '8px' }}>
             <div className="text-4xl mb-3">📖</div>
@@ -34,7 +38,7 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
         )}
       </section>
 
-      {/* ═══ 摇篮 Daily · 官方日常 ═══ */}
+      {/* ═══ 摇篮 Daily · 官方日课 ═══ */}
       <section className="py-8">
         <div className="flex items-center gap-2 mb-1">
           <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
@@ -65,7 +69,7 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
         )}
       </section>
 
-      {/* ═══ 摇篮 Select · 用户创作 ═══ */}
+      {/* ═══ 摇篮 Select · 用户精选 ═══ */}
       <section className="py-8 pb-16">
         <div className="flex items-center gap-2 mb-1">
           <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
@@ -99,6 +103,96 @@ export default function MagazineClient({ chronicleList = [], dailyList = [], sel
   )
 }
 
+// ═══ Chronicle Spread（编辑台式排版） ═══
+function ChronicleSpread({ magazine, index }) {
+  const isEven = index % 2 === 0 // 奇偶交替左右
+
+  return (
+    <Link href={`/magazine/view/${magazine.id}`} className="group block">
+      <article className="overflow-hidden transition-all duration-500 hover:shadow-lg" style={{
+        border: '1px solid #E5E7EB',
+        borderRadius: '2px',
+        backgroundColor: '#FFFFFF',
+      }}>
+        <div className={`grid md:grid-cols-2 gap-0 ${isEven ? '' : 'direction-rtl'}`} style={{
+          direction: isEven ? 'ltr' : 'rtl',
+        }}>
+          {/* 图片侧 */}
+          <div className="relative overflow-hidden" style={{ direction: 'ltr' }}>
+            <div style={{ height: '360px' }}>
+              {magazine.cover_image ? (
+                <img src={magazine.cover_image} alt={magazine.title}
+                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-1000" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1F2937' }}>
+                  <span className="text-6xl">📖</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 文字侧 */}
+          <div className="flex flex-col justify-between p-8" style={{ direction: 'ltr', backgroundColor: '#FAFAF9' }}>
+            {/* 上部 */}
+            <div>
+              {/* CHRONICLE 标识 */}
+              <div className="flex items-center gap-3 mb-6">
+                <span className="px-3 py-1 text-xs font-medium" style={{
+                  backgroundColor: '#111827', color: '#F59E0B',
+                  letterSpacing: '2px', borderRadius: '1px',
+                }}>CHRONICLE</span>
+                {magazine.pages_count > 0 && (
+                  <span className="text-xs" style={{ color: '#9CA3AF' }}>{magazine.pages_count} 页</span>
+                )}
+              </div>
+
+              {/* 标题 */}
+              <h2 className="mb-3 group-hover:text-gray-600 transition-colors" style={{
+                fontFamily: '"Noto Serif SC", serif',
+                fontSize: '26px', fontWeight: 700, color: '#111827',
+                lineHeight: 1.3, letterSpacing: '1px',
+              }}>{magazine.title}</h2>
+
+              {/* 作者 */}
+              {magazine.users && (
+                <div className="flex items-center gap-2 mb-4">
+                  {magazine.users.avatar_url && (
+                    <img src={magazine.users.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                  )}
+                  <span style={{ fontSize: '13px', color: '#6B7280' }}>{magazine.users.username || '摇篮杂志社'}</span>
+                </div>
+              )}
+
+              {/* 分割线 */}
+              <div style={{ width: '40px', height: '2px', backgroundColor: '#D1D5DB', margin: '16px 0' }}></div>
+
+              {/* 副标题/摘要 */}
+              {magazine.subtitle ? (
+                <p style={{ fontSize: '14px', lineHeight: 1.9, color: '#6B7280', fontStyle: 'italic' }}>
+                  {magazine.subtitle}
+                </p>
+              ) : (
+                <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#9CA3AF' }}>
+                  深度策展叙事，围绕艺术家、风格与社会话题的长篇图文专栏。
+                </p>
+              )}
+            </div>
+
+            {/* 下部：阅读按钮 */}
+            <div className="mt-6">
+              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform"
+                style={{ color: '#B45309', letterSpacing: '1px' }}>
+                深度阅读 →
+              </span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </Link>
+  )
+}
+
+// ═══ Magazine Card（Daily / Select 通用） ═══
 function MagazineCard({ magazine, tier }) {
   const tierConfig = {
     daily: { badge: '📖 Daily', color: '#111827', accent: '#6B7280' },
@@ -122,7 +216,6 @@ function MagazineCard({ magazine, tier }) {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-          {/* 标签 */}
           <div className="absolute top-3 left-3 px-3 py-1 rounded-sm text-xs font-medium"
             style={{ backgroundColor: config.color, color: '#FFFFFF', letterSpacing: '1px' }}>
             {config.badge}
@@ -135,7 +228,6 @@ function MagazineCard({ magazine, tier }) {
             </div>
           )}
 
-          {/* 标题叠加在图片底部 */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <h3 className="text-lg font-bold text-white leading-snug line-clamp-2">{magazine.title}</h3>
           </div>
@@ -170,105 +262,6 @@ function EmptyState({ text, sub }) {
     <div className="text-center py-12" style={{ backgroundColor: '#FAFAF9', borderRadius: '4px' }}>
       <p style={{ color: '#9CA3AF', fontSize: '14px' }}>{text}</p>
       {sub && <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>{sub}</p>}
-    </div>
-  )
-}
-
-function ChronicleCarousel({ chronicleList }) {
-  const [activeIdx, setActiveIdx] = useState(0)
-  const [flipState, setFlipState] = useState('idle')
-  const [flipDir, setFlipDir] = useState('next')
-  const active = chronicleList[activeIdx]
-
-  function goTo(idx) {
-    if (idx === activeIdx || flipState !== 'idle') return
-    setFlipDir(idx > activeIdx ? 'next' : 'prev')
-    setFlipState('flip-out')
-    setTimeout(() => {
-      setActiveIdx(idx)
-      setFlipState('flip-in')
-      setTimeout(() => setFlipState('idle'), 500)
-    }, 400)
-  }
-
-  const flipStyle = flipState === 'flip-out'
-    ? { transform: `perspective(1200px) rotateY(${flipDir === 'next' ? '-12deg' : '12deg'}) scale(0.95)`, opacity: 0.3, transition: 'transform 0.4s ease-in, opacity 0.4s ease-in' }
-    : flipState === 'flip-in'
-    ? { transform: 'perspective(1200px) rotateY(0deg) scale(1)', opacity: 1, transition: 'transform 0.5s ease-out, opacity 0.3s ease-out' }
-    : {}
-
-  return (
-    <div className="space-y-5">
-      <div className="relative">
-        <Link href={`/magazine/view/${active.id}`} className="group block">
-          <div className="relative rounded-lg overflow-hidden" style={{
-            height: '420px',
-            transformOrigin: flipDir === 'next' ? 'left center' : 'right center',
-            ...flipStyle,
-          }}>
-            <div className="absolute inset-0 z-[2] pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(0,0,0,0.02) 100%)' }} />
-
-            {active.cover_image ? (
-              <img src={active.cover_image} alt={active.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1F2937' }}>
-                <span className="text-6xl">📖</span>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-
-            <div className="absolute top-5 left-5 flex items-center gap-3">
-              <span className="px-4 py-1.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#111827', color: '#F59E0B', letterSpacing: '2px' }}>CHRONICLE</span>
-              {chronicleList.length > 1 && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{activeIdx + 1} / {chronicleList.length}</span>}
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-8">
-              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>{activeIdx === 0 ? '本期专栏' : '往期专栏'}</p>
-              <h2 className="text-3xl font-bold text-white mb-2 leading-tight">{active.title}</h2>
-              {active.subtitle && <p className="text-sm text-white/70 mb-4 max-w-lg">{active.subtitle}</p>}
-              <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:translate-x-1 transition-transform" style={{ color: '#F59E0B' }}>深度阅读 →</span>
-            </div>
-          </div>
-        </Link>
-
-        {chronicleList.length > 1 && (
-          <>
-            <button onClick={() => goTo(activeIdx === 0 ? chronicleList.length - 1 : activeIdx - 1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition z-10 text-xl backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' }}
-              onMouseEnter={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' })}
-              onMouseLeave={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' })}>‹</button>
-            <button onClick={() => goTo((activeIdx + 1) % chronicleList.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition z-10 text-xl backdrop-blur-sm"
-              style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' }}
-              onMouseEnter={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' })}
-              onMouseLeave={e => Object.assign(e.currentTarget.style, { backgroundColor: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.7)' })}>›</button>
-          </>
-        )}
-      </div>
-
-      {chronicleList.length > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-3">
-          {chronicleList.map((mag, i) => (
-            <button key={mag.id} onClick={() => goTo(i)}
-              className="flex-shrink-0 overflow-hidden transition-all duration-300"
-              style={{
-                width: i === activeIdx ? '64px' : '48px',
-                height: i === activeIdx ? '40px' : '32px',
-                borderRadius: '4px',
-                border: i === activeIdx ? '2px solid #B45309' : '1.5px solid #D1D5DB',
-                opacity: i === activeIdx ? 1 : 0.6,
-              }}>
-              {mag.cover_image ? (
-                <img src={mag.cover_image} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>📖</div>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
