@@ -135,6 +135,21 @@ export default function DialogueSection({ allDialogues = [] }) {
             </div>
           )}
 
+          {/* 标题（隔开头像和引言） */}
+          <div style={{ textAlign: 'center', margin: '8px 0 16px' }}>
+            <div style={{ width: '40px', height: '1px', backgroundColor: '#E5E7EB', margin: '0 auto 14px' }}></div>
+            {active.theme_en && (
+              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '20px', fontWeight: 400, color: '#111827', margin: 0 }}>
+                {active.theme_en}
+              </p>
+            )}
+            {active.theme_zh && (
+              <p style={{ fontSize: '12px', color: '#9CA3AF', letterSpacing: '3px', marginTop: '4px' }}>
+                {active.theme_zh}
+              </p>
+            )}
+          </div>
+
           {/* 引言 */}
           {active.quote && (
             <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '16px', marginBottom: '16px' }}>
@@ -147,9 +162,9 @@ export default function DialogueSection({ allDialogues = [] }) {
             </div>
           )}
 
-          {/* 作品预览缩略图 */}
+          {/* 作品预览缩略图（紧贴按钮） */}
           {active.artworks && active.artworks.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '10px' }}>
               <p className="text-xs mb-3" style={{ color: '#D1D5DB', letterSpacing: '2px', textAlign: 'center' }}>{active.artworks.length} 件作品</p>
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {active.artworks.map((aw, i) => (
