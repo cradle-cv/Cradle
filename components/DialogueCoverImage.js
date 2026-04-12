@@ -19,7 +19,7 @@ export default function DialogueCoverImage({ src, alt, coverPosition }) {
     <div
       ref={containerRef}
       className="rounded-lg overflow-hidden relative"
-      style={{ height: '100%', minHeight: '380px', cursor: 'crosshair' }}
+      style={{ width: '100%', aspectRatio: '1/1', cursor: 'crosshair' }}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
@@ -37,18 +37,6 @@ export default function DialogueCoverImage({ src, alt, coverPosition }) {
           transition: isHovering ? 'object-position 0.3s ease-out' : 'none',
         }}
       />
-
-      <div
-        className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full text-xs transition-opacity duration-500"
-        style={{
-          backgroundColor: 'rgba(0,0,0,0.4)',
-          color: 'rgba(255,255,255,0.7)',
-          opacity: isHovering ? 0 : 1,
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        移动鼠标探索画面
-      </div>
 
       <style>{`
         @keyframes kenburns {
