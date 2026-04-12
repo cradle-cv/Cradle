@@ -15,16 +15,14 @@ const TIMER_PRESETS = [
   { label: '60m', seconds: 60 * 60 },
 ]
 
-// ════════════════════════════════════════════
-// Heartfelt shader + 真实纹理采样
-// ════════════════════════════════════════════
 const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
 const FS = `
 precision highp float;
 uniform float T,R;
 uniform vec2 S;
 uniform sampler2D u_tex;
-uniform float u_loaded; // 1.0 = 纹理已加载
+uniform float u_loaded;
+uniform vec2 u_img;
 
 #define s(a,b,t) smoothstep(a,b,t)
 vec3 H(float p){vec3 q=fract(vec3(p)*vec3(.1031,.11369,.13787));q+=dot(q,q.yzx+19.19);return fract(vec3((q.x+q.y)*q.z,(q.x+q.z)*q.y,(q.y+q.z)*q.x));}
@@ -53,27 +51,34 @@ vec2 DR(vec2 uv,float t,float l0,float l1,float l2){
   return vec2(s(.3,1.,ss+m1.x+m2.x),max(m1.y*l0,m2.y*l1));
 }
 
-// 带模糊的纹理采样（模拟 textureLod）
-vec3 sampleBg(vec2 uv, float blur){
-  vec3 col = vec3(0.0);
-  float total = 0.0;
-  for(int x=-3;x<=3;x++){
-    for(int y=-3;y<=3;y++){
-      vec2 off = vec2(float(x), float(y)) * blur * 0.006;
-      col += texture2D(u_tex, clamp(uv + off, 0.0, 1.0)).rgb;
-      total += 1.0;
-    }
-  }
-  return col / total;
+// cover 适配：让图片填满屏幕不变形
+vec2 coverUV(vec2 uv){
+  float sa=S.x/S.y, ia=u_img.x/u_img.y;
+  vec2 sc=vec2(1.0);
+  if(sa>ia) sc.y=ia/sa; else sc.x=sa/ia;
+  return (uv-0.5)/sc+0.5;
 }
 
-// 未加载时的程序化备用背景
-vec3 fallbackBg(vec2 uv){
-  vec3 sky = mix(vec3(.65,.72,.82), vec3(.50,.58,.72), uv.y+.3);
-  vec3 ground = mix(vec3(.38,.48,.35), vec3(.45,.52,.38), sin(uv.x*3.)*.5+.5);
-  return mix(ground, sky, s(-.1,.3,uv.y));
+// 带模糊的纹理采样
+vec3 sampleBg(vec2 uv, float blur){
+  vec3 col=vec3(0.0); float total=0.0;
+  for(int x=-3;x<=3;x++){
+    for(int y=-3;y<=3;y++){
+      vec2 off=vec2(float(x),float(y))*blur*0.005;
+      col+=texture2D(u_tex, clamp(coverUV(uv+off),0.0,1.0)).rgb;
+      total+=1.0;
+    }
+  }
+  return col/total;
 }
-vec3 fallbackBlur(vec2 uv, float blur){
+
+// 备用背景
+vec3 fallbackBg(vec2 uv){
+  vec3 sky=mix(vec3(.65,.72,.82),vec3(.50,.58,.72),uv.y+.3);
+  vec3 ground=mix(vec3(.38,.48,.35),vec3(.45,.52,.38),sin(uv.x*3.)*.5+.5);
+  return mix(ground,sky,s(-.1,.3,uv.y));
+}
+vec3 fallbackBlur(vec2 uv,float blur){
   vec3 c=vec3(0);
   for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++) c+=fallbackBg(uv+vec2(float(x),float(y))*blur*.012);
   return c/25.;
@@ -82,18 +87,16 @@ vec3 fallbackBlur(vec2 uv, float blur){
 void main(){
   vec2 uv=(gl_FragCoord.xy-.5*S)/S.y, UV=gl_FragCoord.xy/S;
   float t=T*.2, ra=R, mx=mix(3.,6.,ra), mn=2.;
-  float z=-cos(T*.2)*.15;
-  uv*=.85+z*.15; UV=(UV-.5)*(.95+z*.05)+.5;
+
+  uv*=.85;
 
   float s0=s(-.5,1.,ra)*2., l1=s(.25,.75,ra), l2=s(.0,.5,ra);
   vec2 c=DR(uv,t,s0,l1,l2);
   vec2 e=vec2(.001,0);
   float cx=DR(uv+e,t,s0,l1,l2).x, cy=DR(uv+e.yx,t,s0,l1,l2).x;
   vec2 nn=vec2(cx-c.x, cy-c.x);
-
   float focus=mix(mx-c.y, mn, s(.1,.2,c.x));
 
-  // 根据是否加载纹理选择背景源
   vec3 col;
   if(u_loaded > 0.5){
     col = sampleBg(UV + nn, focus);
@@ -101,13 +104,10 @@ void main(){
     col = fallbackBlur(UV + nn, focus);
   }
 
-  // 柔和色调
   float tt=(T+3.)*.5;
   col *= mix(vec3(1), vec3(.95,.97,1.03), sin(tt*.15)*.3+.7);
-  // 渐入
   col *= s(0., 4., T);
-  // 轻微暗角
-  col *= 1. - .25*dot(UV-.5, UV-.5);
+  col *= 1. - .2*dot(UV-.5, UV-.5);
 
   gl_FragColor = vec4(col, 1.);
 }
@@ -150,25 +150,47 @@ export default function RainWriting() {
   function exportTxt() {
     if (!text.trim()) return
     const b = new Blob([text], { type: 'text/plain;charset=utf-8' }); const u = URL.createObjectURL(b)
-    const a = document.createElement('a'); a.href = u; a.download = `flowspace_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(u)
+    const a = document.createElement('a'); a.href = u; a.download = `flowspace_${new Date().toISOString().slice(0, 10)}.txt`; a.click(); URL.revokeObjectURL(u)
   }
 
-  // ═══ 音频（真实 mp3） ═══
+  // ═══ 音频 ═══
   useEffect(() => {
-    const audio = new Audio()
-    audio.loop = true; audio.volume = vol
-    audio.src = mode === 'rain' ? '/audio/rain.mp3' : '/audio/snow.mp3'
+    const src = mode === 'rain' ? '/audio/rain.mp3' : '/audio/snow.mp3'
+    const audio = new Audio(src)
+    audio.loop = true
+    audio.volume = vol
+    audio.preload = 'auto'
     audioRef.current = audio
-    const tryPlay = () => audio.play().catch(() => {})
-    tryPlay()
-    const resume = () => { audio.play().catch(() => {}) }
-    const evts = ['click', 'keydown', 'touchstart']
-    evts.forEach(e => document.addEventListener(e, resume, { once: true }))
-    return () => { audio.pause(); audio.src = ''; evts.forEach(e => document.removeEventListener(e, resume)) }
+
+    audio.addEventListener('canplaythrough', () => {
+      audio.play().catch(() => {})
+    })
+    audio.onerror = (e) => console.error('Audio load failed:', src, e)
+    audio.load()
+
+    // 用户交互兜底
+    const resume = () => {
+      if (audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(() => {})
+      }
+    }
+    document.addEventListener('click', resume)
+    document.addEventListener('keydown', resume)
+    document.addEventListener('touchstart', resume)
+
+    return () => {
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      document.removeEventListener('click', resume)
+      document.removeEventListener('keydown', resume)
+      document.removeEventListener('touchstart', resume)
+    }
   }, [mode])
+
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
-  // ═══ WebGL Rain Shader + 纹理 ═══
+  // ═══ WebGL Rain Shader ═══
   useEffect(() => {
     if (mode !== 'rain') { if (animRef.current) cancelAnimationFrame(animRef.current); return }
     const cv = canvasRef.current; if (!cv) return
@@ -177,16 +199,16 @@ export default function RainWriting() {
     const rs = () => { cv.width = window.innerWidth; cv.height = window.innerHeight; gl.viewport(0, 0, cv.width, cv.height) }
     rs(); window.addEventListener('resize', rs)
 
-    // 编译
     const cs = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh)); return sh }
     const pg = gl.createProgram()
     gl.attachShader(pg, cs(gl.VERTEX_SHADER, VS))
     gl.attachShader(pg, cs(gl.FRAGMENT_SHADER, FS))
-    gl.linkProgram(pg); gl.useProgram(pg)
+    gl.linkProgram(pg)
+    if (!gl.getProgramParameter(pg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(pg))
+    gl.useProgram(pg)
 
-    // 全屏 quad
-    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b)
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW)
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW)
     const aa = gl.getAttribLocation(pg, 'a'); gl.enableVertexAttribArray(aa); gl.vertexAttribPointer(aa, 2, gl.FLOAT, false, 0, 0)
 
     const uT = gl.getUniformLocation(pg, 'T')
@@ -194,26 +216,27 @@ export default function RainWriting() {
     const uR = gl.getUniformLocation(pg, 'R')
     const uTex = gl.getUniformLocation(pg, 'u_tex')
     const uLoaded = gl.getUniformLocation(pg, 'u_loaded')
+    const uImg = gl.getUniformLocation(pg, 'u_img')
 
-    // 创建纹理（先用 1x1 占位）
+    // 纹理
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 140, 160, 255]))
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 150, 130, 255]))
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-    // 加载真实背景图
-    let loaded = 0
+    let loaded = 0, imgW = 1, imgH = 1
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-      loaded = 1
-      texLoadedRef.current = true
+      imgW = img.naturalWidth; imgH = img.naturalHeight
+      loaded = 1; texLoadedRef.current = true
     }
+    img.onerror = () => console.error('Background image failed to load')
     img.src = '/image/rain-bg.jpg'
 
     const t0 = performance.now()
@@ -223,6 +246,7 @@ export default function RainWriting() {
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.uniform1i(uTex, 0)
       gl.uniform1f(uLoaded, loaded)
+      gl.uniform2f(uImg, imgW, imgH)
       gl.uniform1f(uT, (performance.now() - t0) / 1000)
       gl.uniform2f(uS, cv.width, cv.height)
       gl.uniform1f(uR, rain)
@@ -282,7 +306,7 @@ export default function RainWriting() {
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#8a9aaa' }}>
       <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      {/* 顶部 Rain/Snow 切换 */}
+      {/* 顶部 */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.8 : 0 }}>
         <div className="flex items-center gap-8">
           {['rain', 'snow'].map(m => (
