@@ -14,7 +14,7 @@ export default function ResidencyPage() {
   const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
 
   return (
-    <div className="min-h-screen" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif', backgroundColor: '#F5F3EF' }}>
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-1 flex justify-between items-center">
           <div className="flex items-center gap-12">
@@ -47,12 +47,15 @@ export default function ResidencyPage() {
               <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
             </div>
           </div>
-          <div style={{ padding: '20px 0 12px', textAlign: 'center' }}>
-            <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', marginBottom: '8px' }}>RESIDENCY</p>
-            <h1 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '36px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>
-              摇篮驻地
+          <div style={{ padding: '24px 0 16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', marginBottom: '10px', textTransform: 'uppercase' }}>Cradle Residency</p>
+            <h1 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '42px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>
+              Residency
             </h1>
-            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '10px', letterSpacing: '2px' }}>
+            <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '8px' }}>
+              驻 地
+            </p>
+            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '12px', letterSpacing: '2px' }}>
               坐下来，这里没有截止日期
             </p>
           </div>
