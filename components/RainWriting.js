@@ -3,86 +3,80 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
-const ENVS = {
-  rain: { label: '雨', bg: '#0a0e18' },
-  snow: { label: '雪', bg: '#1a2030' },
-  wind: { label: '风', bg: '#121a12' },
-  forest: { label: '林', bg: '#0e1a10' },
-}
+// ════════════════════════════════════════
+// FlowSpace · 沉浸式写作空间
+// CyberZen / Minimalism
+// ════════════════════════════════════════
 
-const POMODORO_OPTIONS = [
-  { label: '20 分钟', seconds: 20 * 60 },
-  { label: '25 分钟', seconds: 25 * 60 },
-  { label: '30 分钟', seconds: 30 * 60 },
-  { label: '45 分钟', seconds: 45 * 60 },
-  { label: '1 小时', seconds: 60 * 60 },
+const FONTS = [
+  { id: 'serif', label: '宋体', family: '"Noto Serif SC", "Source Han Serif SC", serif' },
+  { id: 'kai', label: '楷体', family: '"LXGW WenKai", "楷体", KaiTi, serif' },
+  { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
-const VERT = `attribute vec2 a_pos; void main(){gl_Position=vec4(a_pos,0,1);}`
+const TIMER_PRESETS = [
+  { label: '20m', seconds: 20 * 60 },
+  { label: '25m', seconds: 25 * 60 },
+  { label: '45m', seconds: 45 * 60 },
+  { label: '60m', seconds: 60 * 60 },
+]
 
-const FRAG = `
+// ════════════════════════════════════════
+// Heartfelt Rain Shader (Martijn Steinrucken)
+// ════════════════════════════════════════
+const V = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
+const F = `
 precision highp float;
-uniform float u_time;
-uniform vec2 u_res;
-uniform float u_rain;
-#define S(a,b,t) smoothstep(a,b,t)
-vec3 N13(float p){vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787));p3+=dot(p3,p3.yzx+19.19);return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));}
-float N(float t){return fract(sin(t*12345.564)*7658.76);}
-float Saw(float b,float t){return S(0.,b,t)*S(1.,b,t);}
-vec2 DropLayer2(vec2 uv,float t){
-  vec2 UV=uv;uv.y+=t*0.75;vec2 a=vec2(6.,1.);vec2 grid=a*2.;vec2 id=floor(uv*grid);
-  float colShift=N(id.x);uv.y+=colShift;id=floor(uv*grid);
-  vec3 n=N13(id.x*35.2+id.y*2376.1);vec2 st=fract(uv*grid)-vec2(.5,0);
-  float x=n.x-.5;float y=UV.y*20.;float wiggle=sin(y+sin(y));
-  x+=wiggle*(.5-abs(x))*(n.z-.5);x*=.7;float ti=fract(t+n.z);
-  y=(Saw(.85,ti)-.5)*.9+.5;vec2 p=vec2(x,y);float d=length((st-p)*a.yx);
-  float mainDrop=S(.4,.0,d);float r=sqrt(S(1.,y,st.y));float cd=abs(st.x-x);
-  float trail=S(.23*r,.15*r*r,cd);float trailFront=S(-.02,.02,st.y-y);
-  trail*=trailFront*r*r;y=UV.y;float trail2=S(.2*r,.0,cd);
-  float droplets=max(0.,(sin(y*(1.-y)*120.)-st.y))*trail2*trailFront*n.z;
-  y=fract(y*10.)+(st.y-.5);float dd=length(st-vec2(x,y));droplets=S(.3,0.,dd);
-  float m=mainDrop+droplets*r*trailFront;return vec2(m,trail);
+uniform float T,R;
+uniform vec2 S;
+#define s(a,b,t) smoothstep(a,b,t)
+vec3 H(float p){vec3 q=fract(vec3(p)*vec3(.1031,.11369,.13787));q+=dot(q,q.yzx+19.19);return fract(vec3((q.x+q.y)*q.z,(q.x+q.z)*q.y,(q.y+q.z)*q.x));}
+float n(float t){return fract(sin(t*12345.564)*7658.76);}
+float W(float b,float t){return s(0.,b,t)*s(1.,b,t);}
+vec2 D2(vec2 uv,float t){
+  vec2 U=uv;uv.y+=t*.75;vec2 a=vec2(6.,1.),g=a*2.,id=floor(uv*g);
+  float c=n(id.x);uv.y+=c;id=floor(uv*g);vec3 nn=H(id.x*35.2+id.y*2376.1);
+  vec2 st=fract(uv*g)-vec2(.5,0);float x=nn.x-.5,y=U.y*20.,w=sin(y+sin(y));
+  x+=w*(.5-abs(x))*(nn.z-.5);x*=.7;float ti=fract(t+nn.z);
+  y=(W(.85,ti)-.5)*.9+.5;vec2 p=vec2(x,y);float d=length((st-p)*a.yx),m=s(.4,.0,d);
+  float r=sqrt(s(1.,y,st.y)),cd=abs(st.x-x),tr=s(.23*r,.15*r*r,cd),tf=s(-.02,.02,st.y-y);
+  tr*=tf*r*r;y=U.y;float t2=s(.2*r,.0,cd),dr=max(0.,(sin(y*(1.-y)*120.)-st.y))*t2*tf*nn.z;
+  y=fract(y*10.)+(st.y-.5);dr=s(.3,0.,length(st-vec2(x,y)));
+  return vec2(m+dr*r*tf,tr);
 }
-float StaticDrops(vec2 uv,float t){
-  uv*=40.;vec2 id=floor(uv);uv=fract(uv)-.5;vec3 n=N13(id.x*107.45+id.y*3543.654);
-  vec2 p=(n.xy-.5)*.7;float d=length(uv-p);float fade=Saw(.025,fract(t+n.z));
-  float c=S(.3,0.,d)*fract(n.z*10.)*fade;return c;
+float SD(vec2 uv,float t){
+  uv*=40.;vec2 id=floor(uv);uv=fract(uv)-.5;vec3 nn=H(id.x*107.45+id.y*3543.654);
+  vec2 p=(nn.xy-.5)*.7;return s(.3,0.,length(uv-p))*fract(nn.z*10.)*W(.025,fract(t+nn.z));
 }
-vec2 Drops(vec2 uv,float t,float l0,float l1,float l2){
-  float s=StaticDrops(uv,t)*l0;vec2 m1=DropLayer2(uv,t)*l1;vec2 m2=DropLayer2(uv*1.85,t)*l2;
-  float c=s+m1.x+m2.x;c=S(.3,1.,c);return vec2(c,max(m1.y*l0,m2.y*l1));
+vec2 DR(vec2 uv,float t,float l0,float l1,float l2){
+  float ss=SD(uv,t)*l0;vec2 m1=D2(uv,t)*l1,m2=D2(uv*1.85,t)*l2;
+  return vec2(s(.3,1.,ss+m1.x+m2.x),max(m1.y*l0,m2.y*l1));
 }
-vec3 cityBg(vec2 uv){
-  vec3 col=vec3(0.03,0.04,0.07);
-  for(int i=0;i<12;i++){float fi=float(i);
-    vec2 pos=vec2(sin(fi*1.34+0.5)*0.35+cos(fi*0.77)*0.15,cos(fi*1.73+0.3)*0.25+sin(fi*0.53)*0.1);
-    float d=length(uv-pos);float brightness=0.008/(d*d+0.008);
-    vec3 lc=0.5+0.5*cos(fi*2.1+vec3(0.0,1.5,3.0));lc=mix(lc,vec3(1.0,0.8,0.5),0.3);
-    col+=lc*brightness*0.15;}
-  col+=vec3(0.15,0.1,0.05)*S(0.3,-0.1,uv.y)*0.3;return col;
+vec3 BG(vec2 uv){
+  vec3 c=vec3(.03,.04,.07);
+  for(int i=0;i<12;i++){float f=float(i);
+    vec2 p=vec2(sin(f*1.34+.5)*.35+cos(f*.77)*.15,cos(f*1.73+.3)*.25+sin(f*.53)*.1);
+    float d=length(uv-p);vec3 l=.5+.5*cos(f*2.1+vec3(0,1.5,3));l=mix(l,vec3(1,.8,.5),.3);
+    c+=l*(.008/(d*d+.008))*.15;}
+  c+=vec3(.15,.1,.05)*s(.3,-.1,uv.y)*.3;return c;
 }
-vec3 blurBg(vec2 uv,float blur){
-  vec3 col=vec3(0.0);float total=0.0;
-  for(int x=-2;x<=2;x++){for(int y=-2;y<=2;y++){
-    vec2 off=vec2(float(x),float(y))*blur*0.01;col+=cityBg(uv+off);total+=1.0;}}
-  return col/total;
+vec3 BB(vec2 uv,float b){
+  vec3 c=vec3(0);
+  for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++)c+=BG(uv+vec2(float(x),float(y))*b*.01);
+  return c/25.;
 }
 void main(){
-  vec2 uv=(gl_FragCoord.xy-.5*u_res)/u_res.y;vec2 UV=gl_FragCoord.xy/u_res;
-  float T=u_time;float t=T*.2;float rainAmount=u_rain;
-  float maxBlur=mix(3.,6.,rainAmount);float minBlur=2.;
-  float zoom=-cos(T*.2);uv*=.7+zoom*.3;UV=(UV-.5)*(.9+zoom*.1)+.5;
-  float staticDrops=S(-.5,1.,rainAmount)*2.;float layer1=S(.25,.75,rainAmount);float layer2=S(.0,.5,rainAmount);
-  vec2 c=Drops(uv,t,staticDrops,layer1,layer2);
-  vec2 e=vec2(.001,0.);float cx=Drops(uv+e,t,staticDrops,layer1,layer2).x;
-  float cy=Drops(uv+e.yx,t,staticDrops,layer1,layer2).x;vec2 n=vec2(cx-c.x,cy-c.x);
-  float focus=mix(maxBlur-c.y,minBlur,S(.1,.2,c.x));
-  vec3 col=blurBg(UV+n,focus);
-  t=(T+3.)*.5;float colFade=sin(t*.2)*.5+.5;
-  col*=mix(vec3(1.),vec3(.8,.9,1.3),colFade);
-  float fade=S(0.,10.,T);float lightning=sin(t*sin(t*10.));
-  lightning*=pow(max(0.,sin(t+sin(t))),10.);col*=1.+lightning*fade;
-  col*=1.-dot(UV-.5,UV-.5);col*=fade;
+  vec2 uv=(gl_FragCoord.xy-.5*S)/S.y,UV=gl_FragCoord.xy/S;
+  float t=T*.2,ra=R,mx=mix(3.,6.,ra),mn=2.,z=-cos(T*.2);
+  uv*=.7+z*.3;UV=(UV-.5)*(.9+z*.1)+.5;
+  float s0=s(-.5,1.,ra)*2.,l1=s(.25,.75,ra),l2=s(.0,.5,ra);
+  vec2 c=DR(uv,t,s0,l1,l2);
+  vec2 e=vec2(.001,0);float cx=DR(uv+e,t,s0,l1,l2).x,cy=DR(uv+e.yx,t,s0,l1,l2).x;
+  vec2 nn=vec2(cx-c.x,cy-c.x);
+  vec3 col=BB(UV+nn,mix(mx-c.y,mn,s(.1,.2,c.x)));
+  float tt=(T+3.)*.5;col*=mix(vec3(1),vec3(.8,.9,1.3),sin(tt*.2)*.5+.5);
+  float fd=s(0.,10.,T),li=sin(tt*sin(tt*10.))*pow(max(0.,sin(tt+sin(tt))),10.);
+  col*=1.+li*fd;col*=1.-dot(UV-.5,UV-.5);col*=fd;
   gl_FragColor=vec4(col,1.);
 }
 `
@@ -90,234 +84,388 @@ void main(){
 export default function RainWriting() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
-  const audioCtxRef = useRef(null)
-  const gainNodeRef = useRef(null)
-  const textareaRef = useRef(null)
-  const saveTimerRef = useRef(null)
-  const audioStartedRef = useRef(false)
+  const audioRef = useRef(null)
+  const gainRef = useRef(null)
+  const startedRef = useRef(false)
 
-  const [env, setEnv] = useState('rain')
+  const [mode, setMode] = useState('rain')     // rain | snow
   const [text, setText] = useState('')
-  const [volume, setVolume] = useState(0.5)
-  const [audioPlaying, setAudioPlaying] = useState(false)
-  const [showPomodoro, setShowPomodoro] = useState(false)
-  const [pomodoroTime, setPomodoroTime] = useState(null)
-  const [pomodoroTotal, setPomodoroTotal] = useState(null)
-  const [pomodoroActive, setPomodoroActive] = useState(false)
-  const [savedAt, setSavedAt] = useState(null)
-  const [rainAmount] = useState(0.7)
+  const [font, setFont] = useState(0)
+  const [rain, setRain] = useState(0.7)
+  const [blur, setBlur] = useState(0.5)
+  const [vol, setVol] = useState(0.5)
+  const [audioOn, setAudioOn] = useState(false)
+  const [showMixer, setShowMixer] = useState(false)
+  const [topHover, setTopHover] = useState(false)
+  const [deckHover, setDeckHover] = useState(false)
+  const [timerSec, setTimerSec] = useState(null)
+  const [timerTotal, setTimerTotal] = useState(null)
+  const [timerOn, setTimerOn] = useState(false)
+  const [showTimer, setShowTimer] = useState(false)
+  const [saved, setSaved] = useState(null)
 
-  const currentBg = ENVS[env]?.bg || '#0a0e18'
-
-  useEffect(() => { try { const s = localStorage.getItem('cradle_desk_text'); if (s) setText(s) } catch (e) {} }, [])
+  // ═══ 持久化 ═══
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('flowspace_text'); if (s) setText(s)
+      const f = localStorage.getItem('flowspace_font'); if (f) setFont(parseInt(f))
+      const m = localStorage.getItem('flowspace_mode'); if (m) setMode(m)
+    } catch (e) {}
+  }, [])
 
   useEffect(() => {
-    saveTimerRef.current = setInterval(() => {
-      try { localStorage.setItem('cradle_desk_text', text); setSavedAt(new Date()) } catch (e) {}
-    }, 10000)
-    return () => clearInterval(saveTimerRef.current)
+    const t = setInterval(() => {
+      try { localStorage.setItem('flowspace_text', text); setSaved(new Date()) } catch (e) {}
+    }, 8000)
+    return () => clearInterval(t)
   }, [text])
 
-  function saveNow() { try { localStorage.setItem('cradle_desk_text', text); setSavedAt(new Date()) } catch (e) {} }
+  useEffect(() => { try { localStorage.setItem('flowspace_font', String(font)) } catch (e) {} }, [font])
+  useEffect(() => { try { localStorage.setItem('flowspace_mode', mode) } catch (e) {} }, [mode])
+
+  function saveNow() { try { localStorage.setItem('flowspace_text', text); setSaved(new Date()) } catch (e) {} }
+  function exportTxt() {
+    if (!text.trim()) return
+    const b = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const u = URL.createObjectURL(b); const a = document.createElement('a')
+    a.href = u; a.download = `flowspace_${new Date().toISOString().slice(0, 10)}.txt`
+    a.click(); URL.revokeObjectURL(u)
+  }
 
   // ═══ 音频 ═══
   const buildAudio = useCallback(() => {
-    if (audioCtxRef.current) return
+    if (audioRef.current) return
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    audioCtxRef.current = ctx
-    const master = ctx.createGain(); master.gain.value = volume; master.connect(ctx.destination)
-    gainNodeRef.current = master
+    audioRef.current = ctx
+    const master = ctx.createGain(); master.gain.value = vol; master.connect(ctx.destination)
+    gainRef.current = master
 
-    const bufSize = 2 * ctx.sampleRate
-    const noiseBuf = ctx.createBuffer(2, bufSize, ctx.sampleRate)
+    const bs = 2 * ctx.sampleRate, buf = ctx.createBuffer(2, bs, ctx.sampleRate)
     for (let ch = 0; ch < 2; ch++) {
-      const d = noiseBuf.getChannelData(ch); let last = 0
-      for (let i = 0; i < bufSize; i++) { const w = Math.random() * 2 - 1; d[i] = (last + 0.02 * w) / 1.02; last = d[i]; d[i] *= 3.5 }
+      const d = buf.getChannelData(ch); let l = 0
+      for (let i = 0; i < bs; i++) { d[i] = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; l = d[i]; d[i] *= 3.5 }
     }
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true
-    const lpf = ctx.createBiquadFilter(); lpf.type = 'lowpass'
-    lpf.frequency.value = env === 'rain' ? 600 : env === 'snow' ? 350 : env === 'wind' ? 1200 : 500
-    src.connect(lpf); lpf.connect(master); src.start()
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'
+    lp.frequency.value = mode === 'rain' ? 600 : 350
+    src.connect(lp); lp.connect(master); src.start()
 
-    if (env === 'rain' || env === 'snow') {
+    if (mode === 'rain') {
       function tick() {
-        if (!audioCtxRef.current) return
-        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 500 + Math.random() * 3000
-        const g = ctx.createGain(); g.gain.setValueAtTime(0.01 + Math.random() * 0.02, ctx.currentTime)
+        if (!audioRef.current) return
+        const o = ctx.createOscillator(); o.type = 'sine'
+        o.frequency.value = 500 + Math.random() * 3000
+        const g = ctx.createGain()
+        g.gain.setValueAtTime(0.008 + Math.random() * 0.015, ctx.currentTime)
         g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04)
         o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + 0.05)
-        setTimeout(tick, 100 + Math.random() * 500)
+        setTimeout(tick, 80 + Math.random() * 400)
       }
       tick()
     }
-    if (env === 'wind') {
-      const src2 = ctx.createBufferSource(); src2.buffer = noiseBuf; src2.loop = true
-      const hpf = ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 300
-      const wg = ctx.createGain(); wg.gain.value = 0.12
-      src2.connect(hpf); hpf.connect(wg); wg.connect(master); src2.start()
-    }
 
-    // 尝试立即恢复（应对浏览器 autoplay policy）
     if (ctx.state === 'suspended') ctx.resume()
-    setAudioPlaying(true); audioStartedRef.current = true
-  }, [env, volume])
+    setAudioOn(true); startedRef.current = true
+  }, [mode, vol])
 
   const stopAudio = useCallback(() => {
-    if (!audioCtxRef.current) return
-    audioCtxRef.current.close(); audioCtxRef.current = null; gainNodeRef.current = null
-    setAudioPlaying(false); audioStartedRef.current = false
+    if (!audioRef.current) return
+    audioRef.current.close(); audioRef.current = null; gainRef.current = null
+    setAudioOn(false); startedRef.current = false
   }, [])
 
-  // 自动播放 + 用户交互兜底
+  // 自动播放 + 交互兜底
   useEffect(() => {
     buildAudio()
     const resume = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume()
-      if (!audioStartedRef.current) buildAudio()
+      if (audioRef.current?.state === 'suspended') audioRef.current.resume()
+      if (!startedRef.current) buildAudio()
     }
-    document.addEventListener('click', resume)
-    document.addEventListener('keydown', resume)
-    document.addEventListener('touchstart', resume)
-    return () => {
-      document.removeEventListener('click', resume)
-      document.removeEventListener('keydown', resume)
-      document.removeEventListener('touchstart', resume)
-    }
+    const events = ['click', 'keydown', 'touchstart']
+    events.forEach(e => document.addEventListener(e, resume))
+    return () => events.forEach(e => document.removeEventListener(e, resume))
   }, [buildAudio])
 
-  useEffect(() => { if (gainNodeRef.current) gainNodeRef.current.gain.value = volume }, [volume])
+  useEffect(() => { if (gainRef.current) gainRef.current.gain.value = vol }, [vol])
 
-  const prevEnvRef = useRef(env)
+  // 切模式重启音频
+  const prevMode = useRef(mode)
   useEffect(() => {
-    if (prevEnvRef.current !== env && audioStartedRef.current) { stopAudio(); setTimeout(() => buildAudio(), 150) }
-    prevEnvRef.current = env
-  }, [env])
+    if (prevMode.current !== mode && startedRef.current) { stopAudio(); setTimeout(buildAudio, 150) }
+    prevMode.current = mode
+  }, [mode])
 
-  useEffect(() => { return () => { if (audioCtxRef.current) audioCtxRef.current.close() } }, [])
+  useEffect(() => () => { if (audioRef.current) audioRef.current.close() }, [])
 
-  // ═══ WebGL ═══
+  // ═══ Rain Shader (WebGL) ═══
   useEffect(() => {
-    if (env !== 'rain') { if (animRef.current) cancelAnimationFrame(animRef.current); return }
-    const canvas = canvasRef.current; if (!canvas) return
-    const gl = canvas.getContext('webgl', { alpha: false }); if (!gl) return
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; gl.viewport(0, 0, canvas.width, canvas.height) }
-    resize(); window.addEventListener('resize', resize)
-    function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s }
-    const prog = gl.createProgram()
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG))
-    gl.linkProgram(prog); gl.useProgram(prog)
-    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+    if (mode !== 'rain') { if (animRef.current) cancelAnimationFrame(animRef.current); return }
+    const cv = canvasRef.current; if (!cv) return
+    const gl = cv.getContext('webgl', { alpha: false }); if (!gl) return
+    const rs = () => { cv.width = window.innerWidth; cv.height = window.innerHeight; gl.viewport(0, 0, cv.width, cv.height) }
+    rs(); window.addEventListener('resize', rs)
+    const cs = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh)); return sh }
+    const pg = gl.createProgram(); gl.attachShader(pg, cs(gl.VERTEX_SHADER, V)); gl.attachShader(pg, cs(gl.FRAGMENT_SHADER, F))
+    gl.linkProgram(pg); gl.useProgram(pg)
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW)
-    const aPos = gl.getAttribLocation(prog, 'a_pos'); gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
-    const uTime = gl.getUniformLocation(prog, 'u_time'); const uRes = gl.getUniformLocation(prog, 'u_res'); const uRain = gl.getUniformLocation(prog, 'u_rain')
-    const start = performance.now()
-    function render() { const t = (performance.now() - start) / 1000; gl.uniform1f(uTime, t); gl.uniform2f(uRes, canvas.width, canvas.height); gl.uniform1f(uRain, rainAmount); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); animRef.current = requestAnimationFrame(render) }
-    render()
-    return () => { window.removeEventListener('resize', resize); if (animRef.current) cancelAnimationFrame(animRef.current) }
-  }, [env, rainAmount])
+    const a = gl.getAttribLocation(pg, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0)
+    const uT = gl.getUniformLocation(pg, 'T'), uS = gl.getUniformLocation(pg, 'S'), uR = gl.getUniformLocation(pg, 'R')
+    const t0 = performance.now()
+    const draw = () => { gl.uniform1f(uT, (performance.now() - t0) / 1000); gl.uniform2f(uS, cv.width, cv.height); gl.uniform1f(uR, rain); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); animRef.current = requestAnimationFrame(draw) }
+    draw()
+    return () => { window.removeEventListener('resize', rs); if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [mode, rain])
 
-  // ═══ Canvas 粒子 ═══
+  // ═══ Snow Particles (Canvas 2D) ═══
   useEffect(() => {
-    if (env === 'rain') return
-    const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
-    resize(); window.addEventListener('resize', resize)
-    const particles = []; const count = env === 'snow' ? 150 : env === 'wind' ? 80 : 50
-    for (let i = 0; i < count; i++) particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: env === 'snow' ? 1 + Math.random() * 3 : 1 + Math.random() * 2, dx: env === 'wind' ? 1.5 + Math.random() * 3 : (Math.random() - 0.5) * 0.5, dy: env === 'snow' ? 0.5 + Math.random() * 1.5 : env === 'forest' ? -0.1 + Math.random() * 0.4 : (Math.random() - 0.5) * 0.5, alpha: 0.15 + Math.random() * 0.4, wobble: Math.random() * Math.PI * 2, ws: 0.005 + Math.random() * 0.015 })
-    const bc = { snow: [220,230,245], wind: [170,195,160], forest: [140,190,120] }[env] || [220,230,245]
-    function draw() {
-      ctx.fillStyle = currentBg; ctx.fillRect(0, 0, canvas.width, canvas.height)
-      particles.forEach(p => { p.x += p.dx + Math.sin(p.wobble) * 0.4; p.y += p.dy; p.wobble += p.ws; if (p.x > canvas.width + 10) p.x = -10; if (p.x < -10) p.x = canvas.width + 10; if (p.y > canvas.height + 10) p.y = -10; if (p.y < -10) p.y = canvas.height + 10; const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4); grad.addColorStop(0, `rgba(${bc[0]},${bc[1]},${bc[2]},${p.alpha * 0.6})`); grad.addColorStop(1, `rgba(${bc[0]},${bc[1]},${bc[2]},0)`); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = `rgba(${bc[0]},${bc[1]},${bc[2]},${p.alpha})`; ctx.beginPath(); if (env === 'wind') ctx.ellipse(p.x, p.y, p.r * 2.5, p.r * 0.4, Math.atan2(p.dy, p.dx), 0, Math.PI * 2); else ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill() })
+    if (mode !== 'snow') return
+    const cv = canvasRef.current; if (!cv) return
+    const ctx = cv.getContext('2d'); if (!ctx) return
+    const rs = () => { cv.width = window.innerWidth; cv.height = window.innerHeight }
+    rs(); window.addEventListener('resize', rs)
+    const ps = []
+    for (let i = 0; i < 200; i++) ps.push({
+      x: Math.random() * cv.width, y: Math.random() * cv.height,
+      r: 0.8 + Math.random() * 2.5, dx: (Math.random() - 0.5) * 0.4,
+      dy: 0.3 + Math.random() * 1.2, a: 0.2 + Math.random() * 0.5,
+      w: Math.random() * Math.PI * 2, ws: 0.003 + Math.random() * 0.01,
+    })
+    const draw = () => {
+      ctx.fillStyle = '#0e1220'; ctx.fillRect(0, 0, cv.width, cv.height)
+      // 星空底
+      for (let i = 0; i < 60; i++) {
+        const sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * cv.width
+        const sy = (Math.cos(i * 311.7) * 0.5 + 0.5) * cv.height * 0.7
+        const sa = 0.15 + Math.sin(performance.now() * 0.001 + i) * 0.1
+        ctx.fillStyle = `rgba(200,210,230,${sa})`
+        ctx.beginPath(); ctx.arc(sx, sy, 0.5 + Math.random() * 0.5, 0, Math.PI * 2); ctx.fill()
+      }
+      ps.forEach(p => {
+        p.x += p.dx + Math.sin(p.w) * 0.3; p.y += p.dy; p.w += p.ws
+        if (p.y > cv.height + 10) { p.y = -10; p.x = Math.random() * cv.width }
+        if (p.x > cv.width + 10) p.x = -10; if (p.x < -10) p.x = cv.width + 10
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3)
+        g.addColorStop(0, `rgba(220,230,245,${p.a * 0.5})`); g.addColorStop(1, 'rgba(220,230,245,0)')
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = `rgba(240,245,255,${p.a})`
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
+      })
       animRef.current = requestAnimationFrame(draw)
     }
     draw()
-    return () => { window.removeEventListener('resize', resize); if (animRef.current) cancelAnimationFrame(animRef.current) }
-  }, [env, currentBg])
+    return () => { window.removeEventListener('resize', rs); if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [mode])
 
-  // ═══ 番茄钟 ═══
+  // ═══ ZenTimer ═══
   useEffect(() => {
-    if (!pomodoroActive || pomodoroTime === null) return
-    if (pomodoroTime <= 0) { setPomodoroActive(false); try { const c = new AudioContext(); const o = c.createOscillator(); o.frequency.value = 880; const g = c.createGain(); g.gain.setValueAtTime(0.3, c.currentTime); g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1); o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 1) } catch (e) {} return }
-    const timer = setTimeout(() => setPomodoroTime(t => t - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [pomodoroActive, pomodoroTime])
+    if (!timerOn || timerSec === null) return
+    if (timerSec <= 0) {
+      setTimerOn(false)
+      try { const c = new AudioContext(); const o = c.createOscillator(); o.frequency.value = 660; const g = c.createGain(); g.gain.setValueAtTime(0.2, c.currentTime); g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1.5); o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 1.5) } catch (e) {}
+      return
+    }
+    const t = setTimeout(() => setTimerSec(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [timerOn, timerSec])
 
-  function formatTime(s) { if (s === null) return '--:--'; return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` }
+  const fmt = s => s === null ? '' : `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  useEffect(() => { function hk(e) { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow() } }; window.addEventListener('keydown', hk); return () => window.removeEventListener('keydown', hk) }, [text])
+  // ═══ 键盘 ═══
+  useEffect(() => {
+    const h = e => { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow() } }
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
+  }, [text])
 
-  const charCount = text.length
-  const lineCount = text ? text.split('\n').length : 1
-  const sizeKB = new Blob([text]).size / 1024
+  // ═══ 顶部悬停检测 ═══
+  useEffect(() => {
+    const h = e => setTopHover(e.clientY < 50)
+    window.addEventListener('mousemove', h); return () => window.removeEventListener('mousemove', h)
+  }, [])
+
+  const chars = text.length
+  const lines = text ? text.split('\n').length : 1
+  const currentFont = FONTS[font] || FONTS[0]
 
   return (
-    <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: currentBg }}>
-      <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 1 }} />
+    <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: mode === 'rain' ? '#0a0e18' : '#0e1220', cursor: 'default' }}>
+      {/* TheCanvas */}
+      <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-3 z-20">
-        <Link href="/residency" style={{ fontSize: '11px', letterSpacing: '3px', color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>← 摇篮驻地</Link>
-        {savedAt && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>已保存 {savedAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>}
+      {/* 顶部模式切换（鼠标移到顶部50px才显示） */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700"
+        style={{ opacity: topHover ? 0.8 : 0 }}>
+        <div className="flex items-center gap-8">
+          <button onClick={() => setMode('rain')}
+            style={{ fontSize: '11px', letterSpacing: '4px', color: mode === 'rain' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)', fontWeight: mode === 'rain' ? 600 : 400, textTransform: 'uppercase', transition: 'all 0.5s' }}>
+            Rain
+          </button>
+          <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(255,255,255,0.15)' }} />
+          <button onClick={() => setMode('snow')}
+            style={{ fontSize: '11px', letterSpacing: '4px', color: mode === 'snow' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)', fontWeight: mode === 'snow' ? 600 : 400, textTransform: 'uppercase', transition: 'all 0.5s' }}>
+            Snow
+          </button>
+        </div>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center z-10" style={{ padding: '52px 32px 56px' }}>
-        <div className="w-full h-full max-w-4xl flex flex-col" style={{ backgroundColor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      {/* 左上返回（悬停显示） */}
+      <div className="absolute top-0 left-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.6 : 0 }}>
+        <Link href="/residency" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>← BACK</Link>
+      </div>
+
+      {/* 右上保存状态（悬停显示） */}
+      <div className="absolute top-0 right-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.5 : 0 }}>
+        {saved && <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', letterSpacing: '1px' }}>SAVED {saved.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
+      </div>
+
+      {/* TheDeck（毛玻璃编辑器） */}
+      <div className="absolute inset-0 flex items-center justify-center z-10" style={{ padding: '60px 48px 60px' }}
+        onMouseEnter={() => setDeckHover(true)} onMouseLeave={() => setDeckHover(false)}>
+        <div className="w-full h-full max-w-3xl flex flex-col relative" style={{
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          backdropFilter: `blur(${12 + blur * 20}px)`,
+          WebkitBackdropFilter: `blur(${12 + blur * 20}px)`,
+          borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
+        }}>
           <textarea
-            id="rain-editor"
-            ref={textareaRef}
+            id="flow-editor"
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder="坐下来，写点什么。"
+            placeholder="思考，好久不见你了。"
             spellCheck={false}
             className="flex-1 w-full resize-none outline-none px-10 py-8"
-            style={{ backgroundColor: 'transparent', color: '#E5E7EB', fontSize: '16px', lineHeight: 2.4, fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif', letterSpacing: '1.5px', caretColor: 'rgba(255,255,255,0.6)', border: 'none' }}
+            style={{
+              backgroundColor: 'transparent',
+              color: '#E8E8E8',
+              fontSize: '16px',
+              lineHeight: 2.4,
+              fontFamily: currentFont.family,
+              letterSpacing: '1.5px',
+              caretColor: 'rgba(255,255,255,0.5)',
+              border: 'none',
+            }}
           />
+
+          {/* 底部工具栏（悬停淡入） */}
+          <div className="flex items-center justify-between px-6 py-3 transition-opacity duration-500"
+            style={{ opacity: deckHover ? 0.7 : 0, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center gap-4">
+              {/* 字体切换 */}
+              {FONTS.map((f, i) => (
+                <button key={f.id} onClick={() => setFont(i)} style={{
+                  fontSize: '11px', color: font === i ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)',
+                  fontFamily: f.family, transition: 'color 0.3s', letterSpacing: '1px',
+                }}>{f.label}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={saveNow} style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Save</button>
+              <button onClick={exportTxt} style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Export</button>
+            </div>
+          </div>
+
+          {/* VibeMixer 触发器 */}
+          <button onClick={() => setShowMixer(!showMixer)}
+            className="absolute transition-opacity duration-500"
+            style={{ bottom: '-36px', left: '50%', transform: 'translateX(-50%)', opacity: deckHover ? 0.5 : 0, fontSize: '14px', color: 'rgba(255,255,255,0.3)' }}>
+            ≡
+          </button>
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)' }}>
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-          <span>{charCount} 字</span><span style={{ opacity: 0.4 }}>|</span>
-          <span>{lineCount} 行</span><span style={{ opacity: 0.4 }}>|</span>
-          <span>{sizeKB.toFixed(2)}M / 4.8M</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {Object.entries(ENVS).map(([key, val]) => (
-            <button key={key} onClick={() => setEnv(key)} className="px-2.5 py-1 rounded text-xs transition-all"
-              style={{ backgroundColor: env === key ? 'rgba(255,255,255,0.15)' : 'transparent', color: env === key ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)', border: env === key ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent' }}>
-              {val.label}
+      {/* VibeMixer（氛围控制台） */}
+      {showMixer && (
+        <div className="absolute z-30 rounded-xl p-5 space-y-4" style={{
+          bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255,255,255,0.06)', minWidth: '260px',
+          animation: 'fadeUp 0.3s ease',
+        }}>
+          <div className="flex items-center justify-between">
+            <span style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Vibe Mixer</span>
+            <button onClick={() => setShowMixer(false)} style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>×</button>
+          </div>
+
+          {mode === 'rain' && (
+            <MixerSlider label="Rain" value={rain} onChange={setRain} />
+          )}
+          <MixerSlider label="Blur" value={blur} onChange={setBlur} />
+          <MixerSlider label="Volume" value={vol} onChange={v => { setVol(v); if (gainRef.current) gainRef.current.gain.value = v }} />
+          <div className="flex items-center justify-between pt-1">
+            <button onClick={() => { if (audioOn) stopAudio(); else buildAudio() }}
+              style={{ fontSize: '10px', letterSpacing: '2px', color: audioOn ? 'rgba(255,255,255,0.5)' : 'rgba(255,100,100,0.5)', textTransform: 'uppercase' }}>
+              {audioOn ? '🔊 On' : '🔇 Off'}
             </button>
-          ))}
+          </div>
         </div>
+      )}
+
+      {/* 底部状态栏（始终微弱可见） */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3">
+        <div className="flex items-center gap-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.15)', letterSpacing: '1px' }}>
+          <span>{chars} 字</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{lines} 行</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{(new Blob([text]).size / 1024).toFixed(2)}M / 4.8M</span>
+        </div>
+
         <div className="flex items-center gap-3">
-          <button onClick={() => { if (audioPlaying) stopAudio(); else buildAudio() }} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{audioPlaying ? '🔊' : '🔇'}</button>
-          <input type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={e => setVolume(parseInt(e.target.value) / 100)} className="w-14" style={{ accentColor: 'rgba(255,255,255,0.3)' }} />
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
+          {/* ZenTimer */}
           <div className="relative">
-            <button onClick={() => setShowPomodoro(!showPomodoro)} className="text-xs" style={{ color: pomodoroActive ? 'rgba(255,180,100,0.8)' : 'rgba(255,255,255,0.35)' }}>⏱ {pomodoroActive ? formatTime(pomodoroTime) : ''}</button>
-            {showPomodoro && (
-              <div className="absolute bottom-8 right-0 rounded-lg p-2 space-y-1" style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', minWidth: '120px' }}>
-                {POMODORO_OPTIONS.map(opt => (
-                  <button key={opt.seconds} onClick={() => { setPomodoroTime(opt.seconds); setPomodoroTotal(opt.seconds); setPomodoroActive(true); setShowPomodoro(false) }}
-                    className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/10" style={{ color: 'rgba(255,255,255,0.55)' }}>{opt.label}</button>
+            <button onClick={() => setShowTimer(!showTimer)}
+              style={{ fontSize: '10px', letterSpacing: '2px', color: timerOn ? 'rgba(255,200,150,0.6)' : 'rgba(255,255,255,0.15)', textTransform: 'uppercase' }}>
+              {timerOn ? fmt(timerSec) : '⏱'}
+            </button>
+            {showTimer && (
+              <div className="absolute bottom-7 right-0 rounded-lg p-2 space-y-1" style={{
+                backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.06)', minWidth: '100px',
+                animation: 'fadeUp 0.2s ease',
+              }}>
+                {TIMER_PRESETS.map(p => (
+                  <button key={p.seconds} onClick={() => { setTimerSec(p.seconds); setTimerTotal(p.seconds); setTimerOn(true); setShowTimer(false) }}
+                    className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/5"
+                    style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '1px' }}>{p.label}</button>
                 ))}
-                {pomodoroActive && <button onClick={() => { setPomodoroActive(false); setPomodoroTime(null); setShowPomodoro(false) }} className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/10" style={{ color: 'rgba(255,150,150,0.6)' }}>停止</button>}
+                {timerOn && (
+                  <button onClick={() => { setTimerOn(false); setTimerSec(null); setShowTimer(false) }}
+                    className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/5"
+                    style={{ color: 'rgba(255,130,130,0.5)' }}>Stop</button>
+                )}
               </div>
             )}
           </div>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
-          <button onClick={saveNow} className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>💾</button>
-          <button onClick={() => { if (!text.trim()) return; const b = new Blob([text], { type: 'text/plain;charset=utf-8' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `cradle_writing_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(u) }} className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>⬇</button>
         </div>
       </div>
 
-      {pomodoroActive && pomodoroTotal && (
-        <div className="absolute bottom-0 left-0 z-30" style={{ width: `${((pomodoroTotal - pomodoroTime) / pomodoroTotal) * 100}%`, height: '2px', backgroundColor: 'rgba(255,180,100,0.5)', transition: 'width 1s linear' }} />
+      {/* Timer 进度线 */}
+      {timerOn && timerTotal && (
+        <div className="absolute bottom-0 left-0 z-30" style={{
+          width: `${((timerTotal - timerSec) / timerTotal) * 100}%`,
+          height: '1px', backgroundColor: 'rgba(255,200,150,0.3)', transition: 'width 1s linear',
+        }} />
       )}
 
       <style>{`
-        #rain-editor::placeholder { color: rgba(255,255,255,0.25); }
-        #rain-editor::selection { background: rgba(255,255,255,0.2); color: #fff; }
+        #flow-editor::placeholder { color: rgba(255,255,255,0.18); }
+        #flow-editor::selection { background: rgba(255,255,255,0.12); color: #fff; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
       `}</style>
+    </div>
+  )
+}
+
+// ═══ 滑杆组件 ═══
+function MixerSlider({ label, value, onChange }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span style={{ fontSize: '10px', letterSpacing: '2px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', width: '50px' }}>{label}</span>
+      <input type="range" min="0" max="100" value={Math.round(value * 100)}
+        onChange={e => onChange(parseInt(e.target.value) / 100)}
+        className="flex-1" style={{ accentColor: 'rgba(255,255,255,0.25)' }} />
     </div>
   )
 }
