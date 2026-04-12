@@ -45,7 +45,7 @@ export default function DialogueSection({ allDialogues = [] }) {
 
       <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
 
-      {/* 三区布局：items-stretch 让中间列和图片等高 */}
+      {/* 三区布局 */}
       <div className="flex items-stretch" style={{ paddingTop: '24px', paddingBottom: '24px' }}>
 
         {/* ── 左：往期标签栏 ── */}
@@ -95,53 +95,69 @@ export default function DialogueSection({ allDialogues = [] }) {
           </div>
         )}
 
-        {/* ── 中：艺术家 + 引言 + 按钮（flex-col justify-between 撑满高度） ── */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between" style={{
+        {/* ── 中：艺术家 + 引言 + 作品预览 + 按钮 ── */}
+        <div className="flex-1 min-w-0 flex flex-col" style={{
           paddingRight: '28px',
           borderLeft: allDialogues.length > 1 ? '0.5px solid #E5E7EB' : 'none',
           paddingLeft: allDialogues.length > 1 ? '28px' : '0',
         }}>
-          {/* 上：艺术家 */}
-          <div>
-            {active.artists && active.artists.length > 0 && (
-              <div>
-                <p className="text-xs mb-5" style={{ color: '#9CA3AF', letterSpacing: '3px', textAlign: 'center' }}>参 展 艺 术 家</p>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-5" style={{ maxWidth: '360px', margin: '0 auto' }}>
-                  {active.artists.map((artist, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="rounded-full overflow-hidden flex-shrink-0"
-                        style={{ width: '48px', height: '48px', backgroundColor: '#F3F4F6', border: '2.5px solid #E5E7EB' }}>
-                        {artist.avatar_url ? (
-                          <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-base" style={{ color: '#9CA3AF' }}>👤</div>
-                        )}
-                      </div>
-                      <span style={{ fontSize: '13px', color: '#374151' }}>{artist.display_name}</span>
+          {/* 艺术家：大头像 + 名字在下 */}
+          {active.artists && active.artists.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <p className="text-xs mb-5" style={{ color: '#9CA3AF', letterSpacing: '3px', textAlign: 'center' }}>参 展 艺 术 家</p>
+              <div className="flex items-start justify-center gap-6 flex-wrap">
+                {active.artists.map((artist, i) => (
+                  <div key={i} className="flex flex-col items-center" style={{ width: '80px' }}>
+                    <div className="rounded-full overflow-hidden"
+                      style={{ width: '72px', height: '72px', backgroundColor: '#F3F4F6', border: '3px solid #E5E7EB' }}>
+                      {artist.avatar_url ? (
+                        <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: '#9CA3AF' }}>👤</div>
+                      )}
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs mt-4" style={{ color: '#D1D5DB', textAlign: 'center' }}>{active.artworks?.length || 0} 件作品</p>
+                    <span className="mt-2 text-center leading-tight" style={{ fontSize: '11px', color: '#6B7280' }}>{artist.display_name}</span>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* 中：引言 */}
-          <div style={{ padding: '24px 0' }}>
-            {active.quote && (
-              <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '16px' }}>
-                <p style={{ fontSize: '13px', lineHeight: 2, color: '#6B7280', fontStyle: 'italic' }}>
-                  "{active.quote}"
-                </p>
-                {active.quote_author && (
-                  <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px' }}>—— {active.quote_author}</p>
-                )}
+          {/* 引言（紧凑） */}
+          {active.quote && (
+            <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '16px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '12px', lineHeight: 1.9, color: '#6B7280', fontStyle: 'italic' }}>
+                "{active.quote}"
+              </p>
+              {active.quote_author && (
+                <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>—— {active.quote_author}</p>
+              )}
+            </div>
+          )}
+
+          {/* 作品预览缩略图 */}
+          {active.artworks && active.artworks.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <p className="text-xs mb-3" style={{ color: '#D1D5DB', letterSpacing: '2px', textAlign: 'center' }}>{active.artworks.length} 件作品</p>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                {active.artworks.map((aw, i) => (
+                  <div key={i} className="rounded overflow-hidden" style={{
+                    width: '56px', height: '56px', backgroundColor: '#F3F4F6',
+                    border: '1px solid #E5E7EB',
+                  }}>
+                    {aw.image_url ? (
+                      <img src={aw.image_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#D1D5DB' }}>🎨</div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* 下：按钮 */}
-          <div style={{ textAlign: 'center' }}>
+          {/* 按钮 */}
+          <div style={{ textAlign: 'center', marginTop: 'auto' }}>
             <Link href={`/dialogue/${active.id}`}
               className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-white rounded-lg transition hover:opacity-90"
               style={{ backgroundColor: '#111827' }}>
