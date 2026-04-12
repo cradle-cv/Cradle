@@ -27,14 +27,15 @@ export default async function ArtistsPage() {
   <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
 </div>
             </a>
-              <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
   <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-    <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-    <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+  <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+  <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
   <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-  <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+  <li><a href="/artists" className="font-bold text-gray-900">艺术家</a></li>
   <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-            </ul>
+  <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
+</ul>
           </div>
           <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
         </div>
