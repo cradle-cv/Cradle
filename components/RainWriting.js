@@ -3,12 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
-// ═══ 环境配置 ═══
 const ENVS = {
-  rain: { label: '雨', bg: '#1a2030', icon: '🌧️' },
-  snow: { label: '雪', bg: '#2a3040', icon: '❄️' },
-  wind: { label: '风', bg: '#1e2a20', icon: '🍃' },
-  forest: { label: '林', bg: '#1a2418', icon: '🌲' },
+  rain: { label: '雨', bg: '#0a0e18', icon: '🌧️' },
+  snow: { label: '雪', bg: '#1a2030', icon: '❄️' },
+  wind: { label: '风', bg: '#121a12', icon: '🍃' },
+  forest: { label: '林', bg: '#0e1a10', icon: '🌲' },
 }
 
 const POMODORO_OPTIONS = [
@@ -19,89 +18,171 @@ const POMODORO_OPTIONS = [
   { label: '1 小时', seconds: 60 * 60 },
 ]
 
-// ═══ Rain Shader (inspired by Martijn Steinrucken / BigWIngs) ═══
-const VERT_SHADER = `
-attribute vec2 a_position;
-void main() {
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}
-`
+// ═══════════════════════════════════════════════════
+// Heartfelt shader by Martijn Steinrucken (BigWIngs)
+// Adapted from Shadertoy to WebGL, procedural bg
+// ═══════════════════════════════════════════════════
+const VERT = `attribute vec2 a_pos; void main(){gl_Position=vec4(a_pos,0,1);}`
 
-const FRAG_SHADER = `
-precision mediump float;
+const FRAG = `
+precision highp float;
 uniform float u_time;
-uniform vec2 u_resolution;
+uniform vec2 u_res;
+uniform float u_rain;  // rain amount 0-1
 
-#define S(a, b, t) smoothstep(a, b, t)
+#define S(a,b,t) smoothstep(a,b,t)
 
-float N21(vec2 p) {
-  p = fract(p * vec2(233.34, 851.73));
-  p += dot(p, p + 23.45);
-  return fract(p.x * p.y);
+vec3 N13(float p){
+  vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787));
+  p3+=dot(p3,p3.yzx+19.19);
+  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));
+}
+float N(float t){return fract(sin(t*12345.564)*7658.76);}
+float Saw(float b,float t){return S(0.,b,t)*S(1.,b,t);}
+
+vec2 DropLayer2(vec2 uv,float t){
+  vec2 UV=uv;
+  uv.y+=t*0.75;
+  vec2 a=vec2(6.,1.);
+  vec2 grid=a*2.;
+  vec2 id=floor(uv*grid);
+  float colShift=N(id.x);
+  uv.y+=colShift;
+  id=floor(uv*grid);
+  vec3 n=N13(id.x*35.2+id.y*2376.1);
+  vec2 st=fract(uv*grid)-vec2(.5,0);
+  float x=n.x-.5;
+  float y=UV.y*20.;
+  float wiggle=sin(y+sin(y));
+  x+=wiggle*(.5-abs(x))*(n.z-.5);
+  x*=.7;
+  float ti=fract(t+n.z);
+  y=(Saw(.85,ti)-.5)*.9+.5;
+  vec2 p=vec2(x,y);
+  float d=length((st-p)*a.yx);
+  float mainDrop=S(.4,.0,d);
+  float r=sqrt(S(1.,y,st.y));
+  float cd=abs(st.x-x);
+  float trail=S(.23*r,.15*r*r,cd);
+  float trailFront=S(-.02,.02,st.y-y);
+  trail*=trailFront*r*r;
+  y=UV.y;
+  float trail2=S(.2*r,.0,cd);
+  float droplets=max(0.,(sin(y*(1.-y)*120.)-st.y))*trail2*trailFront*n.z;
+  y=fract(y*10.)+(st.y-.5);
+  float dd=length(st-vec2(x,y));
+  droplets=S(.3,0.,dd);
+  float m=mainDrop+droplets*r*trailFront;
+  return vec2(m,trail);
 }
 
-vec2 drops(vec2 uv, float t) {
-  vec2 UV = uv;
-  uv.y += t * 0.75;
-  vec2 a = vec2(6.0, 1.0);
-  vec2 f = fract(uv * a);
-  vec2 id = floor(uv * a);
-  float n = N21(id);
-  t += n * 6.28;
-
-  float w = UV.y * 10.0;
-  f.x += (n - 0.5) * 0.7;
-
-  float x = f.x - 0.5;
-  float y = -sin(t + sin(t + sin(t) * 0.5)) * 0.45;
-  y -= (f.y - 1.0) * 1.0;
-
-  vec2 dropPos = vec2(x, y);
-  float drop = S(0.045, 0.0, length(dropPos));
-
-  vec2 trailPos = vec2(x, (fract((f.y - 1.0) * 8.0) - 0.5) / 8.0);
-  trailPos.y = (trailPos.y - 0.02) * 0.7;
-  float trail = S(0.03, 0.0, length(trailPos));
-  float fogTrail = S(-0.05, 0.05, dropPos.y);
-  fogTrail *= S(0.5, y, f.y);
-  trail *= fogTrail;
-  fogTrail *= S(0.02, 0.0, abs(dropPos.x));
-
-  return vec2(drop + trail + fogTrail * 0.5);
+float StaticDrops(vec2 uv,float t){
+  uv*=40.;
+  vec2 id=floor(uv);
+  uv=fract(uv)-.5;
+  vec3 n=N13(id.x*107.45+id.y*3543.654);
+  vec2 p=(n.xy-.5)*.7;
+  float d=length(uv-p);
+  float fade=Saw(.025,fract(t+n.z));
+  float c=S(.3,0.,d)*fract(n.z*10.)*fade;
+  return c;
 }
 
-void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
-  float t = u_time * 0.4;
+vec2 Drops(vec2 uv,float t,float l0,float l1,float l2){
+  float s=StaticDrops(uv,t)*l0;
+  vec2 m1=DropLayer2(uv,t)*l1;
+  vec2 m2=DropLayer2(uv*1.85,t)*l2;
+  float c=s+m1.x+m2.x;
+  c=S(.3,1.,c);
+  return vec2(c,max(m1.y*l0,m2.y*l1));
+}
 
-  float rainAmount = 0.0;
+// 程序化城市灯光背景（替代 iChannel0 纹理）
+vec3 cityBg(vec2 uv){
+  vec3 col=vec3(0.03,0.04,0.07);
+  // 散景光斑
+  for(int i=0;i<12;i++){
+    float fi=float(i);
+    vec2 pos=vec2(
+      sin(fi*1.34+0.5)*0.35+cos(fi*0.77)*0.15,
+      cos(fi*1.73+0.3)*0.25+sin(fi*0.53)*0.1
+    );
+    float d=length(uv-pos);
+    float brightness=0.008/(d*d+0.008);
+    vec3 lc=0.5+0.5*cos(fi*2.1+vec3(0.0,1.5,3.0));
+    lc=mix(lc,vec3(1.0,0.8,0.5),0.3); // 暖色偏移
+    col+=lc*brightness*0.15;
+  }
+  // 底部地平线光带
+  col+=vec3(0.15,0.1,0.05)*S(0.3,-0.1,uv.y)*0.3;
+  return col;
+}
 
-  // 三层雨滴，不同大小
-  vec2 d1 = drops(uv * 1.0, t);
-  vec2 d2 = drops(uv * 1.8 + vec2(1.5, 3.7), t * 0.9);
-  vec2 d3 = drops(uv * 3.5 + vec2(4.1, 1.3), t * 0.7);
+// 模拟模糊采样（多点采样程序化背景）
+vec3 blurBg(vec2 uv,float blur){
+  vec3 col=vec3(0.0);
+  float total=0.0;
+  for(int x=-2;x<=2;x++){
+    for(int y=-2;y<=2;y++){
+      vec2 off=vec2(float(x),float(y))*blur*0.01;
+      col+=cityBg(uv+off);
+      total+=1.0;
+    }
+  }
+  return col/total;
+}
 
-  rainAmount = d1.x + d2.x * 0.5 + d3.x * 0.25;
+void main(){
+  vec2 uv=(gl_FragCoord.xy-.5*u_res)/u_res.y;
+  vec2 UV=gl_FragCoord.xy/u_res;
+  float T=u_time;
+  float t=T*.2;
+  float rainAmount=u_rain;
 
-  // 玻璃效果：深色底 + 雨滴高亮
-  vec3 baseColor = vec3(0.08, 0.10, 0.14);
-  vec3 dropColor = vec3(0.25, 0.30, 0.38);
-  vec3 col = mix(baseColor, dropColor, rainAmount);
+  float maxBlur=mix(3.,6.,rainAmount);
+  float minBlur=2.;
 
-  // 雾气效果
-  float fog = S(-0.2, 0.3, uv.y) * 0.15;
-  col += fog;
+  float zoom=-cos(T*.2);
+  uv*=.7+zoom*.3;
+  UV=(UV-.5)*(.9+zoom*.1)+.5;
 
-  gl_FragColor = vec4(col, rainAmount * 0.6 + 0.15);
+  float staticDrops=S(-.5,1.,rainAmount)*2.;
+  float layer1=S(.25,.75,rainAmount);
+  float layer2=S(.0,.5,rainAmount);
+
+  vec2 c=Drops(uv,t,staticDrops,layer1,layer2);
+
+  vec2 e=vec2(.001,0.);
+  float cx=Drops(uv+e,t,staticDrops,layer1,layer2).x;
+  float cy=Drops(uv+e.yx,t,staticDrops,layer1,layer2).x;
+  vec2 n=vec2(cx-c.x,cy-c.x);
+
+  float focus=mix(maxBlur-c.y,minBlur,S(.1,.2,c.x));
+
+  // 用程序化背景替代 textureLod
+  vec3 col=blurBg(UV+n,focus);
+
+  // 后处理
+  t=(T+3.)*.5;
+  float colFade=sin(t*.2)*.5+.5;
+  col*=mix(vec3(1.),vec3(.8,.9,1.3),colFade);
+  float fade=S(0.,10.,T);
+  float lightning=sin(t*sin(t*10.));
+  lightning*=pow(max(0.,sin(t+sin(t))),10.);
+  col*=1.+lightning*fade;
+  col*=1.-dot(UV-.5,UV-.5); // 暗角
+
+  col*=fade;
+
+  gl_FragColor=vec4(col,1.);
 }
 `
 
 export default function RainWriting() {
   const canvasRef = useRef(null)
-  const glRef = useRef(null)
-  const progRef = useRef(null)
   const animRef = useRef(null)
   const audioCtxRef = useRef(null)
+  const gainNodeRef = useRef(null)
   const textareaRef = useRef(null)
   const saveTimerRef = useRef(null)
 
@@ -109,51 +190,42 @@ export default function RainWriting() {
   const [text, setText] = useState('')
   const [volume, setVolume] = useState(0.5)
   const [audioPlaying, setAudioPlaying] = useState(false)
-  const [showEnvMenu, setShowEnvMenu] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
-  const [pomodoroTime, setPomodoroTime] = useState(null) // 剩余秒数
+  const [pomodoroTime, setPomodoroTime] = useState(null)
   const [pomodoroTotal, setPomodoroTotal] = useState(null)
   const [pomodoroActive, setPomodoroActive] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
-  const [undoStack, setUndoStack] = useState([])
+  const [rainAmount, setRainAmount] = useState(0.7)
 
-  const gainNodeRef = useRef(null)
+  const currentBg = ENVS[env]?.bg || '#0a0e18'
 
-  // ═══ 加载已保存内容 ═══
+  // ═══ 加载已保存 ═══
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cradle_desk_text')
-      if (saved) setText(saved)
-    } catch (e) {}
+    try { const s = localStorage.getItem('cradle_desk_text'); if (s) setText(s) } catch (e) {}
   }, [])
 
-  // ═══ 自动保存（每10秒） ═══
+  // ═══ 自动保存 ═══
   useEffect(() => {
     saveTimerRef.current = setInterval(() => {
-      try {
-        localStorage.setItem('cradle_desk_text', text)
-        setSavedAt(new Date())
-      } catch (e) {}
+      try { localStorage.setItem('cradle_desk_text', text); setSavedAt(new Date()) } catch (e) {}
     }, 10000)
     return () => clearInterval(saveTimerRef.current)
   }, [text])
 
-  // 手动保存
   function saveNow() {
-    try {
-      localStorage.setItem('cradle_desk_text', text)
-      setSavedAt(new Date())
-    } catch (e) {}
+    try { localStorage.setItem('cradle_desk_text', text); setSavedAt(new Date()) } catch (e) {}
   }
 
   // ═══ WebGL Rain Shader ═══
   useEffect(() => {
-    if (env !== 'rain') return
+    if (env !== 'rain') {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+      return
+    }
     const canvas = canvasRef.current
     if (!canvas) return
-    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false })
+    const gl = canvas.getContext('webgl', { alpha: false })
     if (!gl) return
-    glRef.current = gl
 
     function resize() {
       canvas.width = window.innerWidth
@@ -163,41 +235,39 @@ export default function RainWriting() {
     resize()
     window.addEventListener('resize', resize)
 
-    // 编译 shader
     function compile(type, src) {
       const s = gl.createShader(type)
       gl.shaderSource(s, src)
       gl.compileShader(s)
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error('Shader error:', gl.getShaderInfoLog(s))
+      }
       return s
     }
-    const vs = compile(gl.VERTEX_SHADER, VERT_SHADER)
-    const fs = compile(gl.FRAGMENT_SHADER, FRAG_SHADER)
+
     const prog = gl.createProgram()
-    gl.attachShader(prog, vs)
-    gl.attachShader(prog, fs)
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT))
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG))
     gl.linkProgram(prog)
     gl.useProgram(prog)
-    progRef.current = prog
 
-    // 全屏四边形
     const buf = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, buf)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW)
-    const aPos = gl.getAttribLocation(prog, 'a_position')
+    const aPos = gl.getAttribLocation(prog, 'a_pos')
     gl.enableVertexAttribArray(aPos)
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
 
     const uTime = gl.getUniformLocation(prog, 'u_time')
-    const uRes = gl.getUniformLocation(prog, 'u_resolution')
-
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    const uRes = gl.getUniformLocation(prog, 'u_res')
+    const uRain = gl.getUniformLocation(prog, 'u_rain')
 
     const start = performance.now()
     function render() {
       const t = (performance.now() - start) / 1000
       gl.uniform1f(uTime, t)
       gl.uniform2f(uRes, canvas.width, canvas.height)
+      gl.uniform1f(uRain, rainAmount)
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
       animRef.current = requestAnimationFrame(render)
     }
@@ -207,13 +277,16 @@ export default function RainWriting() {
       window.removeEventListener('resize', resize)
       if (animRef.current) cancelAnimationFrame(animRef.current)
     }
-  }, [env])
+  }, [env, rainAmount])
 
   // ═══ Canvas 粒子（雪/风/林） ═══
   useEffect(() => {
     if (env === 'rain') return
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // 先清理可能残留的 webgl context，用2d
+    // 需要重新获取 canvas（因为 webgl context 会锁定）
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -222,46 +295,55 @@ export default function RainWriting() {
     window.addEventListener('resize', resize)
 
     const particles = []
-    const count = env === 'snow' ? 120 : env === 'wind' ? 80 : 60
+    const count = env === 'snow' ? 150 : env === 'wind' ? 80 : 50
 
     for (let i = 0; i < count; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
         r: env === 'snow' ? 1 + Math.random() * 3 : 1 + Math.random() * 2,
-        dx: env === 'wind' ? 1 + Math.random() * 3 : (Math.random() - 0.5) * 0.5,
-        dy: env === 'snow' ? 0.5 + Math.random() * 1.5 : env === 'forest' ? -0.2 + Math.random() * 0.5 : (Math.random() - 0.5) * 0.8,
-        alpha: 0.2 + Math.random() * 0.5,
+        dx: env === 'wind' ? 1.5 + Math.random() * 3 : (Math.random() - 0.5) * 0.5,
+        dy: env === 'snow' ? 0.5 + Math.random() * 1.5 : env === 'forest' ? -0.1 + Math.random() * 0.4 : (Math.random() - 0.5) * 0.5,
+        alpha: 0.15 + Math.random() * 0.4,
         wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: 0.005 + Math.random() * 0.015,
       })
     }
 
-    const colors = {
-      snow: 'rgba(220, 230, 240,',
-      wind: 'rgba(180, 200, 170,',
-      forest: 'rgba(160, 200, 140,',
-    }
+    const baseColors = { snow: [220,230,245], wind: [170,195,160], forest: [140,190,120] }
+    const bc = baseColors[env] || baseColors.snow
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // 填充背景
+      ctx.fillStyle = currentBg
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
       particles.forEach(p => {
-        p.x += p.dx + Math.sin(p.wobble) * 0.3
+        p.x += p.dx + Math.sin(p.wobble) * 0.4
         p.y += p.dy
-        p.wobble += 0.01
+        p.wobble += p.wobbleSpeed
 
         if (p.x > canvas.width + 10) p.x = -10
         if (p.x < -10) p.x = canvas.width + 10
         if (p.y > canvas.height + 10) p.y = -10
         if (p.y < -10) p.y = canvas.height + 10
 
-        ctx.fillStyle = `${colors[env] || colors.snow}${p.alpha})`
+        // 光晕
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4)
+        grad.addColorStop(0, `rgba(${bc[0]},${bc[1]},${bc[2]},${p.alpha * 0.6})`)
+        grad.addColorStop(1, `rgba(${bc[0]},${bc[1]},${bc[2]},0)`)
+        ctx.fillStyle = grad
         ctx.beginPath()
-        if (env === 'snow') {
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        } else if (env === 'wind') {
-          ctx.ellipse(p.x, p.y, p.r * 2, p.r * 0.5, Math.atan2(p.dy, p.dx), 0, Math.PI * 2)
+        ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // 核心
+        ctx.fillStyle = `rgba(${bc[0]},${bc[1]},${bc[2]},${p.alpha})`
+        ctx.beginPath()
+        if (env === 'wind') {
+          ctx.ellipse(p.x, p.y, p.r * 2.5, p.r * 0.4, Math.atan2(p.dy, p.dx), 0, Math.PI * 2)
         } else {
-          ctx.arc(p.x, p.y, p.r * 0.8, 0, Math.PI * 2)
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
         }
         ctx.fill()
       })
@@ -273,24 +355,24 @@ export default function RainWriting() {
       window.removeEventListener('resize', resize)
       if (animRef.current) cancelAnimationFrame(animRef.current)
     }
-  }, [env])
+  }, [env, currentBg])
 
-  // ═══ 环境音（Web Audio） ═══
+  // ═══ 环境音 ═══
   const startAudio = useCallback(() => {
     if (audioCtxRef.current) return
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     audioCtxRef.current = ctx
 
-    const masterGain = ctx.createGain()
-    masterGain.gain.value = volume
-    masterGain.connect(ctx.destination)
-    gainNodeRef.current = masterGain
+    const master = ctx.createGain()
+    master.gain.value = volume
+    master.connect(ctx.destination)
+    gainNodeRef.current = master
 
     // 棕噪声
     const bufSize = 2 * ctx.sampleRate
-    const buf = ctx.createBuffer(2, bufSize, ctx.sampleRate)
+    const noiseBuf = ctx.createBuffer(2, bufSize, ctx.sampleRate)
     for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch)
+      const d = noiseBuf.getChannelData(ch)
       let last = 0
       for (let i = 0; i < bufSize; i++) {
         const w = Math.random() * 2 - 1
@@ -299,52 +381,41 @@ export default function RainWriting() {
         d[i] *= 3.5
       }
     }
-    const src = ctx.createBufferSource()
-    src.buffer = buf
-    src.loop = true
 
+    const src = ctx.createBufferSource()
+    src.buffer = noiseBuf
+    src.loop = true
     const lpf = ctx.createBiquadFilter()
     lpf.type = 'lowpass'
-    lpf.frequency.value = env === 'rain' ? 600 : env === 'snow' ? 400 : env === 'wind' ? 1200 : 500
-    lpf.Q.value = 0.5
-
+    lpf.frequency.value = env === 'rain' ? 600 : env === 'snow' ? 350 : env === 'wind' ? 1200 : 500
     src.connect(lpf)
-    lpf.connect(masterGain)
+    lpf.connect(master)
     src.start()
 
-    // 随机滴答声（雨/雪）
+    // 雨/雪滴答
     if (env === 'rain' || env === 'snow') {
       function tick() {
         if (!audioCtxRef.current) return
         const o = ctx.createOscillator()
         o.type = 'sine'
-        o.frequency.value = 600 + Math.random() * 2500
+        o.frequency.value = 500 + Math.random() * 3000
         const g = ctx.createGain()
-        g.gain.setValueAtTime(0.015 + Math.random() * 0.02, ctx.currentTime)
+        g.gain.setValueAtTime(0.01 + Math.random() * 0.02, ctx.currentTime)
         g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04)
-        o.connect(g)
-        g.connect(masterGain)
-        o.start()
-        o.stop(ctx.currentTime + 0.05)
-        setTimeout(tick, 150 + Math.random() * 600)
+        o.connect(g); g.connect(master)
+        o.start(); o.stop(ctx.currentTime + 0.05)
+        setTimeout(tick, 100 + Math.random() * 500)
       }
       tick()
     }
 
-    // 风声额外高通
     if (env === 'wind') {
+      const src2 = ctx.createBufferSource()
+      src2.buffer = noiseBuf; src2.loop = true
       const hpf = ctx.createBiquadFilter()
-      hpf.type = 'highpass'
-      hpf.frequency.value = 200
-      const windSrc = ctx.createBufferSource()
-      windSrc.buffer = buf
-      windSrc.loop = true
-      const windGain = ctx.createGain()
-      windGain.gain.value = 0.15
-      windSrc.connect(hpf)
-      hpf.connect(windGain)
-      windGain.connect(masterGain)
-      windSrc.start()
+      hpf.type = 'highpass'; hpf.frequency.value = 300
+      const wg = ctx.createGain(); wg.gain.value = 0.12
+      src2.connect(hpf); hpf.connect(wg); wg.connect(master); src2.start()
     }
 
     setAudioPlaying(true)
@@ -358,41 +429,31 @@ export default function RainWriting() {
     setAudioPlaying(false)
   }, [])
 
-  // 音量变化
-  useEffect(() => {
-    if (gainNodeRef.current) gainNodeRef.current.gain.value = volume
-  }, [volume])
+  useEffect(() => { if (gainNodeRef.current) gainNodeRef.current.gain.value = volume }, [volume])
 
-  // 切换环境时重启音频
+  // 切环境重启音频
+  const prevEnvRef = useRef(env)
   useEffect(() => {
-    if (audioPlaying) {
+    if (prevEnvRef.current !== env && audioPlaying) {
       stopAudio()
-      setTimeout(() => startAudio(), 100)
+      setTimeout(() => startAudio(), 150)
     }
+    prevEnvRef.current = env
   }, [env])
 
-  // 清理
-  useEffect(() => {
-    return () => { if (audioCtxRef.current) audioCtxRef.current.close() }
-  }, [])
+  useEffect(() => { return () => { if (audioCtxRef.current) audioCtxRef.current.close() } }, [])
 
   // ═══ 番茄钟 ═══
   useEffect(() => {
     if (!pomodoroActive || pomodoroTime === null) return
     if (pomodoroTime <= 0) {
       setPomodoroActive(false)
-      // 提示音
       try {
-        const ctx = new AudioContext()
-        const o = ctx.createOscillator()
-        o.frequency.value = 880
-        const g = ctx.createGain()
-        g.gain.setValueAtTime(0.3, ctx.currentTime)
-        g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1)
-        o.connect(g)
-        g.connect(ctx.destination)
-        o.start()
-        o.stop(ctx.currentTime + 1)
+        const c = new AudioContext()
+        const o = c.createOscillator(); o.frequency.value = 880
+        const g = c.createGain(); g.gain.setValueAtTime(0.3, c.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1)
+        o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 1)
       } catch (e) {}
       return
     }
@@ -402,63 +463,48 @@ export default function RainWriting() {
 
   function formatTime(s) {
     if (s === null) return '--:--'
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   }
 
-  // ═══ 键盘快捷键 ═══
+  // ═══ 键盘 ═══
   useEffect(() => {
     function handleKey(e) {
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault()
-        saveNow()
-      }
+      if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow() }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [text])
 
-  // 统计
   const charCount = text.length
   const lineCount = text ? text.split('\n').length : 1
   const sizeKB = new Blob([text]).size / 1024
 
-  const currentBg = ENVS[env]?.bg || '#1a2030'
-
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: currentBg }}>
-      {/* 背景渐变 */}
-      <div className="absolute inset-0" style={{
-        background: `radial-gradient(ellipse at 50% 40%, ${currentBg}dd 0%, ${currentBg} 80%)`,
-      }} />
-
       {/* Shader / 粒子 Canvas */}
       <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 1 }} />
 
-      {/* 顶部栏 */}
+      {/* 顶部 */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-3 z-20">
         <Link href="/residency" style={{ fontSize: '11px', letterSpacing: '3px', color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}>
           ← 摇篮驻地
         </Link>
-        <div className="flex items-center gap-2">
-          {savedAt && (
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
-              已保存 {savedAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-        </div>
+        {savedAt && (
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            已保存 {savedAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </div>
 
-      {/* 写作区（毛玻璃） */}
-      <div className="absolute inset-0 flex items-center justify-center z-10" style={{ padding: '56px 32px 60px' }}>
+      {/* 写作区 */}
+      <div className="absolute inset-0 flex items-center justify-center z-10" style={{ padding: '52px 32px 56px' }}>
         <div className="w-full h-full max-w-4xl flex flex-col" style={{
-          backgroundColor: 'rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          backgroundColor: 'rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 16px 64px rgba(0,0,0,0.4)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 20px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
         }}>
           <textarea
             ref={textareaRef}
@@ -469,12 +515,12 @@ export default function RainWriting() {
             className="flex-1 w-full resize-none outline-none px-10 py-8"
             style={{
               backgroundColor: 'transparent',
-              color: 'rgba(255,255,255,0.8)',
+              color: 'rgba(255,255,255,0.78)',
               fontSize: '16px',
               lineHeight: 2.4,
               fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif',
               letterSpacing: '1.5px',
-              caretColor: 'rgba(255,255,255,0.6)',
+              caretColor: 'rgba(255,255,255,0.5)',
               border: 'none',
             }}
           />
@@ -483,104 +529,84 @@ export default function RainWriting() {
 
       {/* 底部工具栏 */}
       <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3"
-        style={{ backgroundColor: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(8px)' }}>
+        style={{ backgroundColor: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)' }}>
 
-        {/* 左：字数统计 */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{charCount} 字</span>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{lineCount} 行</span>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{sizeKB.toFixed(2)}M / 4.8M</span>
+        {/* 左 */}
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <span>{charCount} 字</span>
+          <span style={{ opacity: 0.4 }}>|</span>
+          <span>{lineCount} 行</span>
+          <span style={{ opacity: 0.4 }}>|</span>
+          <span>{sizeKB.toFixed(2)}M / 4.8M</span>
         </div>
 
-        {/* 中：环境切换 */}
-        <div className="flex items-center gap-1 relative">
+        {/* 中：环境 */}
+        <div className="flex items-center gap-1">
           {Object.entries(ENVS).map(([key, val]) => (
             <button key={key} onClick={() => setEnv(key)}
               className="px-2.5 py-1 rounded text-xs transition-all"
               style={{
                 backgroundColor: env === key ? 'rgba(255,255,255,0.15)' : 'transparent',
                 color: env === key ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)',
-                border: env === key ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+                border: env === key ? '1px solid rgba(255,255,255,0.12)' : '1px solid transparent',
               }}>
               {val.label}
             </button>
           ))}
         </div>
 
-        {/* 右：音频 + 音量 + 番茄钟 */}
+        {/* 右 */}
         <div className="flex items-center gap-3">
-          {/* 音频开关 */}
           <button onClick={() => audioPlaying ? stopAudio() : startAudio()}
-            className="text-xs transition"
-            style={{ color: 'rgba(255,255,255,0.4)' }}>
+            className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {audioPlaying ? '🔊' : '🔇'}
           </button>
-
-          {/* 音量 */}
           <input type="range" min="0" max="100" value={Math.round(volume * 100)}
             onChange={e => setVolume(parseInt(e.target.value) / 100)}
-            className="w-16" style={{ accentColor: 'rgba(255,255,255,0.4)' }} />
+            className="w-14" style={{ accentColor: 'rgba(255,255,255,0.3)' }} />
 
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
 
           {/* 番茄钟 */}
           <div className="relative">
             <button onClick={() => setShowPomodoro(!showPomodoro)}
-              className="flex items-center gap-1 text-xs transition"
-              style={{ color: pomodoroActive ? 'rgba(255,180,100,0.8)' : 'rgba(255,255,255,0.35)' }}>
-              ⏱ {pomodoroActive ? formatTime(pomodoroTime) : '番茄'}
+              className="text-xs" style={{ color: pomodoroActive ? 'rgba(255,180,100,0.8)' : 'rgba(255,255,255,0.35)' }}>
+              ⏱ {pomodoroActive ? formatTime(pomodoroTime) : ''}
             </button>
-
             {showPomodoro && (
-              <div className="absolute bottom-8 right-0 rounded-lg p-3 space-y-2" style={{
-                backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.1)', minWidth: '140px',
+              <div className="absolute bottom-8 right-0 rounded-lg p-2 space-y-1" style={{
+                backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.08)', minWidth: '120px',
               }}>
                 {POMODORO_OPTIONS.map(opt => (
                   <button key={opt.seconds} onClick={() => {
-                    setPomodoroTime(opt.seconds)
-                    setPomodoroTotal(opt.seconds)
-                    setPomodoroActive(true)
-                    setShowPomodoro(false)
+                    setPomodoroTime(opt.seconds); setPomodoroTotal(opt.seconds)
+                    setPomodoroActive(true); setShowPomodoro(false)
                   }}
                     className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/10"
-                    style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    style={{ color: 'rgba(255,255,255,0.55)' }}>
                     {opt.label}
                   </button>
                 ))}
                 {pomodoroActive && (
                   <button onClick={() => { setPomodoroActive(false); setPomodoroTime(null); setShowPomodoro(false) }}
                     className="w-full text-left px-3 py-1.5 rounded text-xs transition hover:bg-white/10"
-                    style={{ color: 'rgba(255,150,150,0.6)' }}>
-                    停止
-                  </button>
+                    style={{ color: 'rgba(255,150,150,0.6)' }}>停止</button>
                 )}
               </div>
             )}
           </div>
 
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-
-          {/* 保存 */}
-          <button onClick={saveNow} className="text-xs transition" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            💾
-          </button>
-
-          {/* 下载 */}
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.12)' }}>|</span>
+          <button onClick={saveNow} className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>💾</button>
           <button onClick={() => {
             if (!text.trim()) return
-            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
+            const b = new Blob([text], { type: 'text/plain;charset=utf-8' })
+            const u = URL.createObjectURL(b)
+            const a = document.createElement('a'); a.href = u
             a.download = `cradle_writing_${new Date().toISOString().slice(0,10)}.txt`
-            a.click()
-            URL.revokeObjectURL(url)
-          }} className="text-xs transition" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            ⬇
-          </button>
+            a.click(); URL.revokeObjectURL(u)
+          }} className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>⬇</button>
         </div>
       </div>
 
@@ -588,8 +614,7 @@ export default function RainWriting() {
       {pomodoroActive && pomodoroTotal && (
         <div className="absolute bottom-0 left-0 z-30" style={{
           width: `${((pomodoroTotal - pomodoroTime) / pomodoroTotal) * 100}%`,
-          height: '2px',
-          backgroundColor: 'rgba(255,180,100,0.5)',
+          height: '2px', backgroundColor: 'rgba(255,180,100,0.5)',
           transition: 'width 1s linear',
         }} />
       )}
