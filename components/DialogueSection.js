@@ -45,100 +45,90 @@ export default function DialogueSection({ allDialogues = [] }) {
 
       <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
 
-      {/* 三区布局：左标签 | 中内容 | 右图片 */}
+      {/* 三区布局 */}
       <div className="flex gap-0" style={{ paddingTop: '24px', paddingBottom: '24px' }}>
 
-        {/* ── 左：往期标签栏 ── */}
+        {/* ── 左：往期标签栏（深色） ── */}
         {allDialogues.length > 1 && (
-          <div className="flex-shrink-0" style={{ width: '72px', paddingRight: '16px' }}>
-            <div className="space-y-4">
-              {allDialogues.map((d, i) => {
-                const isCurrent = i === activeIdx
-                return (
-                  <button key={d.id} onClick={() => setActiveIdx(i)}
-                    className="w-full text-left transition-all duration-300"
-                    style={{ opacity: isCurrent ? 1 : Math.max(0.35, 1 - i * 0.2) }}>
-                    {/* 期号 */}
-                    <div style={{
-                      fontSize: '9px',
-                      letterSpacing: '1px',
-                      color: isCurrent ? '#111827' : '#9CA3AF',
-                      fontWeight: isCurrent ? 700 : 400,
-                      marginBottom: '4px',
-                    }}>
-                      {toRoman(d.issue_number)}
+          <div className="flex-shrink-0 space-y-3" style={{ width: '88px', paddingRight: '16px' }}>
+            {allDialogues.map((d, i) => {
+              const isCurrent = i === activeIdx
+              return (
+                <button key={d.id} onClick={() => setActiveIdx(i)}
+                  className="w-full rounded-md overflow-hidden transition-all duration-300"
+                  style={{
+                    backgroundColor: isCurrent ? '#111827' : '#F3F4F6',
+                    padding: '10px 8px',
+                    opacity: isCurrent ? 1 : Math.max(0.5, 1 - i * 0.15),
+                  }}>
+                  <div style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: isCurrent ? '#F59E0B' : '#9CA3AF',
+                    letterSpacing: '1px',
+                    marginBottom: '3px',
+                  }}>
+                    {toRoman(d.issue_number)}
+                  </div>
+                  <div style={{
+                    fontSize: '10px',
+                    lineHeight: 1.3,
+                    color: isCurrent ? '#FFFFFF' : '#6B7280',
+                    marginBottom: '8px',
+                  }}>
+                    {d.theme_zh}
+                  </div>
+                  {/* 头像两排 */}
+                  {d.artists && d.artists.length > 0 && (
+                    <div className="grid grid-cols-3 gap-1 justify-items-center">
+                      {d.artists.slice(0, 6).map((artist, ai) => (
+                        <div key={ai} className="rounded-full overflow-hidden"
+                          style={{
+                            width: '18px', height: '18px',
+                            backgroundColor: isCurrent ? 'rgba(255,255,255,0.2)' : '#E5E7EB',
+                            border: isCurrent ? '1px solid rgba(255,255,255,0.3)' : '1px solid #fff',
+                          }}>
+                          {artist.avatar_url ? (
+                            <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ fontSize: '7px', color: isCurrent ? '#fff' : '#D1D5DB' }}>👤</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {/* 标题 */}
-                    <div style={{
-                      fontSize: '10px',
-                      lineHeight: 1.4,
-                      color: isCurrent ? '#374151' : '#D1D5DB',
-                      marginBottom: '6px',
-                    }}>
-                      {d.theme_zh}
-                    </div>
-                    {/* 艺术家头像堆叠 */}
-                    {d.artists && d.artists.length > 0 && (
-                      <div className="flex flex-col" style={{ gap: '-2px' }}>
-                        {d.artists.slice(0, 3).map((artist, ai) => (
-                          <div key={ai} className="rounded-full overflow-hidden flex-shrink-0"
-                            style={{
-                              width: '20px', height: '20px',
-                              border: '1.5px solid #fff',
-                              marginTop: ai > 0 ? '-6px' : 0,
-                              position: 'relative',
-                              zIndex: 5 - ai,
-                              backgroundColor: '#F3F4F6',
-                            }}>
-                            {artist.avatar_url ? (
-                              <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center" style={{ fontSize: '8px', color: '#D1D5DB' }}>👤</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* 选中指示线 */}
-                    <div style={{
-                      width: '100%', height: '2px', marginTop: '8px',
-                      backgroundColor: isCurrent ? '#111827' : 'transparent',
-                      transition: 'background-color 0.3s',
-                    }} />
-                  </button>
-                )
-              })}
-            </div>
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
 
-        {/* ── 中：引言 + 艺术家 + 按钮 ── */}
+        {/* ── 中：艺术家 + 引言 + 按钮 ── */}
         <div className="flex-1 min-w-0" style={{
           paddingRight: '32px',
           borderLeft: allDialogues.length > 1 ? '0.5px solid #E5E7EB' : 'none',
-          paddingLeft: allDialogues.length > 1 ? '24px' : '0',
+          paddingLeft: allDialogues.length > 1 ? '28px' : '0',
         }}>
-          {/* 艺术家：错落堆叠 */}
+          {/* 艺术家 */}
           {active.artists && active.artists.length > 0 && (
             <div style={{ marginBottom: '28px' }}>
-              <p className="text-xs mb-4" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>参 展 艺 术 家</p>
-              <div className="space-y-0">
+              <p className="text-xs mb-5" style={{ color: '#9CA3AF', letterSpacing: '3px', textAlign: 'center' }}>参 展 艺 术 家</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4" style={{ maxWidth: '380px', margin: '0 auto' }}>
                 {active.artists.map((artist, i) => (
-                  <div key={i} className="flex items-center gap-3"
-                    style={{ marginLeft: `${(i % 3) * 16}px`, marginBottom: '8px' }}>
+                  <div key={i} className="flex items-center gap-3">
                     <div className="rounded-full overflow-hidden flex-shrink-0"
-                      style={{ width: '36px', height: '36px', backgroundColor: '#F3F4F6', border: '2px solid #E5E7EB' }}>
+                      style={{ width: '44px', height: '44px', backgroundColor: '#F3F4F6', border: '2.5px solid #E5E7EB' }}>
                       {artist.avatar_url ? (
                         <img src={artist.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: '#9CA3AF' }}>👤</div>
+                        <div className="w-full h-full flex items-center justify-center text-base" style={{ color: '#9CA3AF' }}>👤</div>
                       )}
                     </div>
-                    <span style={{ fontSize: '12px', color: '#6B7280' }}>{artist.display_name}</span>
+                    <span style={{ fontSize: '13px', color: '#374151' }}>{artist.display_name}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-xs mt-2" style={{ color: '#D1D5DB' }}>{active.artworks?.length || 0} 件作品</p>
+              <p className="text-xs mt-4" style={{ color: '#D1D5DB', textAlign: 'center' }}>{active.artworks?.length || 0} 件作品</p>
             </div>
           )}
 
@@ -155,14 +145,16 @@ export default function DialogueSection({ allDialogues = [] }) {
           )}
 
           {/* 按钮 */}
-          <Link href={`/dialogue/${active.id}`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-lg transition hover:opacity-90"
-            style={{ backgroundColor: '#111827' }}>
-            查看全部作品 →
-          </Link>
+          <div style={{ textAlign: 'center' }}>
+            <Link href={`/dialogue/${active.id}`}
+              className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-white rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#111827' }}>
+              查看全部作品 →
+            </Link>
+          </div>
         </div>
 
-        {/* ── 右：封面图（50%宽度） ── */}
+        {/* ── 右：封面图（50%宽，正方形） ── */}
         <div className="flex-shrink-0" style={{ width: '50%' }}>
           {active.cover_image ? (
             <DialogueCoverImage
@@ -172,7 +164,7 @@ export default function DialogueSection({ allDialogues = [] }) {
               coverPosition={active.cover_position}
             />
           ) : (
-            <div className="rounded-lg flex items-center justify-center" style={{ backgroundColor: '#F3F4F6', height: '100%', minHeight: '380px' }}>
+            <div className="rounded-lg flex items-center justify-center" style={{ backgroundColor: '#F3F4F6', aspectRatio: '1/1' }}>
               <span className="text-6xl">🎨</span>
             </div>
           )}
