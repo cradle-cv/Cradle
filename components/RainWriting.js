@@ -106,7 +106,7 @@ void main(){
 
   float tt=(T+3.)*.5;
   col *= mix(vec3(1), vec3(.95,.97,1.03), sin(tt*.15)*.3+.7);
-  col *= s(0., 4., T);
+  float fd = s(0., 4., T); float lt = (T+3.)*.5; float lightning = sin(lt*sin(lt*10.)); lightning *= pow(max(0., sin(lt+sin(lt))), 10.); col *= 1. + lightning * fd * 0.8; col *= fd;
   col *= 1. - .2*dot(UV-.5, UV-.5);
 
   gl_FragColor = vec4(col, 1.);
@@ -122,6 +122,7 @@ export default function RainWriting() {
   const [mode, setMode] = useState('rain')
   const [text, setText] = useState('')
   const [font, setFont] = useState(0)
+  const [textColor, setTextColor] = useState('#2a2a2a')
   const [rain, setRain] = useState(0.7)
   const [blur, setBlur] = useState(0.5)
   const [vol, setVol] = useState(0.5)
@@ -139,6 +140,7 @@ export default function RainWriting() {
     try {
       const s = localStorage.getItem('flowspace_text'); if (s) setText(s)
       const f = localStorage.getItem('flowspace_font'); if (f) setFont(parseInt(f))
+      const c = localStorage.getItem('flowspace_color'); if (c) setTextColor(c)
     } catch (e) {}
   }, [])
   useEffect(() => {
@@ -146,6 +148,7 @@ export default function RainWriting() {
     return () => clearInterval(t)
   }, [text])
   useEffect(() => { try { localStorage.setItem('flowspace_font', String(font)) } catch (e) {} }, [font])
+  useEffect(() => { try { localStorage.setItem('flowspace_color', textColor) } catch (e) {} }, [textColor])
   function saveNow() { try { localStorage.setItem('flowspace_text', text); setSaved(new Date()) } catch (e) {} }
   function exportTxt() {
     if (!text.trim()) return
@@ -337,7 +340,7 @@ export default function RainWriting() {
           <textarea id="flow-editor" value={text} onChange={e => setText(e.target.value)}
             placeholder="思考，好久不见你了。" spellCheck={false}
             className="flex-1 w-full resize-none outline-none px-10 py-8"
-            style={{ backgroundColor: 'transparent', color: '#2a2a2a', fontSize: '16px', lineHeight: 2.4, fontFamily: cf.family, letterSpacing: '1.5px', caretColor: '#444', border: 'none' }} />
+            style={{ backgroundColor: 'transparent', color: textColor, fontSize: '16px', lineHeight: 2.4, fontFamily: cf.family, letterSpacing: '1.5px', caretColor: '#444', border: 'none' }} />
 
           <div className="flex items-center justify-between px-6 py-3 transition-opacity duration-500"
             style={{ opacity: deckHover ? 0.7 : 0, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
@@ -345,6 +348,9 @@ export default function RainWriting() {
               {FONTS.map((f, i) => (
                 <button key={f.id} onClick={() => setFont(i)} style={{ fontSize: '11px', color: font === i ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.18)', fontFamily: f.family, transition: 'color 0.3s', letterSpacing: '1px' }}>{f.label}</button>
               ))}
+<div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(0,0,0,0.08)', margin: '0 4px' }} />
+<input type="color" value={textColor} onChange={e => setTextColor(e.target.value)}
+  style={{ width: '18px', height: '18px', border: 'none', padding: 0, cursor: 'pointer', backgroundColor: 'transparent', borderRadius: '50%' }} />
             </div>
             <div className="flex items-center gap-4">
               <button onClick={saveNow} style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(0,0,0,0.22)', textTransform: 'uppercase' }}>Save</button>
