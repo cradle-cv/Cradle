@@ -17,10 +17,8 @@ export default function WorkshopPage() {
   const [vol, setVol] = useState(0.3)
   const [showVol, setShowVol] = useState(false)
 
-  // 标题/副标题编辑
   const [title, setTitle] = useState('未命名画册')
   const [subtitle, setSubtitle] = useState('')
-  const [editingTitle, setEditingTitle] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [showHint, setShowHint] = useState(true)
@@ -39,9 +37,7 @@ export default function WorkshopPage() {
 
       if (!userData) { setLoading(false); return }
       setProfile(userData)
-
-      const level = userData.level || 0
-      if (level < 6) { setLoading(false); return }
+      if ((userData.level || 0) < 6) { setLoading(false); return }
 
       try {
         const userId = userData.id
@@ -95,7 +91,6 @@ export default function WorkshopPage() {
     init()
   }, [])
 
-  // 保存标题/副标题
   async function saveInfo() {
     if (!magazineId) return
     setSaveStatus('saving')
@@ -107,9 +102,7 @@ export default function WorkshopPage() {
       })
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(''), 2000)
-    } catch (e) {
-      setSaveStatus('error')
-    }
+    } catch (e) { setSaveStatus('error') }
   }
 
   // 咖啡店音频
@@ -163,7 +156,6 @@ export default function WorkshopPage() {
     )
   }
 
-  // ─── 错误 ───
   if (error) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
@@ -173,116 +165,105 @@ export default function WorkshopPage() {
     )
   }
 
-  // ─── 编辑器 ───
+  // ─── 编辑器（全屏咖啡厅背景） ───
   if (magazineId && magazineData) {
     return (
-      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: '#EDE8E1' }}>
-        {/* 顶部栏（咖啡色调） */}
-        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0" style={{
-          backgroundColor: '#3C3226',
-          borderBottom: '1px solid #2A2218',
-        }}>
+      <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#2C2418' }}>
+        {/* 咖啡厅背景（Ken Burns 循环动画） */}
+        <div className="absolute inset-0" style={{ zIndex: 0 }}>
+          <img src="/image/cafe-bg.jpg" alt=""
+            className="w-full h-full object-cover"
+            style={{ animation: 'cafeKenBurns 30s ease-in-out infinite alternate' }} />
+          {/* 暗角遮罩 */}
+          <div className="absolute inset-0" style={{
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)',
+          }} />
+        </div>
+
+        {/* 顶部栏（半透明） */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-3 z-30"
+          style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)' }}>
           <div className="flex items-center gap-4">
-            <Link href="/residency" className="text-xs hover:opacity-80 transition" style={{ color: '#BFA98A', letterSpacing: '2px' }}>← 驻地</Link>
-            <span style={{ color: '#5C4D3C' }}>|</span>
-            {/* 标题（点击编辑） */}
-            {editingTitle ? (
-              <input value={title} onChange={e => setTitle(e.target.value)}
-                onBlur={() => { setEditingTitle(false); saveInfo() }}
-                onKeyDown={e => { if (e.key === 'Enter') { setEditingTitle(false); saveInfo() } }}
-                autoFocus
-                className="text-sm px-2 py-0.5 rounded outline-none"
-                style={{ backgroundColor: '#4A3D2F', color: '#E8DDD0', border: '1px solid #6B5A45', width: '200px' }} />
-            ) : (
-              <button onClick={() => setEditingTitle(true)} className="text-sm hover:opacity-80 transition" style={{ color: '#D4C4AE' }}>
-                {title}
-              </button>
-            )}
-            {saveStatus === 'saved' && <span className="text-xs" style={{ color: '#8B7E6A' }}>✓</span>}
+            <Link href="/residency" className="text-xs hover:opacity-80 transition" style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '2px' }}>← 驻地</Link>
+            <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
+            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{title}</span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 杂志信息编辑 */}
-            <button onClick={() => setShowInfo(!showInfo)} className="text-xs px-2 py-1 rounded transition hover:opacity-80"
-              style={{ color: '#BFA98A', backgroundColor: showInfo ? '#4A3D2F' : 'transparent' }}>
-              📋 信息
+            {/* 杂志信息 */}
+            <button onClick={() => setShowInfo(!showInfo)}
+              className="text-xs px-3 py-1 rounded transition hover:bg-white/10"
+              style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              📋 标题与信息
             </button>
 
             {/* 音量 */}
-            <div className="relative flex items-center gap-2">
-              <button onClick={() => setShowVol(!showVol)} className="text-xs" style={{ color: '#8B7E6A' }}>☕</button>
-              {showVol && (
-                <input type="range" min="0" max="100" value={Math.round(vol * 100)}
-                  onChange={e => setVol(parseInt(e.target.value) / 100)}
-                  className="w-16" style={{ accentColor: '#8B7E6A' }} />
-              )}
-            </div>
+            <button onClick={() => setShowVol(!showVol)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>☕</button>
+            {showVol && (
+              <input type="range" min="0" max="100" value={Math.round(vol * 100)}
+                onChange={e => setVol(parseInt(e.target.value) / 100)}
+                className="w-14" style={{ accentColor: 'rgba(255,255,255,0.3)' }} />
+            )}
 
-            <span style={{ color: '#5C4D3C' }}>|</span>
-            <Link href="/studio" className="text-xs px-2 py-1 rounded transition hover:opacity-80" style={{ color: '#BFA98A' }}>
+            <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+            <Link href="/studio" className="text-xs transition hover:opacity-80" style={{ color: 'rgba(255,255,255,0.4)' }}>
               我的工作台 →
             </Link>
           </div>
         </div>
 
-        {/* 提示横幅 */}
-        {showHint && (
-          <div className="flex items-center justify-between px-4 py-2 flex-shrink-0" style={{ backgroundColor: '#E8DDD0', borderBottom: '1px solid #D4C4AE' }}>
-            <p style={{ fontSize: '12px', color: '#6B5A45', letterSpacing: '1px' }}>
-              ✏️ 在这里创作你的杂志或画册。完成后点击保存，作品会出现在你的工作台里。
-            </p>
-            <button onClick={() => setShowHint(false)} style={{ fontSize: '14px', color: '#8B7E6A', padding: '0 4px' }}>×</button>
-          </div>
-        )}
-
-        {/* 杂志信息面板 */}
+        {/* 信息编辑面板（浮在顶部下方） */}
         {showInfo && (
-          <div className="flex-shrink-0 px-6 py-4 space-y-3" style={{ backgroundColor: '#F5F0EB', borderBottom: '1px solid #E0D5C8' }}>
-            <div className="max-w-xl mx-auto space-y-3">
-              <div>
-                <label className="block text-xs mb-1" style={{ color: '#8B7E6A', letterSpacing: '1px' }}>标题</label>
-                <input value={title} onChange={e => setTitle(e.target.value)}
-                  placeholder="给你的杂志起个名字"
-                  className="w-full px-3 py-2 rounded text-sm outline-none"
-                  style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4C4AE', color: '#3C3226' }} />
-              </div>
-              <div>
-                <label className="block text-xs mb-1" style={{ color: '#8B7E6A', letterSpacing: '1px' }}>副标题</label>
-                <input value={subtitle} onChange={e => setSubtitle(e.target.value)}
-                  placeholder="一句话描述这本杂志（选填）"
-                  className="w-full px-3 py-2 rounded text-sm outline-none"
-                  style={{ backgroundColor: '#FFFFFF', border: '1px solid #D4C4AE', color: '#3C3226' }} />
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={saveInfo}
-                  className="px-4 py-1.5 rounded text-xs transition hover:opacity-90"
-                  style={{ backgroundColor: '#3C3226', color: '#E8DDD0' }}>
-                  {saveStatus === 'saving' ? '保存中...' : '保存信息'}
-                </button>
-                {saveStatus === 'saved' && <span className="text-xs" style={{ color: '#8B7E6A' }}>✓ 已保存</span>}
-                <button onClick={() => setShowInfo(false)} className="text-xs" style={{ color: '#8B7E6A' }}>收起</button>
-              </div>
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 rounded-xl p-5 space-y-3" style={{
+            backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.8)', minWidth: '360px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          }}>
+            <div className="flex items-center justify-between mb-2">
+              <span style={{ fontSize: '11px', letterSpacing: '2px', color: '#6B5A45' }}>杂志信息</span>
+              <button onClick={() => setShowInfo(false)} style={{ color: '#9CA3AF', fontSize: '16px' }}>×</button>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#8B7E6A' }}>标题</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="给你的杂志起个名字"
+                className="w-full px-3 py-2 rounded text-sm outline-none" style={{ border: '1px solid #D4C4AE', color: '#3C3226' }} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#8B7E6A' }}>副标题</label>
+              <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="一句话描述（选填）"
+                className="w-full px-3 py-2 rounded text-sm outline-none" style={{ border: '1px solid #D4C4AE', color: '#3C3226' }} />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { saveInfo(); setShowInfo(false) }}
+                className="px-5 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+                style={{ backgroundColor: '#3C3226', color: '#FFFFFF' }}>
+                💾 保存信息
+              </button>
+              {saveStatus === 'saved' && <span className="text-xs" style={{ color: '#8B7E6A' }}>✓ 已保存</span>}
             </div>
           </div>
         )}
 
-        {/* 编辑器（咖啡氛围背景） */}
-        <div className="flex-1 overflow-auto relative">
-          {/* 咖啡厅纹理背景 */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: `
-              radial-gradient(ellipse at 20% 50%, rgba(139,126,106,0.08) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 30%, rgba(191,169,138,0.06) 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 80%, rgba(108,90,69,0.05) 0%, transparent 50%),
-              linear-gradient(180deg, #EDE8E1 0%, #E5DED5 50%, #EDE8E1 100%)
-            `,
-          }} />
-          {/* 纸张纹理覆盖 */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E")`,
-            opacity: 0.5,
-          }} />
-          <div className="relative">
+        {/* 提示横幅 */}
+        {showHint && (
+          <div className="absolute top-14 left-0 right-0 z-20 flex items-center justify-center">
+            <div className="flex items-center gap-3 px-5 py-2 rounded-full mt-2" style={{
+              backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)',
+            }}>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
+                ✏️ 在这里创作你的杂志或画册，完成后保存到你的工作台
+              </span>
+              <button onClick={() => setShowHint(false)} style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>×</button>
+            </div>
+          </div>
+        )}
+
+        {/* 编辑器（白色面板浮在中间） */}
+        <div className="absolute inset-0 z-10" style={{ paddingTop: '52px' }}>
+          <div className="h-full overflow-auto" style={{
+            backgroundColor: 'rgba(230,225,218,0.92)',
+            backdropFilter: 'blur(4px)',
+          }}>
             <MagazineEditor
               magazineId={magazineId}
               initialSpreads={magazineData.spreads || []}
@@ -292,11 +273,15 @@ export default function WorkshopPage() {
           </div>
         </div>
 
-        {/* 底部状态栏 */}
-        <div className="flex items-center justify-between px-4 py-1.5 flex-shrink-0" style={{ backgroundColor: '#3C3226' }}>
-          <span style={{ fontSize: '9px', color: '#6B5A45', letterSpacing: '2px' }}>CRADLE RESIDENCY · 工作台</span>
-          <span style={{ fontSize: '9px', color: '#6B5A45' }}>{profile?.username}</span>
-        </div>
+        <style>{`
+          @keyframes cafeKenBurns {
+            0% { transform: scale(1.0) translate(0%, 0%); }
+            25% { transform: scale(1.08) translate(-1%, -1%); }
+            50% { transform: scale(1.05) translate(1%, -0.5%); }
+            75% { transform: scale(1.1) translate(-0.5%, 0.5%); }
+            100% { transform: scale(1.03) translate(0.5%, -1%); }
+          }
+        `}</style>
       </div>
     )
   }
