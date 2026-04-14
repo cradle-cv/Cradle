@@ -405,6 +405,7 @@ export default function RainWriting() {
       )}
 
       <style>{`
+        #flow-editor { color: #2a2a2a !important; }
         #flow-editor::placeholder { color: rgba(0,0,0,0.18); }
         #flow-editor::selection { background: rgba(0,0,0,0.08); color: #1a1a1a; }
         @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)} }
