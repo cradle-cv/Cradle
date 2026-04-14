@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 const ZONES = [
@@ -10,7 +11,7 @@ const ZONES = [
     subtitle: '杂志 · 画册编辑',
     icon: '✏️',
     href: '/residency/workshop',
-    tag: 'Lv.6',
+    requireLevel: 6,
     gridArea: '1 / 1 / 2 / 3',
   },
   {
@@ -19,7 +20,7 @@ const ZONES = [
     subtitle: '篝火 · 吉他和弦',
     icon: '🔥',
     href: '/residency/campfire',
-    tag: 'Lv.6',
+    requireLevel: 6,
     gridArea: '1 / 3 / 2 / 5',
   },
   {
@@ -28,7 +29,7 @@ const ZONES = [
     subtitle: '冥想 · 绘画创作',
     icon: '🧘',
     href: '/residency/canvas',
-    tag: 'Lv.6',
+    requireLevel: 6,
     gridArea: '2 / 1 / 3 / 3',
   },
   {
@@ -37,7 +38,7 @@ const ZONES = [
     subtitle: '雨天玻璃 · 文字创作',
     icon: '🪟',
     href: '/residency/rain',
-    tag: null,
+    requireLevel: 0,
     gridArea: '2 / 3 / 3 / 4',
   },
   {
@@ -46,7 +47,7 @@ const ZONES = [
     subtitle: '共创空间',
     icon: '🌿',
     href: '#',
-    tag: '即将开放',
+    requireLevel: -1,
     gridArea: '2 / 4 / 3 / 5',
   },
   {
@@ -55,7 +56,7 @@ const ZONES = [
     subtitle: '更多创作空间',
     icon: '🌙',
     href: '#',
-    tag: '即将开放',
+    requireLevel: -1,
     gridArea: '3 / 1 / 4 / 3',
   },
   {
@@ -64,13 +65,38 @@ const ZONES = [
     subtitle: '秘密进行中',
     icon: '🔮',
     href: '#',
-    tag: '即将开放',
+    requireLevel: -1,
     gridArea: '3 / 3 / 4 / 5',
   },
 ]
 
 export default function ResidencyHouse() {
   const [hoveredZone, setHoveredZone] = useState(null)
+  const [userLevel, setUserLevel] = useState(0)
+  const [loggedIn, setLoggedIn] = useState(false)
+
+  useEffect(() => {
+    async function fetchLevel() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      setLoggedIn(true)
+      const { data } = await supabase
+        .from('users')
+        .select('level')
+        .eq('auth_id', session.user.id)
+        .maybeSingle()
+      if (data) setUserLevel(data.level || 0)
+    }
+    fetchLevel()
+  }, [])
+
+  function getZoneStatus(zone) {
+    if (zone.requireLevel === -1) return 'coming'
+    if (zone.requireLevel === 0) return 'open'
+    if (!loggedIn) return 'locked'
+    if (userLevel >= zone.requireLevel) return 'open'
+    return 'locked'
+  }
 
   return (
     <div>
@@ -82,9 +108,12 @@ export default function ResidencyHouse() {
 
         <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(3, 1fr)', gap: '1px', backgroundColor: '#E5E7EB', minHeight: '520px' }}>
           {ZONES.map(zone => {
+            const status = getZoneStatus(zone)
             const isHovered = hoveredZone === zone.id
-            const isComing = zone.tag === '即将开放'
-            const isOpen = zone.href !== '#'
+            const isOpen = status === 'open'
+            const isLocked = status === 'locked'
+            const isComing = status === 'coming'
+
             const Wrapper = isOpen ? Link : 'div'
             const wrapperProps = isOpen ? { href: zone.href } : {}
 
@@ -98,30 +127,41 @@ export default function ResidencyHouse() {
                 <span className="transition-transform duration-500" style={{
                   fontSize: isHovered && isOpen ? '38px' : '30px',
                   marginBottom: '12px',
-                  opacity: isComing ? 0.25 : 0.75,
-                  filter: isComing ? 'grayscale(80%)' : isHovered ? 'none' : 'grayscale(20%)',
+                  opacity: isOpen ? 0.75 : 0.25,
+                  filter: isOpen ? (isHovered ? 'none' : 'grayscale(20%)') : 'grayscale(80%)',
                 }}>{zone.icon}</span>
 
                 <h3 className="text-center transition-colors duration-300" style={{
                   fontSize: '15px', fontWeight: 600,
-                  color: isComing ? '#D1D5DB' : isHovered ? '#111827' : '#4B5563',
+                  color: isOpen ? (isHovered ? '#111827' : '#4B5563') : '#D1D5DB',
                   letterSpacing: '2px', marginBottom: '4px',
                 }}>{zone.name}</h3>
 
                 <p className="text-center" style={{
                   fontSize: '11px',
-                  color: isComing ? '#E5E7EB' : isHovered ? '#6B7280' : '#9CA3AF',
+                  color: isOpen ? (isHovered ? '#6B7280' : '#9CA3AF') : '#E5E7EB',
                   letterSpacing: '1px',
                 }}>{zone.subtitle}</p>
 
-                {zone.tag && (
-                  <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full" style={{
-                    backgroundColor: '#F3F4F6', fontSize: '9px', color: '#9CA3AF', letterSpacing: '1px',
-                  }}>{zone.tag}</div>
+                {isLocked && (
+                  <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: '#F3F4F6', fontSize: '9px', color: '#9CA3AF', letterSpacing: '1px' }}>
+                    🔒 Lv.{zone.requireLevel}
+                  </div>
+                )}
+                {isComing && (
+                  <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full" style={{ backgroundColor: '#F3F4F6', fontSize: '9px', color: '#9CA3AF', letterSpacing: '1px' }}>
+                    即将开放
+                  </div>
                 )}
 
                 {isOpen && isHovered && (
                   <span className="absolute bottom-4 text-xs" style={{ color: '#9CA3AF' }}>坐下来 →</span>
+                )}
+
+                {isLocked && isHovered && (
+                  <p className="absolute bottom-4 text-xs" style={{ color: '#D1D5DB' }}>
+                    {loggedIn ? `还需 Lv.${zone.requireLevel}` : '请先登录'}
+                  </p>
                 )}
               </Wrapper>
             )
