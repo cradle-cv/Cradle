@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
@@ -12,8 +11,6 @@ const FONTS = [
 
 const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
 
-// Procedural tunnel with glowing orbs
-// Adapted from Shadertoy to WebGL ES 1.0
 const FS = `
 precision highp float;
 uniform float u_time;
@@ -79,6 +76,7 @@ void main(){
 export default function BasementSpace() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
+  const audioRef = useRef(null)
 
   const [text, setText] = useState('')
   const [font, setFont] = useState(0)
@@ -86,6 +84,7 @@ export default function BasementSpace() {
   const [topHover, setTopHover] = useState(false)
   const [deckHover, setDeckHover] = useState(false)
   const [saved, setSaved] = useState(null)
+  const [vol, setVol] = useState(0.5)
 
   // 持久化
   useEffect(() => {
@@ -110,6 +109,20 @@ export default function BasementSpace() {
     const b = new Blob([text], { type: 'text/plain;charset=utf-8' }); const u = URL.createObjectURL(b)
     const a = document.createElement('a'); a.href = u; a.download = `basement_${new Date().toISOString().slice(0, 10)}.txt`; a.click(); URL.revokeObjectURL(u)
   }
+
+  // ═══ 音频 ═══
+  useEffect(() => {
+    const audio = new Audio('/audio/basement.mp3')
+    audio.loop = true; audio.volume = vol
+    audioRef.current = audio
+    audio.play().catch(() => {})
+    const resume = () => audio.play().catch(() => {})
+    const evts = ['click', 'keydown', 'touchstart']
+    evts.forEach(e => document.addEventListener(e, resume, { once: true }))
+    return () => { audio.pause(); audio.src = ''; evts.forEach(e => document.removeEventListener(e, resume)) }
+  }, [])
+
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
   // ═══ Shader ═══
   useEffect(() => {
@@ -214,6 +227,13 @@ export default function BasementSpace() {
       <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2" style={{ fontSize: '10px', color: 'rgba(180,160,220,0.12)', letterSpacing: '1px' }}>
           <span>{chars} 字</span><span style={{ opacity: 0.4 }}>·</span><span>{lines} 行</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { if (audioRef.current) { if (audioRef.current.paused) audioRef.current.play(); else audioRef.current.pause() } }}
+            className="text-xs" style={{ color: 'rgba(180,160,220,0.3)' }}>🔮</button>
+          <input type="range" min="0" max="100" value={Math.round(vol * 100)}
+            onChange={e => setVol(parseInt(e.target.value) / 100)}
+            className="w-14" style={{ accentColor: 'rgba(180,160,220,0.3)' }} />
         </div>
       </div>
 
