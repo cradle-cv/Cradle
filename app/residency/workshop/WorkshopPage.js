@@ -258,12 +258,9 @@ export default function WorkshopPage() {
           </div>
         )}
 
-        {/* 编辑器（白色面板浮在中间） */}
-        <div className="absolute inset-0 z-10" style={{ paddingTop: '52px' }}>
-          <div className="h-full overflow-auto" style={{
-            backgroundColor: 'rgba(230,225,218,0.92)',
-            backdropFilter: 'blur(4px)',
-          }}>
+        {/* 编辑器（居中，两侧露出咖啡厅背景） */}
+<div className="absolute inset-0 z-10 flex justify-center" style={{ paddingTop: '52px' }}>
+  <div className="h-full overflow-auto w-full" style={{ maxWidth: '1100px' }}>
             <MagazineEditor
               magazineId={magazineId}
               initialSpreads={magazineData.spreads || []}
