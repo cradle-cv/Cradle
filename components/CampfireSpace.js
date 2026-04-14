@@ -31,7 +31,7 @@ void main(){
 
   float t=0.0, o=0.0, d=1.0;
 
-  for(int ii=0; ii<40; ii++){
+for(int ii=0; ii<30; ii++){
     if(d<=0.001) break;
 
     vec3 k=normalize(vec3(P+P,R.y)-R)*t;
@@ -48,9 +48,8 @@ void main(){
       vec3 p=k;
 
       // rotation p.zx
-      vec4 c1=cos(a*2.4+vec4(0,33,11,0));
-      mat2 m1=mat2(c1);
-      vec2 pzx=m1*p.zx;
+vec4 c1=cos(a*2.4+vec4(0,33,11,0));
+vec2 pzx=mat2(c1.x,c1.y,c1.z,c1.w)*p.zx;
       p.z=pzx.x; p.x=pzx.y;
 
       vec3 q=p;
@@ -60,9 +59,8 @@ void main(){
       p.z-=5.0;
 
       // rotation p.zy
-      vec4 c2=cos(atan(a*0.18)+vec4(0,33,11,0));
-      mat2 m2=mat2(c2);
-      vec2 pzy=m2*p.zy;
+vec4 c2=cos(atan(a*0.18)+vec4(0,33,11,0));
+vec2 pzy=mat2(c2.x,c2.y,c2.z,c2.w)*p.zy;
       p.z=pzy.x; p.y=pzy.y;
 
       d=min(d, max(abs(p.z+5.0)-5.0, max(abs(p.x)*0.9+p*0.5,-p).y-0.3));
