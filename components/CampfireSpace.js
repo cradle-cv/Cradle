@@ -277,6 +277,7 @@ export default function CampfireSpace() {
       </div>
 
       <style>{`
+        #fire-editor { color: #f5e6d0 !important; }
         #fire-editor::placeholder { color: rgba(255,200,150,0.18); }
         #fire-editor::selection { background: rgba(255,150,50,0.15); color: #ffe0c0; }
         @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)} }
