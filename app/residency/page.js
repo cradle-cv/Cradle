@@ -30,8 +30,9 @@ export default function ResidencyPage() {
               <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
               <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
               <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+                <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
               <li><a href="/residency" className="font-bold text-gray-900">驻地</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+
             </ul>
           </div>
           <div className="flex items-center gap-4"><UserNav /></div>
