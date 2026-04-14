@@ -30,7 +30,7 @@ const ZONES = [
     icon: '🪟',
     href: '/residency/rain',
     requireLevel: 0,  // 所有人可用
-    gridArea: '2 / 1 / 3 / 3',
+    gridArea: '2 / 3 / 3 / 4',
   },
   {
     id: 'cushion',
@@ -38,8 +38,8 @@ const ZONES = [
     subtitle: '冥想 · 绘画创作',
     icon: '🧘',
     href: '/residency/canvas',
-    requireLevel: 7,
-    gridArea: '2 / 3 / 3 / 4',
+    requireLevel: 6,
+gridArea: '2 / 1 / 3 / 3',
   },
   {
     id: 'garden',
