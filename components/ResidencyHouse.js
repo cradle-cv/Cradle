@@ -11,7 +11,7 @@ const ZONES = [
     subtitle: '杂志 · 画册编辑',
     icon: '✏️',
     href: '/residency/workshop',
-    requireLevel: 7,
+    requireLevel: 6,
     gridArea: '1 / 1 / 2 / 3',
   },
   {
@@ -20,7 +20,7 @@ const ZONES = [
     subtitle: '篝火 · 吉他和弦',
     icon: '🔥',
     href: '/residency/campfire',
-    requireLevel: 7,
+    requireLevel: 6,
     gridArea: '1 / 3 / 2 / 5',
   },
   {
