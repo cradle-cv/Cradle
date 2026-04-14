@@ -218,6 +218,7 @@ export default function BasementSpace() {
       </div>
 
       <style>{`
+        #basement-editor { color: #c8b8e8 !important; }
         #basement-editor::placeholder { color: rgba(180,160,220,0.18); }
         #basement-editor::selection { background: rgba(120,100,180,0.15); color: #d8c8f8; }
       `}</style>
