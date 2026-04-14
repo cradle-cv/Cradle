@@ -15,10 +15,11 @@ export default function StudioPage() {
   const [artworks, setArtworks] = useState([])
   const [collections, setCollections] = useState([])
   const [exhibitions, setExhibitions] = useState([])
+  const [magazines, setMagazines] = useState([])
   const [reviewStatus, setReviewStatus] = useState(null)
   const [stats, setStats] = useState({ artworks: 0, collections: 0, views: 0, likes: 0 })
   const [activeTab, setActiveTab] = useState('artworks')
-  const [showQuickCreate, setShowQuickCreate] = useState(null) // null | 'images' | 'template'
+  const [showQuickCreate, setShowQuickCreate] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -36,7 +37,6 @@ export default function StudioPage() {
       if (!userData) { router.push('/login'); return }
       setUser(userData)
 
-      // 未达Lv6直接返回
       if ((userData.level || 1) < 6 && userData.role !== 'admin') {
         setLoading(false)
         return
@@ -72,7 +72,6 @@ export default function StudioPage() {
             .order('created_at', { ascending: false })
           setArtworks(works || [])
 
-          // 加载作品集
           const { data: cols } = await supabase
             .from('collections')
             .select('*')
@@ -80,7 +79,6 @@ export default function StudioPage() {
             .order('created_at', { ascending: false })
           setCollections(cols || [])
 
-          // 统计
           const totalViews = (works || []).reduce((s, w) => s + (w.views_count || 0), 0)
           const totalLikes = (works || []).reduce((s, w) => s + (w.likes_count || 0), 0)
           setStats({
@@ -102,11 +100,21 @@ export default function StudioPage() {
           setExhibitions(exs || [])
         } catch (e) { console.error('加载展览失败:', e) }
       }
+
+      // 加载杂志（不依赖 artist，直接用 user id）
+      try {
+        const { data: mags } = await supabase
+          .from('magazines')
+          .select('id, title, subtitle, cover_image, status, source_type, created_at, updated_at')
+          .eq('author_id', userData.id)
+          .order('updated_at', { ascending: false })
+        setMagazines(mags || [])
+      } catch (e) { console.error('加载杂志失败:', e) }
+
     } catch (err) { console.error('工作台加载错误:', err) }
     finally { setLoading(false) }
   }
 
-  // 提交认证申请
   async function applyForVerification() {
     if (!user) return
     try {
@@ -137,12 +145,12 @@ export default function StudioPage() {
   const statusColors = {
     published: { bg: '#ECFDF5', color: '#059669', text: '已发布' },
     draft: { bg: '#FEF3C7', color: '#B45309', text: '草稿' },
+    featured: { bg: '#EDE9FE', color: '#7C3AED', text: '精选' },
     archived: { bg: '#F3F4F6', color: '#6B7280', text: '已归档' },
   }
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
-      {/* 导航 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -159,7 +167,6 @@ export default function StudioPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* Lv6以下锁定 */}
         {!isLv6 && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
             <div className="text-5xl mb-4">🔒</div>
@@ -172,7 +179,6 @@ export default function StudioPage() {
           </div>
         )}
 
-        {/* Lv6+ 用户头部 */}
         {isLv6 && (
           <>
             <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
@@ -202,7 +208,6 @@ export default function StudioPage() {
                   <p className="text-sm" style={{ color: '#6B7280' }}>Lv.{user.level} · ✨ {user.total_points} 灵感值</p>
                 </div>
 
-                {/* 认证申请按钮 - 管理员不显示 */}
                 {!isVerified && !isPending && user.role !== 'admin' && (
                   <button onClick={applyForVerification}
                     className="px-6 py-3 rounded-xl text-sm font-medium text-white flex-shrink-0"
@@ -212,7 +217,6 @@ export default function StudioPage() {
                 )}
               </div>
 
-              {/* 被驳回提示 */}
               {isRejected && user.role !== 'admin' && (
                 <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5' }}>
                   <p className="text-sm font-medium" style={{ color: '#DC2626' }}>上次认证申请未通过</p>
@@ -225,7 +229,6 @@ export default function StudioPage() {
                 </div>
               )}
 
-              {/* 统计 */}
               <div className="grid grid-cols-4 gap-4 mt-6">
                 {[
                   { label: '作品', value: stats.artworks, icon: '🎨' },
@@ -247,7 +250,7 @@ export default function StudioPage() {
                 { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
                 { key: 'collections', label: '📚 我的作品集', count: stats.collections },
                 { key: 'exhibitions', label: '🏛️ 观展邀请' },
-                { key: 'magazines', label: '📖 自制杂志', locked: (user?.level || 1) < 7 && user?.role !== 'admin' },
+                { key: 'magazines', label: '📖 自制杂志', count: magazines.length },
               ].map(t => (
                 <button key={t.key} onClick={() => setActiveTab(t.key)}
                   className={`px-5 py-2.5 rounded-full text-sm font-medium transition ${
@@ -387,53 +390,64 @@ export default function StudioPage() {
                 )}
               </div>
             )}
-          {/* 自制杂志 */}
-                {activeTab === 'magazines' && (
-                  <div>
-                    {(user?.level || 1) < 7 && user?.role !== 'admin' ? (
-                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-                        <div className="text-4xl mb-3">🔒</div>
-                        <p className="font-bold mb-1" style={{ color: '#111827' }}>Lv.7 解锁自制杂志</p>
-                        <p className="text-sm" style={{ color: '#9CA3AF' }}>当前等级：Lv.{user?.level || 1}</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的杂志</h2>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setShowQuickCreate('images')}
-                              className="px-4 py-2.5 rounded-lg text-xs font-medium border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                              📸 快速传图创建
-                            </button>
-                            <button onClick={() => setShowQuickCreate('template')}
-                              className="px-4 py-2.5 rounded-lg text-xs font-medium border hover:bg-gray-50" style={{ color: '#7C3AED', borderColor: '#C4B5FD' }}>
-                              📋 从模板创建
-                            </button>
-                            <button onClick={async () => {
-                              const resp = await fetch('/api/magazine', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'create', title: '未命名杂志', authorId: user.id, sourceType: 'user' })
-                              })
-                              const data = await resp.json()
-                              if (data.magazine) window.location.href = `/studio/magazine/${data.magazine.id}`
-                            }}
-                              className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#7C3AED' }}>
-                              + 空白创建
-                            </button>
+
+            {/* 自制杂志 */}
+            {activeTab === 'magazines' && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的杂志</h2>
+                  <Link href="/residency/workshop"
+                    className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+                    ✏️ 去驻地工作台创作
+                  </Link>
+                </div>
+                {magazines.length > 0 ? (
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {magazines.map(mag => {
+                      const sc = statusColors[mag.status] || statusColors.draft
+                      return (
+                        <Link key={mag.id} href={`/magazine/view/${mag.id}`}
+                          className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                          <div className="aspect-video bg-gray-100">
+                            {mag.cover_image ? (
+                              <img src={mag.cover_image} alt={mag.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-4xl"
+                                style={{ background: 'linear-gradient(135deg, #F3F4F6, #E5E7EB)' }}>📖</div>
+                            )}
                           </div>
-                        </div>
-                        <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-                          <div className="text-4xl mb-3">📖</div>
-                          <p style={{ color: '#9CA3AF' }}>开始创作你的第一本杂志</p>
-                        </div>
-                      </div>
-                    )}
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{mag.title}</h3>
+                              <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0"
+                                style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
+                            </div>
+                            {mag.subtitle && (
+                              <p className="text-xs truncate mb-1" style={{ color: '#6B7280' }}>{mag.subtitle}</p>
+                            )}
+                            <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                              {mag.source_type === 'official' ? '官方' : '自制'} · {new Date(mag.updated_at || mag.created_at).toLocaleDateString('zh-CN')}
+                            </p>
+                          </div>
+                        </Link>
+                      )
+                    })}
                   </div>
-                )}</>
+                ) : (
+                  <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                    <div className="text-4xl mb-3">📖</div>
+                    <p style={{ color: '#9CA3AF' }}>还没有杂志</p>
+                    <p className="text-xs mt-2" style={{ color: '#D1D5DB' }}>前往驻地工作台开始创作</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
-    {showQuickCreate && (
+
+      {showQuickCreate && (
         <QuickMagazineCreator
           userId={user?.id}
           onCreated={(magId) => {
