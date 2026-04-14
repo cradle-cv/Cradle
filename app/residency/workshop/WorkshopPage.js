@@ -34,7 +34,7 @@ const supabase = createClient(
       const { data: profile } = await supabase.from('users').select('level').eq('id', user.id).single()
       const level = profile?.level || 0
       setUserLevel(level)
-      if (level < 7) { setLoading(false); return }
+      if (level < 6) { setLoading(false); return }
 
       // 3. 加载或创建杂志
       try {
@@ -128,7 +128,7 @@ const supabase = createClient(
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         <p style={{ fontSize: '48px', marginBottom: '20px' }}>🔒</p>
         <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>工作台</h2>
-        <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '8px' }}>达到 Lv.7 解锁杂志创作</p>
+        <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '8px' }}>达到 Lv.6 解锁杂志创作</p>
         <p style={{ fontSize: '12px', color: '#D1D5DB', marginBottom: '32px' }}>
           当前 Lv.{userLevel}，继续探索阅览室获取灵感值
         </p>
