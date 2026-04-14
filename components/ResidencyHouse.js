@@ -64,8 +64,8 @@ const ZONES = [
     name: '地下室',
     subtitle: '秘密进行中',
     icon: '🔮',
-    href: '#',
-    requireLevel: -1,
+    href: '/residency/basement',
+    requireLevel: 6,
     gridArea: '3 / 3 / 4 / 5',
   },
 ]
