@@ -1,20 +1,15 @@
-
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import MagazineEditor from '@/components/MagazineEditor'
 
 export default function WorkshopPage() {
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
   const audioRef = useRef(null)
 
-  const [user, setUser] = useState(null)
-  const [userLevel, setUserLevel] = useState(0)
+  const [authUser, setAuthUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [magazineId, setMagazineId] = useState(null)
   const [magazineData, setMagazineData] = useState(null)
@@ -22,28 +17,35 @@ const supabase = createClient(
   const [vol, setVol] = useState(0.3)
   const [showVol, setShowVol] = useState(false)
 
-  // 初始化
   useEffect(() => {
     async function init() {
-      // 1. 检查登录
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      setUser(user)
+      // 1. 检查登录（和 UserNav 一样用 getSession + auth_id）
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) { setLoading(false); return }
+      setAuthUser(session.user)
 
-      // 2. 检查等级
-      const { data: profile } = await supabase.from('users').select('level').eq('id', user.id).single()
-      const level = profile?.level || 0
-      setUserLevel(level)
+      // 2. 查 users 表获取 level 和 id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, level, username')
+        .eq('auth_id', session.user.id)
+        .maybeSingle()
+
+      if (!userData) { setLoading(false); return }
+      setProfile(userData)
+
+      const level = userData.level || 0
       if (level < 6) { setLoading(false); return }
 
       // 3. 加载或创建杂志
       try {
-        const cachedId = localStorage.getItem('workshop_magazine_id')
+        const userId = userData.id  // users 表的 id（不是 auth id）
 
+        const cachedId = localStorage.getItem('workshop_magazine_id')
         if (cachedId) {
           const resp = await fetch(`/api/magazine?id=${cachedId}`)
           const data = await resp.json()
-          if (data.magazine && data.magazine.author_id === user.id) {
+          if (data.magazine && data.magazine.author_id === userId) {
             setMagazineId(cachedId)
             setMagazineData(data)
             setLoading(false)
@@ -52,7 +54,7 @@ const supabase = createClient(
         }
 
         // 查找最近的用户草稿
-        const resp = await fetch(`/api/magazine?authorId=${user.id}&sourceType=user&status=draft`)
+        const resp = await fetch(`/api/magazine?authorId=${userId}&sourceType=user&status=draft`)
         const data = await resp.json()
 
         if (data.magazines && data.magazines.length > 0) {
@@ -67,7 +69,7 @@ const supabase = createClient(
           const cr = await fetch('/api/magazine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'create', title: '未命名画册', authorId: user.id, sourceType: 'user' })
+            body: JSON.stringify({ action: 'create', title: '未命名画册', authorId: userId, sourceType: 'user' })
           })
           const cd = await cr.json()
           if (cd.magazine) {
@@ -89,7 +91,7 @@ const supabase = createClient(
 
   // 咖啡店音频
   useEffect(() => {
-    if (!magazineId) return  // 只在编辑器加载后播放
+    if (!magazineId) return
     const audio = new Audio('/audio/cafe.mp3')
     audio.loop = true
     audio.volume = vol
@@ -110,7 +112,7 @@ const supabase = createClient(
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
   // ─── 未登录 ───
-  if (!loading && !user) {
+  if (!loading && !authUser) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         <p style={{ fontSize: '48px', marginBottom: '20px' }}>✏️</p>
@@ -123,14 +125,14 @@ const supabase = createClient(
   }
 
   // ─── 等级不足 ───
-  if (!loading && user && userLevel < 7) {
+  if (!loading && profile && (profile.level || 0) < 6) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         <p style={{ fontSize: '48px', marginBottom: '20px' }}>🔒</p>
         <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>工作台</h2>
         <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '8px' }}>达到 Lv.6 解锁杂志创作</p>
         <p style={{ fontSize: '12px', color: '#D1D5DB', marginBottom: '32px' }}>
-          当前 Lv.{userLevel}，继续探索阅览室获取灵感值
+          当前 Lv.{profile.level || 0}，继续探索阅览室获取灵感值
         </p>
         <Link href="/gallery" className="px-6 py-3 rounded-lg text-sm text-white" style={{ backgroundColor: '#111827' }}>去阅览室</Link>
         <Link href="/residency" className="mt-4 text-xs" style={{ color: '#9CA3AF' }}>← 返回驻地</Link>
@@ -161,7 +163,6 @@ const supabase = createClient(
   if (magazineId && magazineData) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col">
-        {/* 顶部栏 */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 flex-shrink-0" style={{ backgroundColor: '#FAFAFA' }}>
           <div className="flex items-center gap-4">
             <Link href="/residency" className="text-xs hover:text-gray-600 transition" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>← 驻地</Link>
@@ -171,11 +172,8 @@ const supabase = createClient(
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {/* 音量控制 */}
             <div className="relative flex items-center gap-2">
-              <button onClick={() => setShowVol(!showVol)} className="text-xs" style={{ color: '#9CA3AF' }}>
-                ☕ {showVol ? '' : ''}
-              </button>
+              <button onClick={() => setShowVol(!showVol)} className="text-xs" style={{ color: '#9CA3AF' }}>☕</button>
               {showVol && (
                 <input type="range" min="0" max="100" value={Math.round(vol * 100)}
                   onChange={e => setVol(parseInt(e.target.value) / 100)}
@@ -189,7 +187,6 @@ const supabase = createClient(
           </div>
         </div>
 
-        {/* 编辑器 */}
         <div className="flex-1 overflow-auto">
           <MagazineEditor
             magazineId={magazineId}
