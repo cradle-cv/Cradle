@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import { useState, useEffect, useRef } from 'react'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const ZONES = [
   {
@@ -71,24 +75,26 @@ gridArea: '2 / 1 / 3 / 3',
 ]
 
 export default function ResidencyHouse() {
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
-  const [hoveredZone, setHoveredZone] = useState(null)
-  const [userLevel, setUserLevel] = useState(0)
-  const [loggedIn, setLoggedIn] = useState(false)
+const supabaseRef = useRef(null)
+if (!supabaseRef.current && supabaseUrl && supabaseKey) {
+  supabaseRef.current = createClient(supabaseUrl, supabaseKey)
+}
+const [hoveredZone, setHoveredZone] = useState(null)
+const [userLevel, setUserLevel] = useState(0)
+const [loggedIn, setLoggedIn] = useState(false)
 
-  useEffect(() => {
-    async function fetchLevel() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setLoggedIn(true)
-      const { data } = await supabase.from('users').select('level').eq('id', user.id).single()
-      if (data) setUserLevel(data.level || 0)
-    }
-    fetchLevel()
-  }, [])
+useEffect(() => {
+  const sb = supabaseRef.current
+  if (!sb) return
+  async function fetchLevel() {
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session?.user) return
+    setLoggedIn(true)
+    const { data } = await sb.from('users').select('level').eq('id', session.user.id).single()
+    if (data) setUserLevel(data.level || 0)
+  }
+  fetchLevel()
+}, [])
 
   function getZoneStatus(zone) {
     if (zone.requireLevel === -1) return 'coming'
