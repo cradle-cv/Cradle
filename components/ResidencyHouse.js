@@ -19,7 +19,7 @@ const ZONES = [
     subtitle: '篝火 · 吉他和弦',
     icon: '🔥',
     href: '/residency/campfire',
-    status: 'coming',
+    status: 'open',
     gridArea: '1 / 3 / 2 / 5',
   },
   {
