@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 
 const ZONES = [
@@ -71,7 +71,10 @@ const ZONES = [
 ]
 
 export default function ResidencyHouse() {
-  const supabase = createClientComponentClient()
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
   const [hoveredZone, setHoveredZone] = useState(null)
   const [userLevel, setUserLevel] = useState(0)
   const [loggedIn, setLoggedIn] = useState(false)
