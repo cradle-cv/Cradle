@@ -27,7 +27,7 @@ vec4 tnh(vec4 x){
 
 void main(){
   vec2 P=gl_FragCoord.xy;
-  vec3 R=vec3(u_res, u_res.y);
+vec3 R=vec3(u_res, 1.0);
 
   float t=0.0, o=0.0, d=1.0;
 
