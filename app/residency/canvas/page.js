@@ -1,11 +1,10 @@
-
-import DrawingBoard from '@/components/DrawingBoard'
+import MeditationSpace from '@/components/MeditationSpace'
 
 export const metadata = {
-  title: '自由画板 · 驻地 · Cradle摇篮',
-  description: '水彩 · 铅笔 · 墨迹',
+  title: '蒲团 · 驻地 · Cradle摇篮',
+  description: '冥想 · 绘画创作',
 }
 
 export default function CanvasPage() {
-  return <DrawingBoard />
+  return <MeditationSpace />
 }
