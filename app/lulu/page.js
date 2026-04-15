@@ -69,15 +69,11 @@ const C={
 }
 const GROUP_COLORS=["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#ea580c","#0891b2","#db2777"]
 const DEFAULT_QS=[
-  {seq:1,question:"计数函数 COUNT，在选择数据区域时，要选择以下哪一类数据？",options:["非空单元格","包含数字单元格","空白单元格","满足条件单元格"],correct_index:1,points:10,time_limit:15},
-  {seq:2,question:"要计算农产品销售表中各商品的总销量，应使用以下哪一个函数？",options:["COUNTIF","SUM","SUMIF","IF"],correct_index:2,points:10,time_limit:15},
-  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
-  {seq:4,question:"只统计销量大于 200 的产品的平均单价，直接用 AVERAGE 函数可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:1,points:10,time_limit:20},
-],correct_index:1,points:10,time_limit:15},
-  {seq:2,question:"要计算农产品销售表中各商品的总销量，应使用以下哪一个函数？",options:["COUNTIF","SUM","SUMIF","IF"],correct_index:2,points:10,time_limit:15},
-  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
-  {seq:4,question:"只统计销量大于 200 的产品的平均单价，直接用 AVERAGE 函数可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:1,points:10,time_limit:20},
-  {seq:5,question:"想对「实付金额」大于 500 的产品标注为「热销产品」，使用 MAX 函数能实现吗？",options:["能，MAX 可以判断大小","不能，应使用 IF 函数","能，选中实付金额列即可","不能，应使用 AVERAGE 函数"],correct_index:1,points:10,time_limit:20},
+  {seq:1,question:"在 Word 中，将选中文字设为「标题 1」样式，应使用哪个功能区？",options:["插入","开始","布局","引用"],correct_index:1,points:10,time_limit:15},
+  {seq:2,question:"加粗文字的快捷键是？",options:["Ctrl+I","Ctrl+U","Ctrl+B","Ctrl+H"],correct_index:2,points:10,time_limit:10},
+  {seq:3,question:"要插入表格，应点击哪个菜单？",options:["开始","布局","插入","视图"],correct_index:2,points:10,time_limit:12},
+  {seq:4,question:"将页面改为横向，应在哪个选项卡？",options:["开始","插入","布局","审阅"],correct_index:2,points:10,time_limit:12},
+  {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
 ]
 const TASK={
   maxScore:100,timeLimit:600,
@@ -231,8 +227,8 @@ function TSetup({onCreate}){
   ])
   const [qs,setQs]=useState(DEFAULT_QS.map(q=>({...q,options:[...q.options]})))
   const [discussions,setDiscussions]=useState([
-    {topic:"在农产品销售表中，想要对「实付金额」大于 500 的产品定为「热销产品」，使用 MAX 函数能实现吗？为什么？应该用哪个函数？（参考答案：不能，MAX 只能求最大值，应使用 IF 函数：=IF(E2>500,\"热销产品\",\"")）"},
-    {topic:"已知农产品销售情况表含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用 IF 函数完成：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」。写出对应单元格的公式。（参考答案：=IF(B2>=50,\"热销产品\",\"普通产品\")）"},
+    {topic:"Word 排版中，你认为最难掌握的操作是什么？"},
+    {topic:"标题样式和手动改字号，有什么本质区别？"},
   ])
   const [editQ,setEditQ]=useState(null)
   const [tab,setTab]=useState("groups")
@@ -577,7 +573,7 @@ function TDash({session:init,onBack}){
   const [submissions,setSubmissions]=useState([])
   const [qTimer,setQTimer]=useState(0)
   const timerRef=useRef(null)
-  const [bonusStep,setBonusStep]=useState(10)
+  const [bonusStep,setBonusStep]=useState(5)
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
     sb.from("word_lab_questions").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setQuestions(data))
@@ -3045,6 +3041,12 @@ function SMain({session:init,studentName}){
           }
         })
       .subscribe()
+    // Fallback poll every 6s in case realtime misses events
+    const pollRef=setInterval(()=>{
+      sb.from("word_lab_checkins").select().eq("session_id",init.id)
+        .then(({data})=>data&&setCheckins(data))
+    },6000)
+    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
 
   // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
