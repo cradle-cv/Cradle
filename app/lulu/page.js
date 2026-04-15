@@ -69,12 +69,11 @@ const C={
 }
 const GROUP_COLORS=["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#ea580c","#0891b2","#db2777"]
 const DEFAULT_QS=[
-  {seq:1,question:"计数函数count，在选择数据区域时，要选择以下哪一类数据？",options:["非空单元格","包含数字单元格","空白单元格","满足条件单元格"],correct_index:2,points:10,time_limit:15},
-  {seq:2,question:"要计算农产品销售表中，各商品的总销量，应使用以下哪一个函数？",options:["countif","sum","sumif","if"],correct_index:3,points:10,time_limit:10},
-  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["if","and","or","countif"],correct_index:2,points:10,time_limit:12},
-  {seq:4,question:"只统计销量大于 200的产品的平均单价，直接用 AVERAGE 可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:2,points:10,time_limit:12},
-  {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
-]
+  {seq:1,question:"计数函数count，在选择数据区域时，要选择以下哪一类数据？",options:["非空单元格","包含数字单元格","空白单元格","满足条件单元格"],correct_index:3,points:10,time_limit:15},
+  {seq:2,question:"要计算农产品销售表中，各商品的总销量，应使用以下哪一个函数？",options:["countif","sum","sumif","if"],correct_index:4,points:10,time_limit:10},
+  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["if","and","or","countif"],correct_index:3,points:10,time_limit:12},
+  {seq:4,question:"只统计销量大于 200的产品的平均单价，直接用 AVERAGE 可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:3,points:10,time_limit:12},
+ ]
 const TASK={
   maxScore:100,timeLimit:600,
   rawHtml:`<p>春季电商大促 — 精选商品推荐</p>
