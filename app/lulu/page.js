@@ -69,10 +69,10 @@ const C={
 }
 const GROUP_COLORS=["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#ea580c","#0891b2","#db2777"]
 const DEFAULT_QS=[
-  {seq:1,question:"在 Word 中，将选中文字设为「标题 1」样式，应使用哪个功能区？",options:["插入","开始","布局","引用"],correct_index:1,points:10,time_limit:15},
-  {seq:2,question:"加粗文字的快捷键是？",options:["Ctrl+I","Ctrl+U","Ctrl+B","Ctrl+H"],correct_index:2,points:10,time_limit:10},
-  {seq:3,question:"要插入表格，应点击哪个菜单？",options:["开始","布局","插入","视图"],correct_index:2,points:10,time_limit:12},
-  {seq:4,question:"将页面改为横向，应在哪个选项卡？",options:["开始","插入","布局","审阅"],correct_index:2,points:10,time_limit:12},
+  {seq:1,question:"计数函数count，在选择数据区域时，要选择以下哪一类数据？",options:["非空单元格","包含数字单元格","空白单元格","满足条件单元格"],correct_index:2,points:10,time_limit:15},
+  {seq:2,question:"要计算农产品销售表中，各商品的总销量，应使用以下哪一个函数？",options:["countif","sum","sumif","if"],correct_index:3,points:10,time_limit:10},
+  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["if","and","or","countif"],correct_index:2,points:10,time_limit:12},
+  {seq:4,question:"只统计销量大于 200的产品的平均单价，直接用 AVERAGE 可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:2,points:10,time_limit:12},
   {seq:5,question:"段落首行缩进 2 字符在哪里设置？",options:["字体对话框","段落对话框","样式窗格","页面设置"],correct_index:1,points:10,time_limit:15},
 ]
 const TASK={
@@ -227,9 +227,9 @@ function TSetup({onCreate}){
   ])
   const [qs,setQs]=useState(DEFAULT_QS.map(q=>({...q,options:[...q.options]})))
   const [discussions,setDiscussions]=useState([
-    {topic:"Word 排版中，你认为最难掌握的操作是什么？"},
-    {topic:"标题样式和手动改字号，有什么本质区别？"},
-  ])
+    {topic:"在农产品销售表中，想要对“实付金额“大于500的产品，定为”热销产品“，使用MAX函数能实现吗？"},
+    {topic:"已知农产品销售情况表包含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用IF 函数完成逻辑判断，要求如下：1.判断规则：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」；2.写出对应单元格的 IF 函数公式"},
+])
   const [editQ,setEditQ]=useState(null)
   const [tab,setTab]=useState("groups")
   const [loading,setLoading]=useState(false)
