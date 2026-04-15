@@ -90,11 +90,10 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero区 - 移动端适配 */}
+      {/* Hero区 */}
       <section className="py-10 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col-reverse md:flex-row items-center gap-8 md:gap-16">
-            {/* 文字区 */}
             <div className="flex-1 w-full">
               {galleryWorks.length > 0 ? (
                 <>
@@ -124,7 +123,6 @@ export default async function Home() {
                 </>
               )}
             </div>
-            {/* 图片区 */}
             <div className="relative w-2/3 md:w-1/3 flex-shrink-0">
               {galleryWorks.length > 0 ? (
                 <a href={`/gallery/${galleryWorks[0].id}`} className="block group">
@@ -209,9 +207,7 @@ export default async function Home() {
               <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">杂志社</h2>
               <p className="text-gray-600 text-sm md:text-base">沉浸式图文导读 · 用户原创精选</p>
             </div>
-
             <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-              {/* 摇篮Daily */}
               {homepageDaily ? (
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
@@ -239,15 +235,9 @@ export default async function Home() {
                 </a>
               ) : (
                 <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}>
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">📖</div>
-                    <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p>
-                    <p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p>
-                  </div>
+                  <div className="text-center py-12"><div className="text-4xl mb-3">📖</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p><p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p></div>
                 </a>
               )}
-
-              {/* 摇篮Select */}
               {homepageSelect ? (
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
@@ -266,11 +256,7 @@ export default async function Home() {
                     </div>
                     <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {homepageSelect.users?.avatar_url ? (
-                          <img src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>
-                        )}
+                        {homepageSelect.users?.avatar_url ? (<img src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>)}
                         <span className="text-xs" style={{ color: '#6B7280' }}>{homepageSelect.users?.username || '用户原创'}</span>
                         {homepageSelect.pages_count > 0 && <span className="text-xs" style={{ color: '#9CA3AF' }}>· {homepageSelect.pages_count} 页</span>}
                       </div>
@@ -280,15 +266,10 @@ export default async function Home() {
                 </a>
               ) : (
                 <a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}>
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">⭐</div>
-                    <p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p>
-                    <p className="text-sm" style={{ color: '#9CA3AF' }}>用户原创杂志精选即将上线</p>
-                  </div>
+                  <div className="text-center py-12"><div className="text-4xl mb-3">⭐</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p><p className="text-sm" style={{ color: '#9CA3AF' }}>用户原创杂志精选即将上线</p></div>
                 </a>
               )}
             </div>
-
             <div className="text-center mt-8 md:mt-10">
               <a href="/magazine" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">进入杂志社 →</a>
             </div>
@@ -329,7 +310,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 艺术家 */}
+      {/* 艺术家（等高卡片） */}
       <section id="artists" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
@@ -337,9 +318,9 @@ export default async function Home() {
             <p className="text-gray-600 text-sm md:text-base">认识艺术社群背后的创作者们</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-{artists.map((artist) => (
-  <div key={artist.id} className="text-center flex flex-col items-center">
-                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mx-auto mb-3 md:mb-4 overflow-hidden">
+            {artists.map((artist) => (
+              <div key={artist.id} className="text-center flex flex-col items-center">
+                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mx-auto mb-3 md:mb-4 overflow-hidden flex-shrink-0">
                   {(artist.avatar_url || artist.users?.avatar_url) ? (
                     <img src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
                   ) : (
@@ -359,7 +340,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 合作伙伴 */}
+      {/* 合作伙伴（等高卡片） */}
       <section id="partners" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
@@ -369,7 +350,7 @@ export default async function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {partners.map((partner) => (
               <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 text-center shadow-sm hover:shadow-lg transition-all cursor-pointer group flex flex-col items-center">
-                <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
                   {partner.logo_url ? <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
                 </div>
                 <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
