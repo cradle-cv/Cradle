@@ -337,8 +337,8 @@ export default async function Home() {
             <p className="text-gray-600 text-sm md:text-base">认识艺术社群背后的创作者们</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-            {artists.map((artist) => (
-              <div key={artist.id} className="text-center">
+{artists.map((artist) => (
+  <div key={artist.id} className="text-center flex flex-col items-center">
                 <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mx-auto mb-3 md:mb-4 overflow-hidden">
                   {(artist.avatar_url || artist.users?.avatar_url) ? (
                     <img src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
@@ -348,8 +348,8 @@ export default async function Home() {
                 </div>
                 <h3 className="text-base md:text-xl font-bold text-gray-900 mb-1">{artist.display_name}</h3>
                 <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">{artist.specialty}</p>
-                <p className="text-xs md:text-sm text-gray-500 line-clamp-2 mb-3 md:mb-4 hidden md:block" style={{ minHeight: '2.5em' }}>{artist.intro}</p>
-                <a href={`/artists/${artist.id}`} className="inline-block mt-2 md:mt-4 px-4 md:px-6 py-1.5 md:py-2 border border-gray-900 text-gray-900 text-xs md:text-sm rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看作品集</a>
+                <p className="text-xs md:text-sm text-gray-500 line-clamp-2 hidden md:block flex-1">{artist.intro}</p>
+                <a href={`/artists/${artist.id}`} className="inline-block mt-auto pt-3 md:pt-4 px-4 md:px-6 py-1.5 md:py-2 border border-gray-900 text-gray-900 text-xs md:text-sm rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看作品集</a>
               </div>
             ))}
           </div>
@@ -368,14 +368,14 @@ export default async function Home() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {partners.map((partner) => (
-              <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 text-center shadow-sm hover:shadow-lg transition-all cursor-pointer group">
+              <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 text-center shadow-sm hover:shadow-lg transition-all cursor-pointer group flex flex-col items-center">
                 <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
                   {partner.logo_url ? <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
                 </div>
                 <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
                 {partner.name_en && <p className="text-xs text-gray-500 mb-2 md:mb-3 hidden md:block">{partner.name_en}</p>}
-                <p className="text-xs text-gray-600 line-clamp-2 mb-2 md:mb-3 hidden md:block" style={{ minHeight: '2.5em' }}>{partner.description}</p>
-                {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full">📍 {partner.city}</div>}
+                <p className="text-xs text-gray-600 line-clamp-2 hidden md:block flex-1">{partner.description}</p>
+                {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full mt-auto pt-2">📍 {partner.city}</div>}
               </a>
             ))}
           </div>
