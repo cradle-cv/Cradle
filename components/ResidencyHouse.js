@@ -53,10 +53,10 @@ const ZONES = [
   {
     id: 'attic',
     name: '阁楼',
-    subtitle: '更多创作空间',
+    subtitle: '星空 · 夜间创作',
     icon: '🌙',
-    href: '#',
-    requireLevel: -1,
+    href: '/residency/attic',
+    requireLevel: 6,
     gridArea: '3 / 1 / 4 / 3',
   },
   {
