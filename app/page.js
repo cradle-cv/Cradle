@@ -348,7 +348,7 @@ export default async function Home() {
                 </div>
                 <h3 className="text-base md:text-xl font-bold text-gray-900 mb-1">{artist.display_name}</h3>
                 <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">{artist.specialty}</p>
-                <p className="text-xs md:text-sm text-gray-500 line-clamp-2 mb-3 md:mb-4 hidden md:block">{artist.intro}</p>
+                <p className="text-xs md:text-sm text-gray-500 line-clamp-2 mb-3 md:mb-4 hidden md:block" style={{ minHeight: '2.5em' }}>{artist.intro}</p>
                 <a href={`/artists/${artist.id}`} className="inline-block mt-2 md:mt-4 px-4 md:px-6 py-1.5 md:py-2 border border-gray-900 text-gray-900 text-xs md:text-sm rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看作品集</a>
               </div>
             ))}
@@ -374,7 +374,7 @@ export default async function Home() {
                 </div>
                 <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
                 {partner.name_en && <p className="text-xs text-gray-500 mb-2 md:mb-3 hidden md:block">{partner.name_en}</p>}
-                <p className="text-xs text-gray-600 line-clamp-2 mb-2 md:mb-3 hidden md:block">{partner.description}</p>
+                <p className="text-xs text-gray-600 line-clamp-2 mb-2 md:mb-3 hidden md:block" style={{ minHeight: '2.5em' }}>{partner.description}</p>
                 {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full">📍 {partner.city}</div>}
               </a>
             ))}
