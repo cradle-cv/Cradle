@@ -3040,12 +3040,6 @@ function SMain({session:init,studentName}){
           }
         })
       .subscribe()
-    // Fallback poll every 6s in case realtime misses events
-    const pollRef=setInterval(()=>{
-      sb.from("word_lab_checkins").select().eq("session_id",init.id)
-        .then(({data})=>data&&setCheckins(data))
-    },6000)
-    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
 
   // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
