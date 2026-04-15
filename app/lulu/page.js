@@ -73,7 +73,6 @@ const DEFAULT_QS=[
   {seq:2,question:"要计算农产品销售表中各商品的总销量，应使用以下哪一个函数？",options:["COUNTIF","SUM","SUMIF","IF"],correct_index:2,points:10,time_limit:15},
   {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
   {seq:4,question:"只统计销量大于 200 的产品的平均单价，直接用 AVERAGE 函数可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:1,points:10,time_limit:20},
-  {seq:5,question:"想对「实付金额」大于 500 的产品标注为「热销产品」，使用 MAX 函数能实现吗？",options:["能，MAX 可以判断大小","不能，应使用 IF 函数","能，选中实付金额列即可","不能，应使用 AVERAGE 函数"],correct_index:1,points:10,time_limit:20},
 ],correct_index:1,points:10,time_limit:15},
   {seq:2,question:"要计算农产品销售表中各商品的总销量，应使用以下哪一个函数？",options:["COUNTIF","SUM","SUMIF","IF"],correct_index:2,points:10,time_limit:15},
   {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
@@ -232,6 +231,7 @@ function TSetup({onCreate}){
   ])
   const [qs,setQs]=useState(DEFAULT_QS.map(q=>({...q,options:[...q.options]})))
   const [discussions,setDiscussions]=useState([
+    {topic:"在农产品销售表中，想要对「实付金额」大于 500 的产品定为「热销产品」，使用 MAX 函数能实现吗？为什么？应该用哪个函数？（参考答案：不能，MAX 只能求最大值，应使用 IF 函数：=IF(E2>500,\"热销产品\",\"")）"},
     {topic:"已知农产品销售情况表含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用 IF 函数完成：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」。写出对应单元格的公式。（参考答案：=IF(B2>=50,\"热销产品\",\"普通产品\")）"},
   ])
   const [editQ,setEditQ]=useState(null)
