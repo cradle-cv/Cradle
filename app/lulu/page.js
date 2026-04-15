@@ -74,6 +74,11 @@ const DEFAULT_QS=[
   {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
   {seq:4,question:"只统计销量大于 200 的产品的平均单价，直接用 AVERAGE 函数可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:1,points:10,time_limit:20},
   {seq:5,question:"想对「实付金额」大于 500 的产品标注为「热销产品」，使用 MAX 函数能实现吗？",options:["能，MAX 可以判断大小","不能，应使用 IF 函数","能，选中实付金额列即可","不能，应使用 AVERAGE 函数"],correct_index:1,points:10,time_limit:20},
+],correct_index:1,points:10,time_limit:15},
+  {seq:2,question:"要计算农产品销售表中各商品的总销量，应使用以下哪一个函数？",options:["COUNTIF","SUM","SUMIF","IF"],correct_index:2,points:10,time_limit:15},
+  {seq:3,question:"判断是否同时满足多条件，应用以下哪一个函数？",options:["IF","AND","OR","COUNTIF"],correct_index:1,points:10,time_limit:15},
+  {seq:4,question:"只统计销量大于 200 的产品的平均单价，直接用 AVERAGE 函数可以实现吗？",options:["可以，AVERAGE 会自动筛选","不可以，需要用 AVERAGEIF 函数","可以，直接选数据区域即可","不可以，应使用 COUNT 函数"],correct_index:1,points:10,time_limit:20},
+  {seq:5,question:"想对「实付金额」大于 500 的产品标注为「热销产品」，使用 MAX 函数能实现吗？",options:["能，MAX 可以判断大小","不能，应使用 IF 函数","能，选中实付金额列即可","不能，应使用 AVERAGE 函数"],correct_index:1,points:10,time_limit:20},
 ]
 const TASK={
   maxScore:100,timeLimit:600,
