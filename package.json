@@ -20,7 +20,8 @@
     "tesseract.js": "^7.0.0",
     "three": "^0.183.2",
     "html2canvas": "^1.4.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "tone": "^15.0.4"
     
   },
   "devDependencies": {
