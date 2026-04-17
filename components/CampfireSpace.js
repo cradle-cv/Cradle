@@ -9,21 +9,64 @@ const FONTS = [
   { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
-// 六个和弦 → 组成音（3–4 个音一组，构成一个和弦声响）
-// 注：今日采用 Salamander 钢琴采样作为占位，之后替换为木吉他
-const CHORDS = {
-  C:  { label: 'C',  notes: ['C3', 'E3', 'G3', 'C4', 'E4', 'G4'] },
-  G:  { label: 'G',  notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] },
-  Am: { label: 'Am', notes: ['A2', 'E3', 'A3', 'C4', 'E4', 'A4'] },
-  Em: { label: 'Em', notes: ['E2', 'B2', 'E3', 'G3', 'B3', 'E4'] },
-  F:  { label: 'F',  notes: ['F2', 'C3', 'F3', 'A3', 'C4', 'F4'] },
-  Dm: { label: 'Dm', notes: ['D3', 'A3', 'D4', 'F4', 'A4', 'D5'] },
-}
-const CHORD_ORDER = ['C', 'G', 'Am', 'Em', 'F', 'Dm']
+// 三种吉他音色（来自 tonejs-instruments 公开采样库）
+const INSTRUMENTS = [
+  {
+    id: 'acoustic',
+    label: '民谣',
+    desc: '钢弦原声',
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/',
+    urls: {
+      'F2': 'F2.mp3', 'G#2': 'Gs2.mp3', 'B2': 'B2.mp3',
+      'D3': 'D3.mp3', 'F3': 'F3.mp3', 'G#3': 'Gs3.mp3', 'B3': 'B3.mp3',
+      'D4': 'D4.mp3', 'F4': 'F4.mp3', 'G#4': 'Gs4.mp3', 'B4': 'B4.mp3',
+      'D5': 'D5.mp3',
+    },
+  },
+  {
+    id: 'nylon',
+    label: '古典',
+    desc: '尼龙弦',
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-nylon/',
+    urls: {
+      'E2': 'E2.mp3', 'F#2': 'Fs2.mp3', 'G2': 'G2.mp3', 'A2': 'A2.mp3', 'B2': 'B2.mp3',
+      'C#3': 'Cs3.mp3', 'D3': 'D3.mp3', 'E3': 'E3.mp3', 'F#3': 'Fs3.mp3', 'G3': 'G3.mp3', 'A3': 'A3.mp3', 'B3': 'B3.mp3',
+      'C#4': 'Cs4.mp3', 'D4': 'D4.mp3', 'E4': 'E4.mp3', 'F#4': 'Fs4.mp3', 'G4': 'G4.mp3', 'A4': 'A4.mp3', 'B4': 'B4.mp3',
+      'C#5': 'Cs5.mp3', 'D5': 'D5.mp3', 'E5': 'E5.mp3',
+    },
+  },
+  {
+    id: 'electric',
+    label: '电吉他',
+    desc: 'clean 通道',
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+    urls: {
+      'F#2': 'Fs2.mp3', 'A2': 'A2.mp3', 'C3': 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
+      'A3': 'A3.mp3', 'C4': 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
+      'A4': 'A4.mp3', 'C5': 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+    },
+  },
+]
 
-// ════════════════════════════════════════
-// Bonfire shader by bµg (CC BY-NC-SA 4.0)
-// ════════════════════════════════════════
+const CHORD_LIB = {
+  C:  { notes: ['C3', 'E3', 'G3', 'C4', 'E4', 'G4'] },
+  G:  { notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] },
+  Am: { notes: ['A2', 'E3', 'A3', 'C4', 'E4', 'A4'] },
+  Em: { notes: ['E2', 'B2', 'E3', 'G3', 'B3', 'E4'] },
+  F:  { notes: ['F2', 'C3', 'F3', 'A3', 'C4', 'F4'] },
+  Dm: { notes: ['D3', 'A3', 'D4', 'F4', 'A4', 'D5'] },
+  D:  { notes: ['D3', 'A3', 'D4', 'F#4', 'A4', 'D5'] },
+  A:  { notes: ['A2', 'E3', 'A3', 'C#4', 'E4', 'A4'] },
+  Bm: { notes: ['B2', 'F#3', 'B3', 'D4', 'F#4', 'B4'] },
+  'F#m': { notes: ['F#2', 'C#3', 'F#3', 'A3', 'C#4', 'F#4'] },
+}
+
+const CHORD_GROUPS = [
+  { id: 'C',  label: 'C 调', chords: ['C', 'G', 'Am', 'Em', 'F', 'Dm'] },
+  { id: 'G',  label: 'G 调', chords: ['G', 'D', 'Em', 'Bm', 'C', 'Am'] },
+  { id: 'D',  label: 'D 调', chords: ['D', 'A', 'Bm', 'F#m', 'G', 'Em'] },
+]
+
 const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
 const FS = `
 precision highp float;
@@ -93,11 +136,12 @@ export default function CampfireSpace() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
   const audioRef = useRef(null)
-  const samplerRef = useRef(null)
-  const toneReadyRef = useRef(false)
+  const samplersRef = useRef({}) // { acoustic: Sampler, nylon: Sampler, electric: Sampler }
+  const loadingRef = useRef({})  // 各乐器加载状态
   const guitarRef = useRef(null)
   const sweepStateRef = useRef(null)
   const stringVibrateTimersRef = useRef({})
+  const lastStrumTimeRef = useRef(0)
 
   const [text, setText] = useState('')
   const [font, setFont] = useState(0)
@@ -108,18 +152,25 @@ export default function CampfireSpace() {
   const [showMixer, setShowMixer] = useState(false)
   const [saved, setSaved] = useState(null)
 
-  // 吉他相关
+  const [groupIdx, setGroupIdx] = useState(0)
+  const [instrumentIdx, setInstrumentIdx] = useState(0)
+  const [instrumentLoading, setInstrumentLoading] = useState(false)
   const [activeChord, setActiveChord] = useState(null)
   const [chordSequence, setChordSequence] = useState([])
   const [showFingering, setShowFingering] = useState(false)
   const [vibratingStrings, setVibratingStrings] = useState({})
+  const [groupFlash, setGroupFlash] = useState(0)
+  const [isPlayingMode, setIsPlayingMode] = useState(true)
 
-  // 持久化
+  const currentGroup = CHORD_GROUPS[groupIdx]
+  const currentInstrument = INSTRUMENTS[instrumentIdx]
+
   useEffect(() => {
     try {
       const s = localStorage.getItem('campfire_text'); if (s) setText(s)
       const f = localStorage.getItem('campfire_font'); if (f) setFont(parseInt(f))
       const c = localStorage.getItem('campfire_color'); if (c) setTextColor(c)
+      const inst = localStorage.getItem('campfire_instrument'); if (inst) setInstrumentIdx(parseInt(inst))
     } catch (e) {}
   }, [])
 
@@ -130,13 +181,13 @@ export default function CampfireSpace() {
 
   useEffect(() => { try { localStorage.setItem('campfire_font', String(font)) } catch (e) {} }, [font])
   useEffect(() => { try { localStorage.setItem('campfire_color', textColor) } catch (e) {} }, [textColor])
+  useEffect(() => { try { localStorage.setItem('campfire_instrument', String(instrumentIdx)) } catch (e) {} }, [instrumentIdx])
 
   function saveNow() { try { localStorage.setItem('campfire_text', text); setSaved(new Date()) } catch (e) {} }
   function exportTxt() {
     if (!text.trim() && chordSequence.length === 0) return
     const header = chordSequence.length > 0 ? `${chordSequence.join(' · ')}\n火前，${new Date().toLocaleDateString('zh-CN')}\n\n---\n\n` : ''
-    const body = text || ''
-    const content = header + body
+    const content = header + (text || '')
     const b = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const u = URL.createObjectURL(b)
     const a = document.createElement('a'); a.href = u; a.download = `campfire_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(u)
@@ -144,7 +195,6 @@ export default function CampfireSpace() {
 
   function clearSequence() { setChordSequence([]) }
 
-  // ═══ 环境音（篝火噪音） ═══
   useEffect(() => {
     const audio = new Audio('/audio/campfire.mp3')
     audio.loop = true; audio.volume = vol
@@ -158,53 +208,69 @@ export default function CampfireSpace() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
-  // ═══ Tone.js 懒加载 + 钢琴采样（占位，之后替换为木吉他） ═══
-  const ensureTone = useCallback(async () => {
-    if (toneReadyRef.current) return samplerRef.current
-    const Tone = await import('tone')
-    await Tone.start()
-    const sampler = new Tone.Sampler({
-      urls: {
-        'A0': 'A0.mp3', 'C1': 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
-        'A1': 'A1.mp3', 'C2': 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
-        'A2': 'A2.mp3', 'C3': 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
-        'A3': 'A3.mp3', 'C4': 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
-        'A4': 'A4.mp3', 'C5': 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
-      },
-      release: 1.6,
-      baseUrl: 'https://tonejs.github.io/audio/salamander/',
-    }).toDestination()
-    await Tone.loaded()
-    samplerRef.current = sampler
-    toneReadyRef.current = true
-    return sampler
+  // 加载指定乐器
+  const ensureInstrument = useCallback(async (instId) => {
+    if (samplersRef.current[instId]) return samplersRef.current[instId]
+    if (loadingRef.current[instId]) {
+      // 已在加载中，等待
+      return loadingRef.current[instId]
+    }
+    const inst = INSTRUMENTS.find(i => i.id === instId)
+    if (!inst) return null
+
+    setInstrumentLoading(true)
+    const promise = (async () => {
+      const Tone = await import('tone')
+      await Tone.start()
+      const sampler = new Tone.Sampler({
+        urls: inst.urls,
+        release: 1.2,
+        baseUrl: inst.baseUrl,
+      }).toDestination()
+      await Tone.loaded()
+      samplersRef.current[instId] = sampler
+      return sampler
+    })()
+    loadingRef.current[instId] = promise
+    try {
+      const s = await promise
+      return s
+    } finally {
+      setInstrumentLoading(false)
+      delete loadingRef.current[instId]
+    }
   }, [])
 
-  // 预加载（用户首次交互后）
+  // 初始化：预加载默认乐器
   useEffect(() => {
-    const trigger = () => { ensureTone().catch(e => console.warn('tone init:', e)) }
+    const trigger = () => { ensureInstrument(INSTRUMENTS[instrumentIdx].id).catch(e => console.warn('tone init:', e)) }
     const evts = ['click', 'keydown', 'touchstart']
     evts.forEach(e => document.addEventListener(e, trigger, { once: true }))
     return () => { evts.forEach(e => document.removeEventListener(e, trigger)) }
-  }, [ensureTone])
+  }, [ensureInstrument, instrumentIdx])
 
-  // 触发和弦演奏（带上下扫方向 + 力度）
+  // 切乐器时预加载
+  useEffect(() => {
+    if (samplersRef.current[currentInstrument.id]) return
+    // 只在用户交互后才加载（避免 SSR/首屏阻塞）
+    // 这里改为立即尝试，因为用户交互应该已发生过
+    ensureInstrument(currentInstrument.id).catch(e => console.warn('switch inst:', e))
+  }, [currentInstrument.id, ensureInstrument])
+
   const playChord = useCallback(async (chordName, direction = 'down', intensity = 0.7) => {
-    const sampler = await ensureTone()
+    const sampler = await ensureInstrument(currentInstrument.id)
     if (!sampler) return
-    const chord = CHORDS[chordName]
+    const chord = CHORD_LIB[chordName]
     if (!chord) return
     const notes = direction === 'down' ? chord.notes : [...chord.notes].reverse()
-    const baseTime = 0
-    const strumDuration = 0.04 + (1 - intensity) * 0.06 // 慢扫更拖
+    const strumDuration = 0.04 + (1 - intensity) * 0.06
     notes.forEach((note, i) => {
-      const when = baseTime + (i * strumDuration / notes.length)
+      const when = i * strumDuration / notes.length
       const vel = Math.max(0.3, Math.min(1.0, intensity * (0.85 + Math.random() * 0.15)))
       sampler.triggerAttackRelease(note, '2n', `+${when}`, vel)
     })
-  }, [ensureTone])
+  }, [ensureInstrument, currentInstrument.id])
 
-  // 弦振动动画
   const vibrateString = useCallback((idx) => {
     setVibratingStrings(v => ({ ...v, [idx]: Date.now() }))
     if (stringVibrateTimersRef.current[idx]) clearTimeout(stringVibrateTimersRef.current[idx])
@@ -213,9 +279,83 @@ export default function CampfireSpace() {
     }, 400)
   }, [])
 
-  // ═══ 扫弦手势 ═══
-  // 在吉他 SVG 的弦覆盖区监听 pointer 事件
-  // 记录轨迹，松开时判定方向/力度/是否算扫弦
+  const triggerStrum = useCallback((direction = 'down') => {
+    if (!activeChord) return
+    const now = performance.now()
+    const delta = now - lastStrumTimeRef.current
+    const intensity = delta < 200 ? 0.5 : delta < 500 ? 0.7 : 0.9
+    lastStrumTimeRef.current = now
+
+    const order = direction === 'down' ? [0,1,2,3,4,5] : [5,4,3,2,1,0]
+    order.forEach((idx, i) => setTimeout(() => vibrateString(idx), i * 15))
+
+    playChord(activeChord, direction, intensity)
+    setChordSequence(seq => [...seq, activeChord])
+  }, [activeChord, playChord, vibrateString])
+
+  const nextGroup = useCallback(() => {
+    setGroupIdx(i => (i + 1) % CHORD_GROUPS.length)
+    setGroupFlash(f => f + 1)
+  }, [])
+  const prevGroup = useCallback(() => {
+    setGroupIdx(i => (i - 1 + CHORD_GROUPS.length) % CHORD_GROUPS.length)
+    setGroupFlash(f => f + 1)
+  }, [])
+
+  const nextInstrument = useCallback(() => {
+    setInstrumentIdx(i => (i + 1) % INSTRUMENTS.length)
+  }, [])
+
+  const onGuitarClick = useCallback((e) => {
+    if (sweepStateRef.current && sweepStateRef.current.crossed.size > 0) return
+    if (!activeChord) return
+    const svg = guitarRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const ny = (y / rect.height) * 460
+    const direction = ny < 250 ? 'down' : 'up'
+    triggerStrum(direction)
+  }, [activeChord, triggerStrum])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow(); return }
+      const focused = document.activeElement
+      if (focused && focused.tagName === 'TEXTAREA') return
+
+      if (e.key === ' ') {
+        e.preventDefault()
+        triggerStrum(e.shiftKey ? 'up' : 'down')
+        return
+      }
+      // 注意：` 键的翻页功能已移除
+      if (e.key === 'j' || e.key === 'J' || e.key === 'i' || e.key === 'I') {
+        e.preventDefault()
+        prevGroup()
+        return
+      }
+      if (e.key === 'l' || e.key === 'L' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault()
+        nextGroup()
+        return
+      }
+      if (e.key === 'Escape') {
+        clearSequence()
+        return
+      }
+      if (/^[1-6]$/.test(e.key)) {
+        e.preventDefault()
+        const idx = parseInt(e.key) - 1
+        const name = currentGroup.chords[idx]
+        if (name) setActiveChord(name)
+        return
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [triggerStrum, nextGroup, prevGroup, currentGroup])
+
   const onGuitarPointerDown = useCallback((e) => {
     if (!activeChord) return
     const svg = guitarRef.current
@@ -227,6 +367,7 @@ export default function CampfireSpace() {
       startTime: performance.now(),
       crossed: new Set(),
       lastY: y,
+      isDrag: false,
     }
     svg.setPointerCapture(e.pointerId)
   }, [activeChord])
@@ -237,16 +378,10 @@ export default function CampfireSpace() {
     const svg = guitarRef.current
     if (!svg) return
     const rect = svg.getBoundingClientRect()
-    const x = e.clientX - rect.left
     const y = e.clientY - rect.top
-
-    // 弦的 y 轴位置（与下方 SVG 中的弦坐标对应，按 svg 内部坐标 460 高度归一到实际 rect 高度）
-    // svg viewBox 0 0 680 460，弦在 y 大约 90–380 区间
+    const dy = Math.abs(y - state.startY)
+    if (dy > 10) state.isDrag = true
     const ny = (y / rect.height) * 460
-    const nx = (x / rect.width) * 680
-    // 六根弦在 viewBox 中的近似 x 位置（倾斜琴身，按琴颈中段估算）
-    // 为了手势可用性，这里简化：只要在弦覆盖区内，就按 y 的粒度判定"经过了哪根弦"
-    // 每根弦占约 (380-90)/6 ≈ 48 的 y 区间
     const stringZone = Math.floor((ny - 90) / 48)
     if (stringZone >= 0 && stringZone <= 5 && !state.crossed.has(stringZone)) {
       state.crossed.add(stringZone)
@@ -258,22 +393,21 @@ export default function CampfireSpace() {
   const onGuitarPointerUp = useCallback(async (e) => {
     const state = sweepStateRef.current
     sweepStateRef.current = null
-    if (!state || !activeChord) return
     const svg = guitarRef.current
     if (svg) { try { svg.releasePointerCapture(e.pointerId) } catch {} }
-
-    const crossed = state.crossed.size
-    if (crossed < 3) return // 不算扫弦
+    if (!state || !activeChord) return
+    if (!state.isDrag || state.crossed.size < 3) return
     const dy = state.lastY - state.startY
     const direction = dy >= 0 ? 'down' : 'up'
     const duration = performance.now() - state.startTime
     const intensity = Math.max(0.35, Math.min(1.0, 1 - (duration - 80) / 400))
-
+    lastStrumTimeRef.current = performance.now()
+    const order = direction === 'down' ? [0,1,2,3,4,5] : [5,4,3,2,1,0]
+    order.forEach((idx, i) => setTimeout(() => vibrateString(idx), i * 15))
     await playChord(activeChord, direction, intensity)
     setChordSequence(seq => [...seq, activeChord])
-  }, [activeChord, playChord])
+  }, [activeChord, playChord, vibrateString])
 
-  // ═══ Bonfire Shader ═══
   useEffect(() => {
     const cv = canvasRef.current; if (!cv) return
     const gl = cv.getContext('webgl', { alpha: false }); if (!gl) return
@@ -307,16 +441,20 @@ export default function CampfireSpace() {
     return () => { window.removeEventListener('resize', rs); if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [])
 
-  // 键盘
-  useEffect(() => {
-    const h = e => { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow() } }
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [text])
-
-  // 顶部检测
   useEffect(() => {
     const h = e => setTopHover(e.clientY < 50)
     window.addEventListener('mousemove', h); return () => window.removeEventListener('mousemove', h)
+  }, [])
+
+  useEffect(() => {
+    const check = () => {
+      const a = document.activeElement
+      setIsPlayingMode(!(a && a.tagName === 'TEXTAREA'))
+    }
+    window.addEventListener('focusin', check)
+    window.addEventListener('focusout', check)
+    check()
+    return () => { window.removeEventListener('focusin', check); window.removeEventListener('focusout', check) }
   }, [])
 
   const chars = text.length, lines = text ? text.split('\n').length : 1
@@ -326,7 +464,6 @@ export default function CampfireSpace() {
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#0a0500' }}>
       <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      {/* 顶部（悬停） */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700"
         style={{ opacity: topHover ? 0.7 : 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '5px', color: 'rgba(255,200,150,0.4)', textTransform: 'uppercase' }}>Campfire · 篝火</span>
@@ -338,7 +475,10 @@ export default function CampfireSpace() {
         {saved && <span style={{ fontSize: '10px', color: 'rgba(255,200,150,0.25)', letterSpacing: '1px' }}>SAVED {saved.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
       </div>
 
-      {/* TheDeck（暖色调毛玻璃） */}
+      <div className="absolute z-30" style={{ bottom: '28px', left: '24px', fontSize: '10px', color: 'rgba(255,200,150,0.2)', letterSpacing: '2px' }}>
+        {isPlayingMode ? '弹奏模式 · 1-6 选和弦 · 空格扫弦 · J L 翻调' : '写作模式 · 点击框外切回弹奏'}
+      </div>
+
       <div className="absolute inset-0 flex items-center justify-center z-10" style={{ padding: '56px 48px 56px' }}
         onMouseEnter={() => setDeckHover(true)} onMouseLeave={() => setDeckHover(false)}>
         <div className="w-full h-full max-w-3xl flex flex-col relative" style={{
@@ -350,7 +490,6 @@ export default function CampfireSpace() {
           boxShadow: '0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,200,100,0.05)',
         }}>
 
-          {/* ═══ 顶部：和弦序列 + 清空 ═══ */}
           <div className="px-8 pt-5 pb-2 flex items-center gap-3 min-h-[36px]">
             <span style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.25)', textTransform: 'uppercase' }}>Chord</span>
             <div className="flex-1 overflow-hidden" style={{ fontSize: '13px', color: 'rgba(255,200,150,0.55)', letterSpacing: '2px', fontFamily: 'Georgia, serif', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
@@ -363,7 +502,6 @@ export default function CampfireSpace() {
 
           <div style={{ height: '1px', background: 'rgba(255,150,50,0.06)', margin: '0 32px' }} />
 
-          {/* ═══ 作词区（40%） ═══ */}
           <div className="flex-[0_0_40%] min-h-0">
             <textarea id="fire-editor" value={text} onChange={e => setText(e.target.value)}
               placeholder="火前，先有旋律，再有词。" spellCheck={false}
@@ -371,17 +509,17 @@ export default function CampfireSpace() {
               style={{ backgroundColor: 'transparent', color: textColor, fontSize: '16px', lineHeight: 2.2, fontFamily: cf.family, letterSpacing: '1.5px', caretColor: 'rgba(255,200,150,0.6)', border: 'none' }} />
           </div>
 
-          {/* ═══ 吉他区（35%） ═══ */}
           <div className="flex-[0_0_35%] min-h-0 relative flex items-center justify-center">
             <svg
               ref={guitarRef}
               viewBox="0 0 680 460"
               preserveAspectRatio="xMidYMid meet"
-              style={{ width: '100%', height: '100%', maxHeight: '100%', touchAction: 'none', cursor: activeChord ? 'grab' : 'default' }}
+              style={{ width: '100%', height: '100%', maxHeight: '100%', touchAction: 'none', cursor: activeChord ? 'pointer' : 'default' }}
               onPointerDown={onGuitarPointerDown}
               onPointerMove={onGuitarPointerMove}
               onPointerUp={onGuitarPointerUp}
               onPointerCancel={onGuitarPointerUp}
+              onClick={onGuitarClick}
             >
               <defs>
                 <radialGradient id="gBody" cx="0.5" cy="0.5" r="0.7">
@@ -395,7 +533,6 @@ export default function CampfireSpace() {
               </defs>
 
               <g transform="translate(260, 30)" fill="none" stroke="#d4a574" strokeLinecap="round" strokeLinejoin="round">
-                {/* 琴头 */}
                 <g strokeWidth="1.5">
                   <path d="M 20 40 L 18 8 Q 18 2 24 2 L 62 2 Q 68 2 68 8 L 66 42 Z" fill="url(#gBody)"/>
                   <line x1="26" y1="12" x2="60" y2="12" strokeWidth="0.6"/>
@@ -408,9 +545,7 @@ export default function CampfireSpace() {
                   <circle cx="26" cy="32" r="2" strokeWidth="0.6"/>
                   <circle cx="60" cy="32" r="2" strokeWidth="0.6"/>
                 </g>
-                {/* 琴枕 */}
                 <rect x="20" y="42" width="46" height="4" rx="1" fill="url(#gBody)" strokeWidth="1.2"/>
-                {/* 琴颈 */}
                 <g strokeWidth="1.2">
                   <path d="M 22 46 L 70 46 L 78 220 L 14 220 Z" fill="url(#gBody)"/>
                   <line x1="25" y1="72" x2="67" y2="72" strokeWidth="0.5" opacity="0.6"/>
@@ -421,21 +556,17 @@ export default function CampfireSpace() {
                   <circle cx="46" cy="124" r="1.5" fill="#d4a574" opacity="0.5"/>
                   <circle cx="48" cy="176" r="1.5" fill="#d4a574" opacity="0.5"/>
                 </g>
-                {/* 琴身 */}
                 <g strokeWidth="1.5">
                   <path d="M 14 220 Q -30 230 -20 290 Q -30 340 30 380 Q 80 405 120 400 Q 160 405 210 380 Q 270 340 260 290 Q 270 230 226 220 Z" fill="url(#gBody)"/>
                   <path d="M 22 230 Q -10 245 -2 290 Q -10 330 40 365 Q 80 385 120 382 Q 160 385 200 365 Q 250 330 242 290 Q 250 245 218 230 Z" strokeWidth="0.6" opacity="0.5"/>
                 </g>
-                {/* 音孔 */}
                 <circle cx="120" cy="295" r="38" fill="url(#gHole)" stroke="#b88954" strokeWidth="1.2"/>
                 <circle cx="120" cy="295" r="42" strokeWidth="0.5" opacity="0.7"/>
                 <circle cx="120" cy="295" r="46" strokeWidth="0.3" opacity="0.4" strokeDasharray="2,2"/>
-                {/* 琴桥 */}
                 <rect x="90" y="352" width="60" height="10" rx="1" fill="#8a6a3a" fillOpacity="0.3" stroke="#b88954" strokeWidth="1"/>
                 <line x1="96" y1="348" x2="96" y2="366" strokeWidth="0.5"/>
                 <line x1="144" y1="348" x2="144" y2="366" strokeWidth="0.5"/>
 
-                {/* 六根弦（独立 id，扫弦事件用） */}
                 <g stroke="#f0d9a8" strokeLinecap="round">
                   {[0,1,2,3,4,5].map(i => {
                     const x1s = [28, 37, 46, 55, 63, 72][i]
@@ -460,29 +591,55 @@ export default function CampfireSpace() {
                 </g>
               </g>
 
-              {/* 提示字：未选和弦时显示 */}
               {!activeChord && (
                 <text x="340" y="440" textAnchor="middle" fill="rgba(255,200,150,0.25)" fontSize="11" letterSpacing="3" fontFamily="Georgia, serif">
-                  先选一个和弦
+                  先选一个和弦（按 1–6）
                 </text>
               )}
             </svg>
           </div>
 
-          {/* ═══ 和弦卡片区 + 指法开关（15%） ═══ */}
           <div className="flex-[0_0_15%] min-h-0 flex flex-col items-center justify-center gap-2 px-4">
+            {/* 组切换 + 乐器切换 */}
+            <div className="flex items-center gap-6" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.3)', textTransform: 'uppercase' }}>
+              <div className="flex items-center gap-3">
+                <button onClick={prevGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>‹</button>
+                <span key={groupFlash} style={{ color: 'rgba(255,220,170,0.7)', fontFamily: 'Georgia, serif', fontSize: '11px', minWidth: '48px', textAlign: 'center', animation: 'groupFade 0.3s ease' }}>
+                  {currentGroup.label}
+                </span>
+                <button onClick={nextGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>›</button>
+              </div>
+              <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(255,150,50,0.12)' }} />
+              <button
+                onClick={nextInstrument}
+                style={{
+                  color: 'rgba(255,220,170,0.55)',
+                  padding: '2px 8px',
+                  cursor: 'pointer',
+                  fontFamily: 'Georgia, serif',
+                  fontSize: '10px',
+                  letterSpacing: '2px',
+                  opacity: instrumentLoading ? 0.4 : 1,
+                  transition: 'opacity 0.3s',
+                }}
+                title="切换乐器音色"
+              >
+                {instrumentLoading ? '…' : currentInstrument.label}
+              </button>
+            </div>
+            {/* 和弦卡片 */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              {CHORD_ORDER.map(name => {
+              {currentGroup.chords.map((name, i) => {
                 const isActive = activeChord === name
                 return (
                   <button
-                    key={name}
+                    key={name + i}
                     onClick={() => setActiveChord(name)}
                     style={{
-                      minWidth: '52px',
-                      padding: '6px 12px',
-                      fontSize: '13px',
-                      letterSpacing: '2px',
+                      minWidth: '48px',
+                      padding: '5px 10px',
+                      fontSize: '12px',
+                      letterSpacing: '1px',
                       fontFamily: 'Georgia, serif',
                       color: isActive ? 'rgba(255,220,170,0.95)' : 'rgba(255,200,150,0.35)',
                       backgroundColor: isActive ? 'rgba(255,150,50,0.08)' : 'transparent',
@@ -491,27 +648,17 @@ export default function CampfireSpace() {
                       cursor: 'pointer',
                       transition: 'all 0.25s',
                       boxShadow: isActive ? '0 0 12px rgba(255,150,50,0.15) inset' : 'none',
+                      position: 'relative',
                     }}
                   >
+                    <span style={{ position: 'absolute', top: '-8px', left: '4px', fontSize: '8px', color: 'rgba(255,200,150,0.25)', fontFamily: 'monospace' }}>{i+1}</span>
                     {name}
                   </button>
                 )
               })}
             </div>
-            <button
-              onClick={() => setShowFingering(v => !v)}
-              style={{ fontSize: '9px', letterSpacing: '2px', color: 'rgba(255,200,150,0.2)', textTransform: 'uppercase', marginTop: '2px' }}
-            >
-              {showFingering ? '隐藏指法' : '显示指法'}
-            </button>
-            {showFingering && activeChord && (
-              <div style={{ position: 'absolute', bottom: '80px', fontSize: '10px', color: 'rgba(255,200,150,0.35)', letterSpacing: '1px' }}>
-                [ {activeChord} 指法图位置 · 待实现 ]
-              </div>
-            )}
           </div>
 
-          {/* 底部工具栏 */}
           <div className="flex items-center justify-between px-6 py-3 transition-opacity duration-500"
             style={{ opacity: deckHover ? 0.7 : 0, borderTop: '1px solid rgba(255,150,50,0.06)' }}>
             <div className="flex items-center gap-4">
@@ -521,6 +668,12 @@ export default function CampfireSpace() {
               <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(255,150,50,0.08)', margin: '0 4px' }} />
               <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)}
                 style={{ width: '18px', height: '18px', border: 'none', padding: 0, cursor: 'pointer', backgroundColor: 'transparent', borderRadius: '50%' }} />
+              <button
+                onClick={() => setShowFingering(v => !v)}
+                style={{ fontSize: '9px', letterSpacing: '2px', color: showFingering ? 'rgba(255,200,150,0.5)' : 'rgba(255,200,150,0.2)', textTransform: 'uppercase', marginLeft: '4px' }}
+              >
+                {showFingering ? '指法 ON' : '指法'}
+              </button>
             </div>
             <div className="flex items-center gap-4">
               <button onClick={saveNow} style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.25)', textTransform: 'uppercase' }}>Save</button>
@@ -528,13 +681,11 @@ export default function CampfireSpace() {
             </div>
           </div>
 
-          {/* VibeMixer 触发 */}
           <button onClick={() => setShowMixer(!showMixer)} className="absolute transition-opacity duration-500"
             style={{ bottom: '-36px', left: '50%', transform: 'translateX(-50%)', opacity: deckHover ? 0.4 : 0, fontSize: '16px', color: 'rgba(255,200,150,0.2)' }}>≡</button>
         </div>
       </div>
 
-      {/* VibeMixer */}
       {showMixer && (
         <div className="absolute z-30 rounded-xl p-5 space-y-4" style={{
           bottom: '80px', left: '50%', transform: 'translateX(-50%)',
@@ -555,8 +706,8 @@ export default function CampfireSpace() {
         </div>
       )}
 
-      {/* 底部状态 */}
       <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3">
+        <div />
         <div className="flex items-center gap-2" style={{ fontSize: '10px', color: 'rgba(255,200,150,0.12)', letterSpacing: '1px' }}>
           <span>{chars} 字</span><span style={{ opacity: 0.4 }}>·</span><span>{lines} 行</span>
         </div>
@@ -567,6 +718,7 @@ export default function CampfireSpace() {
         #fire-editor::placeholder { color: rgba(255,200,150,0.18); }
         #fire-editor::selection { background: rgba(255,150,50,0.15); color: #ffe0c0; }
         @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)} }
+        @keyframes groupFade { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
     </div>
   )
