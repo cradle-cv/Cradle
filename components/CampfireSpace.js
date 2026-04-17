@@ -10,47 +10,14 @@ const FONTS = [
   { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
-// 采样源：Tone.js 官方 Salamander 钢琴（CDN 稳定、确定能加载）
-// 通过不同的效果链参数把钢琴音色调成三种不同的"吉他感"
-const SALAMANDER_URLS = {
-  'A0': 'A0.mp3', 'C1': 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
-  'A1': 'A1.mp3', 'C2': 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
-  'A2': 'A2.mp3', 'C3': 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
-  'A3': 'A3.mp3', 'C4': 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
-  'A4': 'A4.mp3', 'C5': 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+// 唯一音色：tonejs-instruments 民谣吉他（guitar-acoustic）
+const GUITAR_BASE_URL = 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/'
+const GUITAR_URLS = {
+  'F2': 'F2.mp3', 'G#2': 'Gs2.mp3', 'B2': 'B2.mp3',
+  'D3': 'D3.mp3', 'F3': 'F3.mp3', 'G#3': 'Gs3.mp3', 'B3': 'B3.mp3',
+  'D4': 'D4.mp3', 'F4': 'F4.mp3', 'G#4': 'Gs4.mp3', 'B4': 'B4.mp3',
+  'D5': 'D5.mp3',
 }
-
-// 三种音色档案（用同一套采样，不同效果链参数）
-const INSTRUMENTS = [
-  {
-    id: 'acoustic',
-    label: '民谣',
-    // 民谣：温暖、中频饱满、微微木质感
-    eq: { low: 2, mid: 3, high: -4 },
-    filterFreq: 3500,
-    resonance: 0.5,
-    reverb: 0.15,
-  },
-  {
-    id: 'nylon',
-    label: '古典',
-    // 古典：更暗、更柔、高频收得更紧
-    eq: { low: 1, mid: 2, high: -8 },
-    filterFreq: 2400,
-    resonance: 0.3,
-    reverb: 0.25,
-  },
-  {
-    id: 'electric',
-    label: '电吉他',
-    // 电吉他：高频保留更多、加一点轻微失真
-    eq: { low: -1, mid: 4, high: 2 },
-    filterFreq: 5500,
-    resonance: 0.6,
-    reverb: 0.1,
-    distortion: 0.08,
-  },
-]
 
 const CHORD_LIB = {
   C:  { notes: ['C3', 'E3', 'G3', 'C4', 'E4', 'G4'] },
@@ -141,7 +108,6 @@ export default function CampfireSpace() {
   const animRef = useRef(null)
   const audioRef = useRef(null)
   const samplerRef = useRef(null)
-  const effectsChainRef = useRef(null)
   const audioStartedRef = useRef(false)
   const guitarRef = useRef(null)
   const sweepStateRef = useRef(null)
@@ -158,9 +124,7 @@ export default function CampfireSpace() {
   const [saved, setSaved] = useState(null)
 
   const [groupIdx, setGroupIdx] = useState(0)
-  const [instrumentIdx, setInstrumentIdx] = useState(0)
   const [samplerLoading, setSamplerLoading] = useState(false)
-  const [audioReady, setAudioReady] = useState(false)
   const [activeChord, setActiveChord] = useState(null)
   const [chordSequence, setChordSequence] = useState([])
   const [showFingering, setShowFingering] = useState(false)
@@ -169,14 +133,12 @@ export default function CampfireSpace() {
   const [isPlayingMode, setIsPlayingMode] = useState(true)
 
   const currentGroup = CHORD_GROUPS[groupIdx]
-  const currentInstrument = INSTRUMENTS[instrumentIdx]
 
   useEffect(() => {
     try {
       const s = localStorage.getItem('campfire_text'); if (s) setText(s)
       const f = localStorage.getItem('campfire_font'); if (f) setFont(parseInt(f))
       const c = localStorage.getItem('campfire_color'); if (c) setTextColor(c)
-      const inst = localStorage.getItem('campfire_instrument'); if (inst) setInstrumentIdx(parseInt(inst))
     } catch (e) {}
   }, [])
 
@@ -187,7 +149,6 @@ export default function CampfireSpace() {
 
   useEffect(() => { try { localStorage.setItem('campfire_font', String(font)) } catch (e) {} }, [font])
   useEffect(() => { try { localStorage.setItem('campfire_color', textColor) } catch (e) {} }, [textColor])
-  useEffect(() => { try { localStorage.setItem('campfire_instrument', String(instrumentIdx)) } catch (e) {} }, [instrumentIdx])
 
   function saveNow() { try { localStorage.setItem('campfire_text', text); setSaved(new Date()) } catch (e) {} }
   function exportTxt() {
@@ -214,57 +175,33 @@ export default function CampfireSpace() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
-  // 加载采样 + 建立效果链
   const loadSampler = useCallback(async () => {
     if (samplerRef.current) return samplerRef.current
     setSamplerLoading(true)
     return new Promise((resolve) => {
       const sampler = new Tone.Sampler({
-        urls: SALAMANDER_URLS,
-        release: 1.4,
-        baseUrl: 'https://tonejs.github.io/audio/salamander/',
+        urls: GUITAR_URLS,
+        release: 1.2,
+        baseUrl: GUITAR_BASE_URL,
         onload: () => {
-          console.log('[Campfire] sampler loaded')
-          // 建立效果链：Sampler -> EQ -> Filter -> Distortion -> Reverb -> Output
-          const eq = new Tone.EQ3(0, 0, 0)
-          const filter = new Tone.Filter(3500, 'lowpass')
-          filter.Q.value = 0.5
-          const distortion = new Tone.Distortion(0)
-          distortion.wet.value = 0
-          const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.15 })
-          sampler.chain(eq, filter, distortion, reverb, Tone.Destination)
-          effectsChainRef.current = { eq, filter, distortion, reverb }
+          console.log('[Campfire] guitar sampler loaded')
           samplerRef.current = sampler
           setSamplerLoading(false)
-          // 立刻应用当前乐器的参数
-          applyInstrumentProfile(INSTRUMENTS[instrumentIdx])
           resolve(sampler)
         },
         onerror: (err) => {
-          console.warn('[Campfire] sampler load error:', err)
+          console.warn('[Campfire] sample load error:', err)
         },
-      })
+      }).toDestination()
+      // 兜底超时
+      setTimeout(() => {
+        if (!samplerRef.current) {
+          samplerRef.current = sampler
+          setSamplerLoading(false)
+          resolve(sampler)
+        }
+      }, 8000)
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instrumentIdx])
-
-  // 应用乐器档案
-  const applyInstrumentProfile = useCallback((inst) => {
-    const chain = effectsChainRef.current
-    if (!chain) return
-    chain.eq.low.value = inst.eq.low
-    chain.eq.mid.value = inst.eq.mid
-    chain.eq.high.value = inst.eq.high
-    chain.filter.frequency.rampTo(inst.filterFreq, 0.3)
-    chain.filter.Q.value = inst.resonance
-    chain.reverb.wet.value = inst.reverb
-    if (inst.distortion) {
-      chain.distortion.distortion = inst.distortion
-      chain.distortion.wet.value = 0.5
-    } else {
-      chain.distortion.wet.value = 0
-    }
-    console.log(`[Campfire] profile switched to ${inst.id}`)
   }, [])
 
   useEffect(() => {
@@ -272,7 +209,6 @@ export default function CampfireSpace() {
       if (audioStartedRef.current) return
       audioStartedRef.current = true
       Tone.start().then(() => {
-        setAudioReady(true)
         loadSampler().catch(e => console.warn('load sampler:', e))
       }).catch(e => {
         console.warn('Tone.start failed:', e)
@@ -282,19 +218,12 @@ export default function CampfireSpace() {
     const evts = ['click', 'keydown', 'touchstart']
     evts.forEach(e => document.addEventListener(e, startAudio, { once: true }))
     return () => { evts.forEach(e => document.removeEventListener(e, startAudio)) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // 切换乐器时应用新档案（采样共享，只改效果链）
-  useEffect(() => {
-    if (!effectsChainRef.current) return
-    applyInstrumentProfile(currentInstrument)
-  }, [instrumentIdx, applyInstrumentProfile, currentInstrument])
+  }, [loadSampler])
 
   const playChord = useCallback(async (chordName, direction = 'down', intensity = 0.7) => {
     if (!audioStartedRef.current) {
       audioStartedRef.current = true
-      try { await Tone.start(); setAudioReady(true) } catch (e) { console.warn(e); return }
+      try { await Tone.start() } catch (e) { console.warn(e); return }
     }
     let sampler = samplerRef.current
     if (!sampler) {
@@ -345,10 +274,6 @@ export default function CampfireSpace() {
   const prevGroup = useCallback(() => {
     setGroupIdx(i => (i - 1 + CHORD_GROUPS.length) % CHORD_GROUPS.length)
     setGroupFlash(f => f + 1)
-  }, [])
-
-  const nextInstrument = useCallback(() => {
-    setInstrumentIdx(i => (i + 1) % INSTRUMENTS.length)
   }, [])
 
   const onGuitarClick = useCallback((e) => {
@@ -637,38 +562,19 @@ export default function CampfireSpace() {
 
               {!activeChord && (
                 <text x="340" y="440" textAnchor="middle" fill="rgba(255,200,150,0.25)" fontSize="11" letterSpacing="3" fontFamily="Georgia, serif">
-                  先选一个和弦（按 1–6）
+                  {samplerLoading ? '吉他调弦中…' : '先选一个和弦（按 1–6）'}
                 </text>
               )}
             </svg>
           </div>
 
           <div className="flex-[0_0_15%] min-h-0 flex flex-col items-center justify-center gap-2 px-4">
-            <div className="flex items-center gap-6" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.3)', textTransform: 'uppercase' }}>
-              <div className="flex items-center gap-3">
-                <button onClick={prevGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>‹</button>
-                <span key={groupFlash} style={{ color: 'rgba(255,220,170,0.7)', fontFamily: 'Georgia, serif', fontSize: '11px', minWidth: '48px', textAlign: 'center', animation: 'groupFade 0.3s ease' }}>
-                  {currentGroup.label}
-                </span>
-                <button onClick={nextGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>›</button>
-              </div>
-              <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(255,150,50,0.12)' }} />
-              <button
-                onClick={nextInstrument}
-                style={{
-                  color: 'rgba(255,220,170,0.55)',
-                  padding: '2px 8px',
-                  cursor: 'pointer',
-                  fontFamily: 'Georgia, serif',
-                  fontSize: '10px',
-                  letterSpacing: '2px',
-                  opacity: samplerLoading ? 0.4 : 1,
-                  transition: 'opacity 0.3s',
-                }}
-                title="切换乐器音色"
-              >
-                {samplerLoading ? '…' : currentInstrument.label}
-              </button>
+            <div className="flex items-center gap-3" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.3)', textTransform: 'uppercase' }}>
+              <button onClick={prevGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>‹</button>
+              <span key={groupFlash} style={{ color: 'rgba(255,220,170,0.7)', fontFamily: 'Georgia, serif', fontSize: '11px', minWidth: '48px', textAlign: 'center', animation: 'groupFade 0.3s ease' }}>
+                {currentGroup.label}
+              </span>
+              <button onClick={nextGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>›</button>
             </div>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {currentGroup.chords.map((name, i) => {
