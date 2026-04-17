@@ -10,47 +10,45 @@ const FONTS = [
   { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
-// 用 jsDelivr CDN 的 tonejs-instruments 独立包，国内外访问都稳定
-// 每把琴只配置 3-4 个跨八度关键音（C/F#/A 系列），Tone.Sampler 自动 pitch-shift 填补
+// 采样源：Tone.js 官方 Salamander 钢琴（CDN 稳定、确定能加载）
+// 通过不同的效果链参数把钢琴音色调成三种不同的"吉他感"
+const SALAMANDER_URLS = {
+  'A0': 'A0.mp3', 'C1': 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
+  'A1': 'A1.mp3', 'C2': 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
+  'A2': 'A2.mp3', 'C3': 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
+  'A3': 'A3.mp3', 'C4': 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
+  'A4': 'A4.mp3', 'C5': 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+}
+
+// 三种音色档案（用同一套采样，不同效果链参数）
 const INSTRUMENTS = [
   {
     id: 'acoustic',
     label: '民谣',
-    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-acoustic-mp3@1.1.0/',
-    urls: {
-      'A2': 'A2.mp3',
-      'A3': 'A3.mp3',
-      'A4': 'A4.mp3',
-      'D3': 'D3.mp3',
-      'D4': 'D4.mp3',
-      'D5': 'D5.mp3',
-    },
+    // 民谣：温暖、中频饱满、微微木质感
+    eq: { low: 2, mid: 3, high: -4 },
+    filterFreq: 3500,
+    resonance: 0.5,
+    reverb: 0.15,
   },
   {
     id: 'nylon',
     label: '古典',
-    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-nylon-mp3@1.1.0/',
-    urls: {
-      'A2': 'A2.mp3',
-      'A3': 'A3.mp3',
-      'A4': 'A4.mp3',
-      'E3': 'E3.mp3',
-      'E4': 'E4.mp3',
-      'E5': 'E5.mp3',
-    },
+    // 古典：更暗、更柔、高频收得更紧
+    eq: { low: 1, mid: 2, high: -8 },
+    filterFreq: 2400,
+    resonance: 0.3,
+    reverb: 0.25,
   },
   {
     id: 'electric',
     label: '电吉他',
-    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-electric-mp3@1.1.0/',
-    urls: {
-      'A2': 'A2.mp3',
-      'A3': 'A3.mp3',
-      'A4': 'A4.mp3',
-      'C3': 'C3.mp3',
-      'C4': 'C4.mp3',
-      'C5': 'C5.mp3',
-    },
+    // 电吉他：高频保留更多、加一点轻微失真
+    eq: { low: -1, mid: 4, high: 2 },
+    filterFreq: 5500,
+    resonance: 0.6,
+    reverb: 0.1,
+    distortion: 0.08,
   },
 ]
 
@@ -142,8 +140,8 @@ export default function CampfireSpace() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
   const audioRef = useRef(null)
-  const samplersRef = useRef({})
-  const loadingRef = useRef({})
+  const samplerRef = useRef(null)
+  const effectsChainRef = useRef(null)
   const audioStartedRef = useRef(false)
   const guitarRef = useRef(null)
   const sweepStateRef = useRef(null)
@@ -161,7 +159,7 @@ export default function CampfireSpace() {
 
   const [groupIdx, setGroupIdx] = useState(0)
   const [instrumentIdx, setInstrumentIdx] = useState(0)
-  const [instrumentLoading, setInstrumentLoading] = useState(false)
+  const [samplerLoading, setSamplerLoading] = useState(false)
   const [audioReady, setAudioReady] = useState(false)
   const [activeChord, setActiveChord] = useState(null)
   const [chordSequence, setChordSequence] = useState([])
@@ -216,13 +214,66 @@ export default function CampfireSpace() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
+  // 加载采样 + 建立效果链
+  const loadSampler = useCallback(async () => {
+    if (samplerRef.current) return samplerRef.current
+    setSamplerLoading(true)
+    return new Promise((resolve) => {
+      const sampler = new Tone.Sampler({
+        urls: SALAMANDER_URLS,
+        release: 1.4,
+        baseUrl: 'https://tonejs.github.io/audio/salamander/',
+        onload: () => {
+          console.log('[Campfire] sampler loaded')
+          // 建立效果链：Sampler -> EQ -> Filter -> Distortion -> Reverb -> Output
+          const eq = new Tone.EQ3(0, 0, 0)
+          const filter = new Tone.Filter(3500, 'lowpass')
+          filter.Q.value = 0.5
+          const distortion = new Tone.Distortion(0)
+          distortion.wet.value = 0
+          const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.15 })
+          sampler.chain(eq, filter, distortion, reverb, Tone.Destination)
+          effectsChainRef.current = { eq, filter, distortion, reverb }
+          samplerRef.current = sampler
+          setSamplerLoading(false)
+          // 立刻应用当前乐器的参数
+          applyInstrumentProfile(INSTRUMENTS[instrumentIdx])
+          resolve(sampler)
+        },
+        onerror: (err) => {
+          console.warn('[Campfire] sampler load error:', err)
+        },
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instrumentIdx])
+
+  // 应用乐器档案
+  const applyInstrumentProfile = useCallback((inst) => {
+    const chain = effectsChainRef.current
+    if (!chain) return
+    chain.eq.low.value = inst.eq.low
+    chain.eq.mid.value = inst.eq.mid
+    chain.eq.high.value = inst.eq.high
+    chain.filter.frequency.rampTo(inst.filterFreq, 0.3)
+    chain.filter.Q.value = inst.resonance
+    chain.reverb.wet.value = inst.reverb
+    if (inst.distortion) {
+      chain.distortion.distortion = inst.distortion
+      chain.distortion.wet.value = 0.5
+    } else {
+      chain.distortion.wet.value = 0
+    }
+    console.log(`[Campfire] profile switched to ${inst.id}`)
+  }, [])
+
   useEffect(() => {
     const startAudio = () => {
       if (audioStartedRef.current) return
       audioStartedRef.current = true
       Tone.start().then(() => {
         setAudioReady(true)
-        loadInstrument(INSTRUMENTS[instrumentIdx].id).catch(e => console.warn('load default inst:', e))
+        loadSampler().catch(e => console.warn('load sampler:', e))
       }).catch(e => {
         console.warn('Tone.start failed:', e)
         audioStartedRef.current = false
@@ -234,62 +285,20 @@ export default function CampfireSpace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadInstrument = useCallback(async (instId) => {
-    if (samplersRef.current[instId]) return samplersRef.current[instId]
-    if (loadingRef.current[instId]) return loadingRef.current[instId]
-
-    const inst = INSTRUMENTS.find(i => i.id === instId)
-    if (!inst) return null
-
-    setInstrumentLoading(true)
-    const promise = new Promise((resolve, reject) => {
-      const sampler = new Tone.Sampler({
-        urls: inst.urls,
-        release: 1.2,
-        baseUrl: inst.baseUrl,
-        onload: () => {
-          console.log(`[Campfire] ${instId} sampler loaded`)
-          samplersRef.current[instId] = sampler
-          resolve(sampler)
-        },
-        onerror: (err) => {
-          console.warn(`[Campfire] ${instId} sample load error:`, err)
-          // 即使有个别音加载失败，sampler 仍能工作，只要有成功加载的音即可
-        },
-      }).toDestination()
-      // 兜底超时
-      setTimeout(() => {
-        if (!samplersRef.current[instId]) {
-          console.warn(`[Campfire] ${instId} load timeout, using partial sampler`)
-          samplersRef.current[instId] = sampler
-          resolve(sampler)
-        }
-      }, 8000)
-    })
-    loadingRef.current[instId] = promise
-    try {
-      const s = await promise
-      return s
-    } finally {
-      setInstrumentLoading(false)
-      delete loadingRef.current[instId]
-    }
-  }, [])
-
+  // 切换乐器时应用新档案（采样共享，只改效果链）
   useEffect(() => {
-    if (!audioReady) return
-    if (samplersRef.current[currentInstrument.id]) return
-    loadInstrument(currentInstrument.id).catch(e => console.warn('switch inst:', e))
-  }, [currentInstrument.id, audioReady, loadInstrument])
+    if (!effectsChainRef.current) return
+    applyInstrumentProfile(currentInstrument)
+  }, [instrumentIdx, applyInstrumentProfile, currentInstrument])
 
   const playChord = useCallback(async (chordName, direction = 'down', intensity = 0.7) => {
     if (!audioStartedRef.current) {
       audioStartedRef.current = true
       try { await Tone.start(); setAudioReady(true) } catch (e) { console.warn(e); return }
     }
-    let sampler = samplersRef.current[currentInstrument.id]
+    let sampler = samplerRef.current
     if (!sampler) {
-      sampler = await loadInstrument(currentInstrument.id)
+      sampler = await loadSampler()
     }
     if (!sampler) return
     const chord = CHORD_LIB[chordName]
@@ -305,7 +314,7 @@ export default function CampfireSpace() {
         console.warn(`[Campfire] failed to play ${note}:`, e)
       }
     })
-  }, [loadInstrument, currentInstrument.id])
+  }, [loadSampler])
 
   const vibrateString = useCallback((idx) => {
     setVibratingStrings(v => ({ ...v, [idx]: Date.now() }))
@@ -653,12 +662,12 @@ export default function CampfireSpace() {
                   fontFamily: 'Georgia, serif',
                   fontSize: '10px',
                   letterSpacing: '2px',
-                  opacity: instrumentLoading ? 0.4 : 1,
+                  opacity: samplerLoading ? 0.4 : 1,
                   transition: 'opacity 0.3s',
                 }}
                 title="切换乐器音色"
               >
-                {instrumentLoading ? '…' : currentInstrument.label}
+                {samplerLoading ? '…' : currentInstrument.label}
               </button>
             </div>
             <div className="flex items-center justify-center gap-2 flex-wrap">
