@@ -10,40 +10,46 @@ const FONTS = [
   { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
+// 用 jsDelivr CDN 的 tonejs-instruments 独立包，国内外访问都稳定
+// 每把琴只配置 3-4 个跨八度关键音（C/F#/A 系列），Tone.Sampler 自动 pitch-shift 填补
 const INSTRUMENTS = [
   {
     id: 'acoustic',
     label: '民谣',
-    desc: '钢弦原声',
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/',
+    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-acoustic-mp3@1.1.0/',
     urls: {
-      'F2': 'F2.mp3', 'G#2': 'Gs2.mp3', 'B2': 'B2.mp3',
-      'D3': 'D3.mp3', 'F3': 'F3.mp3', 'G#3': 'Gs3.mp3', 'B3': 'B3.mp3',
-      'D4': 'D4.mp3', 'F4': 'F4.mp3', 'G#4': 'Gs4.mp3', 'B4': 'B4.mp3',
+      'A2': 'A2.mp3',
+      'A3': 'A3.mp3',
+      'A4': 'A4.mp3',
+      'D3': 'D3.mp3',
+      'D4': 'D4.mp3',
       'D5': 'D5.mp3',
     },
   },
   {
     id: 'nylon',
     label: '古典',
-    desc: '尼龙弦',
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-nylon/',
+    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-nylon-mp3@1.1.0/',
     urls: {
-      'E2': 'E2.mp3', 'F#2': 'Fs2.mp3', 'G2': 'G2.mp3', 'A2': 'A2.mp3', 'B2': 'B2.mp3',
-      'C#3': 'Cs3.mp3', 'D3': 'D3.mp3', 'E3': 'E3.mp3', 'F#3': 'Fs3.mp3', 'G3': 'G3.mp3', 'A3': 'A3.mp3', 'B3': 'B3.mp3',
-      'C#4': 'Cs4.mp3', 'D4': 'D4.mp3', 'E4': 'E4.mp3', 'F#4': 'Fs4.mp3', 'G4': 'G4.mp3', 'A4': 'A4.mp3', 'B4': 'B4.mp3',
-      'C#5': 'Cs5.mp3', 'D5': 'D5.mp3', 'E5': 'E5.mp3',
+      'A2': 'A2.mp3',
+      'A3': 'A3.mp3',
+      'A4': 'A4.mp3',
+      'E3': 'E3.mp3',
+      'E4': 'E4.mp3',
+      'E5': 'E5.mp3',
     },
   },
   {
     id: 'electric',
     label: '电吉他',
-    desc: 'clean 通道',
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-electric/',
+    baseUrl: 'https://cdn.jsdelivr.net/npm/tonejs-instrument-guitar-electric-mp3@1.1.0/',
     urls: {
-      'F#2': 'Fs2.mp3', 'A2': 'A2.mp3', 'C3': 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
-      'A3': 'A3.mp3', 'C4': 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
-      'A4': 'A4.mp3', 'C5': 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+      'A2': 'A2.mp3',
+      'A3': 'A3.mp3',
+      'A4': 'A4.mp3',
+      'C3': 'C3.mp3',
+      'C4': 'C4.mp3',
+      'C5': 'C5.mp3',
     },
   },
 ]
@@ -197,7 +203,6 @@ export default function CampfireSpace() {
 
   function clearSequence() { setChordSequence([]) }
 
-  // ═══ 环境音 ═══
   useEffect(() => {
     const audio = new Audio('/audio/campfire.mp3')
     audio.loop = true; audio.volume = vol
@@ -211,17 +216,12 @@ export default function CampfireSpace() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
-  // ═══ 关键修复：同步启动 AudioContext ═══
-  // 在用户的首次手势（click / keydown / touchstart）瞬间同步调用 Tone.start()
-  // Tone 是顶层 import，不再是 await import，调用栈不会中断
   useEffect(() => {
     const startAudio = () => {
       if (audioStartedRef.current) return
       audioStartedRef.current = true
-      // 同步调用 - 浏览器认可这是用户手势
       Tone.start().then(() => {
         setAudioReady(true)
-        // 启动后立刻开始加载默认乐器
         loadInstrument(INSTRUMENTS[instrumentIdx].id).catch(e => console.warn('load default inst:', e))
       }).catch(e => {
         console.warn('Tone.start failed:', e)
@@ -234,7 +234,6 @@ export default function CampfireSpace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 加载指定乐器（仅在 AudioContext 启动后调用）
   const loadInstrument = useCallback(async (instId) => {
     if (samplersRef.current[instId]) return samplersRef.current[instId]
     if (loadingRef.current[instId]) return loadingRef.current[instId]
@@ -243,16 +242,30 @@ export default function CampfireSpace() {
     if (!inst) return null
 
     setInstrumentLoading(true)
-    const promise = (async () => {
+    const promise = new Promise((resolve, reject) => {
       const sampler = new Tone.Sampler({
         urls: inst.urls,
         release: 1.2,
         baseUrl: inst.baseUrl,
+        onload: () => {
+          console.log(`[Campfire] ${instId} sampler loaded`)
+          samplersRef.current[instId] = sampler
+          resolve(sampler)
+        },
+        onerror: (err) => {
+          console.warn(`[Campfire] ${instId} sample load error:`, err)
+          // 即使有个别音加载失败，sampler 仍能工作，只要有成功加载的音即可
+        },
       }).toDestination()
-      await Tone.loaded()
-      samplersRef.current[instId] = sampler
-      return sampler
-    })()
+      // 兜底超时
+      setTimeout(() => {
+        if (!samplersRef.current[instId]) {
+          console.warn(`[Campfire] ${instId} load timeout, using partial sampler`)
+          samplersRef.current[instId] = sampler
+          resolve(sampler)
+        }
+      }, 8000)
+    })
     loadingRef.current[instId] = promise
     try {
       const s = await promise
@@ -263,7 +276,6 @@ export default function CampfireSpace() {
     }
   }, [])
 
-  // 切乐器时自动加载新乐器
   useEffect(() => {
     if (!audioReady) return
     if (samplersRef.current[currentInstrument.id]) return
@@ -271,7 +283,6 @@ export default function CampfireSpace() {
   }, [currentInstrument.id, audioReady, loadInstrument])
 
   const playChord = useCallback(async (chordName, direction = 'down', intensity = 0.7) => {
-    // 如果还没启动过，现在启动（防御性）
     if (!audioStartedRef.current) {
       audioStartedRef.current = true
       try { await Tone.start(); setAudioReady(true) } catch (e) { console.warn(e); return }
@@ -288,7 +299,11 @@ export default function CampfireSpace() {
     notes.forEach((note, i) => {
       const when = i * strumDuration / notes.length
       const vel = Math.max(0.3, Math.min(1.0, intensity * (0.85 + Math.random() * 0.15)))
-      sampler.triggerAttackRelease(note, '2n', `+${when}`, vel)
+      try {
+        sampler.triggerAttackRelease(note, '2n', `+${when}`, vel)
+      } catch (e) {
+        console.warn(`[Campfire] failed to play ${note}:`, e)
+      }
     })
   }, [loadInstrument, currentInstrument.id])
 
