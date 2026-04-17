@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import * as Tone from 'tone'
 
 const FONTS = [
   { id: 'serif', label: '宋体', family: '"Noto Serif SC", "Source Han Serif SC", serif' },
@@ -9,7 +10,6 @@ const FONTS = [
   { id: 'sans', label: '黑体', family: '"Noto Sans SC", "Source Han Sans SC", sans-serif' },
 ]
 
-// 三种吉他音色（来自 tonejs-instruments 公开采样库）
 const INSTRUMENTS = [
   {
     id: 'acoustic',
@@ -136,8 +136,9 @@ export default function CampfireSpace() {
   const canvasRef = useRef(null)
   const animRef = useRef(null)
   const audioRef = useRef(null)
-  const samplersRef = useRef({}) // { acoustic: Sampler, nylon: Sampler, electric: Sampler }
-  const loadingRef = useRef({})  // 各乐器加载状态
+  const samplersRef = useRef({})
+  const loadingRef = useRef({})
+  const audioStartedRef = useRef(false)
   const guitarRef = useRef(null)
   const sweepStateRef = useRef(null)
   const stringVibrateTimersRef = useRef({})
@@ -155,6 +156,7 @@ export default function CampfireSpace() {
   const [groupIdx, setGroupIdx] = useState(0)
   const [instrumentIdx, setInstrumentIdx] = useState(0)
   const [instrumentLoading, setInstrumentLoading] = useState(false)
+  const [audioReady, setAudioReady] = useState(false)
   const [activeChord, setActiveChord] = useState(null)
   const [chordSequence, setChordSequence] = useState([])
   const [showFingering, setShowFingering] = useState(false)
@@ -195,6 +197,7 @@ export default function CampfireSpace() {
 
   function clearSequence() { setChordSequence([]) }
 
+  // ═══ 环境音 ═══
   useEffect(() => {
     const audio = new Audio('/audio/campfire.mp3')
     audio.loop = true; audio.volume = vol
@@ -208,20 +211,39 @@ export default function CampfireSpace() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
 
-  // 加载指定乐器
-  const ensureInstrument = useCallback(async (instId) => {
-    if (samplersRef.current[instId]) return samplersRef.current[instId]
-    if (loadingRef.current[instId]) {
-      // 已在加载中，等待
-      return loadingRef.current[instId]
+  // ═══ 关键修复：同步启动 AudioContext ═══
+  // 在用户的首次手势（click / keydown / touchstart）瞬间同步调用 Tone.start()
+  // Tone 是顶层 import，不再是 await import，调用栈不会中断
+  useEffect(() => {
+    const startAudio = () => {
+      if (audioStartedRef.current) return
+      audioStartedRef.current = true
+      // 同步调用 - 浏览器认可这是用户手势
+      Tone.start().then(() => {
+        setAudioReady(true)
+        // 启动后立刻开始加载默认乐器
+        loadInstrument(INSTRUMENTS[instrumentIdx].id).catch(e => console.warn('load default inst:', e))
+      }).catch(e => {
+        console.warn('Tone.start failed:', e)
+        audioStartedRef.current = false
+      })
     }
+    const evts = ['click', 'keydown', 'touchstart']
+    evts.forEach(e => document.addEventListener(e, startAudio, { once: true }))
+    return () => { evts.forEach(e => document.removeEventListener(e, startAudio)) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 加载指定乐器（仅在 AudioContext 启动后调用）
+  const loadInstrument = useCallback(async (instId) => {
+    if (samplersRef.current[instId]) return samplersRef.current[instId]
+    if (loadingRef.current[instId]) return loadingRef.current[instId]
+
     const inst = INSTRUMENTS.find(i => i.id === instId)
     if (!inst) return null
 
     setInstrumentLoading(true)
     const promise = (async () => {
-      const Tone = await import('tone')
-      await Tone.start()
       const sampler = new Tone.Sampler({
         urls: inst.urls,
         release: 1.2,
@@ -241,24 +263,23 @@ export default function CampfireSpace() {
     }
   }, [])
 
-  // 初始化：预加载默认乐器
+  // 切乐器时自动加载新乐器
   useEffect(() => {
-    const trigger = () => { ensureInstrument(INSTRUMENTS[instrumentIdx].id).catch(e => console.warn('tone init:', e)) }
-    const evts = ['click', 'keydown', 'touchstart']
-    evts.forEach(e => document.addEventListener(e, trigger, { once: true }))
-    return () => { evts.forEach(e => document.removeEventListener(e, trigger)) }
-  }, [ensureInstrument, instrumentIdx])
-
-  // 切乐器时预加载
-  useEffect(() => {
+    if (!audioReady) return
     if (samplersRef.current[currentInstrument.id]) return
-    // 只在用户交互后才加载（避免 SSR/首屏阻塞）
-    // 这里改为立即尝试，因为用户交互应该已发生过
-    ensureInstrument(currentInstrument.id).catch(e => console.warn('switch inst:', e))
-  }, [currentInstrument.id, ensureInstrument])
+    loadInstrument(currentInstrument.id).catch(e => console.warn('switch inst:', e))
+  }, [currentInstrument.id, audioReady, loadInstrument])
 
   const playChord = useCallback(async (chordName, direction = 'down', intensity = 0.7) => {
-    const sampler = await ensureInstrument(currentInstrument.id)
+    // 如果还没启动过，现在启动（防御性）
+    if (!audioStartedRef.current) {
+      audioStartedRef.current = true
+      try { await Tone.start(); setAudioReady(true) } catch (e) { console.warn(e); return }
+    }
+    let sampler = samplersRef.current[currentInstrument.id]
+    if (!sampler) {
+      sampler = await loadInstrument(currentInstrument.id)
+    }
     if (!sampler) return
     const chord = CHORD_LIB[chordName]
     if (!chord) return
@@ -269,7 +290,7 @@ export default function CampfireSpace() {
       const vel = Math.max(0.3, Math.min(1.0, intensity * (0.85 + Math.random() * 0.15)))
       sampler.triggerAttackRelease(note, '2n', `+${when}`, vel)
     })
-  }, [ensureInstrument, currentInstrument.id])
+  }, [loadInstrument, currentInstrument.id])
 
   const vibrateString = useCallback((idx) => {
     setVibratingStrings(v => ({ ...v, [idx]: Date.now() }))
@@ -329,7 +350,6 @@ export default function CampfireSpace() {
         triggerStrum(e.shiftKey ? 'up' : 'down')
         return
       }
-      // 注意：` 键的翻页功能已移除
       if (e.key === 'j' || e.key === 'J' || e.key === 'i' || e.key === 'I') {
         e.preventDefault()
         prevGroup()
@@ -600,7 +620,6 @@ export default function CampfireSpace() {
           </div>
 
           <div className="flex-[0_0_15%] min-h-0 flex flex-col items-center justify-center gap-2 px-4">
-            {/* 组切换 + 乐器切换 */}
             <div className="flex items-center gap-6" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.3)', textTransform: 'uppercase' }}>
               <div className="flex items-center gap-3">
                 <button onClick={prevGroup} style={{ color: 'rgba(255,200,150,0.35)', padding: '2px 6px', cursor: 'pointer' }}>‹</button>
@@ -627,7 +646,6 @@ export default function CampfireSpace() {
                 {instrumentLoading ? '…' : currentInstrument.label}
               </button>
             </div>
-            {/* 和弦卡片 */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {currentGroup.chords.map((name, i) => {
                 const isActive = activeChord === name
