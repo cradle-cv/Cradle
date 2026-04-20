@@ -12,6 +12,78 @@ async function getArtists() {
   return artists || []
 }
 
+// ═══ SVG 图标组件 ═══
+const IconUser = ({ size = 48, stroke = 1.5, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+    <circle cx="24" cy="18" r="7" stroke="currentColor" strokeWidth={stroke} />
+    <path d="M10 40c0-7 6-12 14-12s14 5 14 12" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" />
+  </svg>
+)
+
+const IconPalette = ({ size = 14, stroke = 1.3, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+    <path d="M8 1.5C4.4 1.5 1.5 4.2 1.5 7.5c0 2 1.3 3.5 3 3.5.7 0 1.2-.2 1.2-1 0-.5-.3-.8-.3-1.2 0-.7.6-1.3 1.3-1.3h1.5c2 0 3.3-1.3 3.3-3.3 0-1.5-1.5-2.7-3.5-2.7Z" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round" />
+    <circle cx="4.5" cy="6" r="0.7" fill="currentColor" />
+    <circle cx="7" cy="4" r="0.7" fill="currentColor" />
+    <circle cx="10" cy="5" r="0.7" fill="currentColor" />
+  </svg>
+)
+
+const IconHeart = ({ size = 14, stroke = 1.3, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+    <path d="M8 13.5s-5-3.3-5-7c0-1.7 1.3-3 3-3 1.2 0 2 .7 2 1.5C8 4.2 8.8 3.5 10 3.5c1.7 0 3 1.3 3 3 0 3.7-5 7-5 7Z" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round" />
+  </svg>
+)
+
+// ═══ Masthead 头部组件 ═══
+function Masthead({ label, titleEn, titleCn, subtitle }) {
+  const today = new Date()
+  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const weekStr = weekdays[today.getDay()]
+
+  return (
+    <section className="bg-white">
+      {/* 顶部双线 + 栏目标签 */}
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="border-t border-gray-900" />
+        <div className="h-[3px]" />
+        <div className="border-t border-gray-900" />
+        <div className="flex justify-between items-center py-3 text-xs tracking-widest text-gray-700" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
+          <span>CRADLE · {label}</span>
+          <span>{dateStr} · {weekStr}</span>
+        </div>
+        <div className="border-t border-gray-900" />
+      </div>
+
+      {/* 主标题区 */}
+      <div className="max-w-6xl mx-auto px-6 py-16 text-center">
+        <p className="text-xs tracking-[0.4em] text-gray-400 mb-6" style={{ fontFamily: 'Georgia, serif' }}>
+          THE {titleEn.toUpperCase()}
+        </p>
+        <h1 className="text-6xl md:text-7xl text-gray-900 mb-4" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif', fontStyle: 'italic', fontWeight: 400 }}>
+          {titleEn}
+        </h1>
+        <p className="text-lg tracking-[0.5em] text-gray-700 mb-8">
+          {titleCn}
+        </p>
+        {subtitle && (
+          <p className="text-sm text-gray-500 max-w-xl mx-auto leading-relaxed">
+            {subtitle}
+          </p>
+        )}
+      </div>
+
+      {/* 底部双线 */}
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="border-t border-gray-900" />
+        <div className="h-[3px]" />
+        <div className="border-t border-gray-900" />
+      </div>
+    </section>
+  )
+}
+
 export default async function ArtistsPage() {
   const artists = await getArtists()
 
@@ -21,38 +93,36 @@ export default async function ArtistsPage() {
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
-<a href="/" className="flex items-center gap-3">
+            <a href="/" className="flex items-center gap-3">
               <div className="w-0 h-10 flex-shrink-0"></div>
-<div style={{ height: '69px', overflow: 'hidden' }}>
-  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-</div>
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
             </a>
-             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-  <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-  <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-  <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
-  <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-  <li><a href="/artists" className="font-bold text-gray-900">艺术家</a></li>
-  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-  <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
-</ul>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/artists" className="font-bold text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
+            </ul>
           </div>
           <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
         </div>
       </nav>
 
-      {/* 页面头部 */}
-      <section className="py-16 px-6 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">艺术家</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            认识我们平台上的创作者们，探索他们的艺术世界
-          </p>
-        </div>
-      </section>
+      {/* 双线 Masthead 头部 */}
+      <Masthead
+        label="人物"
+        titleEn="Artists"
+        titleCn="艺 术 家"
+        subtitle="认识我们平台上的创作者们，探索他们的艺术世界"
+      />
 
       {/* 艺术家列表 */}
-      <section className="py-12 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-6xl mx-auto">
           {artists.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-10">
@@ -63,7 +133,7 @@ export default async function ArtistsPage() {
                   className="text-center group"
                 >
                   {/* 头像 */}
-                  <div className="w-36 h-36 rounded-full mx-auto mb-5 overflow-hidden bg-gray-100 border-3 border-transparent group-hover:border-[#F59E0B] transition-all shadow-md group-hover:shadow-xl">
+                  <div className="w-36 h-36 rounded-full mx-auto mb-5 overflow-hidden bg-gray-50 border-3 border-transparent group-hover:border-[#F59E0B] transition-all shadow-md group-hover:shadow-xl flex items-center justify-center text-gray-400">
                     {artist.users?.avatar_url || artist.avatar_url ? (
                       <img
                         src={artist.users?.avatar_url || artist.avatar_url}
@@ -71,9 +141,7 @@ export default async function ArtistsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl">
-                        👤
-                      </div>
+                      <IconUser size={56} stroke={1.2} />
                     )}
                   </div>
 
@@ -103,15 +171,21 @@ export default async function ArtistsPage() {
 
                   {/* 统计 */}
                   <div className="flex items-center justify-center gap-4 text-xs text-gray-500 mt-4">
-                    <span>🎨 {artist.artworks_count || 0} 作品</span>
-                    <span>❤️ {artist.followers_count || 0} 关注</span>
+                    <span className="inline-flex items-center gap-1">
+                      <IconPalette />
+                      {artist.artworks_count || 0} 作品
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <IconHeart />
+                      {artist.followers_count || 0} 关注
+                    </span>
                   </div>
                 </a>
               ))}
             </div>
           ) : (
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4">👤</div>
+            <div className="text-center py-20 text-gray-400">
+              <IconUser size={64} stroke={1.2} className="mx-auto mb-4" />
               <p className="text-xl text-gray-500">暂无艺术家信息</p>
             </div>
           )}
