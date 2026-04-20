@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
+import UserNav from '@/components/UserNav'
 
 async function getPartners() {
   const { data: partners } = await supabase
@@ -65,54 +66,14 @@ const IconHandshake = ({ size = 64, stroke = 1.3, className = '' }) => (
   </svg>
 )
 
-// ═══ Masthead 头部组件 ═══
-function Masthead({ label, titleEn, titleCn, subtitle }) {
-  const today = new Date()
-  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`
-  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  const weekStr = weekdays[today.getDay()]
-
-  return (
-    <section className="bg-white">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-gray-900" />
-        <div className="h-[3px]" />
-        <div className="border-t border-gray-900" />
-        <div className="flex justify-between items-center py-3 text-xs tracking-widest text-gray-700" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
-          <span>CRADLE · {label}</span>
-          <span>{dateStr} · {weekStr}</span>
-        </div>
-        <div className="border-t border-gray-900" />
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center">
-        <p className="text-xs tracking-[0.4em] text-gray-400 mb-6" style={{ fontFamily: 'Georgia, serif' }}>
-          THE {titleEn.toUpperCase()}
-        </p>
-        <h1 className="text-6xl md:text-7xl text-gray-900 mb-4" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif', fontStyle: 'italic', fontWeight: 400 }}>
-          {titleEn}
-        </h1>
-        <p className="text-lg tracking-[0.5em] text-gray-700 mb-8">
-          {titleCn}
-        </p>
-        {subtitle && (
-          <p className="text-sm text-gray-500 max-w-xl mx-auto leading-relaxed">
-            {subtitle}
-          </p>
-        )}
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-gray-900" />
-        <div className="h-[3px]" />
-        <div className="border-t border-gray-900" />
-      </div>
-    </section>
-  )
-}
-
 export default async function PartnersPage() {
   const partners = await getPartners()
+
+  const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
+
+  const today = new Date()
+  const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
+  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -136,20 +97,39 @@ export default async function PartnersPage() {
               <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
             </ul>
           </div>
-          <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
+          <div className="flex items-center gap-4">
+            <UserNav />
+          </div>
         </div>
       </nav>
 
-      {/* 双线 Masthead 头部 */}
-      <Masthead
-        label="伙伴"
-        titleEn="Partners"
-        titleCn="合 作 伙 伴"
-        subtitle="与我们携手共创的艺术机构，共同推动艺术的发展与传播"
-      />
+      {/* 刊头 */}
+      <section className="px-6 pt-8 pb-4">
+        <div className="max-w-6xl mx-auto">
+          {/* 顶部双线 + 标签条 */}
+          <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 伙伴</span>
+              <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
+            </div>
+          </div>
+
+          {/* 主标题区 */}
+          <div style={{ padding: '24px 0 16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', marginBottom: '8px' }}>THE PARTNERS</p>
+            <h1 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '42px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>Partners</h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '8px' }}>合 作 伙 伴</p>
+            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '12px', maxWidth: '480px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.8 }}>
+              与我们携手共创的艺术机构，共同推动艺术的发展与传播
+            </p>
+          </div>
+
+          <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
+        </div>
+      </section>
 
       {/* 合作伙伴列表 */}
-      <section className="py-16 px-6">
+      <section className="px-6 py-8">
         <div className="max-w-6xl mx-auto">
           {partners.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-8">
