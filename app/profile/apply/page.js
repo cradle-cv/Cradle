@@ -34,8 +34,20 @@ export default function ApplyOverviewPage() {
   })
   // 合作伙伴条目 (如果已创建)
   const [partnerRecord, setPartnerRecord] = useState(null)
+  // 资料未完善的字段列表 (空数组=已完善)
+  const [missingFields, setMissingFields] = useState([])
 
   useEffect(() => { load() }, [])
+
+  // 检查哪些资料字段未填 (中等门槛: 头像 + 简介 + 所在地 + 职业)
+  function checkMissing(u) {
+    const miss = []
+    if (!u.avatar_url) miss.push({ key: 'avatar', label: '头像' })
+    if (!u.bio || u.bio.trim().length < 10) miss.push({ key: 'bio', label: '个人简介(至少 10 字)' })
+    if (!u.location || !u.location.trim()) miss.push({ key: 'location', label: '所在地' })
+    if (!u.profession || !u.profession.trim()) miss.push({ key: 'profession', label: '职业' })
+    return miss
+  }
 
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -45,9 +57,11 @@ export default function ApplyOverviewPage() {
     }
 
     const { data: u } = await supabase.from('users')
-      .select('id, username').eq('auth_id', session.user.id).maybeSingle()
+      .select('id, username, avatar_url, bio, location, profession')
+      .eq('auth_id', session.user.id).maybeSingle()
     if (!u) { router.push('/login'); return }
     setUserData(u)
+    setMissingFields(checkMissing(u))
 
     // 查身份授予记录
     const { data: identities } = await supabase.from('user_identities')
@@ -105,6 +119,7 @@ export default function ApplyOverviewPage() {
   }
 
   const hasAnyPending = Object.values(identityStatus).some(s => s.state === 'pending')
+  const profileIncomplete = missingFields.length > 0
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5F5F4' }}>
@@ -150,6 +165,33 @@ export default function ApplyOverviewPage() {
           <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
         </div>
 
+        {/* 资料未完善提示 (软阻挡) */}
+        {profileIncomplete && (
+          <Link href="/profile/edit"
+            className="block mb-6 p-5 rounded-xl transition hover:opacity-90"
+            style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium mb-2" style={{ color: '#92400E' }}>
+                  请先完善个人资料,再申请身份
+                </p>
+                <p className="text-xs" style={{ color: '#92400E', opacity: 0.8, lineHeight: 1.8 }}>
+                  还缺 {missingFields.length} 项:
+                  <span className="font-medium ml-1">
+                    {missingFields.map(f => f.label).join('、')}
+                  </span>
+                </p>
+                <p className="text-xs mt-2" style={{ color: '#92400E', opacity: 0.7 }}>
+                  一个完整的资料能让我们更好地认识你,也让通过后的身份更有公信力。
+                </p>
+              </div>
+              <span className="text-xs whitespace-nowrap mt-1" style={{ color: '#92400E', letterSpacing: '2px' }}>
+                去 完 善 →
+              </span>
+            </div>
+          </Link>
+        )}
+
         {hasAnyPending && (
           <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
             <p className="text-sm" style={{ color: '#92400E' }}>
@@ -165,7 +207,10 @@ export default function ApplyOverviewPage() {
             const isApproved = s.state === 'approved'
             const isPending = s.state === 'pending'
             const isRejected = s.state === 'rejected'
-            const disabled = hasAnyPending && !isPending
+            // 禁用条件:
+            // - 其他申请审核中 (原有)
+            // - 或资料未完善 (新增, 但不影响 approved 的显示)
+            const disabled = (hasAnyPending && !isPending) || (profileIncomplete && !isApproved && !isPending)
 
             return (
               <div
@@ -281,7 +326,7 @@ export default function ApplyOverviewPage() {
                       disabled
                       className="w-full py-2.5 rounded-lg text-sm transition"
                       style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                      请等待当前申请完成
+                      {profileIncomplete ? '先完善资料' : '请等待当前申请完成'}
                     </button>
                   ) : (
                     <Link
