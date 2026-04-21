@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -385,6 +384,8 @@ function CardFront({ content, dateStr, seriesLabel, cardId }) {
           letterSpacing: '2px',
           margin: 0,
           whiteSpace: 'pre-line',
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
         }}>
           {content}
         </p>
