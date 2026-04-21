@@ -170,7 +170,7 @@ export default function PartnerApplyPage() {
             folder="identity-applications"
             value={form.attachment}
             onChange={v => setForm(f => ({ ...f, attachment: v }))}
-            hint="机构介绍资料、注册证明、空间照片、过往展览等,最大 20MB"
+            hint="请将机构介绍、注册证明、空间照片、过往展览资料等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip / 图片,最大 20MB。"
             accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z,.jpg,.jpeg,.png"
           />
 
