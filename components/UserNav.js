@@ -531,6 +531,8 @@ function CardFront({ card }) {
           fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
           textAlign: 'center', letterSpacing: '2px',
           margin: 0, whiteSpace: 'pre-line',
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
         }}>{card.card_content}</p>
       </div>
       <div style={{ borderTop: '0.5px solid #8a7a5c', borderBottom: '1.5px solid #8a7a5c', height: '3px' }} />
