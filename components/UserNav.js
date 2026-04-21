@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 
@@ -376,7 +377,11 @@ export default function UserNav() {
 }
 
 function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, error, cardRef }) {
-  return (
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
+
+  const modalContent = (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(40,30,20,0.7)', backdropFilter: 'blur(4px)' }}
@@ -499,6 +504,8 @@ function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, er
       `}</style>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 function CardFront({ card }) {
