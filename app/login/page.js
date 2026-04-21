@@ -19,8 +19,8 @@ function LoginForm() {
 
   const [form, setForm] = useState({
     email: '', password: '', confirmPassword: '',
-  username: '', loginUsername: '', loginPassword: '',
-  inviteCode: inviteCodeFromUrl
+    username: '', loginUsername: '', loginPassword: '',
+    inviteCode: inviteCodeFromUrl
   })
 
   function handleChange(e) {
@@ -32,27 +32,27 @@ function LoginForm() {
     setMode(m); setError(''); setSuccess('')
   }
 
-  // ============ 邮箱登录 ============
   async function handleEmailLogin(e) {
     e?.preventDefault()
     if (!form.email || !form.password) { setError('请输入邮箱和密码'); return }
     setLoading(true); setError('')
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password
+      })
       if (error) throw error
       router.push(redirect)
     } catch (err) {
-      setError(err.message.includes('Invalid login') ? '邮箱或密码错误' : err.message.includes('Email not confirmed') ? '请先验证邮箱，查看收件箱中的验证链接' : err.message)
+      setError(err.message.includes('Invalid login') ? '邮箱或密码错误' : err.message)
     } finally { setLoading(false) }
   }
 
-  // ============ 用户名登录 ============
   async function handleUsernameLogin(e) {
     e?.preventDefault()
     if (!form.loginUsername || !form.loginPassword) { setError('请输入用户名和密码'); return }
     setLoading(true); setError('')
     try {
-      // 通过用户名查找对应的邮箱
       const { data: user, error: findError } = await supabase
         .from('users')
         .select('email')
@@ -66,7 +66,6 @@ function LoginForm() {
         return
       }
 
-      // 用找到的邮箱 + 输入的密码登录
       const { error } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: form.loginPassword
@@ -76,15 +75,12 @@ function LoginForm() {
     } catch (err) {
       if (err.message.includes('Invalid login')) {
         setError('密码错误')
-      } else if (err.message.includes('Email not confirmed')) {
-        setError('请先验证邮箱，查看收件箱中的验证链接')
       } else {
         setError(err.message)
       }
     } finally { setLoading(false) }
   }
 
-  // ============ 邮箱注册 ============
   async function handleEmailRegister(e) {
     e?.preventDefault()
     if (!form.email || !form.password || !form.username) { setError('请填写所有必填项'); return }
@@ -94,7 +90,7 @@ function LoginForm() {
 
     setLoading(true); setError('')
     try {
-      // 检查用户名是否已被使用
+      // 检查用户名重复
       const { data: existing } = await supabase
         .from('users')
         .select('id')
@@ -102,26 +98,35 @@ function LoginForm() {
         .maybeSingle()
 
       if (existing) {
-        setError('该用户名已被使用，请换一个')
+        setError('该用户名已被使用,请换一个')
         setLoading(false)
         return
       }
 
+      // 注册 (Supabase 后台已关闭 Confirm email,会直接返回 session)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email, password: form.password,
+        email: form.email,
+        password: form.password,
         options: { data: { username: form.username } }
       })
       if (authError) throw authError
 
       if (authData.user) {
         const { error: ue } = await supabase.from('users').insert({
-          auth_id: authData.user.id, email: form.email,
-          username: form.username, role: 'user',
-          total_points: 0, level: 1, profile_completed: false
+          auth_id: authData.user.id,
+          email: form.email,
+          username: form.username,
+          role: 'user',
+          total_points: 0,
+          level: 1,
+          profile_completed: false,
+          email_verified: false,  // 新字段: 默认未验证,关键操作时按需触发验证
         })
         if (ue && !ue.message.includes('duplicate')) throw ue
       }
-if (form.inviteCode && authData.user) {
+
+      // 邀请码处理
+      if (form.inviteCode && authData.user) {
         try {
           const { data: newUser } = await supabase
             .from('users').select('id').eq('auth_id', authData.user.id).single()
@@ -134,14 +139,25 @@ if (form.inviteCode && authData.user) {
           }
         } catch (e) { console.error('邀请处理失败:', e) }
       }
+
+      // 关闭 Confirm email 后,authData.session 应该存在 → 直接进入
       if (authData.session) {
         router.push('/profile/edit?new=1')
       } else {
-        setSuccess('注册成功！请检查邮箱完成验证后登录。')
-        switchMode('login')
+        // 兜底: 万一 Supabase 侧配置没关,手动做一次登录
+        try {
+          await supabase.auth.signInWithPassword({
+            email: form.email,
+            password: form.password,
+          })
+          router.push('/profile/edit?new=1')
+        } catch {
+          setSuccess('注册成功,请手动登录。')
+          switchMode('login')
+        }
       }
     } catch (err) {
-      setError(err.message.includes('already registered') ? '该邮箱已注册，请直接登录' : err.message)
+      setError(err.message.includes('already registered') ? '该邮箱已注册,请直接登录' : err.message)
     } finally { setLoading(false) }
   }
 
@@ -168,7 +184,7 @@ if (form.inviteCode && authData.user) {
             </div>
             <h2 className="text-5xl font-bold text-white leading-tight mb-6">在艺术中<br/>找到自己</h2>
             <p className="text-lg leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              每一件作品都是一段对话。<br/>加入我们，开始你的艺术之旅。
+              每一件作品都是一段对话。<br/>加入我们,开始你的艺术之旅。
             </p>
           </div>
           <div className="space-y-5">
@@ -195,7 +211,6 @@ if (form.inviteCode && authData.user) {
             <span className="text-xl font-bold" style={{ color: '#111827' }}>Cradle摇篮</span>
           </div>
 
-          {/* 登录/注册 Tab */}
           <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ backgroundColor: '#E5E7EB' }}>
             {[{ key: 'login', label: '登录' }, { key: 'register', label: '注册' }].map(t => (
               <button key={t.key} onClick={() => switchMode(t.key)}
@@ -210,7 +225,6 @@ if (form.inviteCode && authData.user) {
             ))}
           </div>
 
-          {/* 邮箱/用户名 切换（仅登录模式） */}
           {mode === 'login' && (
             <div className="flex gap-4 mb-6">
               {[{ key: 'email', label: '📧 邮箱登录' }, { key: 'username', label: '👤 用户名登录' }].map(t => (
@@ -231,13 +245,12 @@ if (form.inviteCode && authData.user) {
             {mode === 'login' ? '欢迎回来' : '创建账号'}
           </h1>
           <p className="mb-6" style={{ color: '#6B7280', fontSize: '15px' }}>
-            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后即可参与作品探索和评价'}
+            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后直接开始,无需验证邮箱'}
           </p>
 
           {error && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>❌ {error}</div>}
           {success && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#F0FDF4', color: '#16A34A' }}>✅ {success}</div>}
 
-          {/* ====== 邮箱登录 ====== */}
           {mode === 'login' && method === 'email' && (
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div>
@@ -260,7 +273,6 @@ if (form.inviteCode && authData.user) {
             </form>
           )}
 
-          {/* ====== 用户名登录 ====== */}
           {mode === 'login' && method === 'username' && (
             <form onSubmit={handleUsernameLogin} className="space-y-4">
               <div>
@@ -283,12 +295,11 @@ if (form.inviteCode && authData.user) {
             </form>
           )}
 
-          {/* ====== 邮箱注册 ====== */}
           {mode === 'register' && (
             <form onSubmit={handleEmailRegister} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>用户名 *</label>
-                <input name="username" value={form.username} onChange={handleChange} placeholder="你的昵称（登录时也可以用）"
+                <input name="username" value={form.username} onChange={handleChange} placeholder="你的昵称(登录时也可以用)"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
               <div>
@@ -309,15 +320,19 @@ if (form.inviteCode && authData.user) {
               <button type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-xl font-medium text-white"
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
-                {loading ? '注册中...' : '注册'}
+                {loading ? '注册中...' : '注册并进入'}
               </button>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码（可选）</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码(可选)</label>
                 <input name="inviteCode" value={form.inviteCode} onChange={handleChange}
-                  placeholder="如有好友邀请码，填写可获额外奖励"
+                  placeholder="如有好友邀请码,填写可获额外奖励"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
-              <p className="text-center text-xs" style={{ color: '#9CA3AF' }}>注册即表示你同意我们的服务条款和隐私政策</p>
+              <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
+                注册即表示你同意我们的服务条款和隐私政策。
+                <br/>
+                将来申请艺术家 / 策展人 / 合作伙伴身份时需验证邮箱。
+              </p>
             </form>
           )}
 
