@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState } from 'react'
@@ -50,6 +49,13 @@ export function FileUploadField({ label, required, accept, maxSizeMB = 20, folde
         {label}{required && <span style={{ color: '#DC2626' }}> *</span>}
       </label>
 
+      {/* 持久提示 - 无论文件是否已上传都显示 */}
+      {hint && (
+        <p className="text-xs mb-2" style={{ color: '#6B7280', lineHeight: 1.7 }}>
+          {hint}
+        </p>
+      )}
+
       {!value && (
         <label
           className="flex items-center justify-center cursor-pointer transition hover:opacity-80"
@@ -71,9 +77,6 @@ export function FileUploadField({ label, required, accept, maxSizeMB = 20, folde
           <span style={{ color: uploading ? '#9CA3AF' : '#374151', fontSize: '13px' }}>
             {uploading ? '上传中…' : '点击选择文件'}
           </span>
-          {hint && !uploading && (
-            <span style={{ color: '#9CA3AF', fontSize: '11px', marginTop: '4px' }}>{hint}</span>
-          )}
         </label>
       )}
 
