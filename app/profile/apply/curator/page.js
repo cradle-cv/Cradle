@@ -267,7 +267,7 @@ export default function CuratorApplyPage() {
             folder="identity-applications"
             value={form.attachment}
             onChange={v => setForm(f => ({ ...f, attachment: v }))}
-            hint="策展档案、PDF 简历、媒体报道等,最大 20MB"
+            hint="请将策展档案、简历、媒体报道、展览图集等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip,最大 20MB。"
             accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
           />
 
