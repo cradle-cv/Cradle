@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -33,6 +32,8 @@ export default function ApplyOverviewPage() {
     curator: { state: 'none' },
     partner: { state: 'none' },
   })
+  // 合作伙伴条目 (如果已创建)
+  const [partnerRecord, setPartnerRecord] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -91,6 +92,15 @@ export default function ApplyOverviewPage() {
     }
 
     setIdentityStatus(status)
+
+    // 如果是 partner approved,查机构条目
+    if (status.partner.state === 'approved') {
+      const { data: pRec } = await supabase.rpc('my_partner_record')
+      if (pRec && pRec.length > 0) {
+        setPartnerRecord(pRec[0])
+      }
+    }
+
     setLoading(false)
   }
 
@@ -221,9 +231,47 @@ export default function ApplyOverviewPage() {
 
                 <div className="mt-5">
                   {isApproved ? (
-                    <div className="text-center text-xs py-3" style={{ color: '#10B981' }}>
-                      ✓ 已获得此身份
-                    </div>
+                    // approved 状态:partner 特殊处理(创建/管理机构页)
+                    t === 'partner' ? (
+                      partnerRecord ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-center" style={{ color: '#10B981' }}>
+                            ✓ 机构页已创建:{partnerRecord.name}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Link
+                              href="/profile/my-partner/edit"
+                              className="block text-center py-2 rounded-lg text-sm transition hover:opacity-90"
+                              style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
+                              管理
+                            </Link>
+                            <Link
+                              href={`/partners/${partnerRecord.id}`}
+                              target="_blank"
+                              className="block text-center py-2 rounded-lg text-sm transition"
+                              style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+                              预览
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-center" style={{ color: '#F59E0B' }}>
+                            机构页待创建
+                          </p>
+                          <Link
+                            href="/profile/my-partner/new"
+                            className="block w-full text-center py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                            style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
+                            立即创建 →
+                          </Link>
+                        </div>
+                      )
+                    ) : (
+                      <div className="text-center text-xs py-3" style={{ color: '#10B981' }}>
+                        ✓ 已获得此身份
+                      </div>
+                    )
                   ) : isPending ? (
                     <div className="text-center text-xs py-3" style={{ color: '#92400E' }}>
                       等待审核中…
