@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -229,6 +228,8 @@ function ThumbnailCard({ item, onClick }) {
           textAlign: 'center',
           letterSpacing: '1px',
           whiteSpace: 'pre-line',
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
         }}>
           {previewLines.join('\n')}{hasMore ? '…' : ''}
         </div>
@@ -336,6 +337,8 @@ function ModalCardFront({ content, dateStr, seriesLabel, numberPart }) {
           fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
           textAlign: 'center', letterSpacing: '2px',
           margin: 0, whiteSpace: 'pre-line',
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
         }}>{content}</p>
       </div>
       <div style={{ borderTop: '0.5px solid #8a7a5c', borderBottom: '1.5px solid #8a7a5c', height: '3px' }} />
