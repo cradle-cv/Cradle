@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -33,9 +32,21 @@ export default function CuratorApplyPage() {
     if (!session) { router.push('/login?redirect=/profile/apply/curator'); return }
 
     const { data: u } = await supabase.from('users')
-      .select('id').eq('auth_id', session.user.id).maybeSingle()
+      .select('id, avatar_url, bio, location, profession')
+      .eq('auth_id', session.user.id).maybeSingle()
     if (!u) { router.push('/login'); return }
     setUserData(u)
+
+    const missing = []
+    if (!u.avatar_url) missing.push('头像')
+    if (!u.bio || u.bio.trim().length < 10) missing.push('简介')
+    if (!u.location || !u.location.trim()) missing.push('所在地')
+    if (!u.profession || !u.profession.trim()) missing.push('职业')
+    if (missing.length > 0) {
+      alert(`请先完善资料(还缺:${missing.join('、')})才能申请身份`)
+      router.push('/profile/apply')
+      return
+    }
 
     const { data: existing } = await supabase.from('identity_applications')
       .select('id').eq('user_id', u.id).eq('status', 'pending').maybeSingle()
