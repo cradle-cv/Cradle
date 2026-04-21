@@ -384,7 +384,13 @@ function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, er
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '500px', justifyContent: 'center' }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '20px',
+        }}
       >
         {phase === 'error' && (
           <div style={{
