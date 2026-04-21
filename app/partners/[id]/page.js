@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import UserNav from '@/components/UserNav'
+import PartnerDetailClient from '@/components/PartnerDetailClient'
 
 async function getPartner(id) {
   const { data: partner } = await supabase
@@ -8,7 +10,6 @@ async function getPartner(id) {
     .select('*')
     .eq('id', id)
     .single()
-
   if (!partner) return null
 
   const { data: partnerArtists } = await supabase
@@ -29,142 +30,206 @@ async function getPartner(id) {
   }
 }
 
+function getTypeLabel(type) {
+  const labels = {
+    gallery: '画廊', museum: '美术馆', studio: '工作室',
+    bookstore: '书店', academy: '艺术学院', other: '其他空间',
+  }
+  return labels[type] || type
+}
+
 export default async function PartnerDetailPage({ params }) {
   const { id } = await params
   const data = await getPartner(id)
   if (!data) notFound()
-
   const { partner, artists, artworks } = data
 
+  const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
+  const hasVenuePhotos = Array.isArray(partner.venue_photos) && partner.venue_photos.length > 0
+  const hasSocial = Array.isArray(partner.social_links) && partner.social_links.length > 0
+
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
+      {/* 导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
-<a href="/" className="flex items-center gap-3">
-              <div className="w-0 h-10 flex-shrink-0"></div>
-              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px' }} className="object-contain" />
+            <a href="/" className="flex items-center gap-3">
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
             </a>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><Link href="/#daily" className="hover:text-gray-900">每日一展</Link></li>
-              <li><Link href="/#gallery" className="hover:text-gray-900">艺术阅览室</Link></li>
+              <li><Link href="/gallery" className="hover:text-gray-900">艺术阅览室</Link></li>
+              <li><Link href="/exhibitions" className="hover:text-gray-900">每日一展</Link></li>
+              <li><Link href="/magazine" className="hover:text-gray-900">杂志社</Link></li>
               <li><Link href="/collections" className="hover:text-gray-900">作品集</Link></li>
               <li><Link href="/artists" className="hover:text-gray-900">艺术家</Link></li>
-              <li><Link href="/partners" className="text-gray-900 font-medium">合作伙伴</Link></li>
+              <li><Link href="/partners" className="font-bold text-gray-900">合作伙伴</Link></li>
             </ul>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="text-gray-600 hover:text-gray-900">🔍</button>
-            <button className="text-gray-600 hover:text-gray-900">👤</button>
-          </div>
+          <UserNav />
         </div>
       </nav>
 
-      {/* 封面区 - 固定高度280px */}
+      {/* 封面 */}
       <section className="relative">
         <div style={{ height: '280px' }} className="bg-gray-100 overflow-hidden">
-          {partner.cover_image && partner.cover_image.length > 0 ? (
-            <img 
-              src={partner.cover_image}
-              alt={partner.name}
-              className="w-full h-full object-cover"
-            />
+          {partner.cover_image ? (
+            <img src={partner.cover_image} alt={partner.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-100 flex items-center justify-center text-7xl">
-              🏛️
-            </div>
+            <div className="w-full h-full" style={{
+              background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)',
+            }} />
           )}
         </div>
-        
         <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
           <div className="w-32 h-32 rounded-full overflow-hidden bg-white shadow-xl border-4 border-white flex items-center justify-center">
             {partner.logo_url ? (
               <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" />
             ) : (
-              <div className="text-5xl">🏛️</div>
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>
+                <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+                  <path d="M6 18 L24 8 L42 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="4" y1="19" x2="44" y2="19" stroke="currentColor" strokeWidth="1.5" />
+                  <line x1="4" y1="37" x2="44" y2="37" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </div>
             )}
           </div>
         </div>
       </section>
 
-      <section className="pt-24 pb-12 px-6">
+      {/* 机构头部 */}
+      <section className="pt-24 pb-10 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">{partner.name}</h1>
+          <h1 style={{ fontFamily: serif, fontSize: '40px', fontWeight: 500, color: '#111827', margin: 0, lineHeight: 1.1 }}>
+            {partner.name}
+          </h1>
           {partner.name_en && (
-            <p className="text-xl text-gray-500 mb-6">{partner.name_en}</p>
+            <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '20px', color: '#6B7280', marginTop: '6px' }}>
+              {partner.name_en}
+            </p>
           )}
-          
-          <div className="flex items-center justify-center gap-3 mb-8">
+
+          <div className="flex items-center justify-center gap-2 mt-6 flex-wrap">
             {partner.type && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
-                {partner.type === 'gallery' ? '画廊' : 
-                 partner.type === 'bookstore' ? '书店' :
-                 partner.type === 'museum' ? '美术馆' : '工作室'}
+              <span className="px-3 py-1.5 text-xs rounded-full" style={{ backgroundColor: '#F3F4F6', color: '#6B7280', letterSpacing: '2px' }}>
+                {getTypeLabel(partner.type)}
               </span>
             )}
             {partner.city && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
-                📍 {partner.city}
+              <span className="px-3 py-1.5 text-xs rounded-full" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                {partner.city}
               </span>
             )}
             {partner.established_year && (
-              <span className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-full">
+              <span className="px-3 py-1.5 text-xs rounded-full" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
                 成立于 {partner.established_year}
               </span>
             )}
           </div>
 
-          <p className="text-lg text-gray-700 leading-relaxed mb-8">
-            {partner.description}
-          </p>
+          {partner.description && (
+            <p className="mt-8 text-base leading-relaxed max-w-2xl mx-auto" style={{ color: '#4B5563', lineHeight: 1.9 }}>
+              {partner.description}
+            </p>
+          )}
 
-          <div className="flex items-center justify-center gap-6 text-sm">
+          {/* 联系/社交 快捷区 */}
+          <div className="flex items-center justify-center gap-5 mt-8 text-sm flex-wrap">
             {partner.website && (
-              <a href={partner.website} target="_blank" rel="noopener noreferrer" className="text-[#F59E0B] hover:underline">
-                🌐 官网
+              <a href={partner.website} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: '#6B7280' }}>
+                官网 ↗
               </a>
             )}
             {partner.contact_email && (
-              <a href={`mailto:${partner.contact_email}`} className="text-[#F59E0B] hover:underline">
-                ✉️ 邮箱
+              <a href={`mailto:${partner.contact_email}`} className="hover:underline" style={{ color: '#6B7280' }}>
+                邮件联系
               </a>
             )}
             {partner.contact_phone && (
-              <a href={`tel:${partner.contact_phone}`} className="text-[#F59E0B] hover:underline">
-                📞 电话
-              </a>
+              <span style={{ color: '#6B7280' }}>{partner.contact_phone}</span>
             )}
           </div>
+
+          {/* 社交链接: 小圆按钮 */}
+          {hasSocial && (
+            <div className="flex items-center justify-center gap-2 mt-5 flex-wrap">
+              {partner.social_links.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-full transition hover:opacity-80"
+                  style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}
+                  title={url}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M6.5 9.5l-2.5 2.5a2.5 2.5 0 11-3.5-3.5l2.5-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    <path d="M9.5 6.5l2.5-2.5a2.5 2.5 0 113.5 3.5l-2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    <path d="M5 11l6-6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
+      {/* 品牌故事 */}
       {partner.story && (
-        <section className="py-12 px-6 bg-gray-50">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">品牌故事</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">{partner.story}</p>
+        <section className="py-12 px-6" style={{ backgroundColor: '#FAFAFA' }}>
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-8">
+              <p className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>THE STORY</p>
+              <h2 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '28px', color: '#111827', marginTop: '6px' }}>
+                品牌故事
+              </h2>
+            </div>
+            <p className="leading-relaxed whitespace-pre-line" style={{ color: '#374151', lineHeight: 2, fontSize: '15px' }}>
+              {partner.story}
+            </p>
           </div>
         </section>
       )}
 
+      {/* 场地照片(交互部分抽到 Client 组件) */}
+      {(hasVenuePhotos || partner.floor_plan_url) && (
+        <PartnerDetailClient
+          venuePhotos={partner.venue_photos || []}
+          floorPlanUrl={partner.floor_plan_url}
+        />
+      )}
+
+      {/* 旗下艺术家 */}
       {artists.length > 0 && (
         <section className="py-16 px-6">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">旗下艺术家</h2>
+            <div className="text-center mb-10">
+              <p className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>REPRESENTED ARTISTS</p>
+              <h2 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '28px', color: '#111827', marginTop: '6px' }}>
+                旗下艺术家
+              </h2>
+            </div>
             <div className="grid md:grid-cols-3 gap-8">
               {artists.map((artist) => (
-                <div key={artist.id} className="bg-white rounded-lg p-6 text-center shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden bg-gray-100">
+                <div key={artist.id} className="bg-white rounded-lg p-6 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
+                  <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
                     {artist.avatar_url ? (
                       <img src={artist.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>
+                      <div className="w-full h-full flex items-center justify-center" style={{ color: '#9CA3AF' }}>
+                        {artist.display_name?.[0] || '?'}
+                      </div>
                     )}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{artist.display_name}</h3>
-                  <p className="text-sm text-gray-500 mb-4">{artist.specialty}</p>
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">{artist.intro}</p>
-                  <Link href={`/artists/${artist.id}`} className="px-6 py-2 border border-gray-300 text-gray-700 text-sm rounded-full hover:bg-gray-50 inline-block">
+                  <h3 className="text-xl font-bold mb-1" style={{ color: '#111827' }}>{artist.display_name}</h3>
+                  {artist.specialty && <p className="text-sm mb-3" style={{ color: '#9CA3AF' }}>{artist.specialty}</p>}
+                  {artist.intro && (
+                    <p className="text-sm line-clamp-3 mb-4" style={{ color: '#6B7280', lineHeight: 1.7 }}>
+                      {artist.intro}
+                    </p>
+                  )}
+                  <Link href={`/artists/${artist.id}`} className="inline-block px-5 py-2 text-sm rounded-full transition"
+                    style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
                     查看作品
                   </Link>
                 </div>
@@ -174,22 +239,27 @@ export default async function PartnerDetailPage({ params }) {
         </section>
       )}
 
+      {/* 代理作品 */}
       {artworks.length > 0 && (
-        <section className="py-16 px-6 bg-gray-50">
+        <section className="py-16 px-6" style={{ backgroundColor: '#FAFAFA' }}>
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">代理作品</h2>
+            <div className="text-center mb-10">
+              <p className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>FEATURED WORKS</p>
+              <h2 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '28px', color: '#111827', marginTop: '6px' }}>
+                代理作品
+              </h2>
+            </div>
             <div className="grid md:grid-cols-4 gap-6">
               {artworks.map((artwork) => (
                 <div key={artwork.id} className="group cursor-pointer">
                   <div className="aspect-square rounded-lg overflow-hidden mb-3 relative">
-                    <img src={artwork.image_url} alt={artwork.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                      <h4 className="text-white font-bold text-lg mb-1">{artwork.title}</h4>
-                      <p className="text-white/90 text-sm">{artwork.artists?.display_name}</p>
-                    </div>
+                    <img src={artwork.image_url} alt={artwork.title}
+                      className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
                   </div>
-                  <h4 className="font-medium text-gray-900 mb-1 group-hover:text-[#F59E0B] transition-colors">{artwork.title}</h4>
-                  <p className="text-sm text-gray-500">{artwork.artists?.display_name}</p>
+                  <h4 className="font-medium text-sm" style={{ color: '#111827' }}>{artwork.title}</h4>
+                  {artwork.artists?.display_name && (
+                    <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{artwork.artists.display_name}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -197,89 +267,63 @@ export default async function PartnerDetailPage({ params }) {
         </section>
       )}
 
+      {/* 联系方式网格 */}
       <section className="py-16 px-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">联系方式</h2>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="text-center mb-10">
+            <p className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>CONTACT</p>
+            <h2 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '28px', color: '#111827', marginTop: '6px' }}>
+              联系方式
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
             {partner.address && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">📍</div>
-                <h3 className="font-bold text-gray-900 mb-2">地址</h3>
-                <p className="text-gray-600">{partner.address}</p>
-              </div>
+              <ContactCard title="地址">{partner.address}</ContactCard>
             )}
             {partner.opening_hours && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">🕐</div>
-                <h3 className="font-bold text-gray-900 mb-2">营业时间</h3>
-                <p className="text-gray-600">{partner.opening_hours}</p>
-              </div>
+              <ContactCard title="营业时间">{partner.opening_hours}</ContactCard>
             )}
             {partner.contact_email && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">✉️</div>
-                <h3 className="font-bold text-gray-900 mb-2">邮箱</h3>
-                <a href={`mailto:${partner.contact_email}`} className="text-[#F59E0B] hover:underline">{partner.contact_email}</a>
-              </div>
+              <ContactCard title="邮箱">
+                <a href={`mailto:${partner.contact_email}`} className="hover:underline" style={{ color: '#374151' }}>
+                  {partner.contact_email}
+                </a>
+              </ContactCard>
             )}
             {partner.contact_phone && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <div className="text-2xl mb-3">📞</div>
-                <h3 className="font-bold text-gray-900 mb-2">电话</h3>
-                <a href={`tel:${partner.contact_phone}`} className="text-[#F59E0B] hover:underline">{partner.contact_phone}</a>
-              </div>
+              <ContactCard title="电话">
+                <a href={`tel:${partner.contact_phone}`} className="hover:underline" style={{ color: '#374151' }}>
+                  {partner.contact_phone}
+                </a>
+              </ContactCard>
             )}
           </div>
         </div>
       </section>
 
-      <section className="py-8 px-6 border-t border-gray-200">
+      <section className="py-10 px-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
         <div className="max-w-6xl mx-auto text-center">
-          <Link href="/partners" className="inline-block px-8 py-3 border-2 border-gray-900 text-gray-900 font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+          <Link href="/partners" className="inline-block px-8 py-3 text-sm rounded-lg transition"
+            style={{ border: '0.5px solid #111827', color: '#111827' }}>
             ← 返回合作伙伴列表
           </Link>
         </div>
       </section>
 
-      <footer className="bg-[#1F2937] text-white py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">Cradle摇篮</div>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">关于我们</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">平台介绍</Link></li>
-                <li><Link href="#" className="hover:text-white">团队成员</Link></li>
-                <li><Link href="#" className="hover:text-white">联系我们</Link></li>
-                <li><Link href="#" className="hover:text-white">加入我们</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">艺术家服务</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">上传作品</Link></li>
-                <li><Link href="#" className="hover:text-white">创建展览</Link></li>
-                <li><Link href="#" className="hover:text-white">艺术家认证</Link></li>
-                <li><Link href="#" className="hover:text-white">版权保护</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
-              <div className="space-y-3">
-                <input type="email" placeholder="输入您的邮箱" className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500" />
-                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">订阅</button>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
+      <footer className="py-8 px-6" style={{ backgroundColor: '#1F2937', color: '#9CA3AF' }}>
+        <div className="max-w-6xl mx-auto text-center text-sm">
+          © 2026 Cradle摇篮. All rights reserved.
         </div>
       </footer>
+    </div>
+  )
+}
+
+function ContactCard({ title, children }) {
+  return (
+    <div className="p-5 rounded-xl" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
+      <p className="text-xs mb-2" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>{title.toUpperCase()}</p>
+      <div className="text-sm" style={{ color: '#374151', lineHeight: 1.7 }}>{children}</div>
     </div>
   )
 }
