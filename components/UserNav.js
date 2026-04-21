@@ -100,6 +100,7 @@ export default function UserNav() {
   const [hasPendingApp, setHasPendingApp] = useState(false)  // 身份申请审核中
   const [myIdentities, setMyIdentities] = useState([])         // 已有身份
   const [unreadMsgs, setUnreadMsgs] = useState(0)              // 未读站内信
+  const [partnerPageMissing, setPartnerPageMissing] = useState(false) // partner 身份但没建机构页
   const menuRef = useRef(null)
 
   // 笺语弹窗状态
@@ -122,6 +123,7 @@ export default function UserNav() {
       } else {
         setUser(null); setUserData(null); setSignedToday(null)
         setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
+        setPartnerPageMissing(false)
       }
     })
     return () => subscription.unsubscribe()
@@ -168,6 +170,15 @@ export default function UserNav() {
       if (!idsRes.error && idsRes.data) setMyIdentities(idsRes.data)
       if (!pendingRes.error) setHasPendingApp(pendingRes.data === true)
       if (!unreadRes.error) setUnreadMsgs(unreadRes.data || 0)
+
+      // 如果是 partner 身份,额外查机构页状态
+      const isPartner = (idsRes.data || []).some(i => i.identity_type === 'partner')
+      if (isPartner) {
+        const { data: pRec } = await supabase.rpc('my_partner_record')
+        setPartnerPageMissing(!pRec || pRec.length === 0)
+      } else {
+        setPartnerPageMissing(false)
+      }
     } catch (e) { console.warn('identity state:', e) }
   }
 
@@ -175,6 +186,7 @@ export default function UserNav() {
     await supabase.auth.signOut()
     setUser(null); setUserData(null); setSignedToday(null); setShowMenu(false)
     setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
+    setPartnerPageMissing(false)
     router.push('/')
   }
 
@@ -273,8 +285,9 @@ export default function UserNav() {
   // - 今日未签到
   // - 有未读站内信
   // - 从未申请过任何身份 (引导新用户去申请)
+  // - partner 身份但没建机构页
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
-  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet
+  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing
 
   return (
     <>
@@ -377,10 +390,13 @@ export default function UserNav() {
                 {hasPendingApp && (
                   <span className="text-xs" style={{ color: '#B45309' }}>审核中</span>
                 )}
-                {!hasPendingApp && noIdentityYet && (
+                {!hasPendingApp && partnerPageMissing && (
+                  <span className="text-xs" style={{ color: '#F59E0B' }}>机构页待创建</span>
+                )}
+                {!hasPendingApp && noIdentityYet && !partnerPageMissing && (
                   <span className="text-xs" style={{ color: '#DC2626' }}>●</span>
                 )}
-                {myIdentities.length > 0 && !hasPendingApp && (
+                {myIdentities.length > 0 && !hasPendingApp && !partnerPageMissing && (
                   <span className="text-xs" style={{ color: '#9CA3AF' }}>{myIdentities.length} 个</span>
                 )}
               </a>
