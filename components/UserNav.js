@@ -62,6 +62,22 @@ const IconStar = () => (
     <path d="M8 1.5l1.9 4.2 4.6.5-3.4 3.1 1 4.5L8 11.5l-4.1 2.3 1-4.5L1.5 6.2l4.6-.5L8 1.5z" />
   </svg>
 )
+const IconMail = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <rect x="1.5" y="3.5" width="13" height="9" rx="0.5" />
+    <path d="M1.5 4.5l6.5 4.5 6.5-4.5" />
+    <path d="M10 9l4 3.5M6 9l-4 3.5" />
+  </svg>
+)
+const IconCertificate = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <rect x="2" y="2.5" width="12" height="9" rx="0.5" />
+    <line x1="4" y1="5.5" x2="12" y2="5.5" />
+    <line x1="4" y1="7.5" x2="10" y2="7.5" />
+    <circle cx="8" cy="10" r="1.5" />
+    <path d="M7 11l-1 3 2-1 2 1-1-3" />
+  </svg>
+)
 
 const SERIES_LABELS = {
   jianshu: '家书', jieqi: '节气', yeshen: '夜深', chuyu: '初遇', yuelan: '阅览室拾遗',
@@ -81,6 +97,9 @@ export default function UserNav() {
   const [userData, setUserData] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [signedToday, setSignedToday] = useState(null)
+  const [hasPendingApp, setHasPendingApp] = useState(false)  // 身份申请审核中
+  const [myIdentities, setMyIdentities] = useState([])         // 已有身份
+  const [unreadMsgs, setUnreadMsgs] = useState(0)              // 未读站内信
   const menuRef = useRef(null)
 
   // 笺语弹窗状态
@@ -99,8 +118,10 @@ export default function UserNav() {
         setUser(session.user)
         loadUserData(session.user.id)
         checkSigninStatus()
+        loadIdentityState()
       } else {
         setUser(null); setUserData(null); setSignedToday(null)
+        setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
       }
     })
     return () => subscription.unsubscribe()
@@ -118,6 +139,7 @@ export default function UserNav() {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       setUser(session.user); loadUserData(session.user.id); checkSigninStatus()
+      loadIdentityState()
     }
   }
 
@@ -135,9 +157,24 @@ export default function UserNav() {
     } catch (e) { console.warn(e) }
   }
 
+  async function loadIdentityState() {
+    // 并行: 身份列表 + 待审状态 + 未读消息数
+    try {
+      const [idsRes, pendingRes, unreadRes] = await Promise.all([
+        supabase.rpc('my_identities'),
+        supabase.rpc('has_pending_identity_application'),
+        supabase.rpc('unread_message_count'),
+      ])
+      if (!idsRes.error && idsRes.data) setMyIdentities(idsRes.data)
+      if (!pendingRes.error) setHasPendingApp(pendingRes.data === true)
+      if (!unreadRes.error) setUnreadMsgs(unreadRes.data || 0)
+    } catch (e) { console.warn('identity state:', e) }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     setUser(null); setUserData(null); setSignedToday(null); setShowMenu(false)
+    setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
     router.push('/')
   }
 
@@ -232,7 +269,12 @@ export default function UserNav() {
     )
   }
 
-  const hasRedDot = signedToday === false
+  // 红点: 任一未完成事项 → 显示
+  // - 今日未签到
+  // - 有未读站内信
+  // - 从未申请过任何身份 (引导新用户去申请)
+  const noIdentityYet = !hasPendingApp && myIdentities.length === 0
+  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet
 
   return (
     <>
@@ -315,6 +357,32 @@ export default function UserNav() {
               <a href="/profile" onClick={() => setShowMenu(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                 <span style={{ color: '#6B7280' }}><IconUser /></span> 个人主页
+              </a>
+              <a href="/messages" onClick={() => setShowMenu(false)}
+                className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                <span className="inline-flex items-center gap-3">
+                  <span style={{ color: '#6B7280' }}><IconMail /></span> 站内信
+                </span>
+                {unreadMsgs > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#DC2626', color: '#FFFFFF', minWidth: '18px', textAlign: 'center' }}>
+                    {unreadMsgs > 99 ? '99+' : unreadMsgs}
+                  </span>
+                )}
+              </a>
+              <a href="/profile/apply" onClick={() => setShowMenu(false)}
+                className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                <span className="inline-flex items-center gap-3">
+                  <span style={{ color: '#6B7280' }}><IconCertificate /></span> 身份申请
+                </span>
+                {hasPendingApp && (
+                  <span className="text-xs" style={{ color: '#B45309' }}>审核中</span>
+                )}
+                {!hasPendingApp && noIdentityYet && (
+                  <span className="text-xs" style={{ color: '#DC2626' }}>●</span>
+                )}
+                {myIdentities.length > 0 && !hasPendingApp && (
+                  <span className="text-xs" style={{ color: '#9CA3AF' }}>{myIdentities.length} 个</span>
+                )}
               </a>
               <a href="/profile/edit" onClick={() => setShowMenu(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
