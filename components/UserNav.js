@@ -101,6 +101,7 @@ export default function UserNav() {
   const [myIdentities, setMyIdentities] = useState([])         // 已有身份
   const [unreadMsgs, setUnreadMsgs] = useState(0)              // 未读站内信
   const [partnerPageMissing, setPartnerPageMissing] = useState(false) // partner 身份但没建机构页
+  const [artistPageMissing, setArtistPageMissing] = useState(false)   // artist 身份但没建艺术家页
   const menuRef = useRef(null)
 
   // 笺语弹窗状态
@@ -124,6 +125,7 @@ export default function UserNav() {
         setUser(null); setUserData(null); setSignedToday(null)
         setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
         setPartnerPageMissing(false)
+        setArtistPageMissing(false)
       }
     })
     return () => subscription.unsubscribe()
@@ -179,6 +181,15 @@ export default function UserNav() {
       } else {
         setPartnerPageMissing(false)
       }
+
+      // 如果是 artist 身份,额外查艺术家页状态
+      const isArtist = (idsRes.data || []).some(i => i.identity_type === 'artist')
+      if (isArtist) {
+        const { data: aRec } = await supabase.rpc('my_artist_record')
+        setArtistPageMissing(!aRec || aRec.length === 0)
+      } else {
+        setArtistPageMissing(false)
+      }
     } catch (e) { console.warn('identity state:', e) }
   }
 
@@ -187,6 +198,7 @@ export default function UserNav() {
     setUser(null); setUserData(null); setSignedToday(null); setShowMenu(false)
     setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
     setPartnerPageMissing(false)
+    setArtistPageMissing(false)
     router.push('/')
   }
 
@@ -286,8 +298,9 @@ export default function UserNav() {
   // - 有未读站内信
   // - 从未申请过任何身份 (引导新用户去申请)
   // - partner 身份但没建机构页
+  // - artist 身份但没建艺术家页
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
-  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing
+  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing
 
   return (
     <>
@@ -390,13 +403,16 @@ export default function UserNav() {
                 {hasPendingApp && (
                   <span className="text-xs" style={{ color: '#B45309' }}>审核中</span>
                 )}
-                {!hasPendingApp && partnerPageMissing && (
-                  <span className="text-xs" style={{ color: '#F59E0B' }}>机构页待创建</span>
+                {!hasPendingApp && (partnerPageMissing || artistPageMissing) && (
+                  <span className="text-xs" style={{ color: '#F59E0B' }}>
+                    {partnerPageMissing && artistPageMissing ? '主页待创建' :
+                     partnerPageMissing ? '机构页待创建' : '艺术家页待创建'}
+                  </span>
                 )}
-                {!hasPendingApp && noIdentityYet && !partnerPageMissing && (
+                {!hasPendingApp && noIdentityYet && !partnerPageMissing && !artistPageMissing && (
                   <span className="text-xs" style={{ color: '#DC2626' }}>●</span>
                 )}
-                {myIdentities.length > 0 && !hasPendingApp && !partnerPageMissing && (
+                {myIdentities.length > 0 && !hasPendingApp && !partnerPageMissing && !artistPageMissing && (
                   <span className="text-xs" style={{ color: '#9CA3AF' }}>{myIdentities.length} 个</span>
                 )}
               </a>
