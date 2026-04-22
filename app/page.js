@@ -19,7 +19,8 @@ async function getData() {
   }
 
   const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').order('created_at', { ascending: false }).limit(8)
-  const { data: artists } = await supabase.from('artists').select('*, users(*)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
+  // 明确指定通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
+  const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
