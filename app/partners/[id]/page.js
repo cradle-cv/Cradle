@@ -12,9 +12,10 @@ async function getPartner(id) {
     .single()
   if (!partner) return null
 
+  // 明确指定嵌套 join 的外键:artists:owner_user_id (整合后 artists 有两个外键指向 users)
   const { data: partnerArtists } = await supabase
     .from('partner_artists')
-    .select('*, artists(*, users(*))')
+    .select('*, artists(*, users:owner_user_id(id, username, avatar_url))')
     .eq('partner_id', id)
 
   const { data: partnerArtworks } = await supabase
