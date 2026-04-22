@@ -30,6 +30,8 @@ export default function EditArtistPage({ params }) {
     artworks_count: 0,
     followers_count: 0
   })
+  const [managedBy, setManagedBy] = useState('admin')
+  const [ownerUserId, setOwnerUserId] = useState(null)
 
   useEffect(() => {
     async function init() {
@@ -50,12 +52,12 @@ export default function EditArtistPage({ params }) {
 
   async function loadArtist(id) {
     try {
-      // 加载艺术家信息
+      // 明确通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
       const { data: artist, error } = await supabase
         .from('artists')
         .select(`
           *,
-          users(id, email, username, role)
+          users:owner_user_id(id, email, username, role)
         `)
         .eq('id', id)
         .single()
@@ -63,6 +65,9 @@ export default function EditArtistPage({ params }) {
       if (error) throw error
 
       if (artist) {
+        setManagedBy(artist.managed_by || 'admin')
+        setOwnerUserId(artist.owner_user_id)
+
         setFormData({
           display_name: artist.display_name || '',
           specialty: artist.specialty || '',
@@ -157,21 +162,16 @@ export default function EditArtistPage({ params }) {
 
       if (artistError) throw artistError
 
-      // 2. 更新用户信息
-      const { data: artistData } = await supabase
-        .from('artists')
-        .select('user_id')
-        .eq('id', artistId)
-        .single()
-
-      if (artistData?.user_id) {
+      // 2. 更新关联的 users 表(通过 owner_user_id,兜底查 user_id)
+      // 同步 username 和 avatar_url 到 users 表,方便前台统一用
+      if (ownerUserId) {
         const { error: userError } = await supabase
           .from('users')
           .update({
             username: formData.username || formData.display_name,
             avatar_url: formData.avatar_url
           })
-          .eq('id', artistData.user_id)
+          .eq('id', ownerUserId)
 
         if (userError) throw userError
       }
@@ -233,7 +233,19 @@ export default function EditArtistPage({ params }) {
         >
           ← 返回艺术家列表
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">编辑艺术家</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">编辑艺术家</h1>
+          {managedBy === 'user' && (
+            <span className="px-3 py-1 bg-purple-50 text-purple-700 text-xs rounded-full">
+              用户自建
+            </span>
+          )}
+          {managedBy === 'admin' && (
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+              后台创建
+            </span>
+          )}
+        </div>
         <p className="text-gray-600 mt-1">修改艺术家信息</p>
       </div>
 
@@ -264,40 +276,48 @@ export default function EditArtistPage({ params }) {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🔐 账号信息</h2>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    登录邮箱
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    disabled
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-gray-100 text-gray-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">邮箱不可修改</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    用户名
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    <strong>💡 提示：</strong> 密码修改请联系技术支持，或让艺术家使用"忘记密码"功能。
+              {!ownerUserId ? (
+                <div className="p-4 rounded-lg" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+                  <p className="text-sm" style={{ color: '#92400E' }}>
+                    此艺术家条目未关联用户账号（纯展示艺术家,如历史名家）
                   </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      登录邮箱
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-gray-100 text-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">邮箱不可修改</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      用户名
+                    </label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>💡 提示：</strong> 密码修改请联系技术支持，或让艺术家使用"忘记密码"功能。
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 艺术家信息 */}
