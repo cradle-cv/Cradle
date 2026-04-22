@@ -15,6 +15,12 @@ export default function AdminUserDetailPage() {
   const [avatarPreview, setAvatarPreview] = useState('')
   const [activeTab, setActiveTab] = useState('info')
 
+  // 身份相关状态 (新系统)
+  const [userIdentities, setUserIdentities] = useState([])  // 该用户已有的身份列表
+  const [grantingArtist, setGrantingArtist] = useState(false)
+  const [revokingIdentity, setRevokingIdentity] = useState(null) // 当前撤销中的 identity_type
+  const [artistRecord, setArtistRecord] = useState(null)  // 该用户的 artists 表记录
+
   const [form, setForm] = useState({
     username: '', email: '', phone: '', bio: '',
     location: '', gender: 'private', birthday: '',
@@ -24,7 +30,6 @@ export default function AdminUserDetailPage() {
     admin_note: '', total_points: 0, level: 1
   })
 
-  // 用户活动数据
   const [progress, setProgress] = useState([])
   const [comments, setComments] = useState([])
   const [points, setPoints] = useState([])
@@ -46,6 +51,19 @@ export default function AdminUserDetailPage() {
         total_points: u.total_points || 0, level: u.level || 1
       })
       if (u.avatar_url) setAvatarPreview(u.avatar_url)
+
+      // 查用户已有身份(来自 user_identities)
+      const { data: identities } = await supabase.from('user_identities')
+        .select('identity_type, is_active, granted_at, granted_by, revoked_at')
+        .eq('user_id', id)
+      setUserIdentities(identities || [])
+
+      // 查该用户的 artists 条目
+      const { data: artistRec } = await supabase.from('artists')
+        .select('id, display_name, managed_by, owner_user_id')
+        .eq('owner_user_id', id)
+        .maybeSingle()
+      setArtistRecord(artistRec || null)
 
       // 加载活动数据
       const { data: pg } = await supabase.from('user_gallery_progress')
@@ -126,8 +144,8 @@ export default function AdminUserDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm('⚠️ 确定删除此用户？此操作不可恢复！')) return
-    if (!confirm('再次确认：删除后该用户的所有数据（积分、进度、评论）都会丢失')) return
+    if (!confirm('⚠️ 确定删除此用户?此操作不可恢复!')) return
+    if (!confirm('再次确认:删除后该用户的所有数据(积分、进度、评论)都会丢失')) return
     try {
       const { error } = await supabase.from('users').delete().eq('id', id)
       if (error) throw error
@@ -135,6 +153,42 @@ export default function AdminUserDetailPage() {
       router.push('/admin/users')
     } catch (err) {
       alert('删除失败: ' + err.message)
+    }
+  }
+
+  // 手动授予艺术家身份
+  async function grantArtist() {
+    if (!confirm(`确定授予「${form.username || '此用户'}」艺术家身份?\n\n此操作会:\n1. 在身份系统中记录艺术家身份\n2. 向用户发送委任状站内信\n3. 用户可立即使用艺术家功能\n\n不会自动创建 artists 表条目。如需要公开展示,你可以手动去 "artists 表管理" 创建。`)) return
+    setGrantingArtist(true)
+    try {
+      const { error } = await supabase.rpc('admin_grant_artist_identity', { p_user_id: id })
+      if (error) throw error
+      alert('✅ 艺术家身份已授予,已发送委任状')
+      await loadUser()
+    } catch (err) {
+      alert('授予失败: ' + err.message)
+    } finally {
+      setGrantingArtist(false)
+    }
+  }
+
+  // 撤销身份
+  async function revokeIdentity(identityType) {
+    const labels = { artist: '艺术家', curator: '策展人', partner: '合作伙伴' }
+    if (!confirm(`确定撤销此用户的「${labels[identityType]}」身份?\n\n撤销后用户将失去相关功能权限。已创建的主页/机构页不会被删除。`)) return
+    setRevokingIdentity(identityType)
+    try {
+      const { error } = await supabase.rpc('admin_revoke_identity', {
+        p_user_id: id,
+        p_identity_type: identityType,
+      })
+      if (error) throw error
+      alert('✅ 身份已撤销')
+      await loadUser()
+    } catch (err) {
+      alert('撤销失败: ' + err.message)
+    } finally {
+      setRevokingIdentity(null)
     }
   }
 
@@ -155,6 +209,17 @@ export default function AdminUserDetailPage() {
   ]
 
   const inputCls = "w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900"
+
+  // 辅助:用户是否已有某身份
+  const hasIdentity = (type) =>
+    userIdentities.some(i => i.identity_type === type && i.is_active)
+
+  const identityLabels = { artist: '艺术家', curator: '策展人', partner: '合作伙伴' }
+  const identityColors = {
+    artist: { bg: '#F5F3FF', color: '#7C3AED' },
+    curator: { bg: '#EFF6FF', color: '#2563EB' },
+    partner: { bg: '#ECFDF5', color: '#059669' },
+  }
 
   return (
     <div>
@@ -178,7 +243,7 @@ export default function AdminUserDetailPage() {
       <div className="flex gap-2 mb-6 bg-white rounded-xl p-2 shadow-sm">
         {[
           { key: 'info', label: '📋 基本信息' },
-          { key: 'artist', label: '🎨 艺术家设置' },
+          { key: 'identity', label: '🎭 身份管理' },
           { key: 'activity', label: '📊 活动记录' },
           { key: 'admin', label: '🔧 管理操作' }
         ].map(t => (
@@ -191,20 +256,20 @@ export default function AdminUserDetailPage() {
         ))}
       </div>
 
-      {/* ===== Tab: 基本信息 ===== */}
+      {/* ===== Tab: 基本信息 (保持原样) ===== */}
       {activeTab === 'info' && (
         <div className="space-y-6">
-          {/* 头像 */}
+          {/* 密码重置 */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>🔑 重置密码</h2>
-            <p className="text-sm mb-3" style={{ color: '#6B7280' }}>为用户设置新密码，重置后用户需用新密码登录</p>
+            <p className="text-sm mb-3" style={{ color: '#6B7280' }}>为用户设置新密码,重置后用户需用新密码登录</p>
             <div className="flex gap-3">
-              <input id="newPassword" type="text" placeholder="输入新密码（至少6位）"
+              <input id="newPassword" type="text" placeholder="输入新密码(至少6位)"
                 className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900" />
               <button onClick={async () => {
                 const pwd = document.getElementById('newPassword').value
                 if (!pwd || pwd.length < 6) { alert('密码至少6位'); return }
-                if (!confirm(`确定将此用户密码重置为「${pwd}」？`)) return
+                if (!confirm(`确定将此用户密码重置为「${pwd}」?`)) return
                 const resp = await fetch('/api/admin/reset-password', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -220,6 +285,7 @@ export default function AdminUserDetailPage() {
               </button>
             </div>
           </div>
+
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>头像</h2>
             <div className="flex items-center gap-6">
@@ -252,7 +318,6 @@ export default function AdminUserDetailPage() {
             </div>
           </div>
 
-          {/* 基本资料 */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>基本资料</h2>
             <div className="grid md:grid-cols-2 gap-4">
@@ -300,7 +365,6 @@ export default function AdminUserDetailPage() {
             </div>
           </div>
 
-          {/* 兴趣标签 */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>兴趣标签</h2>
             {form.interests && form.interests.length > 0 ? (
@@ -317,11 +381,15 @@ export default function AdminUserDetailPage() {
         </div>
       )}
 
-      {/* ===== Tab: 艺术家设置 ===== */}
-      {activeTab === 'artist' && (
+      {/* ===== Tab: 身份管理 (新) ===== */}
+      {activeTab === 'identity' && (
         <div className="space-y-6">
+          {/* 用户类型(人的职能类别,决定后台权限) */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>用户类型</h2>
+            <h2 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>用户类型</h2>
+            <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>
+              控制用户的后台权限。不同于下面的"内容身份",这里决定用户是否是管理员。
+            </p>
             <div className="grid md:grid-cols-3 gap-3">
               {typeOptions.map(t => (
                 <button key={t.value} type="button"
@@ -336,18 +404,123 @@ export default function AdminUserDetailPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs mt-3" style={{ color: '#9CA3AF' }}>
+              ⚠️ 修改后记得点页面顶部的"保存修改"按钮
+            </p>
           </div>
 
+          {/* 内容身份(新系统 user_identities) */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>艺术家信息</h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="verified" checked={form.verified} onChange={handleChange}
-                    className="w-4 h-4 rounded" />
-                  <span className="text-sm font-medium" style={{ color: '#374151' }}>✅ 已认证艺术家</span>
-                </label>
+            <h2 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>内容身份</h2>
+            <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>
+              决定用户在 Cradle 平台上的"内容身份"(艺术家 / 策展人 / 合作伙伴)。用户可通过 /profile/apply 自行申请,你也可以手动授予。
+            </p>
+
+            {/* 已有身份展示 */}
+            {userIdentities.filter(i => i.is_active).length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {userIdentities.filter(i => i.is_active).map(i => {
+                  const c = identityColors[i.identity_type] || {}
+                  return (
+                    <div key={i.identity_type} className="flex items-center justify-between px-4 py-3 rounded-lg"
+                      style={{ backgroundColor: c.bg }}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: c.color }}>
+                          ✓ {identityLabels[i.identity_type]}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: c.color, opacity: 0.7 }}>
+                          授予于 {i.granted_at ? new Date(i.granted_at).toLocaleDateString('zh-CN') : '—'}
+                          {!i.granted_by && ' · 系统迁移'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => revokeIdentity(i.identity_type)}
+                        disabled={revokingIdentity === i.identity_type}
+                        className="text-xs px-3 py-1.5 rounded-lg transition"
+                        style={{
+                          color: '#DC2626',
+                          border: '0.5px solid #FECACA',
+                          opacity: revokingIdentity === i.identity_type ? 0.5 : 1,
+                        }}>
+                        {revokingIdentity === i.identity_type ? '撤销中…' : '撤销'}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
+            ) : (
+              <p className="text-sm mb-4" style={{ color: '#9CA3AF' }}>
+                该用户尚无任何内容身份
+              </p>
+            )}
+
+            {/* 授予艺术家身份按钮 */}
+            {!hasIdentity('artist') && (
+              <div className="p-4 rounded-lg" style={{ backgroundColor: '#FEFCE8', border: '0.5px solid #FDE68A' }}>
+                <p className="text-sm font-medium mb-1" style={{ color: '#713F12' }}>手动授予艺术家身份</p>
+                <p className="text-xs mb-3" style={{ color: '#854D0E', lineHeight: 1.7 }}>
+                  适用于你想要直接展示的艺术家(例如已知创作者、被邀请的嘉宾)。不走审核流程。
+                  授予后用户收到委任状站内信。<strong>不自动创建 artists 展示条目</strong>,如需要请在 artists 管理页手动建立。
+                </p>
+                <button
+                  type="button"
+                  onClick={grantArtist}
+                  disabled={grantingArtist}
+                  className="px-5 py-2 rounded-lg text-sm font-medium text-white transition"
+                  style={{
+                    backgroundColor: grantingArtist ? '#9CA3AF' : '#7C3AED',
+                    cursor: grantingArtist ? 'not-allowed' : 'pointer',
+                  }}>
+                  {grantingArtist ? '授予中…' : '🎨 授予艺术家身份'}
+                </button>
+              </div>
+            )}
+
+            {/* 如果有 artist 身份但没 artists 条目,提示 */}
+            {hasIdentity('artist') && !artistRecord && (
+              <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: '#FEF3C7', border: '0.5px solid #FCD34D' }}>
+                <p className="text-sm" style={{ color: '#92400E' }}>
+                  ⚠️ 该用户有艺术家身份,但尚未在 artists 表中创建公开展示条目。
+                  <br/>
+                  <span className="text-xs">该用户可自行在 /profile/my-artist/new 创建,或你手动去 artists 管理页创建。</span>
+                </p>
+              </div>
+            )}
+
+            {/* 如果有 artists 条目,显示关联 */}
+            {artistRecord && (
+              <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: '#F0FDF4', border: '0.5px solid #BBF7D0' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: '#065F46' }}>
+                  艺术家公开主页已关联
+                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm" style={{ color: '#064E3B' }}>
+                      {artistRecord.display_name}
+                      <span className="text-xs ml-2" style={{ color: '#059669' }}>
+                        {artistRecord.managed_by === 'user' ? '用户自建' : '后台建'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href={`/artists/${artistRecord.id}`} target="_blank"
+                      className="text-xs px-3 py-1.5 rounded-lg" style={{ color: '#059669', border: '0.5px solid #BBF7D0' }}>
+                      预览 ↗
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 老的艺术家字段(users 表上的 artist_statement / portfolio_url) */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>艺术家补充信息 <span className="text-xs font-normal" style={{ color: '#9CA3AF' }}>(老字段)</span></h2>
+            <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>
+              这些字段存在 users 表上,是早期"艺术家认证"功能遗留。新系统下主要信息在 artists 表。
+            </p>
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>艺术宣言</label>
                 <textarea name="artist_statement" value={form.artist_statement} onChange={handleChange}
@@ -363,10 +536,9 @@ export default function AdminUserDetailPage() {
         </div>
       )}
 
-      {/* ===== Tab: 活动记录 ===== */}
+      {/* ===== Tab: 活动记录 (保持原样) ===== */}
       {activeTab === 'activity' && (
         <div className="space-y-6">
-          {/* 数据概览 */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white rounded-lg shadow p-5 text-center">
               <div className="text-2xl font-bold" style={{ color: '#B45309' }}>⭐ {form.total_points}</div>
@@ -382,7 +554,6 @@ export default function AdminUserDetailPage() {
             </div>
           </div>
 
-          {/* 作品进度 */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>作品探索记录</h2>
             {progress.length === 0 ? (
@@ -411,7 +582,6 @@ export default function AdminUserDetailPage() {
             )}
           </div>
 
-          {/* 短评 */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>短评记录</h2>
             {comments.length === 0 ? (
@@ -440,7 +610,7 @@ export default function AdminUserDetailPage() {
         </div>
       )}
 
-      {/* ===== Tab: 管理操作 ===== */}
+      {/* ===== Tab: 管理操作 (保持原样) ===== */}
       {activeTab === 'admin' && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow p-6">
@@ -483,7 +653,7 @@ export default function AdminUserDetailPage() {
 
           <div className="bg-white rounded-lg shadow p-6 border-2" style={{ borderColor: '#FCA5A5' }}>
             <h2 className="text-lg font-bold mb-2" style={{ color: '#DC2626' }}>⚠️ 危险操作</h2>
-            <p className="text-sm mb-4" style={{ color: '#6B7280' }}>删除用户后，其所有数据（积分、进度、评论）将永久丢失</p>
+            <p className="text-sm mb-4" style={{ color: '#6B7280' }}>删除用户后,其所有数据(积分、进度、评论)将永久丢失</p>
             <button onClick={handleDelete}
               className="px-6 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
