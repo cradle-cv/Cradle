@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase'
 import UserNav from '@/components/UserNav'
 
 async function getArtists() {
+  // 明确通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
   const { data: artists } = await supabase
     .from('artists')
-    .select('*, users(*)')
+    .select('*, users:owner_user_id(id, username, avatar_url)')
     .order('created_at', { ascending: false })
 
   return artists || []
@@ -111,9 +112,9 @@ export default async function ArtistsPage() {
                 >
                   {/* 头像 */}
                   <div className="w-36 h-36 rounded-full mx-auto mb-5 overflow-hidden bg-gray-50 border-3 border-transparent group-hover:border-[#F59E0B] transition-all shadow-md group-hover:shadow-xl flex items-center justify-center text-gray-400">
-                    {artist.users?.avatar_url || artist.avatar_url ? (
+                    {artist.avatar_url || artist.users?.avatar_url ? (
                       <img
-                        src={artist.users?.avatar_url || artist.avatar_url}
+                        src={artist.avatar_url || artist.users?.avatar_url}
                         alt={artist.display_name}
                         className="w-full h-full object-cover"
                       />
@@ -128,7 +129,7 @@ export default async function ArtistsPage() {
                   </h3>
 
                   {/* 认证标签 */}
-                  {artist.is_verified && (
+                  {artist.verified_at && (
                     <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full mb-2">
                       ✓ 认证艺术家
                     </span>
