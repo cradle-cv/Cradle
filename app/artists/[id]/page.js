@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 
 async function getArtist(id) {
+  // 明确通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
   const { data: artist } = await supabase
     .from('artists')
-    .select('*, users(*)')
+    .select('*, users:owner_user_id(id, username, avatar_url)')
     .eq('id', id)
     .single()
 
@@ -68,15 +69,22 @@ export default async function ArtistDetailPage({ params }) {
         </div>
       </nav>
 
+      {/* 封面 Banner（新字段 cover_image,仅在有值时显示） */}
+      {artist.cover_image && (
+        <section className="w-full" style={{ aspectRatio: '21 / 9', maxHeight: '480px', overflow: 'hidden' }}>
+          <img src={artist.cover_image} alt={artist.display_name} className="w-full h-full object-cover" />
+        </section>
+      )}
+
       {/* 艺术家头部 */}
       <section className="py-16 px-6 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-start gap-10">
             {/* 头像 */}
             <div className="w-48 h-48 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 shadow-lg">
-              {artist.users?.avatar_url || artist.avatar_url ? (
+              {artist.avatar_url || artist.users?.avatar_url ? (
                 <img
-                  src={artist.users?.avatar_url || artist.avatar_url}
+                  src={artist.avatar_url || artist.users?.avatar_url}
                   alt={artist.display_name}
                   className="w-full h-full object-cover"
                 />
@@ -91,7 +99,7 @@ export default async function ArtistDetailPage({ params }) {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-4xl font-bold text-gray-900">{artist.display_name}</h1>
-                {artist.is_verified && (
+                {artist.verified_at && (
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
                     ✓ 认证艺术家
                   </span>
