@@ -69,6 +69,17 @@ const SECTIONS = [
     ],
   },
   {
+    key: 'invitations',
+    icon: '📯',
+    label: '邀请函',
+    sub: '官方发起 · 策展人发起',
+    prefixes: ['/admin/invitations'],
+    links: [
+      { href: '/admin/invitations', icon: '📋', label: '邀请函管理', matchExact: (p) => p === '/admin/invitations' },
+      { href: '/admin/invitations/new', icon: '📯', label: '发起官方邀请函' },
+    ],
+  },
+  {
     key: 'users',
     icon: '👥',
     label: '用户管理',
