@@ -36,13 +36,14 @@ export default function AdminArtistsPage() {
   }
 
   async function loadArtists() {
+    // 明确通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
     const { data } = await supabase
       .from('artists')
       .select(`
         *,
-        users(id, email, username, role)
+        users:owner_user_id(id, email, username, role)
       `)
-.order('display_order', { ascending: true })
+      .order('display_order', { ascending: true })
     setArtists(data || [])
     setLoading(false)
   }
@@ -134,9 +135,14 @@ export default function AdminArtistsPage() {
                         ✓ 已认证
                       </span>
                     )}
+                    {artist.managed_by === 'user' && (
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full">
+                        用户自建
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>📧 {artist.users?.email || '无邮箱'}</span>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
+                    <span>📧 {artist.users?.email || '—'}</span>
                     <span>🎨 {artist.specialty || '未设置专长'}</span>
                     <span>📚 {artist.artworks_count || 0} 件作品</span>
                     <span>❤️ {artist.followers_count || 0} 关注者</span>
