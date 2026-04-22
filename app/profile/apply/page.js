@@ -34,6 +34,8 @@ export default function ApplyOverviewPage() {
   })
   // 合作伙伴条目 (如果已创建)
   const [partnerRecord, setPartnerRecord] = useState(null)
+  // 艺术家条目 (如果已创建)
+  const [artistRecord, setArtistRecord] = useState(null)
   // 资料未完善的字段列表 (空数组=已完善)
   const [missingFields, setMissingFields] = useState([])
 
@@ -112,6 +114,14 @@ export default function ApplyOverviewPage() {
       const { data: pRec } = await supabase.rpc('my_partner_record')
       if (pRec && pRec.length > 0) {
         setPartnerRecord(pRec[0])
+      }
+    }
+
+    // 如果是 artist approved,查艺术家条目
+    if (status.artist.state === 'approved') {
+      const { data: aRec } = await supabase.rpc('my_artist_record')
+      if (aRec && aRec.length > 0) {
+        setArtistRecord(aRec[0])
       }
     }
 
@@ -276,7 +286,7 @@ export default function ApplyOverviewPage() {
 
                 <div className="mt-5">
                   {isApproved ? (
-                    // approved 状态:partner 特殊处理(创建/管理机构页)
+                    // approved 状态:partner / artist 特殊处理(创建/管理主页)
                     t === 'partner' ? (
                       partnerRecord ? (
                         <div className="space-y-2">
@@ -306,6 +316,47 @@ export default function ApplyOverviewPage() {
                           </p>
                           <Link
                             href="/profile/my-partner/new"
+                            className="block w-full text-center py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                            style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
+                            立即创建 →
+                          </Link>
+                        </div>
+                      )
+                    ) : t === 'artist' ? (
+                      artistRecord ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-center" style={{ color: '#10B981' }}>
+                            ✓ 艺术家主页已创建:{artistRecord.display_name}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Link
+                              href="/profile/my-artist/edit"
+                              className="block text-center py-2 rounded-lg text-sm transition hover:opacity-90"
+                              style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
+                              管理
+                            </Link>
+                            <Link
+                              href={`/artists/${artistRecord.id}`}
+                              target="_blank"
+                              className="block text-center py-2 rounded-lg text-sm transition"
+                              style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+                              预览
+                            </Link>
+                          </div>
+                          <Link
+                            href="/admin/artworks"
+                            className="block w-full text-center py-2 rounded-lg text-xs transition"
+                            style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
+                            → 进入艺术家工作台
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-center" style={{ color: '#F59E0B' }}>
+                            艺术家主页待创建
+                          </p>
+                          <Link
+                            href="/profile/my-artist/new"
                             className="block w-full text-center py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
                             style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
                             立即创建 →
@@ -344,7 +395,7 @@ export default function ApplyOverviewPage() {
 
         <div className="mt-8 p-5 rounded-xl" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
           <p className="text-xs leading-relaxed" style={{ color: '#6B7280', lineHeight: 1.8 }}>
-            · 审核由摇篮自己处理,通常在 1–3 天内回复。<br/>
+            · 审核由 Cradle 摇篮处理,通常在 1–3 天内回复。<br/>
             · 每次申请请尽量完整填写。审核通过后,你会在站内信里收到一张"摇篮委任状"。<br/>
             · 如果被驳回,你可以根据审核意见补充材料后再次提交。
           </p>
