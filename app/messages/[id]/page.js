@@ -1,9 +1,9 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import IdentityCertificate from '@/components/IdentityCertificate'
 
 const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
 
@@ -28,6 +28,7 @@ export default function MessageDetailPage() {
   const [userData, setUserData] = useState(null)
   const [message, setMessage] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [certData, setCertData] = useState(null)  // 证书数据:{ username, identity_type, granted_at, serial_number }
 
   useEffect(() => {
     if (!id) return
@@ -71,6 +72,22 @@ export default function MessageDetailPage() {
     }
 
     setMessage(msg)
+
+    // 如果 payload 里有 identity_type,查证书数据
+    if (msg.payload?.identity_type && msg.to_user_id) {
+      try {
+        const { data: cert } = await supabase.rpc('get_identity_certificate', {
+          p_user_id: msg.to_user_id,
+          p_identity_type: msg.payload.identity_type,
+        })
+        if (cert && cert.length > 0) {
+          setCertData(cert[0])
+        }
+      } catch (e) {
+        console.warn('cert fetch:', e)
+      }
+    }
+
     setLoading(false)
 
     // 如果是收件人且未读,自动标记已读
@@ -210,8 +227,18 @@ export default function MessageDetailPage() {
               {message.body}
             </div>
 
-            {/* 委任状 payload 渲染 */}
-            {identityType && (
+            {/* 认证书:有 certData 就用正式证书,否则 fallback 到简单卡片 */}
+            {identityType && certData && (
+              <div className="mt-8">
+                <IdentityCertificate
+                  username={certData.username}
+                  identityType={certData.identity_type}
+                  grantedAt={certData.granted_at}
+                  serialNumber={certData.serial_number}
+                />
+              </div>
+            )}
+            {identityType && !certData && (
               <div className="mt-8 p-6 rounded-xl" style={{ backgroundColor: '#FEFCE8', border: '0.5px solid #FDE68A' }}>
                 <p className="text-xs mb-3" style={{ color: '#854D0E', letterSpacing: '3px' }}>IDENTITY GRANTED</p>
                 <p className="text-lg font-bold" style={{ color: '#713F12' }}>
