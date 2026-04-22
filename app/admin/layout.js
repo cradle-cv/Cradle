@@ -108,8 +108,8 @@ function AdminLayoutContent({ children }) {
                   <NavLink href="/admin/users" icon="👤" active={pathname.startsWith('/admin/users')}>
                     用户列表
                   </NavLink>
-                  <NavLink href="/admin/artist-reviews" icon="🎨" active={pathname.startsWith('/admin/artist-reviews')}>
-                    艺术家审核
+                  <NavLink href="/admin/identity-review" icon="🎭" active={pathname.startsWith('/admin/identity-review') || pathname.startsWith('/admin/artist-reviews')}>
+                    身份审核
                   </NavLink>
 
                   {/* ═══ 系统设置 ═══ */}
