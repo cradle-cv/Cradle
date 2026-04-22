@@ -17,7 +17,7 @@ export default function AdminUserDetailPage() {
 
   // 身份相关状态 (新系统)
   const [userIdentities, setUserIdentities] = useState([])  // 该用户已有的身份列表
-  const [grantingArtist, setGrantingArtist] = useState(false)
+  const [grantingArtist, setGrantingArtist] = useState(null) // 当前授予中的 identity_type
   const [revokingIdentity, setRevokingIdentity] = useState(null) // 当前撤销中的 identity_type
   const [artistRecord, setArtistRecord] = useState(null)  // 该用户的 artists 表记录
 
@@ -156,19 +156,39 @@ export default function AdminUserDetailPage() {
     }
   }
 
-  // 手动授予艺术家身份
-  async function grantArtist() {
-    if (!confirm(`确定授予「${form.username || '此用户'}」艺术家身份?\n\n此操作会:\n1. 在身份系统中记录艺术家身份\n2. 向用户发送委任状站内信\n3. 用户可立即使用艺术家功能\n\n不会自动创建 artists 表条目。如需要公开展示,你可以手动去 "artists 表管理" 创建。`)) return
-    setGrantingArtist(true)
+  // 手动授予身份(通用)
+  async function grantIdentity(identityType) {
+    const labels = { artist: '艺术家', curator: '策展人', partner: '合作伙伴' }
+    const rpcs = {
+      artist: 'admin_grant_artist_identity',
+      curator: 'admin_grant_curator_identity',
+      partner: 'admin_grant_partner_identity',
+    }
+    const notes = {
+      artist: '不会自动创建 artists 表条目。如需要公开展示,请在 artists 管理页手动创建。',
+      curator: '授予后用户可立即发起邀请函、策划展览。',
+      partner: '授予后用户可以在 Cradle 承办展览。他们需要自行去"我的机构页"完成展示档案。',
+    }
+
+    if (!confirm(
+      `确定授予「${form.username || '此用户'}」${labels[identityType]}身份?\n\n`
+      + `此操作会:\n`
+      + `1. 在身份系统中记录 ${labels[identityType]} 身份\n`
+      + `2. 向用户发送摇篮认证书站内信\n`
+      + `3. 用户可立即使用${labels[identityType]}功能\n\n`
+      + notes[identityType]
+    )) return
+
+    setGrantingArtist(identityType)
     try {
-      const { error } = await supabase.rpc('admin_grant_artist_identity', { p_user_id: id })
+      const { error } = await supabase.rpc(rpcs[identityType], { p_user_id: id })
       if (error) throw error
-      alert('✅ 艺术家身份已授予,已发送委任状')
+      alert(`✅ ${labels[identityType]}身份已授予,已发送摇篮认证书`)
       await loadUser()
     } catch (err) {
       alert('授予失败: ' + err.message)
     } finally {
-      setGrantingArtist(false)
+      setGrantingArtist(null)
     }
   }
 
@@ -455,25 +475,82 @@ export default function AdminUserDetailPage() {
               </p>
             )}
 
-            {/* 授予艺术家身份按钮 */}
-            {!hasIdentity('artist') && (
-              <div className="p-4 rounded-lg" style={{ backgroundColor: '#FEFCE8', border: '0.5px solid #FDE68A' }}>
-                <p className="text-sm font-medium mb-1" style={{ color: '#713F12' }}>手动授予艺术家身份</p>
-                <p className="text-xs mb-3" style={{ color: '#854D0E', lineHeight: 1.7 }}>
-                  适用于你想要直接展示的艺术家(例如已知创作者、被邀请的嘉宾)。不走审核流程。
-                  授予后用户收到委任状站内信。<strong>不自动创建 artists 展示条目</strong>,如需要请在 artists 管理页手动建立。
+            {/* 手动授予身份 - 三个身份 */}
+            {(!hasIdentity('artist') || !hasIdentity('curator') || !hasIdentity('partner')) && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium" style={{ color: '#374151' }}>手动授予身份</p>
+                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                  直接为此用户授予对应身份,不走申请审核流程。授予后会发送摇篮认证书站内信。
                 </p>
-                <button
-                  type="button"
-                  onClick={grantArtist}
-                  disabled={grantingArtist}
-                  className="px-5 py-2 rounded-lg text-sm font-medium text-white transition"
-                  style={{
-                    backgroundColor: grantingArtist ? '#9CA3AF' : '#7C3AED',
-                    cursor: grantingArtist ? 'not-allowed' : 'pointer',
-                  }}>
-                  {grantingArtist ? '授予中…' : '🎨 授予艺术家身份'}
-                </button>
+
+                {/* 艺术家 */}
+                {!hasIdentity('artist') && (
+                  <div className="p-4 rounded-lg flex items-center justify-between" style={{ backgroundColor: '#F5F3FF', border: '0.5px solid #DDD6FE' }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: '#5B21B6' }}>🎨 艺术家</p>
+                      <p className="text-xs mt-1" style={{ color: '#7C3AED', opacity: 0.8 }}>
+                        适用于你想直接展示的艺术家(历史名家、邀请嘉宾)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => grantIdentity('artist')}
+                      disabled={grantingArtist === 'artist'}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white transition"
+                      style={{
+                        backgroundColor: grantingArtist === 'artist' ? '#9CA3AF' : '#7C3AED',
+                        cursor: grantingArtist === 'artist' ? 'not-allowed' : 'pointer',
+                      }}>
+                      {grantingArtist === 'artist' ? '授予中…' : '授予'}
+                    </button>
+                  </div>
+                )}
+
+                {/* 策展人 */}
+                {!hasIdentity('curator') && (
+                  <div className="p-4 rounded-lg flex items-center justify-between" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: '#1E40AF' }}>🖼️ 策展人</p>
+                      <p className="text-xs mt-1" style={{ color: '#2563EB', opacity: 0.8 }}>
+                        授予后可发起邀请函、策划展览
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => grantIdentity('curator')}
+                      disabled={grantingArtist === 'curator'}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white transition"
+                      style={{
+                        backgroundColor: grantingArtist === 'curator' ? '#9CA3AF' : '#2563EB',
+                        cursor: grantingArtist === 'curator' ? 'not-allowed' : 'pointer',
+                      }}>
+                      {grantingArtist === 'curator' ? '授予中…' : '授予'}
+                    </button>
+                  </div>
+                )}
+
+                {/* 合作伙伴 */}
+                {!hasIdentity('partner') && (
+                  <div className="p-4 rounded-lg flex items-center justify-between" style={{ backgroundColor: '#ECFDF5', border: '0.5px solid #BBF7D0' }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: '#065F46' }}>🤝 合作伙伴</p>
+                      <p className="text-xs mt-1" style={{ color: '#059669', opacity: 0.8 }}>
+                        授予后可承办展览。用户需要自行完成机构页
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => grantIdentity('partner')}
+                      disabled={grantingArtist === 'partner'}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white transition"
+                      style={{
+                        backgroundColor: grantingArtist === 'partner' ? '#9CA3AF' : '#059669',
+                        cursor: grantingArtist === 'partner' ? 'not-allowed' : 'pointer',
+                      }}>
+                      {grantingArtist === 'partner' ? '授予中…' : '授予'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
