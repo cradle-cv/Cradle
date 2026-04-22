@@ -20,7 +20,8 @@ export default function NewArtistPage() {
     avatar_url: '',
     verified_at: null,
     email: '',
-    username: ''
+    username: '',
+    createUserAccount: true,  // 新:是否创建可登录账号
   })
 
   const handleFileSelect = async (e) => {
@@ -56,54 +57,88 @@ export default function NewArtistPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.display_name || !formData.email) {
-      alert('请填写必填项！')
+    if (!formData.display_name) {
+      alert('请填写艺术家名称！')
+      return
+    }
+
+    // 如果要创建账号,邮箱必填
+    if (formData.createUserAccount && !formData.email) {
+      alert('勾选了"创建可登录账号"时,邮箱必填')
       return
     }
 
     setSaving(true)
 
     try {
-      // 检查邮箱是否已存在
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', formData.email)
-        .maybeSingle()
+      let newUserId = null
 
-      if (existingUser) {
-        throw new Error('该邮箱已存在')
+      // 步骤 1: (可选)创建 users 表记录
+      if (formData.createUserAccount) {
+        // 检查邮箱是否已存在
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', formData.email)
+          .maybeSingle()
+
+        if (existingUser) {
+          throw new Error('该邮箱已存在,请使用其他邮箱或选择"不创建账号"')
+        }
+
+        // 创建 users 表记录 - 注意:role='user' 不是 'artist'
+        // 艺术家身份现在通过 user_identities 表管理,不再依赖 role 字段
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert({
+            email: formData.email,
+            username: formData.username || formData.email.split('@')[0],
+            role: 'user',
+            user_type: 'user',
+          })
+          .select()
+          .single()
+
+        if (userError) throw userError
+        newUserId = newUser.id
+
+        // 步骤 2: 给这个新用户插入 artist 身份
+        const { error: identityError } = await supabase
+          .from('user_identities')
+          .insert({
+            user_id: newUserId,
+            identity_type: 'artist',
+            is_active: true,
+          })
+
+        if (identityError) {
+          console.error('插入身份失败(非致命):', identityError)
+          // 不 throw,继续往下走,主要记录在 artists 表
+        }
       }
 
-      // 创建 users 表记录
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert({
-          email: formData.email,
-          username: formData.username || formData.email.split('@')[0],
-          role: 'artist'
-        })
-        .select()
-        .single()
-
-      if (userError) throw userError
-
-      // 创建 artists 表记录
+      // 步骤 3: 创建 artists 表记录
+      // owner_user_id 在有账号时指向 newUserId,否则 NULL(纯展示艺术家,如历史名家)
       const { error: artistError } = await supabase
         .from('artists')
         .insert({
-          user_id: userData.id,
+          user_id: newUserId,              // 老字段兼容
+          owner_user_id: newUserId,        // 新字段:所有权
+          managed_by: 'admin',             // 标记为后台创建
           display_name: formData.display_name,
           specialty: formData.specialty,
           intro: formData.intro,
           philosophy: formData.philosophy,
           avatar_url: formData.avatar_url,
-          verified_at: formData.verified_at
+          verified_at: formData.verified_at,
         })
 
       if (artistError) throw artistError
 
-      alert('✅ 艺术家创建成功！\n\n艺术家可以访问登录页面，使用"忘记密码"功能设置登录密码。')
+      const msg = formData.createUserAccount
+        ? '✅ 艺术家创建成功!\n\n艺术家可以访问登录页面,使用"忘记密码"功能设置登录密码。'
+        : '✅ 艺术家创建成功!\n\n这是一个纯展示艺术家(如历史名家),没有登录账号。'
+      alert(msg)
       router.push('/admin/artists')
     } catch (error) {
       console.error('Error:', error)
@@ -147,12 +182,43 @@ export default function NewArtistPage() {
           ← 返回艺术家列表
         </button>
         <h1 className="text-3xl font-bold text-gray-900">添加新艺术家</h1>
-        <p className="text-gray-600 mt-1">创建新的艺术家账户</p>
+        <p className="text-gray-600 mt-1">创建新的艺术家(支持纯展示艺术家和可登录艺术家)</p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-3 gap-8">
           <div className="col-span-2 space-y-6">
+            {/* 模式选择 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">📋 创建类型</h2>
+              <div className="grid md:grid-cols-2 gap-3">
+                <button type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, createUserAccount: false }))}
+                  className="p-4 rounded-xl border-2 text-left transition-all"
+                  style={{
+                    borderColor: !formData.createUserAccount ? '#111827' : '#E5E7EB',
+                    backgroundColor: !formData.createUserAccount ? '#F9FAFB' : '#FFFFFF'
+                  }}>
+                  <div className="font-bold mb-1" style={{ color: '#111827' }}>📚 纯展示艺术家</div>
+                  <div className="text-xs" style={{ color: '#9CA3AF' }}>
+                    适合历史名家、国际艺术家等不需要登录 Cradle 的创作者。不会创建账号。
+                  </div>
+                </button>
+                <button type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, createUserAccount: true }))}
+                  className="p-4 rounded-xl border-2 text-left transition-all"
+                  style={{
+                    borderColor: formData.createUserAccount ? '#111827' : '#E5E7EB',
+                    backgroundColor: formData.createUserAccount ? '#F9FAFB' : '#FFFFFF'
+                  }}>
+                  <div className="font-bold mb-1" style={{ color: '#111827' }}>👤 可登录艺术家</div>
+                  <div className="text-xs" style={{ color: '#9CA3AF' }}>
+                    创建登录账号 + 艺术家身份,艺术家可以自行登录管理作品。
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* 基本信息 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
@@ -261,44 +327,72 @@ export default function NewArtistPage() {
               </div>
             </div>
 
-            {/* 账户信息 */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">🔐 账户信息</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    登录邮箱 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="artist@example.com"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    艺术家将使用此邮箱登录
-                  </p>
-                </div>
+            {/* 账户信息(仅创建账号时显示) */}
+            {formData.createUserAccount && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">🔐 账户信息</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      登录邮箱 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required={formData.createUserAccount}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="artist@example.com"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      艺术家将使用此邮箱登录
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    用户名
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="不填则使用邮箱前缀"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      用户名
+                    </label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="不填则使用邮箱前缀"
+                    />
+                  </div>
 
-                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      name="verified_at"
+                      checked={!!formData.verified_at}
+                      onChange={(e) => setFormData(prev => ({ ...prev, verified_at: e.target.checked ? new Date().toISOString() : null }))}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <label className="text-sm font-medium text-gray-700">
+                      已认证艺术家（带蓝V标志）
+                    </label>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      💡 <strong>密码设置说明：</strong><br/>
+                      创建后，艺术家需要访问登录页面，点击"忘记密码"来设置自己的登录密码。系统会发送重置密码邮件到注册邮箱。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 纯展示艺术家提示 */}
+            {!formData.createUserAccount && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 其他设置</h2>
+                <div className="flex items-center gap-2 mb-4">
                   <input
                     type="checkbox"
                     name="verified_at"
@@ -310,15 +404,15 @@ export default function NewArtistPage() {
                     已认证艺术家（带蓝V标志）
                   </label>
                 </div>
-
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    💡 <strong>密码设置说明：</strong><br/>
-                    创建后，艺术家需要访问登录页面，点击"忘记密码"来设置自己的登录密码。系统会发送重置密码邮件到注册邮箱。
+                <div className="p-4 rounded-lg" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                  <p className="text-sm" style={{ color: '#1E40AF' }}>
+                    💡 <strong>纯展示艺术家</strong><br/>
+                    不会创建登录账号。适合历史名家、国际艺术家等。未来如需让 ta 登录 Cradle,
+                    可再手动关联账号。
                   </p>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* 右侧：设置 */}
@@ -351,10 +445,10 @@ export default function NewArtistPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="text-sm font-medium text-blue-900 mb-2">💡 创建提示</h3>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• 系统会自动创建账户信息</li>
-                <li>• 艺术家需通过"忘记密码"设置密码</li>
+                <li>• 纯展示艺术家:适合历史名家</li>
+                <li>• 可登录艺术家:会创建账号 + 艺术家身份</li>
                 <li>• 创建后可以添加作品和作品集</li>
-                <li>• 头像会自动上传到云存储</li>
+                <li>• 头像自动上传到云存储</li>
               </ul>
             </div>
           </div>
