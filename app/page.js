@@ -23,13 +23,12 @@ async function getData() {
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
-  // 首页邀请函 - 调用已有 RPC 返回首屏展示的邀请函(最多 3 个,只含 collecting 状态)
+  // 首页邀请函 - B3 混排:保证官方有曝光 + 策展人按时间穿插
   let homepageInvitations = []
   try {
     const { data: invs } = await supabase.rpc('get_homepage_invitations')
     homepageInvitations = invs || []
   } catch (e) {
-    // RPC 不存在时静默(不影响首页其他内容)
     console.error('get_homepage_invitations failed:', e)
   }
 
@@ -72,7 +71,7 @@ async function getData() {
   }
 }
 
-// ══════════════ 邀请函卡片组件 ══════════════
+// ══════════════ 邀请函小卡片(紧凑版,接在每日一展下面) ══════════════
 function daysRemaining(deadline) {
   if (!deadline) return null
   const now = new Date()
@@ -81,26 +80,27 @@ function daysRemaining(deadline) {
   return diff
 }
 
-function InvitationCard({ inv, large = false }) {
+function InvitationCompactCard({ inv }) {
   const days = daysRemaining(inv.deadline)
   const themeColor = inv.theme_color || '#8a7a5c'
   const isOfficial = inv.is_official
 
+  // C1 + γ:官方纯白底、策展人使用 theme_color 浅化(alpha 约 12%)做底
+  const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a` // 0x1a ≈ 10% opacity
+  const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66` // 40% opacity
+
   return (
     <a href={`/invitations/${inv.id}`} className="group block">
       <div
-        className="rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1"
+        className="rounded-xl overflow-hidden transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md"
         style={{
-          border: `1px solid ${themeColor}55`,
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          border: `1px solid ${cardBorder}`,
+          backgroundColor: cardBg,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}
       >
-        {/* 封面区 */}
-        <div
-          className="relative overflow-hidden"
-          style={{ aspectRatio: large ? '21 / 9' : '16 / 10' }}
-        >
+        {/* 封面 */}
+        <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
           {inv.cover_image ? (
             <img
               src={inv.cover_image}
@@ -108,38 +108,26 @@ function InvitationCard({ inv, large = false }) {
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
-            // 无封面时用主题色块作 fallback
             <div
               className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: themeColor }}
+              style={{ backgroundColor: isOfficial ? '#F3F4F6' : themeColor }}
             >
               <span
-                className="text-sm tracking-widest"
-                style={{ color: '#FFFFFF', opacity: 0.7, letterSpacing: '6px' }}
+                className="text-xs tracking-widest"
+                style={{ color: isOfficial ? '#9CA3AF' : '#FFFFFF', opacity: 0.7, letterSpacing: '6px' }}
               >
                 OPEN CALL
               </span>
             </div>
           )}
-          {/* 左上角主题色标签 */}
-          <div
-            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs"
-            style={{
-              backgroundColor: isOfficial ? 'rgba(26,26,26,0.8)' : `${themeColor}dd`,
-              color: '#FFFFFF',
-              backdropFilter: 'blur(4px)',
-            }}
-          >
-            {isOfficial ? 'Cradle 官方' : '策展人邀请'}
-          </div>
-          {/* 右上角倒计时 */}
+          {/* 倒计时 tag - 右上角 */}
           {days !== null && days >= 0 && (
             <div
-              className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs"
+              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs"
               style={{
                 backgroundColor: 'rgba(255,255,255,0.95)',
                 color: days <= 7 ? '#DC2626' : '#374151',
-                backdropFilter: 'blur(4px)',
+                fontSize: '11px',
               }}
             >
               {days === 0 ? '今日截止' : `还剩 ${days} 天`}
@@ -147,42 +135,27 @@ function InvitationCard({ inv, large = false }) {
           )}
         </div>
 
-        {/* 文字区 */}
-        <div className={large ? 'p-6 md:p-8' : 'p-5'}>
+        {/* 文字 */}
+        <div className="px-4 py-3">
+          {/* 发起方 tag + 标题 */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span
+              className="text-xs"
+              style={{
+                color: isOfficial ? '#111827' : themeColor,
+                fontWeight: 500,
+                letterSpacing: '1px',
+              }}
+            >
+              {isOfficial ? 'Cradle 官方' : '策展人邀请'}
+            </span>
+          </div>
           <h3
-            className={`font-bold mb-2 ${large ? 'text-xl md:text-2xl' : 'text-base md:text-lg'}`}
-            style={{ color: '#111827', lineHeight: 1.4 }}
+            className="text-sm md:text-base font-bold line-clamp-2"
+            style={{ color: '#111827', lineHeight: 1.5 }}
           >
             {inv.title}
           </h3>
-          {inv.description && (
-            <p
-              className={`${large ? 'text-sm md:text-base' : 'text-xs md:text-sm'}`}
-              style={{
-                color: '#6B7280',
-                lineHeight: 1.8,
-                display: '-webkit-box',
-                WebkitLineClamp: large ? 3 : 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {inv.description}
-            </p>
-          )}
-          <div className="mt-4 flex items-center justify-between">
-            <span
-              className="text-xs"
-              style={{ color: themeColor, letterSpacing: '2px' }}
-            >
-              查看详情 →
-            </span>
-            {inv.expected_count && (
-              <span className="text-xs" style={{ color: '#9CA3AF' }}>
-                预计入选 {inv.expected_count} 件
-              </span>
-            )}
-          </div>
         </div>
       </div>
     </a>
@@ -277,135 +250,96 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 每日一展 */}
-      {exhibition && (
+      {/* ══ 每日一展 + 邀请函(一体的 section,白底) ══ */}
+      {(exhibition || homepageInvitations.length > 0) && (
         <section id="daily" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
-            <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
-            <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="relative">
-                  <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
-                  <div className="aspect-[4/3]">
-                    <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
+            {/* 每日一展标题 */}
+            {exhibition && (
+              <>
+                <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
+                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
+
+                {/* 每日一展大卡片 */}
+                <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
+                  <div className="grid md:grid-cols-2 gap-0">
+                    <div className="relative">
+                      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
+                      <div className="aspect-[4/3]">
+                        <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                    <div className="p-6 md:p-10 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
+                        <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
+                          <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
+                        </div>
+                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
+                        <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
+                          {exhibition.start_date && (
+                            <div className="flex items-start gap-3">
+                              <span className="text-[#F59E0B]">📅</span>
+                              <div>
+                                <div className="text-xs md:text-sm text-gray-500">展期</div>
+                                <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
+                              </div>
+                            </div>
+                          )}
+                          {exhibition.location && (
+                            <div className="flex items-start gap-3">
+                              <span className="text-[#F59E0B]">📍</span>
+                              <div>
+                                <div className="text-xs md:text-sm text-gray-500">地点</div>
+                                <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
+                    </div>
                   </div>
                 </div>
-                <div className="p-6 md:p-10 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
-                    <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                      <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
-                    </div>
-                    <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
-                    <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
-                      {exhibition.start_date && (
-                        <div className="flex items-start gap-3">
-                          <span className="text-[#F59E0B]">📅</span>
-                          <div>
-                            <div className="text-xs md:text-sm text-gray-500">展期</div>
-                            <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
-                          </div>
-                        </div>
-                      )}
-                      {exhibition.location && (
-                        <div className="flex items-start gap-3">
-                          <span className="text-[#F59E0B]">📍</span>
-                          <div>
-                            <div className="text-xs md:text-sm text-gray-500">地点</div>
-                            <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
+              </>
+            )}
+
+            {/* 邀请函小卡片区 - 紧接每日一展下面,无大标题,视觉上是同一个 section 的延伸 */}
+            {homepageInvitations.length > 0 && (
+              <div className="mt-8 md:mt-10">
+                <div className={
+                  homepageInvitations.length === 1
+                    ? 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
+                    : homepageInvitations.length === 2
+                    ? 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'
+                    : 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
+                }>
+                  {homepageInvitations.map(inv => (
+                    <InvitationCompactCard key={inv.id} inv={inv} />
+                  ))}
+                  {/* 如果只有 1 份,用占位填满 3 列网格的话看起来奇怪,所以单卡片直接单独一行或居中 */}
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ══════════ 邀请函 · 接在每日一展下面,视觉上是"翻页"到下一张纸 ══════════ */}
-      {homepageInvitations.length > 0 && (
-        <section
-          id="invitations"
-          className="py-14 md:py-20 px-4 md:px-6"
-          style={{ backgroundColor: '#FAFAF7', scrollMarginTop: '80px' }}
-        >
-          <div className="max-w-6xl mx-auto">
-            {/* 极简居中标题 - 和每日一展的左对齐大标题区分开 */}
-            <div className="text-center mb-10 md:mb-14">
-              <div
-                style={{
-                  width: '40px',
-                  height: '1px',
-                  backgroundColor: '#8a7a5c',
-                  margin: '0 auto 20px',
-                  opacity: 0.5,
-                }}
-              />
-              <p
-                style={{
-                  fontSize: '11px',
-                  letterSpacing: '8px',
-                  color: '#8a7a5c',
-                  marginBottom: '8px',
-                }}
-              >
-                OPEN CALL
-              </p>
-              <h2
-                style={{
-                  fontSize: '28px',
-                  fontWeight: 500,
-                  color: '#111827',
-                  letterSpacing: '8px',
-                  marginBottom: '12px',
-                }}
-              >
-                邀 请 函
-              </h2>
-              <p
-                className="text-sm max-w-md mx-auto"
-                style={{ color: '#6B7280', lineHeight: 1.8 }}
-              >
-                来自 Cradle 和策展人的征集 —— 你的作品值得被看见
-              </p>
-              <div
-                style={{
-                  width: '40px',
-                  height: '1px',
-                  backgroundColor: '#8a7a5c',
-                  margin: '20px auto 0',
-                  opacity: 0.5,
-                }}
-              />
-            </div>
-
-            {/* 卡片网格 - 1 份时一张大卡,多份时并排 */}
-            {homepageInvitations.length === 1 ? (
-              <div className="max-w-4xl mx-auto">
-                <InvitationCard inv={homepageInvitations[0]} large />
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-                {homepageInvitations.map(inv => (
-                  <InvitationCard key={inv.id} inv={inv} />
-                ))}
               </div>
             )}
 
-            {/* 底部小链接 */}
-            <div className="text-center mt-10 md:mt-12">
-              <a
-                href="/invitations"
-                className="inline-block text-sm transition hover:opacity-70"
-                style={{ color: '#8a7a5c', letterSpacing: '2px' }}
-              >
-                查看所有邀请函 →
-              </a>
+            {/* E2 出口按钮组:查看更多展览 · 查看更多邀请函 */}
+            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
+              {exhibition && (
+                <a
+                  href="/exhibitions"
+                  className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+                >
+                  查看更多展览 →
+                </a>
+              )}
+              {homepageInvitations.length > 0 && (
+                <a
+                  href="/invitations"
+                  className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
+                >
+                  查看所有邀请函 →
+                </a>
+              )}
             </div>
           </div>
         </section>
