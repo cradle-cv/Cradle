@@ -1,74 +1,66 @@
-
 'use client'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
-
-const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
 
 const MEDIUM_LABELS = {
   painting: '绘画', photography: '摄影', sculpture: '雕塑',
   installation: '装置', digital: '数字艺术', video: '影像', mixed: '综合媒介',
 }
 
+function daysRemaining(deadline) {
+  if (!deadline) return null
+  return Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24))
+}
+
 export default function InvitationDetailPage() {
-  const params = useParams()
+  const { id } = useParams()
   const router = useRouter()
-  const id = params?.id
 
   const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
   const [invitation, setInvitation] = useState(null)
   const [stats, setStats] = useState(null)
-  const [userData, setUserData] = useState(null)
-  const [myIdentities, setMyIdentities] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
+  const [isArtist, setIsArtist] = useState(false)
   const [mySubmission, setMySubmission] = useState(null)
-  const [myPartnerApp, setMyPartnerApp] = useState(null)
 
-  useEffect(() => {
-    if (!id) return
-    init()
-  }, [id])
+  useEffect(() => { if (id) load() }, [id])
 
-  async function init() {
-    const { data: inv, error } = await supabase.from('invitations')
-      .select(`
-        *,
-        creator:users!invitations_creator_user_id_fkey(id, username, avatar_url, bio)
-      `)
-      .eq('id', id)
-      .maybeSingle()
-
-    if (error || !inv) {
-      setNotFound(true)
-      setLoading(false)
-      return
-    }
+  async function load() {
+    setLoading(true)
+    // 邀请函本体
+    const { data: inv } = await supabase.from('invitations')
+      .select('*, creator:creator_user_id(id, username, avatar_url)')
+      .eq('id', id).maybeSingle()
+    if (!inv) { setLoading(false); return }
     setInvitation(inv)
 
     // 统计
-    const { data: statsData } = await supabase.rpc('get_invitation_stats', { p_invitation_id: id })
-    if (statsData && statsData.length > 0) setStats(statsData[0])
+    try {
+      const { data: s } = await supabase.rpc('get_invitation_stats', { p_invitation_id: id })
+      setStats(s?.[0] || null)
+    } catch (e) { /* silent */ }
 
-    // 当前用户信息
+    // 当前用户
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const { data: u } = await supabase.from('users')
         .select('id, username, avatar_url').eq('auth_id', session.user.id).maybeSingle()
       if (u) {
-        setUserData(u)
-        // 身份
-        const { data: ids } = await supabase.rpc('my_identities')
-        setMyIdentities(ids || [])
-        // 是否已投稿
-        const { data: sub } = await supabase.rpc('my_submission_for', { p_invitation_id: id })
-        if (sub && sub.length > 0) setMySubmission(sub[0])
-        // 是否已报名(partner)
-        const { data: partnerApp } = await supabase.from('invitation_partner_applications')
-          .select('*').eq('invitation_id', id).eq('applicant_user_id', u.id).maybeSingle()
-        if (partnerApp) setMyPartnerApp(partnerApp)
+        setCurrentUser(u)
+        // 是否有 artist 身份
+        const { data: ident } = await supabase.from('user_identities')
+          .select('id').eq('user_id', u.id).eq('identity_type', 'artist')
+          .eq('is_active', true).maybeSingle()
+        setIsArtist(!!ident)
+
+        // 我的投稿
+        try {
+          const { data: sub } = await supabase.rpc('my_submission_for', { p_invitation_id: id })
+          setMySubmission(sub?.[0] || null)
+        } catch (e) { /* silent */ }
       }
     }
 
@@ -76,315 +68,287 @@ export default function InvitationDetailPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5F5F4' }}>
+    return <div className="min-h-screen flex items-center justify-center bg-white">
       <p style={{ color: '#9CA3AF' }}>加载中…</p>
     </div>
   }
+  if (!invitation) {
+    return <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
+        <p style={{ color: '#6B7280' }} className="mb-4">找不到这份邀请函</p>
+        <Link href="/invitations" style={{ color: '#6B7280' }} className="text-sm underline">
+          ← 返回邀请函列表
+        </Link>
+      </div>
+    </div>
+  }
 
-  if (notFound || !invitation) {
+  const themeColor = invitation.theme_color || '#8a7a5c'
+  const isOfficial = invitation.is_official
+  const days = daysRemaining(invitation.deadline)
+  const deadline = new Date(invitation.deadline)
+  const deadlineStr = deadline.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+  const mediums = invitation.medium_restrictions || []
+  const isCollecting = invitation.status === 'collecting' && days >= 0
+
+  return (
+    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+            <a href="/" className="flex items-center gap-3">
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
+            </a>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+              <li><Link href="/gallery" className="hover:text-gray-900">艺术阅览室</Link></li>
+              <li><Link href="/exhibitions" className="hover:text-gray-900">每日一展</Link></li>
+              <li><Link href="/magazine" className="hover:text-gray-900">杂志社</Link></li>
+              <li><Link href="/collections" className="hover:text-gray-900">作品集</Link></li>
+              <li><Link href="/artists" className="hover:text-gray-900">艺术家</Link></li>
+              <li><Link href="/partners" className="hover:text-gray-900">合作伙伴</Link></li>
+            </ul>
+          </div>
+          <UserNav />
+        </div>
+      </nav>
+
+      {/* Hero 封面 */}
+      <section className="w-full relative" style={{ backgroundColor: isOfficial ? '#FAFAFA' : `${themeColor}15` }}>
+        {invitation.cover_image ? (
+          <div style={{ maxHeight: '540px', overflow: 'hidden' }}>
+            <img src={invitation.cover_image} alt={invitation.title}
+              style={{ width: '100%', aspectRatio: '21 / 9', objectFit: 'cover', display: 'block' }} />
+          </div>
+        ) : (
+          <div style={{ aspectRatio: '21 / 9', maxHeight: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: isOfficial ? '#F3F4F6' : themeColor }}>
+            <span style={{ color: isOfficial ? '#6B7280' : '#FFFFFF', letterSpacing: '12px', fontSize: '14px', opacity: 0.7 }}>
+              OPEN CALL
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* 标题区 */}
+      <section className="px-6 pt-10 pb-6 max-w-4xl mx-auto text-center">
+        <div className="inline-flex items-center gap-3 mb-4">
+          <span className="px-3 py-1 rounded-full text-xs"
+            style={{
+              backgroundColor: isOfficial ? '#111827' : themeColor,
+              color: '#FFFFFF', letterSpacing: '2px',
+            }}>
+            {isOfficial ? 'Cradle 官方邀请函' : '策展人邀请函'}
+          </span>
+          {!isOfficial && invitation.creator && (
+            <span className="text-xs" style={{ color: '#6B7280' }}>
+              由 {invitation.creator.username} 发起
+            </span>
+          )}
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#111827', lineHeight: 1.4 }}>
+          {invitation.title}
+        </h1>
+        <div className="inline-flex items-center gap-4 text-sm" style={{ color: '#6B7280' }}>
+          <span>📅 截止 {deadlineStr}</span>
+          {isCollecting && days !== null && (
+            <span style={{ color: days <= 7 ? '#DC2626' : '#6B7280' }}>
+              · {days === 0 ? '今日截止' : `还剩 ${days} 天`}
+            </span>
+          )}
+          {invitation.status === 'curating' && <span>· 评选中</span>}
+          {invitation.status === 'completed' && <span>· 已完成</span>}
+        </div>
+      </section>
+
+      {/* 描述 */}
+      <section className="px-6 py-8 max-w-3xl mx-auto">
+        <div
+          className="whitespace-pre-line leading-relaxed"
+          style={{ color: '#374151', fontSize: '15px', lineHeight: 2 }}
+        >
+          {invitation.description}
+        </div>
+      </section>
+
+      {/* 规则 + 统计 */}
+      <section className="px-6 py-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl p-5" style={{ border: '0.5px solid #E5E7EB' }}>
+            <h3 className="text-sm font-bold mb-4" style={{ color: '#111827', letterSpacing: '2px' }}>
+              征集规则
+            </h3>
+            <ul className="space-y-2 text-sm" style={{ color: '#374151' }}>
+              {invitation.expected_count && <li>· 预计入选 <strong>{invitation.expected_count}</strong> 件</li>}
+              <li>· 每人最多投稿 <strong>{invitation.submission_limit_per_artist || 5}</strong> 件</li>
+              <li>· 作品媒介:<strong>{mediums.length === 0 ? '不限' : mediums.map(m => MEDIUM_LABELS[m] || m).join('、')}</strong></li>
+              <li>· 合作伙伴报名:<strong>{invitation.open_to_partners ? '开放' : '不开放'}</strong></li>
+              <li>· 截止日期:<strong>{deadlineStr}</strong></li>
+            </ul>
+          </div>
+
+          {stats && (
+            <div className="bg-white rounded-xl p-5" style={{ border: '0.5px solid #E5E7EB' }}>
+              <h3 className="text-sm font-bold mb-4" style={{ color: '#111827', letterSpacing: '2px' }}>
+                进度
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-3xl font-bold" style={{ color: themeColor }}>
+                    {stats.total_submissions || 0}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>份投稿</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold" style={{ color: '#111827' }}>
+                    {stats.total_artists || 0}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>位艺术家参与</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 行动区 */}
+      <section className="px-6 py-10 max-w-3xl mx-auto">
+        <ActionArea
+          invitation={invitation}
+          isCollecting={isCollecting}
+          currentUser={currentUser}
+          isArtist={isArtist}
+          mySubmission={mySubmission}
+          themeColor={themeColor}
+          router={router}
+        />
+      </section>
+
+      <footer className="bg-[#1F2937] text-white py-8 px-6 mt-12">
+        <div className="max-w-6xl mx-auto text-center text-sm text-gray-500">
+          © 2026 Cradle摇篮. All rights reserved.
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmission, themeColor, router }) {
+  // 状态 1:邀请函已过期/评选中/完成/取消
+  if (!isCollecting) {
+    const statusText = {
+      curating: '评选中,投稿已截止',
+      completed: '本次征集已完成',
+      cancelled: '此邀请函已取消',
+    }[invitation.status] || '投稿已截止'
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5F5F4', fontFamily: '"Noto Serif SC", serif' }}>
-        <div className="text-center">
-          <p className="mb-4" style={{ color: '#6B7280' }}>这份邀请函不存在或已被删除</p>
-          <Link href="/invitations" className="text-sm underline" style={{ color: '#6B7280' }}>
-            ← 返回邀请函列表
+      <div className="bg-gray-50 rounded-xl p-8 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
+        <p style={{ color: '#6B7280' }}>{statusText}</p>
+        {mySubmission && (
+          <Link
+            href={`/invitations/${invitation.id}/submit`}
+            className="inline-block mt-4 text-sm underline"
+            style={{ color: themeColor }}
+          >
+            查看我的投稿
+          </Link>
+        )}
+      </div>
+    )
+  }
+
+  // 状态 2:未登录
+  if (!currentUser) {
+    return (
+      <div className="bg-gray-50 rounded-xl p-8 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
+        <p className="mb-4" style={{ color: '#374151' }}>登录后即可投稿</p>
+        <Link
+          href={`/login?redirect=/invitations/${invitation.id}`}
+          className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
+          style={{ backgroundColor: '#111827' }}
+        >
+          登录 / 注册
+        </Link>
+      </div>
+    )
+  }
+
+  // 状态 3:已登录但不是艺术家
+  if (!isArtist) {
+    return (
+      <div className="rounded-xl p-8 text-center" style={{ backgroundColor: `${themeColor}10`, border: `0.5px solid ${themeColor}66` }}>
+        <p className="mb-2 font-medium" style={{ color: '#111827' }}>
+          投稿需要艺术家身份
+        </p>
+        <p className="text-sm mb-5" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+          投稿作品需要从你已发布的艺术家作品中选择。<br/>
+          如果你是艺术家,可以申请加入 Cradle。
+        </p>
+        <Link
+          href="/profile/apply/artist"
+          className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
+          style={{ backgroundColor: themeColor }}
+        >
+          申请艺术家身份 →
+        </Link>
+      </div>
+    )
+  }
+
+  // 状态 4:已投稿
+  if (mySubmission) {
+    const submittedAt = new Date(mySubmission.created_at).toLocaleDateString('zh-CN', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    })
+    const count = mySubmission.artwork_ids?.length || 0
+    const editable = mySubmission.status === 'submitted'
+    return (
+      <div className="rounded-xl p-8" style={{ backgroundColor: '#ECFDF5', border: '0.5px solid #A7F3D0' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+            style={{ backgroundColor: '#10B981', color: '#FFFFFF' }}>✓</div>
+          <div>
+            <p className="font-bold" style={{ color: '#065F46' }}>你已投稿</p>
+            <p className="text-xs" style={{ color: '#059669' }}>
+              {submittedAt} 提交 · {count} 件作品
+            </p>
+          </div>
+        </div>
+        <p className="text-sm mb-5" style={{ color: '#065F46', lineHeight: 1.8 }}>
+          {editable
+            ? '你的投稿已进入待评选。在评选开始前,你还可以修改选定的作品。'
+            : '评选已开始,你的投稿已锁定,感谢参与。'}
+        </p>
+        <div className="flex gap-3">
+          <Link
+            href={`/invitations/${invitation.id}/submit`}
+            className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: '#059669' }}
+          >
+            {editable ? '修改投稿' : '查看投稿'}
           </Link>
         </div>
       </div>
     )
   }
 
-  const deadline = new Date(invitation.deadline)
-  const now = new Date()
-  const daysLeft = Math.max(0, Math.ceil((deadline - now) / (1000 * 60 * 60 * 24)))
-  const accentColor = invitation.is_official ? '#111827' : (invitation.theme_color || '#7C3AED')
-  const isCollecting = invitation.status === 'collecting' && deadline > now
-
-  const isArtist = myIdentities.some(i => i.identity_type === 'artist')
-  const isPartner = myIdentities.some(i => i.identity_type === 'partner')
-  const isCreator = userData?.id === invitation.creator_user_id
-
-  const deadlineStr = deadline.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
-
+  // 状态 5:艺术家未投稿
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F5F5F4', fontFamily: '"Noto Serif SC", serif' }}>
-      {/* 导航 */}
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
-            <div style={{ height: '69px', overflow: 'hidden' }}>
-              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-            </div>
-          </Link>
-          <UserNav />
-        </div>
-      </nav>
-
-      {/* 封面 Hero */}
-      <section className="relative">
-        <div style={{ height: '400px' }} className="overflow-hidden">
-          {invitation.cover_image ? (
-            <img src={invitation.cover_image} alt="" className="w-full h-full object-cover" />
-          ) : invitation.is_official ? (
-            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#FAFAFA' }}>
-              <div className="text-center">
-                <p className="text-xs mb-4" style={{ color: '#9CA3AF', letterSpacing: '6px' }}>CRADLE OFFICIAL</p>
-                <h1 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '64px', color: '#111827', lineHeight: 1.1, margin: 0 }}>
-                  {invitation.title}
-                </h1>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: accentColor + '15' }}>
-              <h1 className="text-center px-12" style={{
-                fontFamily: serif, fontStyle: 'italic', fontSize: '64px',
-                color: accentColor, lineHeight: 1.1, margin: 0,
-              }}>
-                {invitation.title}
-              </h1>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        {/* 标签 + 状态 */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-full text-xs font-medium"
-              style={{ backgroundColor: accentColor, color: '#FFFFFF', letterSpacing: '2px' }}>
-              {invitation.is_official ? 'CRADLE OFFICIAL' : 'CURATOR OPEN CALL'}
-            </span>
-            {invitation.status === 'collecting' && (
-              <span className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
-                · 征集中
-              </span>
-            )}
-            {invitation.status === 'curating' && (
-              <span className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                · 评选中
-              </span>
-            )}
-            {invitation.status === 'completed' && (
-              <span className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
-                · 已完成
-              </span>
-            )}
-          </div>
-
-          {isCollecting && (
-            <span className="text-sm font-medium" style={{ color: daysLeft <= 3 ? '#DC2626' : '#111827' }}>
-              {daysLeft === 0 ? '今日截止' : `征集截止 · 还有 ${daysLeft} 天`}
-            </span>
-          )}
-        </div>
-
-        {/* 发起人 */}
-        <div className="flex items-center gap-4 mb-10 p-5 rounded-2xl" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
-          {invitation.is_official ? (
-            <>
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
-                C
-              </div>
-              <div>
-                <p className="text-sm font-medium" style={{ color: '#111827' }}>Cradle 编辑部</p>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>官方发起</p>
-              </div>
-            </>
-          ) : (
-            <>
-              {invitation.creator?.avatar_url ? (
-                <img src={invitation.creator.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover" />
-              ) : (
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg" style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>
-                  {invitation.creator?.username?.[0] || '?'}
-                </div>
-              )}
-              <div className="flex-1">
-                <p className="text-sm font-medium" style={{ color: '#111827' }}>{invitation.creator?.username}</p>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>策展人发起</p>
-              </div>
-              <Link href={`/users/${invitation.creator?.id}`} className="text-xs" style={{ color: '#6B7280' }}>
-                查看主页 →
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* 主题描述 */}
-        <section className="mb-12">
-          <p className="text-xs mb-3" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>THEME</p>
-          <h2 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '32px', color: '#111827', marginTop: '6px', marginBottom: '24px', fontWeight: 400 }}>
-            主 题
-          </h2>
-          <p style={{
-            fontSize: '16px', color: '#374151', lineHeight: 2.0, whiteSpace: 'pre-wrap',
-            wordBreak: 'keep-all', overflowWrap: 'break-word',
-          }}>
-            {invitation.description}
-          </p>
-        </section>
-
-        {/* 规则 */}
-        <section className="mb-12 p-6 rounded-2xl" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
-          <p className="text-xs mb-4" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>RULES</p>
-          <div className="space-y-3">
-            <RuleRow label="截止日期" value={deadlineStr} />
-            {invitation.expected_count && (
-              <RuleRow label="预期入选" value={`约 ${invitation.expected_count} 件`} />
-            )}
-            <RuleRow label="每位艺术家投稿上限" value={`最多 ${invitation.submission_limit_per_artist} 件`} />
-            <RuleRow label="作品媒介" value={
-              invitation.medium_restrictions?.length > 0
-                ? invitation.medium_restrictions.map(m => MEDIUM_LABELS[m] || m).join(' / ')
-                : '不限'
-            } />
-            <RuleRow label="合作伙伴报名" value={invitation.open_to_partners ? '✓ 开放' : '— 不开放'} />
-          </div>
-        </section>
-
-        {/* 统计 */}
-        {stats && (
-          <section className="grid grid-cols-3 gap-4 mb-12">
-            <StatCard label="已收投稿" value={stats.submission_count} />
-            <StatCard label="合作伙伴报名" value={invitation.open_to_partners ? stats.partner_app_count : '—'} />
-            <StatCard label="剩余天数" value={isCollecting ? stats.days_remaining : '—'} />
-          </section>
-        )}
-
-        {/* 行动区 */}
-        {isCollecting && (
-          <section className="p-6 rounded-2xl mb-8" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
-            <p className="text-xs mb-4" style={{ color: '#9CA3AF', letterSpacing: '5px' }}>TAKE PART</p>
-            <h3 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>参与方式</h3>
-
-            {!userData ? (
-              <div className="text-center py-6">
-                <p className="text-sm mb-4" style={{ color: '#6B7280' }}>登录后可以投稿或报名</p>
-                <Link href={`/login?redirect=/invitations/${id}`}
-                  className="inline-block px-6 py-2.5 rounded-lg text-sm font-medium text-white"
-                  style={{ backgroundColor: '#111827' }}>
-                  登录 / 注册
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* 艺术家投稿按钮 */}
-                {isArtist && (
-                  mySubmission ? (
-                    <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: '#ECFDF5', border: '0.5px solid #BBF7D0' }}>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: '#065F46' }}>
-                          ✓ 你已投稿 {mySubmission.artwork_ids?.length || 0} 件作品
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: '#059669' }}>
-                          截止前可以修改或撤回
-                        </p>
-                      </div>
-                      <button
-                        disabled
-                        className="px-4 py-2 rounded-lg text-sm"
-                        style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                        管理投稿(开发中)
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full py-3 rounded-lg text-sm font-medium"
-                      style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                      🎨 我要投稿(开发中)
-                    </button>
-                  )
-                )}
-
-                {/* 合作伙伴报名按钮 */}
-                {isPartner && invitation.open_to_partners && (
-                  myPartnerApp ? (
-                    <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: '#1E40AF' }}>
-                          ✓ 你已报名承办
-                        </p>
-                      </div>
-                      <button disabled className="px-4 py-2 rounded-lg text-sm"
-                        style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                        修改报名(开发中)
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full py-3 rounded-lg text-sm font-medium"
-                      style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                      🤝 报名承办(开发中)
-                    </button>
-                  )
-                )}
-
-                {/* 没有任何身份的用户 */}
-                {!isArtist && !isPartner && (
-                  <div className="text-center py-4">
-                    <p className="text-sm mb-3" style={{ color: '#6B7280' }}>
-                      想投稿或承办这份邀请函?需要先获得对应身份。
-                    </p>
-                    <Link href="/profile/apply"
-                      className="inline-block px-5 py-2 rounded-lg text-sm"
-                      style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
-                      去申请身份 →
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <p className="text-xs mt-4 text-center" style={{ color: '#9CA3AF' }}>
-              投稿和报名功能正在完善,敬请期待
-            </p>
-          </section>
-        )}
-
-        {/* 创建者自己的管理入口 */}
-        {isCreator && (
-          <section className="p-5 rounded-2xl mb-8" style={{ backgroundColor: '#FEFCE8', border: '0.5px solid #FDE68A' }}>
-            <p className="text-sm font-medium mb-1" style={{ color: '#713F12' }}>这是你发起的邀请函</p>
-            <p className="text-xs mb-3" style={{ color: '#854D0E' }}>
-              征集结束后你将进入评选面板挑选入选作品和承办机构。
-            </p>
-            <button disabled className="px-4 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-              评选面板(开发中)
-            </button>
-          </section>
-        )}
-
-        {/* 返回 */}
-        <div className="text-center">
-          <Link href="/invitations"
-            className="inline-block px-6 py-2.5 rounded-lg text-sm"
-            style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
-            ← 返回邀请函列表
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function RuleRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between py-2" style={{ borderBottom: '0.5px solid #F3F4F6' }}>
-      <span className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>{label}</span>
-      <span className="text-sm" style={{ color: '#374151' }}>{value}</span>
-    </div>
-  )
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="p-5 rounded-xl text-center" style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
-      <div className="text-2xl font-bold" style={{ color: '#111827' }}>{value}</div>
-      <div className="text-xs mt-1" style={{ color: '#9CA3AF' }}>{label}</div>
+    <div className="rounded-xl p-8 text-center" style={{ backgroundColor: `${themeColor}10`, border: `1px solid ${themeColor}` }}>
+      <p className="mb-2 text-lg font-bold" style={{ color: '#111827' }}>
+        把你的作品送到 Cradle
+      </p>
+      <p className="text-sm mb-6" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+        从你已发布的作品中选择,最多 {invitation.submission_limit_per_artist || 5} 件
+      </p>
+      <Link
+        href={`/invitations/${invitation.id}/submit`}
+        className="inline-block px-8 py-4 rounded-lg text-base font-medium text-white hover:opacity-90 transition"
+        style={{ backgroundColor: themeColor }}
+      >
+        投我的作品 →
+      </Link>
     </div>
   )
 }
