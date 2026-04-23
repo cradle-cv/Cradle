@@ -58,25 +58,31 @@ export default function IdentityReviewPage() {
   }
 
   async function loadApplications() {
-    const query = supabase.from('identity_applications')
+    let query = supabase.from('identity_applications')
       .select(`
         id, user_id, identity_type, materials, status,
-        created_at, reviewed_at, review_notes, admin_note, outcome_detail,
+        created_at, reviewed_at, review_notes, outcome_detail,
         user:users!identity_applications_user_id_fkey(
           id, username, email, avatar_url, created_at
         )
       `)
       .order('created_at', { ascending: false })
 
-    if (filter !== 'all') query.eq('status', filter)
+    if (filter !== 'all') {
+      query = query.eq('status', filter)
+    }
+
     const { data, error } = await query
-    if (error) console.warn(error)
+    if (error) {
+      console.error('加载申请失败:', error)
+      alert('加载失败:' + error.message)
+    }
     setApplications(data || [])
   }
 
   function openApp(app) {
     setSelectedApp(app)
-    setReviewNotes(app.review_notes || app.admin_note || '')
+    setReviewNotes(app.review_notes || '')
   }
 
   // 通用审核(用于 curator / partner,也用于 artist 的"通过")
@@ -372,9 +378,9 @@ function ReviewModal({ app, notes, setNotes, onApprove, onReject, onRejectAsResi
                   : app.outcome_detail === 'fully_rejected' ? '完全拒绝'
                   : '驳回'}
               </p>
-              {(app.review_notes || app.admin_note) && (
+              {app.review_notes && (
                 <div className="text-sm p-3 rounded" style={{ backgroundColor: '#FFFFFF', color: '#6B7280', border: '0.5px solid #E5E7EB' }}>
-                  审核意见:{app.review_notes || app.admin_note}
+                  审核意见:{app.review_notes}
                 </div>
               )}
             </div>
