@@ -104,7 +104,7 @@ export default function PartnerEditor({ mode, initialData }) {
       const hasPartner = (identities || []).some(i => i.identity_type === 'partner')
       if (!hasPartner) {
         alert('只有通过审核的合作伙伴可以创建机构页')
-        router.push('/profile/apply')
+        router.push(isEdit ? '/studio' : '/profile/apply')
         return
       }
 
