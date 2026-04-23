@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -62,6 +61,7 @@ export default function PartnerEditor({ mode, initialData }) {
     venue_photos: [],
     floor_plan_url: '',
     status: 'active',
+    featured_on_homepage: false,
   })
 
   // 上传中状态(每个图片字段单独)
@@ -96,6 +96,7 @@ export default function PartnerEditor({ mode, initialData }) {
           social_links: initialData.social_links?.length ? initialData.social_links : [''],
           venue_photos: initialData.venue_photos || [],
           established_year: initialData.established_year ? String(initialData.established_year) : '',
+          featured_on_homepage: !!initialData.featured_on_homepage,
         }))
       }
     } else {
@@ -104,7 +105,7 @@ export default function PartnerEditor({ mode, initialData }) {
       const hasPartner = (identities || []).some(i => i.identity_type === 'partner')
       if (!hasPartner) {
         alert('只有通过审核的合作伙伴可以创建机构页')
-        router.push(isEdit ? '/studio' : '/profile/apply')
+        router.push('/profile/apply')
         return
       }
 
@@ -245,6 +246,8 @@ export default function PartnerEditor({ mode, initialData }) {
       const validSocial = form.social_links.filter(u => u && u.trim())
       const yearNum = form.established_year ? parseInt(form.established_year, 10) : null
 
+      const isAdmin = userData?.role === 'admin'
+
       const payload = {
         name: form.name.trim(),
         name_en: form.name_en?.trim() || null,
@@ -264,6 +267,8 @@ export default function PartnerEditor({ mode, initialData }) {
         venue_photos: form.venue_photos,
         floor_plan_url: form.floor_plan_url || null,
         status: form.status,
+        // featured_on_homepage 仅 admin 可改,普通用户保存时不带这个字段
+        ...(isAdmin ? { featured_on_homepage: !!form.featured_on_homepage } : {}),
       }
 
       if (isEdit) {
@@ -279,7 +284,7 @@ export default function PartnerEditor({ mode, initialData }) {
         if (insErr) throw insErr
       }
 
-      router.push('/profile/apply')
+      router.push(isEdit ? '/studio' : '/profile/apply')
     } catch (e) {
       setError(e.message || '保存失败')
     } finally {
@@ -293,6 +298,7 @@ export default function PartnerEditor({ mode, initialData }) {
     </div>
   }
 
+  const isAdmin = userData?.role === 'admin'
   const labelStyle = { color: '#374151', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }
   const inputBase = {
     width: '100%', padding: '10px 14px', borderRadius: '10px',
@@ -316,7 +322,7 @@ export default function PartnerEditor({ mode, initialData }) {
                 预览页面 ↗
               </Link>
             )}
-            <Link href="/profile/apply" className="text-sm" style={{ color: '#6B7280' }}>← 返回</Link>
+            <Link href={isEdit ? '/studio' : '/profile/apply'} className="text-sm" style={{ color: '#6B7280' }}>← 返回</Link>
           </div>
         </div>
       </nav>
@@ -393,6 +399,24 @@ export default function PartnerEditor({ mode, initialData }) {
                 </select>
               </Field>
             </div>
+
+            {/* Admin 专属:首页展示开关 */}
+            {isAdmin && (
+              <Field label="首页展示" hint="Admin 专属:勾选后会在 Cradle 首页合作伙伴区块展示(首页最多显示 4 个)">
+                <label className="flex items-center gap-2 cursor-pointer py-2 px-3 rounded-lg"
+                  style={{ backgroundColor: '#FEF3C7', border: '0.5px solid #FCD34D' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!form.featured_on_homepage}
+                    onChange={e => updateField('featured_on_homepage', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm" style={{ color: '#92400E' }}>
+                    ⭐ 在 Cradle 首页展示此合作伙伴
+                  </span>
+                </label>
+              </Field>
+            )}
 
             <Field label="机构介绍" required hint="一两段话,介绍你们的理念、方向、特色">
               <textarea
