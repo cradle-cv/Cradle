@@ -78,6 +78,29 @@ const IconCertificate = () => (
     <path d="M7 11l-1 3 2-1 2 1-1-3" />
   </svg>
 )
+const IconMegaphone = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <path d="M3 6h2l6-3v10l-6-3H3z" />
+    <path d="M3 6v4" />
+    <path d="M5 10v3a1 1 0 001 1h1a1 1 0 001-1v-2" />
+  </svg>
+)
+const IconInbox = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <path d="M2 9l2-6h8l2 6" />
+    <path d="M2 9v4h12V9" />
+    <path d="M2 9h4l1 2h2l1-2h4" />
+  </svg>
+)
+// 新增:驻地标记图标(像一片叶子/笺角)
+const IconScroll = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <path d="M4 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V3" />
+    <path d="M3 3a1 1 0 001 1h0" />
+    <line x1="6" y1="6" x2="11" y2="6" />
+    <line x1="6" y1="9" x2="11" y2="9" />
+  </svg>
+)
 
 const SERIES_LABELS = {
   jianshu: '家书', jieqi: '节气', yeshen: '夜深', chuyu: '初遇', yuelan: '阅览室拾遗',
@@ -97,14 +120,13 @@ export default function UserNav() {
   const [userData, setUserData] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [signedToday, setSignedToday] = useState(null)
-  const [hasPendingApp, setHasPendingApp] = useState(false)  // 身份申请审核中
-  const [myIdentities, setMyIdentities] = useState([])         // 已有身份
-  const [unreadMsgs, setUnreadMsgs] = useState(0)              // 未读站内信
-  const [partnerPageMissing, setPartnerPageMissing] = useState(false) // partner 身份但没建机构页
-  const [artistPageMissing, setArtistPageMissing] = useState(false)   // artist 身份但没建艺术家页
+  const [hasPendingApp, setHasPendingApp] = useState(false)
+  const [myIdentities, setMyIdentities] = useState([])
+  const [unreadMsgs, setUnreadMsgs] = useState(0)
+  const [partnerPageMissing, setPartnerPageMissing] = useState(false)
+  const [artistPageMissing, setArtistPageMissing] = useState(false)
   const menuRef = useRef(null)
 
-  // 笺语弹窗状态
   const [jianyuOpen, setJianyuOpen] = useState(false)
   const [jianyuPhase, setJianyuPhase] = useState('envelope')
   const [jianyuCard, setJianyuCard] = useState(null)
@@ -162,7 +184,6 @@ export default function UserNav() {
   }
 
   async function loadIdentityState() {
-    // 并行: 身份列表 + 待审状态 + 未读消息数
     try {
       const [idsRes, pendingRes, unreadRes] = await Promise.all([
         supabase.rpc('my_identities'),
@@ -173,7 +194,6 @@ export default function UserNav() {
       if (!pendingRes.error) setHasPendingApp(pendingRes.data === true)
       if (!unreadRes.error) setUnreadMsgs(unreadRes.data || 0)
 
-      // 如果是 partner 身份,额外查机构页状态
       const isPartner = (idsRes.data || []).some(i => i.identity_type === 'partner')
       if (isPartner) {
         const { data: pRec } = await supabase.rpc('my_partner_record')
@@ -182,7 +202,6 @@ export default function UserNav() {
         setPartnerPageMissing(false)
       }
 
-      // 如果是 artist 身份,额外查艺术家页状态
       const isArtist = (idsRes.data || []).some(i => i.identity_type === 'artist')
       if (isArtist) {
         const { data: aRec } = await supabase.rpc('my_artist_record')
@@ -293,14 +312,28 @@ export default function UserNav() {
     )
   }
 
-  // 红点: 任一未完成事项 → 显示
-  // - 今日未签到
-  // - 有未读站内信
-  // - 从未申请过任何身份 (引导新用户去申请)
-  // - partner 身份但没建机构页
-  // - artist 身份但没建艺术家页
+  // 身份判断
+  const isAdmin = userData?.role === 'admin'
+  const isArtist = myIdentities.some(i => i.identity_type === 'artist')
+  const isCurator = myIdentities.some(i => i.identity_type === 'curator')
+  const isPartner = myIdentities.some(i => i.identity_type === 'partner')
+  const isResident = myIdentities.some(i => i.identity_type === 'resident')
+
+  // 红点提示条件
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
   const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing
+
+  // 当前主身份标签(顺序:artist > curator > partner > resident > 空)
+  const primaryIdentityLabel = isArtist ? '艺术家' 
+    : isCurator ? '策展人' 
+    : isPartner ? '合作伙伴' 
+    : isResident ? '驻地创作者' 
+    : null
+  const primaryIdentityColor = isArtist ? '#059669'
+    : isCurator ? '#7C3AED'
+    : isPartner ? '#2563EB'
+    : isResident ? '#8a7a5c'
+    : null
 
   return (
     <>
@@ -348,18 +381,28 @@ export default function UserNav() {
                     </span>
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate" style={{ color: '#111827' }}>{userData?.username}</p>
                   <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{user?.email || user?.phone}</p>
                 </div>
               </div>
-              {userData?.total_points > 0 && (
-                <div className="mt-3 flex items-center gap-2">
+              {/* 身份标签 + 积分 */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                {primaryIdentityLabel && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" 
+                    style={{ 
+                      backgroundColor: `${primaryIdentityColor}15`,
+                      color: primaryIdentityColor,
+                    }}>
+                    {primaryIdentityLabel}
+                  </span>
+                )}
+                {userData?.total_points > 0 && (
                   <span className="text-xs inline-flex items-center gap-1" style={{ color: '#B45309' }}>
                     <IconStar />{userData.total_points} 积分
                   </span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div className="py-1 border-b" style={{ borderColor: '#F3F4F6' }}>
@@ -424,27 +467,50 @@ export default function UserNav() {
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                 <span style={{ color: '#6B7280' }}><IconGallery /></span> 艺术阅览室
               </a>
-              <a href="/studio" onClick={() => setShowMenu(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                <span style={{ color: '#6B7280' }}><IconPalette /></span> 艺术家工作台
-              </a>
 
-              {userData?.role === 'admin' && (
+              {/* 驻地专属入口 (优先显示给 resident,且不是 artist 时) */}
+              {isResident && !isArtist && !isAdmin && (
+                <a href="/residency" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span style={{ color: '#8a7a5c' }}><IconScroll /></span> 进入驻地
+                </a>
+              )}
+
+              {/* 艺术家专属: 工作台 + 我的投稿 */}
+              {(isArtist || isAdmin) && (
+                <>
+                  <a href="/studio" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                    <span style={{ color: '#6B7280' }}><IconPalette /></span> 艺术家工作台
+                  </a>
+                  <a href="/profile/my-submissions" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                    <span style={{ color: '#6B7280' }}><IconInbox /></span> 我的投稿
+                  </a>
+                </>
+              )}
+
+              {/* 策展人专属: 发起邀请函 */}
+              {(isCurator || isAdmin) && (
+                <a href="/curator/invitations/new" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span style={{ color: '#6B7280' }}><IconMegaphone /></span> 发起邀请函
+                </a>
+              )}
+
+              {/* admin 后台入口 */}
+              {isAdmin && (
                 <a href="/admin/dashboard" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span style={{ color: '#6B7280' }}><IconSettings /></span> 后台管理
                 </a>
               )}
-              {userData?.role === 'artist' && (
-                <a href="/admin/artworks" onClick={() => setShowMenu(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span style={{ color: '#6B7280' }}><IconPalette /></span> 后台管理
-                </a>
-              )}
-              {userData?.role === 'partner' && (
+
+              {/* 合作伙伴: 机构后台 */}
+              {isPartner && !isAdmin && (
                 <a href="/admin/partner-dashboard" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span style={{ color: '#6B7280' }}><IconHandshake /></span> 后台管理
+                  <span style={{ color: '#6B7280' }}><IconHandshake /></span> 机构后台
                 </a>
               )}
             </div>
@@ -489,26 +555,16 @@ function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, er
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '20px',
-        }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}
       >
         {phase === 'error' && (
-          <div style={{
-            padding: '28px 36px', backgroundColor: '#f5ebdc', borderRadius: '2px',
-            fontFamily: '"Noto Serif SC", serif', color: '#3d3528', textAlign: 'center',
-          }}>
+          <div style={{ padding: '28px 36px', backgroundColor: '#f5ebdc', borderRadius: '2px',
+            fontFamily: '"Noto Serif SC", serif', color: '#3d3528', textAlign: 'center' }}>
             <p style={{ fontSize: '13px', letterSpacing: '2px' }}>{error || '出了一点问题'}</p>
-            <button onClick={onClose} style={{
-              marginTop: '16px', padding: '8px 20px',
+            <button onClick={onClose} style={{ marginTop: '16px', padding: '8px 20px',
               backgroundColor: 'transparent', color: '#8a7a5c',
               border: '0.5px solid #8a7a5c', borderRadius: '2px',
-              fontSize: '11px', letterSpacing: '3px', cursor: 'pointer',
-            }}>关 闭</button>
+              fontSize: '11px', letterSpacing: '3px', cursor: 'pointer' }}>关 闭</button>
           </div>
         )}
 
@@ -523,33 +579,20 @@ function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, er
         )}
 
         {(phase === 'dropping' || phase === 'revealed') && card && (
-          <div
-            ref={cardRef}
-            style={{
-              perspective: '1800px',
-              animation: phase === 'dropping' ? 'cardDropMini 0.8s cubic-bezier(0.2, 0.8, 0.2, 1.05) forwards' : 'none',
-            }}
-          >
-            <div
-              onClick={phase === 'revealed' ? onFlip : undefined}
-              style={{
-                position: 'relative', width: '300px', height: '400px',
+          <div ref={cardRef} style={{ perspective: '1800px',
+            animation: phase === 'dropping' ? 'cardDropMini 0.8s cubic-bezier(0.2, 0.8, 0.2, 1.05) forwards' : 'none' }}>
+            <div onClick={phase === 'revealed' ? onFlip : undefined}
+              style={{ position: 'relative', width: '300px', height: '400px',
                 transformStyle: 'preserve-3d',
                 transition: 'transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1)',
                 transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                cursor: phase === 'revealed' ? 'pointer' : 'default',
-              }}
-            >
-              <div
-                className={flipped ? '' : 'jianyu-card-face-visible'}
-                style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
-              >
+                cursor: phase === 'revealed' ? 'pointer' : 'default' }}>
+              <div className={flipped ? '' : 'jianyu-card-face-visible'}
+                style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
                 <CardFront card={card} />
               </div>
-              <div
-                className={flipped ? 'jianyu-card-face-visible' : ''}
-                style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-              >
+              <div className={flipped ? 'jianyu-card-face-visible' : ''}
+                style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
                 <CardBack card={card} />
               </div>
             </div>
@@ -563,21 +606,17 @@ function JianyuModal({ phase, card, flipped, onFlip, onClose, onSave, saving, er
             </p>
             <div className="flex items-center justify-center gap-4 mt-4">
               <button onClick={onSave} disabled={saving}
-                style={{
-                  padding: '9px 22px', backgroundColor: 'transparent',
+                style={{ padding: '9px 22px', backgroundColor: 'transparent',
                   color: '#e8d4a8', border: '0.5px solid #e8d4a8',
                   borderRadius: '2px', fontSize: '11px', letterSpacing: '3px',
-                  fontFamily: '"Noto Serif SC", serif', cursor: 'pointer',
-                }}>
+                  fontFamily: '"Noto Serif SC", serif', cursor: 'pointer' }}>
                 {saving ? '生成中…' : '保存卡片'}
               </button>
               <button onClick={onClose}
-                style={{
-                  padding: '9px 22px', color: '#b8a880',
+                style={{ padding: '9px 22px', color: '#b8a880',
                   fontSize: '11px', letterSpacing: '3px',
                   fontFamily: '"Noto Serif SC", serif', cursor: 'pointer',
-                  background: 'transparent', border: 'none',
-                }}>
+                  background: 'transparent', border: 'none' }}>
                 关 闭
               </button>
             </div>
@@ -613,37 +652,23 @@ function CardFront({ card }) {
   const seriesLabel = SERIES_LABELS[card.card_series] || card.card_series
   const date = new Date(card.drawn_at)
   const dateStr = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`
-
   return (
-    <div style={{
-      width: '300px', height: '400px',
-      background: '#f5ebdc',
-      border: '0.5px solid #d4c4a8',
-      borderRadius: '2px',
+    <div style={{ width: '300px', height: '400px', background: '#f5ebdc',
+      border: '0.5px solid #d4c4a8', borderRadius: '2px',
       boxShadow: '0 8px 24px rgba(120,100,70,0.3), 0 2px 6px rgba(120,100,70,0.15)',
       padding: '24px 22px', boxSizing: 'border-box',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: '"Noto Serif SC", serif',
-    }}>
+      display: 'flex', flexDirection: 'column', fontFamily: '"Noto Serif SC", serif' }}>
       <div style={{ borderTop: '1.5px solid #8a7a5c', borderBottom: '0.5px solid #8a7a5c', height: '3px' }} />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 8px' }}>
-        <p style={{
-          fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
-          textAlign: 'center', letterSpacing: '2px',
-          margin: 0, whiteSpace: 'pre-line',
-          wordBreak: 'keep-all',
-          overflowWrap: 'break-word',
-        }}>{card.card_content}</p>
+        <p style={{ fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
+          textAlign: 'center', letterSpacing: '2px', margin: 0, whiteSpace: 'pre-line',
+          wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{card.card_content}</p>
       </div>
       <div style={{ borderTop: '0.5px solid #8a7a5c', borderBottom: '1.5px solid #8a7a5c', height: '3px' }} />
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginTop: '12px', fontFamily: 'Georgia, "Noto Serif SC", serif',
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginTop: '12px', fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
         <span style={{ fontSize: '10px', color: '#8a7a5c', letterSpacing: '1px' }}>{dateStr}</span>
-        <span style={{ fontSize: '10px', color: '#8a7a5c', letterSpacing: '2px' }}>
-          {seriesLabel} · #{numberPart}
-        </span>
+        <span style={{ fontSize: '10px', color: '#8a7a5c', letterSpacing: '2px' }}>{seriesLabel} · #{numberPart}</span>
       </div>
     </div>
   )
@@ -655,37 +680,25 @@ function CardBack({ card }) {
   const date = new Date(card.drawn_at)
   const dateStr = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`
   const seriesDesc = SERIES_DESCRIPTIONS[card.card_series] || SERIES_DESCRIPTIONS.jianshu
-
   return (
-    <div style={{
-      width: '300px', height: '400px',
-      background: '#f0e5d0',
-      border: '0.5px solid #d4c4a8',
-      borderRadius: '2px',
+    <div style={{ width: '300px', height: '400px', background: '#f0e5d0',
+      border: '0.5px solid #d4c4a8', borderRadius: '2px',
       boxShadow: '0 8px 24px rgba(120,100,70,0.3), 0 2px 6px rgba(120,100,70,0.15)',
       padding: '24px 22px', boxSizing: 'border-box',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: '"Noto Serif SC", serif',
-    }}>
-      <p style={{
-        fontSize: '10px', color: '#8a7a5c', letterSpacing: '4px',
-        margin: '0 0 14px', textAlign: 'center', fontFamily: 'Georgia, serif',
-      }}>FROM THE CRADLE</p>
+      display: 'flex', flexDirection: 'column', fontFamily: '"Noto Serif SC", serif' }}>
+      <p style={{ fontSize: '10px', color: '#8a7a5c', letterSpacing: '4px',
+        margin: '0 0 14px', textAlign: 'center', fontFamily: 'Georgia, serif' }}>FROM THE CRADLE</p>
       <div style={{ borderTop: '0.5px solid #8a7a5c', marginBottom: '20px' }} />
       <div style={{ flex: 1, fontSize: '12px', color: '#5a4e3c', lineHeight: 1.9, letterSpacing: '0.5px' }}>
         <p style={{ margin: '0 0 16px', whiteSpace: 'pre-line' }}>{seriesDesc}</p>
         <div style={{ borderTop: '0.5px dashed #b8a880', margin: '20px 0' }} />
         <p style={{ margin: 0, color: '#8a7a5c', fontStyle: 'italic', lineHeight: 1.9 }}>
-          收到它的你,<br />
-          是今日所有签到者里的<br />
-          第 {card.position_in_day || 1} 位。
+          收到它的你,<br />是今日所有签到者里的<br />第 {card.position_in_day || 1} 位。
         </p>
       </div>
-      <div style={{
-        borderTop: '0.5px solid #8a7a5c', marginTop: '16px', paddingTop: '10px',
+      <div style={{ borderTop: '0.5px solid #8a7a5c', marginTop: '16px', paddingTop: '10px',
         display: 'flex', justifyContent: 'space-between',
-        fontFamily: 'Georgia, serif', fontSize: '10px', color: '#8a7a5c', letterSpacing: '1px',
-      }}>
+        fontFamily: 'Georgia, serif', fontSize: '10px', color: '#8a7a5c', letterSpacing: '1px' }}>
         <span>{dateStr}</span>
         <span>{seriesLabel} · #{numberPart}</span>
       </div>
