@@ -23,7 +23,6 @@ async function getData() {
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
-  // 首页邀请函 - B3 混排:保证官方有曝光 + 策展人按时间穿插
   let homepageInvitations = []
   try {
     const { data: invs } = await supabase.rpc('get_homepage_invitations')
@@ -31,6 +30,18 @@ async function getData() {
   } catch (e) {
     console.error('get_homepage_invitations failed:', e)
   }
+
+  // 查当前用户已投稿过的 invitation_id 集合 — 用于 M2 "已投稿" tag
+  let submittedInvitationIds = new Set()
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: subs } = await supabase.rpc('get_my_invitation_submissions')
+      if (subs) {
+        submittedInvitationIds = new Set(subs.map(s => s.invitation_id))
+      }
+    }
+  } catch (e) { /* silent */ }
 
   let homepageDaily = null
   let homepageSelect = null
@@ -68,26 +79,24 @@ async function getData() {
     partners: partners || [], galleryWorks: galleryWorks || [],
     homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
     homepageInvitations,
+    submittedInvitationIds: Array.from(submittedInvitationIds),
   }
 }
 
-// ══════════════ 邀请函小卡片(紧凑版,接在每日一展下面) ══════════════
 function daysRemaining(deadline) {
   if (!deadline) return null
   const now = new Date()
   const dl = new Date(deadline)
-  const diff = Math.ceil((dl - now) / (1000 * 60 * 60 * 24))
-  return diff
+  return Math.ceil((dl - now) / (1000 * 60 * 60 * 24))
 }
 
-function InvitationCompactCard({ inv }) {
+function InvitationCompactCard({ inv, alreadySubmitted }) {
   const days = daysRemaining(inv.deadline)
   const themeColor = inv.theme_color || '#8a7a5c'
   const isOfficial = inv.is_official
 
-  // C1 + γ:官方纯白底、策展人使用 theme_color 浅化(alpha 约 12%)做底
-  const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a` // 0x1a ≈ 10% opacity
-  const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66` // 40% opacity
+  const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a`
+  const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66`
 
   return (
     <a href={`/invitations/${inv.id}`} className="group block">
@@ -120,8 +129,19 @@ function InvitationCompactCard({ inv }) {
               </span>
             </div>
           )}
-          {/* 倒计时 tag - 右上角 */}
-          {days !== null && days >= 0 && (
+          {/* 右上角:已投稿 tag (M2) 或 倒计时 */}
+          {alreadySubmitted ? (
+            <div
+              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.95)',
+                color: '#FFFFFF',
+                fontSize: '11px',
+              }}
+            >
+              ✓ 已投稿
+            </div>
+          ) : days !== null && days >= 0 && (
             <div
               className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs"
               style={{
@@ -137,7 +157,6 @@ function InvitationCompactCard({ inv }) {
 
         {/* 文字 */}
         <div className="px-4 py-3">
-          {/* 发起方 tag + 标题 */}
           <div className="flex items-center gap-2 mb-1.5">
             <span
               className="text-xs"
@@ -151,11 +170,44 @@ function InvitationCompactCard({ inv }) {
             </span>
           </div>
           <h3
-            className="text-sm md:text-base font-bold line-clamp-2"
+            className="text-sm md:text-base font-bold line-clamp-2 mb-2"
             style={{ color: '#111827', lineHeight: 1.5 }}
           >
             {inv.title}
           </h3>
+          {/* γ 样式:倒计时下面一行小字 "征集中 · 点击投稿" (未投稿才显示) */}
+          {!alreadySubmitted && inv.status === 'collecting' && (
+            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#10B981' }}
+              />
+              <span
+                className="text-xs"
+                style={{
+                  color: '#059669',
+                  fontSize: '11px',
+                  letterSpacing: '1px',
+                }}
+              >
+                征集中 · 这里征集你的作品 →
+              </span>
+            </div>
+          )}
+          {alreadySubmitted && (
+            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
+              <span
+                className="text-xs"
+                style={{
+                  color: '#059669',
+                  fontSize: '11px',
+                  letterSpacing: '1px',
+                }}
+              >
+                ✓ 你已投稿 · 点击查看详情
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </a>
@@ -163,7 +215,8 @@ function InvitationCompactCard({ inv }) {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations } = await getData()
+  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
+  const submittedSet = new Set(submittedInvitationIds)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -250,17 +303,15 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ══ 每日一展 + 邀请函(一体的 section,白底) ══ */}
+      {/* 每日一展 + 邀请函 */}
       {(exhibition || homepageInvitations.length > 0) && (
         <section id="daily" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            {/* 每日一展标题 */}
             {exhibition && (
               <>
                 <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
                 <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
 
-                {/* 每日一展大卡片 */}
                 <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
                   <div className="grid md:grid-cols-2 gap-0">
                     <div className="relative">
@@ -304,7 +355,7 @@ export default async function Home() {
               </>
             )}
 
-            {/* 邀请函小卡片区 - 紧接每日一展下面,无大标题,视觉上是同一个 section 的延伸 */}
+            {/* 邀请函小卡片区 */}
             {homepageInvitations.length > 0 && (
               <div className="mt-8 md:mt-10">
                 <div className={
@@ -315,28 +366,25 @@ export default async function Home() {
                     : 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
                 }>
                   {homepageInvitations.map(inv => (
-                    <InvitationCompactCard key={inv.id} inv={inv} />
+                    <InvitationCompactCard
+                      key={inv.id}
+                      inv={inv}
+                      alreadySubmitted={submittedSet.has(inv.id)}
+                    />
                   ))}
-                  {/* 如果只有 1 份,用占位填满 3 列网格的话看起来奇怪,所以单卡片直接单独一行或居中 */}
                 </div>
               </div>
             )}
 
-            {/* E2 出口按钮组:查看更多展览 · 查看更多邀请函 */}
+            {/* E2 出口按钮组 */}
             <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
               {exhibition && (
-                <a
-                  href="/exhibitions"
-                  className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
-                >
+                <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
                   查看更多展览 →
                 </a>
               )}
               {homepageInvitations.length > 0 && (
-                <a
-                  href="/invitations"
-                  className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors"
-                >
+                <a href="/invitations" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
                   查看所有邀请函 →
                 </a>
               )}
