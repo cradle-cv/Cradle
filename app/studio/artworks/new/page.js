@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -40,14 +39,12 @@ export default function StudioNewArtworkPage() {
       .select('id, role').eq('auth_id', session.user.id).single()
     if (!userData) { router.push('/login'); return }
 
-    // 守卫
     const { data: identity } = await supabase.from('user_identities')
       .select('id').eq('user_id', userData.id)
       .eq('identity_type', 'artist').eq('is_active', true).maybeSingle()
     const isArtist = !!identity || userData.role === 'admin'
     if (!isArtist) { router.push('/studio'); return }
 
-    // 艺术家条目
     const { data: artist } = await supabase.from('artists')
       .select('id, display_name').eq('owner_user_id', userData.id).maybeSingle()
     if (!artist) {
@@ -94,15 +91,15 @@ export default function StudioNewArtworkPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.title) { alert('请填写标题'); return }
+    if (!formData.collection_id) { alert('请选择所属作品集'); return }
     if (!artistRecord) { alert('艺术家信息未加载'); return }
 
     setSaving(true)
     try {
-      // artist_id 强制为自己,不接受外部输入
       const { data: artwork, error } = await supabase.from('artworks').insert({
         title: formData.title,
         artist_id: artistRecord.id,
-        collection_id: formData.collection_id || null,
+        collection_id: formData.collection_id,  // 必填
         category: formData.category,
         medium: formData.medium || null,
         size: formData.dimensions || null,
@@ -144,6 +141,56 @@ export default function StudioNewArtworkPage() {
     return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
   }
 
+  // 没有作品集 - 显示引导页,禁止进入上传
+  if (collections.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
+        <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <Link href="/" className="flex items-center gap-3">
+                <div style={{ height: '69px', overflow: 'hidden' }}>
+                  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+                </div>
+              </Link>
+              <span style={{ color: '#D1D5DB' }}>/</span>
+              <Link href="/studio" className="text-sm" style={{ color: '#6B7280' }}>工作台</Link>
+              <span style={{ color: '#D1D5DB' }}>/</span>
+              <span className="text-sm font-medium" style={{ color: '#111827' }}>新作品</span>
+            </div>
+            <UserNav />
+          </div>
+        </nav>
+
+        <div className="max-w-2xl mx-auto px-6 py-16">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+            <div className="text-5xl mb-6">📚</div>
+            <h1 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>先从作品集开始</h1>
+            <p className="mb-2" style={{ color: '#374151', lineHeight: 1.9 }}>
+              作品需要归属于某个作品集。
+            </p>
+            <p className="text-sm mb-8 max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.9 }}>
+              作品集是你创作的主题归属 — 比如"城市光影系列"、"日常速写"、"2026 新作"。
+              先创建一个作品集,再把作品添加进去,你的创作就有了清晰的脉络。
+            </p>
+            <div className="flex items-center gap-3 justify-center">
+              <Link href="/studio/collections/new"
+                className="px-6 py-3 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#111827' }}>
+                创建第一个作品集 →
+              </Link>
+              <Link href="/studio"
+                className="px-6 py-3 rounded-lg text-sm font-medium"
+                style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
+                返回工作台
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
@@ -177,6 +224,28 @@ export default function StudioNewArtworkPage() {
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 space-y-6">
+              {/* 归属(先选) */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">📚 归属作品集</h2>
+                <p className="text-sm mb-4" style={{ color: '#6B7280' }}>
+                  把这件作品归到一个作品集里,让它有脉络可循
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    所属作品集 <span className="text-red-500">*</span>
+                  </label>
+                  <select name="collection_id" value={formData.collection_id} onChange={handleChange} required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">-- 选择作品集 --</option>
+                    {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                  <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
+                    想建一个新的作品集? <Link href="/studio/collections/new" className="underline" style={{ color: '#374151' }}>去创建</Link>
+                  </p>
+                </div>
+              </div>
+
               {/* 基本信息 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
@@ -185,15 +254,6 @@ export default function StudioNewArtworkPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">作品标题 <span className="text-red-500">*</span></label>
                     <input type="text" name="title" value={formData.title} onChange={handleChange} required
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">所属作品集</label>
-                    <select name="collection_id" value={formData.collection_id} onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option value="">不属于任何作品集</option>
-                      {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
