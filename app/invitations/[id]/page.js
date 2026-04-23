@@ -30,7 +30,17 @@ export default function InvitationDetailPage() {
 
   async function load() {
     setLoading(true)
-    // 邀请函本体
+
+    // ═══ 懒触发:如果 status='collecting' 且 deadline 过了,自动更新 ═══
+    // 在加载邀请函数据之前调用,确保用户看到的是最新状态
+    try {
+      await supabase.rpc('auto_transition_invitation', { p_invitation_id: id })
+    } catch (e) {
+      // 即使自动流转失败,也继续加载(只是状态可能稍后才更新)
+      console.warn('auto_transition_invitation failed:', e)
+    }
+
+    // 加载邀请函本体(这时 status 已经是最新的)
     const { data: inv } = await supabase.from('invitations')
       .select('*, creator:creator_user_id(id, username, avatar_url)')
       .eq('id', id).maybeSingle()
@@ -50,13 +60,11 @@ export default function InvitationDetailPage() {
         .select('id, username, avatar_url').eq('auth_id', session.user.id).maybeSingle()
       if (u) {
         setCurrentUser(u)
-        // 是否有 artist 身份
         const { data: ident } = await supabase.from('user_identities')
           .select('id').eq('user_id', u.id).eq('identity_type', 'artist')
           .eq('is_active', true).maybeSingle()
         setIsArtist(!!ident)
 
-        // 我的投稿
         try {
           const { data: sub } = await supabase.rpc('my_submission_for', { p_invitation_id: id })
           setMySubmission(sub?.[0] || null)
@@ -235,7 +243,6 @@ export default function InvitationDetailPage() {
 }
 
 function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmission, themeColor, router }) {
-  // 状态 1:邀请函已过期/评选中/完成/取消
   if (!isCollecting) {
     const statusText = {
       curating: '评选中,投稿已截止',
@@ -258,7 +265,6 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
     )
   }
 
-  // 状态 2:未登录
   if (!currentUser) {
     return (
       <div className="bg-gray-50 rounded-xl p-8 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
@@ -274,7 +280,6 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
     )
   }
 
-  // 状态 3:已登录但不是艺术家
   if (!isArtist) {
     return (
       <div className="rounded-xl p-8 text-center" style={{ backgroundColor: `${themeColor}10`, border: `0.5px solid ${themeColor}66` }}>
@@ -296,7 +301,6 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
     )
   }
 
-  // 状态 4:已投稿
   if (mySubmission) {
     const submittedAt = new Date(mySubmission.created_at).toLocaleDateString('zh-CN', {
       year: 'numeric', month: 'long', day: 'numeric'
@@ -333,7 +337,6 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
     )
   }
 
-  // 状态 5:艺术家未投稿
   return (
     <div className="rounded-xl p-8 text-center" style={{ backgroundColor: `${themeColor}10`, border: `1px solid ${themeColor}` }}>
       <p className="mb-2 text-lg font-bold" style={{ color: '#111827' }}>
