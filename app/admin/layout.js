@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -114,7 +114,22 @@ function AdminLayoutContent({ children }) {
   const router = useRouter()
   const { user, userData, loading } = useAuth()
 
-  // 计算当前所在的 section (基于 pathname 匹配前缀)
+  // ─── 守卫:非 admin 一律跳走 ───
+  useEffect(() => {
+    if (loading) return
+    // 未登录
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
+      return
+    }
+    // 已登录但非 admin
+    if (userData && userData.role !== 'admin') {
+      // 艺术家友好一点,引导去 /studio;其他人回首页
+      const target = userData.role === 'artist' ? '/studio' : '/'
+      router.replace(target)
+    }
+  }, [user, userData, loading, router, pathname])
+
   const currentSectionKey = useMemo(() => {
     for (const s of SECTIONS) {
       if (s.prefixes.some(p => pathname.startsWith(p))) {
@@ -124,20 +139,16 @@ function AdminLayoutContent({ children }) {
     return null
   }, [pathname])
 
-  // 展开状态:当前 section 默认展开,其他折叠
-  // 用户手动切换会覆盖默认值
   const [expanded, setExpanded] = useState(() => {
     const init = {}
     SECTIONS.forEach(s => { init[s.key] = false })
     return init
   })
 
-  // 切换 section 展开状态
   function toggleSection(key) {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // 判断某 section 是否应该展开:手动展开的 OR 是当前所在 section
   function isExpanded(s) {
     return expanded[s.key] || s.key === currentSectionKey
   }
@@ -159,8 +170,16 @@ function AdminLayoutContent({ children }) {
     )
   }
 
-  if (!user || !userData) {
-    return null
+  // 守卫:未登录或非 admin,显示空白(useEffect 会 router.push 出去)
+  if (!user || !userData || userData.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600 mb-2">正在跳转…</p>
+          <p className="text-xs text-gray-400">此页面仅管理员可访问</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -177,43 +196,17 @@ function AdminLayoutContent({ children }) {
             </Link>
 
             <nav>
-              {userData.role === 'admin' && (
-                <>
-                  {SECTIONS.map((s, idx) => (
-                    <Section
-                      key={s.key}
-                      section={s}
-                      expanded={isExpanded(s)}
-                      onToggle={() => toggleSection(s.key)}
-                      pathname={pathname}
-                      isCurrent={s.key === currentSectionKey}
-                      isLast={idx === SECTIONS.length - 1}
-                    />
-                  ))}
-                </>
-              )}
-
-              {userData.role === 'artist' && (
-                <div className="space-y-1 pt-2">
-                  <NavLink href="/admin/artworks" icon="🎨" active={pathname.startsWith('/admin/artworks')}>
-                    我的作品
-                  </NavLink>
-                  <NavLink href="/admin/collections" icon="📚" active={pathname.startsWith('/admin/collections')}>
-                    我的作品集
-                  </NavLink>
-                </div>
-              )}
-
-              {userData.role === 'partner' && (
-                <div className="space-y-1 pt-2">
-                  <NavLink href="/admin/partners" icon="🤝" active={pathname.startsWith('/admin/partners')}>
-                    合作信息
-                  </NavLink>
-                  <NavLink href="/admin/exhibitions" icon="🖼️" active={pathname.startsWith('/admin/exhibitions')}>
-                    展览管理
-                  </NavLink>
-                </div>
-              )}
+              {SECTIONS.map((s, idx) => (
+                <Section
+                  key={s.key}
+                  section={s}
+                  expanded={isExpanded(s)}
+                  onToggle={() => toggleSection(s.key)}
+                  pathname={pathname}
+                  isCurrent={s.key === currentSectionKey}
+                  isLast={idx === SECTIONS.length - 1}
+                />
+              ))}
             </nav>
           </div>
         </div>
@@ -235,9 +228,6 @@ function AdminLayoutContent({ children }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Section 组件:可折叠/展开,当前所在 section 高亮
-// ═══════════════════════════════════════════════════════════════
 function Section({ section, expanded, onToggle, pathname, isCurrent, isLast }) {
   return (
     <div style={{
@@ -245,7 +235,6 @@ function Section({ section, expanded, onToggle, pathname, isCurrent, isLast }) {
       paddingBottom: '8px',
       marginBottom: '4px',
     }}>
-      {/* Section 标题(可点击切换) */}
       <button
         type="button"
         onClick={onToggle}
@@ -272,7 +261,6 @@ function Section({ section, expanded, onToggle, pathname, isCurrent, isLast }) {
         </svg>
       </button>
 
-      {/* 可折叠内容区 */}
       <div
         style={{
           maxHeight: expanded ? `${(section.links.length * 48) + (section.sub ? 24 : 0) + 12}px` : '0px',
@@ -280,14 +268,12 @@ function Section({ section, expanded, onToggle, pathname, isCurrent, isLast }) {
           transition: 'max-height 0.3s ease',
         }}
       >
-        {/* sub 副标题:仅展开时显示 */}
         {section.sub && (
           <div className="px-4 pt-1 pb-2">
             <span className="text-xs" style={{ color: '#D1D5DB' }}>{section.sub}</span>
           </div>
         )}
 
-        {/* Nav links */}
         <div className="space-y-0.5 pt-1">
           {section.links.map(link => {
             const active = link.matchExact
