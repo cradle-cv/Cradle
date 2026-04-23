@@ -477,18 +477,20 @@ export default function UserNav() {
               )}
 
               {/* 艺术家专属: 工作台 + 我的投稿 */}
-              {(isArtist || isAdmin) && (
-                <>
-                  <a href="/studio" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                    <span style={{ color: '#6B7280' }}><IconPalette /></span> 艺术家工作台
-                  </a>
-                  <a href="/profile/my-submissions" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                    <span style={{ color: '#6B7280' }}><IconInbox /></span> 我的投稿
-                  </a>
-                </>
-              )}
+             {(isArtist || isCurator || isPartner || isAdmin) && (
+  <>
+    <a href="/studio" onClick={() => setShowMenu(false)}
+      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+      <span style={{ color: '#6B7280' }}><IconPalette /></span> 工作台
+    </a>
+    {(isArtist || isAdmin) && (
+      <a href="/profile/my-submissions" onClick={() => setShowMenu(false)}
+        className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+        <span style={{ color: '#6B7280' }}><IconInbox /></span> 我的投稿
+      </a>
+    )}
+  </>
+)}
 
               {/* 策展人专属: 发起邀请函 */}
               {(isCurator || isAdmin) && (
@@ -505,15 +507,7 @@ export default function UserNav() {
                   <span style={{ color: '#6B7280' }}><IconSettings /></span> 后台管理
                 </a>
               )}
-
-              {/* 合作伙伴: 机构后台 */}
-              {isPartner && !isAdmin && (
-                <a href="/admin/partner-dashboard" onClick={() => setShowMenu(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span style={{ color: '#6B7280' }}><IconHandshake /></span> 机构后台
-                </a>
-              )}
-            </div>
+                                      </div>
 
             <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>
               <button onClick={handleLogout}
