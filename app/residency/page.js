@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import ResidencyHouse from '@/components/ResidencyHouse'
+import ResidentWall from '@/components/ResidentWall'
 
 export const metadata = {
   title: '驻地 · Cradle摇篮',
@@ -70,6 +71,9 @@ export default function ResidencyPage() {
           <ResidencyHouse />
         </div>
       </section>
+
+      {/* 驻地居民 · 信笺墙 */}
+      <ResidentWall />
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-12 px-6">
