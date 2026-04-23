@@ -125,7 +125,7 @@ export default function WorkshopPage() {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         <p style={{ fontSize: '48px', marginBottom: '20px' }}>✏️</p>
-        <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>工作台</h2>
+        <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>装帧台</h2>
         <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '32px' }}>登录后即可使用</p>
         <Link href="/login" className="px-6 py-3 rounded-lg text-sm text-white" style={{ backgroundColor: '#111827' }}>去登录</Link>
         <Link href="/residency" className="mt-4 text-xs" style={{ color: '#9CA3AF' }}>← 返回驻地</Link>
@@ -138,7 +138,7 @@ export default function WorkshopPage() {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         <p style={{ fontSize: '48px', marginBottom: '20px' }}>🔒</p>
-        <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>工作台</h2>
+        <h2 style={{ fontSize: '20px', color: '#111827', marginBottom: '8px', letterSpacing: '2px' }}>装帧台</h2>
         <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '8px' }}>达到 Lv.6 解锁杂志创作</p>
         <p style={{ fontSize: '12px', color: '#D1D5DB', marginBottom: '32px' }}>当前 Lv.{profile.level || 0}，继续探索阅览室获取灵感值</p>
         <Link href="/gallery" className="px-6 py-3 rounded-lg text-sm text-white" style={{ backgroundColor: '#111827' }}>去阅览室</Link>
@@ -151,7 +151,7 @@ export default function WorkshopPage() {
   if (loading) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center" style={{ fontFamily: '"Noto Serif SC", serif', backgroundColor: '#F5F0EB' }}>
-        <p style={{ fontSize: '13px', color: '#8B7E6A', letterSpacing: '2px' }}>☕ 准备工作台...</p>
+        <p style={{ fontSize: '13px', color: '#8B7E6A', letterSpacing: '2px' }}>☕ 准备装帧台...</p>
       </div>
     )
   }
@@ -251,7 +251,7 @@ export default function WorkshopPage() {
               backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)',
             }}>
               <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
-                ✏️ 在这里创作你的杂志或画册，完成后保存到你的工作台
+                ✏️ 在这里装帧你的杂志或画册，完成后会出现在你的工作台
               </span>
               <button onClick={() => setShowHint(false)} style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>×</button>
             </div>
