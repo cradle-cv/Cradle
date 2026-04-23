@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,6 +18,7 @@ export default function StudioEditArtworkPage({ params }) {
   const [selectedTags, setSelectedTags] = useState([])
   const fileInputRef = useRef(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [wasOrphan, setWasOrphan] = useState(false)  // 加载时就没有 collection_id 的老作品
   
   const [formData, setFormData] = useState({
     title: '',
@@ -47,7 +47,6 @@ export default function StudioEditArtworkPage({ params }) {
       if (!userData) { router.push('/login'); return }
       setIsAdmin(userData.role === 'admin')
 
-      // 守卫
       const { data: identity } = await supabase.from('user_identities')
         .select('id').eq('user_id', userData.id)
         .eq('identity_type', 'artist').eq('is_active', true).maybeSingle()
@@ -63,7 +62,6 @@ export default function StudioEditArtworkPage({ params }) {
       }
       setArtistRecord(artist)
 
-      // 加载作品并验证所有权
       const { data: artwork, error } = await supabase.from('artworks')
         .select('*, artists(id, display_name)').eq('id', id).maybeSingle()
 
@@ -73,7 +71,6 @@ export default function StudioEditArtworkPage({ params }) {
         return
       }
 
-      // 所有权校验:作品的 artist_id 必须等于当前艺术家的 id(或者当前用户是 admin)
       if (userData.role !== 'admin' && artwork.artist_id !== artist?.id) {
         alert('这件作品不属于你')
         router.push('/studio/artworks')
@@ -93,21 +90,19 @@ export default function StudioEditArtworkPage({ params }) {
         curator_note: artwork.curator_note || '',
       })
       if (artwork.image_url) setImagePreview(artwork.image_url)
+      
+      // 标记老的无作品集作品(用于 UI 提示)
+      setWasOrphan(!artwork.collection_id)
 
-      // 当前作品的 artist_id (admin 编辑别人的作品时使用)
       const editTargetArtistId = artwork.artist_id
-
-      // 加载该艺术家的作品集(普通艺术家只显示自己的,admin 显示该作品对应艺术家的)
       const { data: cols } = await supabase.from('collections')
         .select('id, title').eq('artist_id', editTargetArtistId).order('title')
       setCollections(cols || [])
 
-      // 加载已选标签
       const { data: artworkTags } = await supabase.from('artwork_tags')
         .select('tag_id').eq('artwork_id', id)
       if (artworkTags) setSelectedTags(artworkTags.map(t => t.tag_id))
 
-      // 所有标签
       const { data: tagsData } = await supabase.from('tags').select('*').order('name')
       setTags(tagsData || [])
 
@@ -140,12 +135,13 @@ export default function StudioEditArtworkPage({ params }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.title) { alert('请填写标题'); return }
+    if (!formData.collection_id) { alert('请为这件作品选择一个作品集'); return }
 
     setSaving(true)
     try {
       const { error } = await supabase.from('artworks').update({
         title: formData.title,
-        collection_id: formData.collection_id || null,
+        collection_id: formData.collection_id,  // 必填
         category: formData.category,
         medium: formData.medium || null,
         size: formData.dimensions || null,
@@ -229,9 +225,46 @@ export default function StudioEditArtworkPage({ params }) {
           <p className="text-gray-600 mt-1">修改作品信息</p>
         </div>
 
+        {/* 老的无作品集作品提示 */}
+        {wasOrphan && (
+          <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+            <p className="text-sm font-medium" style={{ color: '#92400E' }}>⚠️ 这件作品还没有归入任何作品集</p>
+            <p className="text-xs mt-1" style={{ color: '#B45309' }}>
+              保存时请选择一个作品集。如果你的作品集列表里没有合适的,可以先 <Link href="/studio/collections/new" className="underline">创建一个新作品集</Link>,再回来编辑。
+            </p>
+          </div>
+        )}
+
+        {collections.length === 0 && (
+          <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}>
+            <p className="text-sm font-medium" style={{ color: '#991B1B' }}>你还没有任何作品集</p>
+            <p className="text-xs mt-1" style={{ color: '#B91C1C' }}>
+              保存前必须 <Link href="/studio/collections/new" className="underline font-medium">先创建一个作品集</Link>
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 space-y-6">
+              {/* 归属 */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">📚 归属作品集</h2>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    所属作品集 <span className="text-red-500">*</span>
+                  </label>
+                  <select name="collection_id" value={formData.collection_id} onChange={handleChange} required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">-- 选择作品集 --</option>
+                    {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                  <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
+                    想建新作品集? <Link href="/studio/collections/new" className="underline" style={{ color: '#374151' }}>去创建</Link>
+                  </p>
+                </div>
+              </div>
+
               {/* 基本信息 */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
@@ -240,15 +273,6 @@ export default function StudioEditArtworkPage({ params }) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">作品标题 <span className="text-red-500">*</span></label>
                     <input type="text" name="title" value={formData.title} onChange={handleChange} required
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">所属作品集</label>
-                    <select name="collection_id" value={formData.collection_id} onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option value="">不属于任何作品集</option>
-                      {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -291,7 +315,6 @@ export default function StudioEditArtworkPage({ params }) {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   </div>
 
-                  {/* 策展解读 - 只有 admin 看到和编辑 */}
                   {isAdmin && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
