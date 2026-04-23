@@ -12,11 +12,13 @@ export default function StudioPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const [isArtist, setIsArtist] = useState(false)
+  const [isResident, setIsResident] = useState(false)
+  const [artistRecord, setArtistRecord] = useState(null)
   const [artworks, setArtworks] = useState([])
   const [collections, setCollections] = useState([])
   const [exhibitions, setExhibitions] = useState([])
   const [magazines, setMagazines] = useState([])
-  const [reviewStatus, setReviewStatus] = useState(null)
   const [stats, setStats] = useState({ artworks: 0, collections: 0, views: 0, likes: 0 })
   const [activeTab, setActiveTab] = useState('artworks')
   const [showQuickCreate, setShowQuickCreate] = useState(null)
@@ -29,53 +31,42 @@ export default function StudioPage() {
       if (!session) { router.push('/login?redirect=/studio'); return }
 
       const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', session.user.id)
-        .single()
-
+        .from('users').select('*').eq('auth_id', session.user.id).single()
       if (!userData) { router.push('/login'); return }
       setUser(userData)
 
-      if ((userData.level || 1) < 6 && userData.role !== 'admin') {
+      // 检查所有身份
+      const { data: identities } = await supabase
+        .from('user_identities')
+        .select('identity_type, is_active')
+        .eq('user_id', userData.id)
+        .eq('is_active', true)
+      
+      const identTypes = (identities || []).map(i => i.identity_type)
+      const hasArtist = identTypes.includes('artist') || userData.role === 'admin'
+      const hasResident = identTypes.includes('resident')
+      
+      setIsArtist(hasArtist)
+      setIsResident(hasResident)
+      
+      if (!hasArtist) {
         setLoading(false)
         return
       }
 
-      // 获取审核状态
-      try {
-        const reviewResp = await fetch(`/api/artist-review?userId=${userData.id}`)
-        if (reviewResp.ok) {
-          const reviewData = await reviewResp.json()
-          setReviewStatus(reviewData)
-        }
-      } catch (e) { console.error('获取审核状态失败:', e) }
-
-      // 获取艺术家关联
-      let artist = null
-      try {
-        const { data: artistData } = await supabase
-          .from('artists')
-          .select('id')
-          .eq('user_id', userData.id)
-          .maybeSingle()
-        artist = artistData
-      } catch (e) { console.error('获取艺术家信息失败:', e) }
+      const { data: artist } = await supabase
+        .from('artists').select('*').eq('owner_user_id', userData.id).maybeSingle()
+      setArtistRecord(artist)
 
       if (artist) {
-        // 加载作品
         try {
           const { data: works } = await supabase
-            .from('artworks')
-            .select('*')
-            .eq('artist_id', artist.id)
+            .from('artworks').select('*').eq('artist_id', artist.id)
             .order('created_at', { ascending: false })
           setArtworks(works || [])
 
           const { data: cols } = await supabase
-            .from('collections')
-            .select('*')
-            .eq('artist_id', artist.id)
+            .from('collections').select('*').eq('artist_id', artist.id)
             .order('created_at', { ascending: false })
           setCollections(cols || [])
 
@@ -84,24 +75,18 @@ export default function StudioPage() {
           setStats({
             artworks: (works || []).length,
             collections: (cols || []).length,
-            views: totalViews,
-            likes: totalLikes,
+            views: totalViews, likes: totalLikes,
           })
         } catch (e) { console.error('加载作品失败:', e) }
 
-        // 加载展览
         try {
           const { data: exs } = await supabase
-            .from('exhibitions')
-            .select('*')
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(3)
+            .from('exhibitions').select('*').eq('status', 'active')
+            .order('created_at', { ascending: false }).limit(3)
           setExhibitions(exs || [])
         } catch (e) { console.error('加载展览失败:', e) }
       }
 
-      // 加载杂志（不依赖 artist，直接用 user id）
       try {
         const { data: mags } = await supabase
           .from('magazines')
@@ -115,32 +100,9 @@ export default function StudioPage() {
     finally { setLoading(false) }
   }
 
-  async function applyForVerification() {
-    if (!user) return
-    try {
-      const resp = await fetch('/api/artist-review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'apply', userId: user.id }),
-      })
-      const data = await resp.json()
-      if (data.success) {
-        alert('✅ 认证申请已提交，管理员将尽快审核')
-        loadData()
-      } else {
-        alert(data.error || '申请失败')
-      }
-    } catch (err) { alert('申请失败: ' + err.message) }
-  }
-
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">加载中...</p></div>
   }
-
-  const isVerified = user?.artist_verified || user?.role === 'admin'
-  const isPending = reviewStatus?.review?.status === 'pending'
-  const isRejected = reviewStatus?.review?.status === 'rejected'
-  const isLv6 = (user?.level || 1) >= 6 || user?.role === 'admin'
 
   const statusColors = {
     published: { bg: '#ECFDF5', color: '#059669', text: '已发布' },
@@ -167,19 +129,53 @@ export default function StudioPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {!isLv6 && (
+        {/* 非艺术家兜底引导 - 区分驻地创作者 / 普通用户 */}
+        {!isArtist && isResident && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
-            <div className="text-5xl mb-4">🔒</div>
+            <div className="text-5xl mb-4">📜</div>
             <h2 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>艺术家工作台</h2>
-            <p className="mb-2" style={{ color: '#6B7280' }}>达到 Lv.6「创作者」解锁工作台</p>
-            <p className="text-sm mb-6" style={{ color: '#9CA3AF' }}>当前等级：Lv.{user?.level || 1}</p>
-            <Link href="/profile" className="px-6 py-3 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
-              查看灵感值进度
-            </Link>
+            <p className="mb-3" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+              这里是艺术家管理作品的空间。
+              <br/>
+              你目前是 Cradle 的<strong>驻地创作者</strong>。
+            </p>
+            <p className="text-sm mb-6" style={{ color: '#9CA3AF', lineHeight: 1.9 }}>
+              你可以继续在驻地创作、阅读、参与。
+              <br/>
+              当你的作品准备好了,可以随时重新投递艺术家申请。
+            </p>
+            <div className="flex items-center gap-3 justify-center flex-wrap">
+              <Link href="/residency" className="px-6 py-3 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#8a7a5c' }}>
+                进入驻地
+              </Link>
+              <Link href="/profile/apply/artist" className="px-6 py-3 rounded-xl text-sm font-medium" style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
+                重新申请艺术家
+              </Link>
+            </div>
           </div>
         )}
 
-        {isLv6 && (
+        {!isArtist && !isResident && (
+          <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
+            <div className="text-5xl mb-4">🎨</div>
+            <h2 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>艺术家工作台</h2>
+            <p className="mb-2" style={{ color: '#6B7280' }}>这里是艺术家管理自己作品的空间。</p>
+            <p className="text-sm mb-6" style={{ color: '#9CA3AF' }}>
+              如果你是艺术家,欢迎申请加入 Cradle。<br/>
+              我们会审核你的作品,通过后即可开始。
+            </p>
+            <div className="flex items-center gap-3 justify-center">
+              <Link href="/profile/apply/artist" className="px-6 py-3 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+                申请艺术家身份
+              </Link>
+              <Link href="/profile" className="px-6 py-3 rounded-xl text-sm font-medium" style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
+                返回个人主页
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {isArtist && (
           <>
             <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
               <div className="flex items-center gap-6">
@@ -193,41 +189,31 @@ export default function StudioPage() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>{user.username}</h1>
-                    {isVerified && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
-                        ✅ {user.role === 'admin' ? '管理员' : '认证艺术家'}
-                      </span>
-                    )}
-                    {isPending && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                        ⏳ 认证审核中
-                      </span>
-                    )}
+                    <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>
+                      {artistRecord?.display_name || user.username}
+                    </h1>
+                    <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
+                      ✅ {user.role === 'admin' ? '管理员' : '艺术家'}
+                    </span>
                   </div>
-                  <p className="text-sm" style={{ color: '#6B7280' }}>Lv.{user.level} · ✨ {user.total_points} 灵感值</p>
+                  <p className="text-sm" style={{ color: '#6B7280' }}>
+                    Lv.{user.level || 1} · ✨ {user.total_points || 0} 灵感值
+                  </p>
+                  {!artistRecord && (
+                    <p className="text-xs mt-2" style={{ color: '#B45309' }}>
+                      ⚠️ 艺术家主页未建立,<Link href="/profile/my-artist/new" className="underline">立即完成</Link>
+                    </p>
+                  )}
                 </div>
 
-                {!isVerified && !isPending && user.role !== 'admin' && (
-                  <button onClick={applyForVerification}
-                    className="px-6 py-3 rounded-xl text-sm font-medium text-white flex-shrink-0"
-                    style={{ backgroundColor: '#7C3AED' }}>
-                    🎨 申请艺术家认证
-                  </button>
+                {artistRecord && (
+                  <Link href="/profile/my-artist/edit"
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium flex-shrink-0"
+                    style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+                    编辑艺术家主页
+                  </Link>
                 )}
               </div>
-
-              {isRejected && user.role !== 'admin' && (
-                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5' }}>
-                  <p className="text-sm font-medium" style={{ color: '#DC2626' }}>上次认证申请未通过</p>
-                  {reviewStatus.review?.admin_note && (
-                    <p className="text-xs mt-1" style={{ color: '#6B7280' }}>原因：{reviewStatus.review.admin_note}</p>
-                  )}
-                  <button onClick={applyForVerification} className="text-xs mt-2 underline" style={{ color: '#7C3AED' }}>
-                    重新申请
-                  </button>
-                </div>
-              )}
 
               <div className="grid grid-cols-4 gap-4 mt-6">
                 {[
@@ -244,8 +230,7 @@ export default function StudioPage() {
               </div>
             </div>
 
-            {/* Tab 切换 */}
-            <div className="flex gap-2 mb-6">
+            <div className="flex gap-2 mb-6 flex-wrap">
               {[
                 { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
                 { key: 'collections', label: '📚 我的作品集', count: stats.collections },
@@ -262,7 +247,6 @@ export default function StudioPage() {
               ))}
             </div>
 
-            {/* 作品列表 */}
             {activeTab === 'artworks' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -308,7 +292,6 @@ export default function StudioPage() {
               </div>
             )}
 
-            {/* 作品集 */}
             {activeTab === 'collections' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -351,7 +334,6 @@ export default function StudioPage() {
               </div>
             )}
 
-            {/* 观展邀请 */}
             {activeTab === 'exhibitions' && (
               <div>
                 <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>观展邀请</h2>
@@ -391,7 +373,6 @@ export default function StudioPage() {
               </div>
             )}
 
-            {/* 自制杂志 */}
             {activeTab === 'magazines' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
