@@ -31,14 +31,14 @@ async function getData() {
     console.error('get_homepage_invitations failed:', e)
   }
 
-  // 查当前用户已投稿过的 invitation_id 集合 — 用于 M2 "已投稿" tag
-  let submittedInvitationIds = new Set()
+  // 查当前用户已投稿过的 invitation_id 集合 - 用于 M2 "已投稿" tag
+  let submittedInvitationIds = []
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const { data: subs } = await supabase.rpc('get_my_invitation_submissions')
       if (subs) {
-        submittedInvitationIds = new Set(subs.map(s => s.invitation_id))
+        submittedInvitationIds = subs.map(s => s.invitation_id)
       }
     }
   } catch (e) { /* silent */ }
@@ -79,7 +79,7 @@ async function getData() {
     partners: partners || [], galleryWorks: galleryWorks || [],
     homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
     homepageInvitations,
-    submittedInvitationIds: Array.from(submittedInvitationIds),
+    submittedInvitationIds,
   }
 }
 
@@ -97,6 +97,9 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
 
   const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a`
   const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66`
+
+  // 是否显示"征集中"提示:邀请函 status 是 collecting 或 null/undefined(兼容)且未投稿
+  const shouldShowPrompt = !alreadySubmitted && (inv.status === 'collecting' || !inv.status)
 
   return (
     <a href={`/invitations/${inv.id}`} className="group block">
@@ -175,8 +178,8 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
           >
             {inv.title}
           </h3>
-          {/* γ 样式:倒计时下面一行小字 "征集中 · 点击投稿" (未投稿才显示) */}
-          {!alreadySubmitted && inv.status === 'collecting' && (
+          {/* γ 样式:底部征集提示或已投稿提示 */}
+          {shouldShowPrompt && (
             <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
               <span
                 className="w-1.5 h-1.5 rounded-full"
