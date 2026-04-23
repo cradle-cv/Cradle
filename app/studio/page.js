@@ -69,6 +69,11 @@ export default function StudioPage() {
             .order('created_at', { ascending: false })
           setCollections(cols || [])
 
+          // 引导逻辑:如果有作品集默认"作品" tab,没有作品集默认"作品集" tab
+          if (!cols || cols.length === 0) {
+            setActiveTab('collections')
+          }
+
           const totalViews = (works || []).reduce((s, w) => s + (w.views_count || 0), 0)
           const totalLikes = (works || []).reduce((s, w) => s + (w.likes_count || 0), 0)
           setStats({
@@ -110,6 +115,8 @@ export default function StudioPage() {
     archived: { bg: '#F3F4F6', color: '#6B7280', text: '已归档' },
   }
 
+  const hasNoCollections = collections.length === 0
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
@@ -128,7 +135,6 @@ export default function StudioPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* 驻地创作者引导 */}
         {!isArtist && isResident && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
             <div className="text-5xl mb-4">📜</div>
@@ -154,7 +160,6 @@ export default function StudioPage() {
           </div>
         )}
 
-        {/* 普通用户引导 */}
         {!isArtist && !isResident && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
             <div className="text-5xl mb-4">🎨</div>
@@ -230,6 +235,27 @@ export default function StudioPage() {
               </div>
             </div>
 
+            {/* 新艺术家引导横幅 - 没有作品集也没有作品时显示 */}
+            {stats.collections === 0 && stats.artworks === 0 && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="text-3xl">👋</div>
+                  <div className="flex-1">
+                    <h3 className="font-bold mb-1" style={{ color: '#1E3A8A' }}>欢迎来到艺术家工作台</h3>
+                    <p className="text-sm mb-3" style={{ color: '#3730A3', lineHeight: 1.8 }}>
+                      建议先<strong>创建一个作品集</strong>(比如"城市光影系列"、"日常速写"),
+                      再把作品添加进去。作品集让你的创作有了归属,观众也更容易理解你的创作脉络。
+                    </p>
+                    <Link href="/studio/collections/new"
+                      className="inline-block px-5 py-2 rounded-lg text-sm font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      创建第一个作品集 →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 mb-6 flex-wrap">
               {[
                 { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
@@ -251,10 +277,12 @@ export default function StudioPage() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的作品</h2>
-                  <Link href="/studio/artworks/new"
-                    className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
-                    + 上传作品
-                  </Link>
+                  {!hasNoCollections && (
+                    <Link href="/studio/artworks/new"
+                      className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+                      + 上传作品
+                    </Link>
+                  )}
                 </div>
                 {artworks.length > 0 ? (
                   <div className="grid md:grid-cols-3 gap-6">
@@ -283,10 +311,31 @@ export default function StudioPage() {
                       )
                     })}
                   </div>
+                ) : hasNoCollections ? (
+                  // 没作品集又点"作品" tab:引导先建作品集
+                  <div className="text-center py-16 bg-white rounded-xl shadow-sm">
+                    <div className="text-5xl mb-4">📚</div>
+                    <h3 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>先从作品集开始</h3>
+                    <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.9 }}>
+                      作品需要归属于某个作品集,这样你的创作才有脉络可循。
+                      <br/>
+                      你还没有任何作品集,请先创建一个。
+                    </p>
+                    <Link href="/studio/collections/new"
+                      className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      创建第一个作品集 →
+                    </Link>
+                  </div>
                 ) : (
                   <div className="text-center py-12 bg-white rounded-xl shadow-sm">
                     <div className="text-4xl mb-3">🎨</div>
                     <p style={{ color: '#9CA3AF' }}>还没有作品，开始上传吧</p>
+                    <Link href="/studio/artworks/new"
+                      className="inline-block mt-4 px-5 py-2 rounded-lg text-sm font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      + 上传作品
+                    </Link>
                   </div>
                 )}
               </div>
@@ -328,7 +377,15 @@ export default function StudioPage() {
                 ) : (
                   <div className="text-center py-12 bg-white rounded-xl shadow-sm">
                     <div className="text-4xl mb-3">📚</div>
-                    <p style={{ color: '#9CA3AF' }}>还没有作品集</p>
+                    <p className="mb-2" style={{ color: '#111827' }}>还没有作品集</p>
+                    <p className="text-xs mb-6" style={{ color: '#9CA3AF' }}>
+                      作品集是你创作的主题归属 — 比如"城市光影系列"
+                    </p>
+                    <Link href="/studio/collections/new"
+                      className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      创建第一个作品集 →
+                    </Link>
                   </div>
                 )}
               </div>
