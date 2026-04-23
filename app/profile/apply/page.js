@@ -26,22 +26,23 @@ export default function ApplyOverviewPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState(null)
-  // 每种身份的状态: 'none' | 'pending' | 'approved' | 'rejected'
   const [identityStatus, setIdentityStatus] = useState({
     artist: { state: 'none' },
     curator: { state: 'none' },
     partner: { state: 'none' },
   })
-  // 合作伙伴条目 (如果已创建)
   const [partnerRecord, setPartnerRecord] = useState(null)
-  // 艺术家条目 (如果已创建)
   const [artistRecord, setArtistRecord] = useState(null)
-  // 资料未完善的字段列表 (空数组=已完善)
+  const [curatorStats, setCuratorStats] = useState({ invitations: 0, pendingReviews: 0 })
+  const [partnerStats, setPartnerStats] = useState({
+    activeExhibitions: 0,
+    pendingApplications: 0,
+    draftExhibitions: 0,
+  })
   const [missingFields, setMissingFields] = useState([])
 
   useEffect(() => { load() }, [])
 
-  // 检查哪些资料字段未填 (中等门槛: 头像 + 简介 + 所在地 + 职业)
   function checkMissing(u) {
     const miss = []
     if (!u.avatar_url) miss.push({ key: 'avatar', label: '头像' })
@@ -65,12 +66,10 @@ export default function ApplyOverviewPage() {
     setUserData(u)
     setMissingFields(checkMissing(u))
 
-    // 查身份授予记录
     const { data: identities } = await supabase.from('user_identities')
       .select('identity_type, granted_at')
       .eq('user_id', u.id).eq('is_active', true)
 
-    // 查申请记录
     const { data: apps } = await supabase.from('identity_applications')
       .select('id, identity_type, status, created_at, reviewed_at, review_notes')
       .eq('user_id', u.id)
@@ -86,7 +85,6 @@ export default function ApplyOverviewPage() {
       status[i.identity_type] = { state: 'approved', granted_at: i.granted_at }
     }
 
-    // 用最新一条申请记录作为状态来源
     const latestByType = {}
     for (const a of apps || []) {
       if (!latestByType[a.identity_type]) latestByType[a.identity_type] = a
@@ -94,7 +92,7 @@ export default function ApplyOverviewPage() {
     for (const t of ['artist', 'curator', 'partner']) {
       const app = latestByType[t]
       if (!app) continue
-      if (status[t].state === 'approved') continue // approved 优先
+      if (status[t].state === 'approved') continue
 
       if (app.status === 'pending') {
         status[t] = { state: 'pending', created_at: app.created_at }
@@ -109,19 +107,60 @@ export default function ApplyOverviewPage() {
 
     setIdentityStatus(status)
 
-    // 如果是 partner approved,查机构条目
     if (status.partner.state === 'approved') {
       const { data: pRec } = await supabase.rpc('my_partner_record')
       if (pRec && pRec.length > 0) {
         setPartnerRecord(pRec[0])
       }
+
+      // 合作伙伴业务统计
+      try {
+        const [appsRes, exhRes] = await Promise.all([
+          supabase.rpc('my_partner_applications'),
+          supabase.rpc('my_partner_exhibitions'),
+        ])
+        const myApps = appsRes.data || []
+        const myExhs = exhRes.data || []
+
+        const pendingApplications = myApps.filter(a =>
+          ['pending', 'shortlisted'].includes(a.selection_status)
+        ).length
+
+        const activeExhibitions = myExhs.filter(e =>
+          e.exhibition_status === 'active'
+        ).length
+
+        const draftExhibitions = myExhs.filter(e =>
+          ['draft', 'rejected'].includes(e.exhibition_status)
+        ).length
+
+        setPartnerStats({
+          activeExhibitions,
+          pendingApplications,
+          draftExhibitions,
+        })
+      } catch (e) {
+        console.warn('load partner stats:', e)
+      }
     }
 
-    // 如果是 artist approved,查艺术家条目
     if (status.artist.state === 'approved') {
       const { data: aRec } = await supabase.rpc('my_artist_record')
       if (aRec && aRec.length > 0) {
         setArtistRecord(aRec[0])
+      }
+    }
+
+    if (status.curator.state === 'approved') {
+      try {
+        const { data: invs } = await supabase.rpc('my_invitations_with_application_counts')
+        if (invs) {
+          const totalInvs = invs.length
+          const totalPending = invs.reduce((s, i) => s + (Number(i.pending_count) || 0), 0)
+          setCuratorStats({ invitations: totalInvs, pendingReviews: totalPending })
+        }
+      } catch (e) {
+        console.warn('load curator stats:', e)
       }
     }
 
@@ -156,7 +195,6 @@ export default function ApplyOverviewPage() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
-        {/* 刊头 */}
         <div className="mb-8">
           <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
             <div className="flex items-center justify-between">
@@ -175,7 +213,6 @@ export default function ApplyOverviewPage() {
           <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
         </div>
 
-        {/* 资料未完善提示 (软阻挡) */}
         {profileIncomplete && (
           <Link href="/profile/edit"
             className="block mb-6 p-5 rounded-xl transition hover:opacity-90"
@@ -217,9 +254,6 @@ export default function ApplyOverviewPage() {
             const isApproved = s.state === 'approved'
             const isPending = s.state === 'pending'
             const isRejected = s.state === 'rejected'
-            // 禁用条件:
-            // - 其他申请审核中 (原有)
-            // - 或资料未完善 (新增, 但不影响 approved 的显示)
             const disabled = (hasAnyPending && !isPending) || (profileIncomplete && !isApproved && !isPending)
 
             return (
@@ -286,13 +320,32 @@ export default function ApplyOverviewPage() {
 
                 <div className="mt-5">
                   {isApproved ? (
-                    // approved 状态:partner / artist 特殊处理(创建/管理主页)
                     t === 'partner' ? (
                       partnerRecord ? (
+                        // ─── partner 已创建机构页 ───
                         <div className="space-y-2">
                           <p className="text-xs text-center" style={{ color: '#10B981' }}>
-                            ✓ 机构页已创建:{partnerRecord.name}
+                            ✓ 机构页:{partnerRecord.name}
                           </p>
+                          {(partnerStats.activeExhibitions > 0 || partnerStats.pendingApplications > 0 || partnerStats.draftExhibitions > 0) && (
+                            <p className="text-xs text-center" style={{ color: '#6B7280', lineHeight: 1.7 }}>
+                              {partnerStats.activeExhibitions > 0 && (
+                                <span>已承办 {partnerStats.activeExhibitions} 场</span>
+                              )}
+                              {partnerStats.pendingApplications > 0 && (
+                                <span>
+                                  {partnerStats.activeExhibitions > 0 ? ' · ' : ''}
+                                  <span style={{ color: '#2563EB' }}>{partnerStats.pendingApplications} 份申请中</span>
+                                </span>
+                              )}
+                              {partnerStats.draftExhibitions > 0 && (
+                                <span>
+                                  {(partnerStats.activeExhibitions > 0 || partnerStats.pendingApplications > 0) ? ' · ' : ''}
+                                  <span style={{ color: '#DC2626' }}>{partnerStats.draftExhibitions} 份草稿</span>
+                                </span>
+                              )}
+                            </p>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <Link
                               href="/profile/my-partner/edit"
@@ -308,6 +361,12 @@ export default function ApplyOverviewPage() {
                               预览
                             </Link>
                           </div>
+                          <Link
+                            href="/studio"
+                            className="block w-full text-center py-2 rounded-lg text-xs transition"
+                            style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
+                            → 进入合作伙伴工作台
+                          </Link>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -344,9 +403,9 @@ export default function ApplyOverviewPage() {
                             </Link>
                           </div>
                           <Link
-                            href="/admin/artworks"
+                            href="/studio"
                             className="block w-full text-center py-2 rounded-lg text-xs transition"
-                            style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
+                            style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
                             → 进入艺术家工作台
                           </Link>
                         </div>
@@ -364,8 +423,30 @@ export default function ApplyOverviewPage() {
                         </div>
                       )
                     ) : (
-                      <div className="text-center text-xs py-3" style={{ color: '#10B981' }}>
-                        ✓ 已获得此身份
+                      // ─── curator approved ───
+                      <div className="space-y-2">
+                        <p className="text-xs text-center" style={{ color: '#10B981' }}>
+                          {curatorStats.invitations > 0
+                            ? `✓ 已发起 ${curatorStats.invitations} 份邀请函`
+                            : '✓ 已获得策展人身份'}
+                          {curatorStats.pendingReviews > 0 && (
+                            <span className="ml-1" style={{ color: '#DC2626' }}>
+                              · {curatorStats.pendingReviews} 份待初审
+                            </span>
+                          )}
+                        </p>
+                        <Link
+                          href="/curator/invitations/new"
+                          className="block w-full text-center py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                          style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>
+                          + 发起新邀请函
+                        </Link>
+                        <Link
+                          href="/studio"
+                          className="block w-full text-center py-2 rounded-lg text-xs transition"
+                          style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
+                          → 进入策展人工作台
+                        </Link>
                       </div>
                     )
                   ) : isPending ? (
