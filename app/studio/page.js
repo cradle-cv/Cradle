@@ -35,7 +35,6 @@ export default function StudioPage() {
       if (!userData) { router.push('/login'); return }
       setUser(userData)
 
-      // 检查所有身份
       const { data: identities } = await supabase
         .from('user_identities')
         .select('identity_type, is_active')
@@ -129,7 +128,7 @@ export default function StudioPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* 非艺术家兜底引导 - 区分驻地创作者 / 普通用户 */}
+        {/* 驻地创作者引导 */}
         {!isArtist && isResident && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
             <div className="text-5xl mb-4">📜</div>
@@ -155,6 +154,7 @@ export default function StudioPage() {
           </div>
         )}
 
+        {/* 普通用户引导 */}
         {!isArtist && !isResident && (
           <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
             <div className="text-5xl mb-4">🎨</div>
@@ -251,7 +251,7 @@ export default function StudioPage() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的作品</h2>
-                  <Link href="/admin/artworks/new"
+                  <Link href="/studio/artworks/new"
                     className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
                     + 上传作品
                   </Link>
@@ -261,7 +261,7 @@ export default function StudioPage() {
                     {artworks.map(work => {
                       const sc = statusColors[work.status] || statusColors.draft
                       return (
-                        <Link key={work.id} href={`/admin/artworks/${work.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                        <Link key={work.id} href={`/studio/artworks/${work.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
                           <div className="aspect-square bg-gray-100">
                             {work.image_url ? (
                               <img src={work.image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -296,7 +296,7 @@ export default function StudioPage() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的作品集</h2>
-                  <Link href="/admin/collections/new"
+                  <Link href="/studio/collections/new"
                     className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
                     + 创建作品集
                   </Link>
@@ -306,7 +306,7 @@ export default function StudioPage() {
                     {collections.map(col => {
                       const sc = statusColors[col.status] || statusColors.draft
                       return (
-                        <Link key={col.id} href={`/admin/collections/${col.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                        <Link key={col.id} href={`/studio/collections/${col.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
                           <div className="aspect-video bg-gray-100">
                             {col.cover_image ? (
                               <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
