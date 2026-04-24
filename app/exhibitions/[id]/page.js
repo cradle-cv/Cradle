@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 
 async function getExhibition(id) {
-  // 先尝试从平台展览获取
   const { data: exhibition } = await supabase
     .from('exhibitions')
     .select('*')
@@ -25,15 +24,38 @@ async function getExhibition(id) {
     ?.map(ea => ea.artworks)
     .filter(Boolean) || []
 
-  return { exhibition, artworks }
+  // 如果有承办方 (partner_id),查承办机构信息
+  let partner = null
+  if (exhibition.partner_id) {
+    const { data: pData } = await supabase
+      .from('partners')
+      .select('id, name, name_en, logo_url, city, type, description')
+      .eq('id', exhibition.partner_id)
+      .maybeSingle()
+    partner = pData || null
+  }
+
+  return { exhibition, artworks, partner }
 }
 
 function getStatusLabel(status) {
-  const now = new Date()
   if (status === 'active') return { text: '进行中', color: 'bg-green-100 text-green-700' }
   if (status === 'draft') return { text: '预告', color: 'bg-yellow-100 text-yellow-700' }
+  if (status === 'pending_review') return { text: '待上架', color: 'bg-blue-100 text-blue-700' }
   if (status === 'archived') return { text: '已结束', color: 'bg-gray-100 text-gray-700' }
   return { text: status, color: 'bg-gray-100 text-gray-700' }
+}
+
+function getTypeLabel(type) {
+  const labels = {
+    gallery: '画廊',
+    museum: '美术馆',
+    studio: '工作室',
+    bookstore: '书店',
+    academy: '艺术学院',
+    other: '艺术空间',
+  }
+  return labels[type] || type
 }
 
 export default async function ExhibitionDetailPage({ params }) {
@@ -42,7 +64,7 @@ export default async function ExhibitionDetailPage({ params }) {
 
   if (!data) notFound()
 
-  const { exhibition, artworks } = data
+  const { exhibition, artworks, partner } = data
   const status = getStatusLabel(exhibition.status)
 
   return (
@@ -51,11 +73,11 @@ export default async function ExhibitionDetailPage({ params }) {
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
-<a href="/" className="flex items-center gap-3">
+            <a href="/" className="flex items-center gap-3">
               <div className="w-0 h-10 flex-shrink-0"></div>
-<div style={{ height: '69px', overflow: 'hidden' }}>
-  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-</div>
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
             </a>
           </div>
           <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
@@ -109,7 +131,7 @@ export default async function ExhibitionDetailPage({ params }) {
 
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="grid md:grid-cols-3 gap-12">
-          {/* 左侧：展览详情 */}
+          {/* 左侧:展览详情 */}
           <div className="md:col-span-2">
             {/* 描述 */}
             {exhibition.description && (
@@ -167,7 +189,7 @@ export default async function ExhibitionDetailPage({ params }) {
             )}
           </div>
 
-          {/* 右侧：展览信息卡片 */}
+          {/* 右侧:展览信息卡片 */}
           <div>
             <div className="bg-gray-50 rounded-xl p-6 sticky top-24">
               <h3 className="text-lg font-bold text-gray-900 mb-6">展览信息</h3>
@@ -214,19 +236,73 @@ export default async function ExhibitionDetailPage({ params }) {
                   </div>
                 )}
 
-                {exhibition.ticket_info && (
+                {exhibition.opening_hours && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">🕐</span>
+                    <div>
+                      <p className="text-sm text-gray-500">开放时间</p>
+                      <p className="font-medium text-gray-900 whitespace-pre-line">{exhibition.opening_hours}</p>
+                    </div>
+                  </div>
+                )}
+
+                {(exhibition.is_free || exhibition.ticket_price || exhibition.ticket_info) && (
                   <div className="flex items-start gap-3">
                     <span className="text-[#F59E0B] text-lg">🎫</span>
                     <div>
-                      <p className="text-sm text-gray-500">票务信息</p>
-                      <p className="font-medium text-gray-900">{exhibition.ticket_info}</p>
+                      <p className="text-sm text-gray-500">票务</p>
+                      <p className="font-medium text-gray-900">
+                        {exhibition.is_free === true
+                          ? '免费'
+                          : exhibition.ticket_price
+                            ? `¥ ${exhibition.ticket_price}`
+                            : exhibition.ticket_info || '—'}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
+              {/* 承办方卡片 */}
+              {partner && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
+                    HOSTED BY · 承办方
+                  </p>
+                  <a
+                    href={`/partners/${partner.id}`}
+                    className="block group"
+                  >
+                    <div className="flex items-center gap-3 p-3 rounded-lg transition"
+                      style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
+                      <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0"
+                        style={{ backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
+                        {partner.logo_url ? (
+                          <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl">🏛️</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate group-hover:text-[#F59E0B] transition-colors" style={{ color: '#111827' }}>
+                          {partner.name}
+                        </p>
+                        {partner.name_en && (
+                          <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{partner.name_en}</p>
+                        )}
+                        <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                          {getTypeLabel(partner.type)}
+                          {partner.city && <span> · {partner.city}</span>}
+                        </p>
+                      </div>
+                      <span className="text-sm flex-shrink-0" style={{ color: '#9CA3AF' }}>›</span>
+                    </div>
+                  </a>
+                </div>
+              )}
+
               {/* 分享/收藏按钮 */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-6 pt-6 border-t border-gray-200">
                 <div className="flex gap-3">
                   <button className="flex-1 px-4 py-3 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors text-center">
                     ❤️ 收藏展览
