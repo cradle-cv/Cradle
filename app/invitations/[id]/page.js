@@ -24,23 +24,24 @@ export default function InvitationDetailPage() {
   const [stats, setStats] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [isArtist, setIsArtist] = useState(false)
+  const [isPartner, setIsPartner] = useState(false)
   const [mySubmission, setMySubmission] = useState(null)
+  const [myPartnerApplication, setMyPartnerApplication] = useState(null)
+  const [approvedPartner, setApprovedPartner] = useState(null)
 
   useEffect(() => { if (id) load() }, [id])
 
   async function load() {
     setLoading(true)
 
-    // ═══ 懒触发:如果 status='collecting' 且 deadline 过了,自动更新 ═══
-    // 在加载邀请函数据之前调用,确保用户看到的是最新状态
+    // 懒触发:collecting + 过期自动流转
     try {
       await supabase.rpc('auto_transition_invitation', { p_invitation_id: id })
     } catch (e) {
-      // 即使自动流转失败,也继续加载(只是状态可能稍后才更新)
       console.warn('auto_transition_invitation failed:', e)
     }
 
-    // 加载邀请函本体(这时 status 已经是最新的)
+    // 邀请函本体
     const { data: inv } = await supabase.from('invitations')
       .select('*, creator:creator_user_id(id, username, avatar_url)')
       .eq('id', id).maybeSingle()
@@ -53,6 +54,25 @@ export default function InvitationDetailPage() {
       setStats(s?.[0] || null)
     } catch (e) { /* silent */ }
 
+    // 已 approved 的承办方(通过 invitation_partner_applications)
+    // 注意:RLS 限制一般用户只能看自己的 application
+    // 但如果 generated_exhibition_id 已填,说明已通过终审,我们从 exhibition 反查 partner
+    if (inv.generated_exhibition_id) {
+      try {
+        const { data: ex } = await supabase.from('exhibitions')
+          .select('partner_id')
+          .eq('id', inv.generated_exhibition_id)
+          .maybeSingle()
+        if (ex?.partner_id) {
+          const { data: p } = await supabase.from('partners')
+            .select('id, name, name_en, logo_url, city, type')
+            .eq('id', ex.partner_id)
+            .maybeSingle()
+          if (p) setApprovedPartner(p)
+        }
+      } catch (e) { /* silent */ }
+    }
+
     // 当前用户
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
@@ -60,15 +80,31 @@ export default function InvitationDetailPage() {
         .select('id, username, avatar_url').eq('auth_id', session.user.id).maybeSingle()
       if (u) {
         setCurrentUser(u)
-        const { data: ident } = await supabase.from('user_identities')
-          .select('id').eq('user_id', u.id).eq('identity_type', 'artist')
-          .eq('is_active', true).maybeSingle()
-        setIsArtist(!!ident)
 
+        // 身份识别
+        const { data: idents } = await supabase.from('user_identities')
+          .select('identity_type').eq('user_id', u.id).eq('is_active', true)
+        const types = (idents || []).map(i => i.identity_type)
+        setIsArtist(types.includes('artist'))
+        setIsPartner(types.includes('partner'))
+
+        // 已有投稿?
         try {
           const { data: sub } = await supabase.rpc('my_submission_for', { p_invitation_id: id })
           setMySubmission(sub?.[0] || null)
         } catch (e) { /* silent */ }
+
+        // 已有承办申请?
+        if (types.includes('partner')) {
+          const { data: app } = await supabase.from('invitation_partner_applications')
+            .select('id, selection_status, applied_at')
+            .eq('invitation_id', id)
+            .eq('applicant_user_id', u.id)
+            .order('applied_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (app) setMyPartnerApplication(app)
+        }
       }
     }
 
@@ -154,6 +190,13 @@ export default function InvitationDetailPage() {
               由 {invitation.creator.username} 发起
             </span>
           )}
+          {/* 承办方已确认的标识 */}
+          {approvedPartner && (
+            <span className="px-3 py-1 rounded-full text-xs"
+              style={{ backgroundColor: '#EFF6FF', color: '#2563EB', letterSpacing: '1px' }}>
+              🏛️ 承办方已确认
+            </span>
+          )}
         </div>
         <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#111827', lineHeight: 1.4 }}>
           {invitation.title}
@@ -220,8 +263,43 @@ export default function InvitationDetailPage() {
         </div>
       </section>
 
-      {/* 行动区 */}
-      <section className="px-6 py-10 max-w-3xl mx-auto">
+      {/* 承办方展示 (已 approved 时才显示) */}
+      {approvedPartner && (
+        <section className="px-6 py-6 max-w-4xl mx-auto">
+          <Link href={`/partners/${approvedPartner.id}`}
+            className="block group rounded-xl p-5 transition hover:shadow-md"
+            style={{ backgroundColor: '#F9FAFB', border: '0.5px solid #E5E7EB' }}>
+            <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
+              HOSTED BY · 本次承办方
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0"
+                style={{ backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
+                {approvedPartner.logo_url ? (
+                  <img src={approvedPartner.logo_url} alt={approvedPartner.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl">🏛️</div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-lg truncate group-hover:text-[#2563EB] transition-colors" style={{ color: '#111827' }}>
+                  {approvedPartner.name}
+                </p>
+                {approvedPartner.name_en && (
+                  <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{approvedPartner.name_en}</p>
+                )}
+                {approvedPartner.city && (
+                  <p className="text-xs mt-1" style={{ color: '#6B7280' }}>📍 {approvedPartner.city}</p>
+                )}
+              </div>
+              <span className="text-sm flex-shrink-0" style={{ color: '#9CA3AF' }}>查看机构 ›</span>
+            </div>
+          </Link>
+        </section>
+      )}
+
+      {/* 行动区 - 艺术家投稿入口 */}
+      <section className="px-6 py-8 max-w-3xl mx-auto">
         <ActionArea
           invitation={invitation}
           isCollecting={isCollecting}
@@ -233,6 +311,19 @@ export default function InvitationDetailPage() {
         />
       </section>
 
+      {/* 行动区 - 合作伙伴承办入口 */}
+      {invitation.open_to_partners && !approvedPartner && (
+        <section className="px-6 py-4 max-w-3xl mx-auto">
+          <PartnerActionArea
+            invitation={invitation}
+            isCollecting={isCollecting}
+            currentUser={currentUser}
+            isPartner={isPartner}
+            myApplication={myPartnerApplication}
+          />
+        </section>
+      )}
+
       <footer className="bg-[#1F2937] text-white py-8 px-6 mt-12">
         <div className="max-w-6xl mx-auto text-center text-sm text-gray-500">
           © 2026 Cradle摇篮. All rights reserved.
@@ -242,6 +333,9 @@ export default function InvitationDetailPage() {
   )
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 艺术家投稿行动区
+// ═══════════════════════════════════════════════════════════════
 function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmission, themeColor, router }) {
   if (!isCollecting) {
     const statusText = {
@@ -352,6 +446,124 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
       >
         投我的作品 →
       </Link>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 合作伙伴承办行动区
+// ═══════════════════════════════════════════════════════════════
+function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, myApplication }) {
+  // 已有申请 - 展示状态(只要是 partner 本人就能看)
+  if (myApplication) {
+    const statusMap = {
+      pending: { text: '等待策展人初审', bg: '#FEF3C7', color: '#B45309', icon: '⏳' },
+      shortlisted: { text: '已通过初审,等待摇篮终审', bg: '#DBEAFE', color: '#2563EB', icon: '🕓' },
+      approved: { text: '已正式通过', bg: '#ECFDF5', color: '#059669', icon: '✓' },
+      rejected_by_creator: { text: '策展人初审未通过', bg: '#FEE2E2', color: '#DC2626', icon: '✕' },
+      rejected_by_admin: { text: '摇篮终审未通过', bg: '#FEE2E2', color: '#DC2626', icon: '✕' },
+    }
+    const s = statusMap[myApplication.selection_status] || { text: myApplication.selection_status, bg: '#F3F4F6', color: '#6B7280', icon: '·' }
+    return (
+      <div className="rounded-xl p-6" style={{ backgroundColor: '#F9FAFB', border: '0.5px solid #E5E7EB' }}>
+        <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
+          HOSTING APPLICATION · 你的承办申请
+        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{s.icon}</span>
+            <div>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: s.bg, color: s.color }}>
+                {s.text}
+              </span>
+              <p className="text-xs mt-1" style={{ color: '#6B7280' }}>
+                提交于 {new Date(myApplication.applied_at).toLocaleDateString('zh-CN')}
+              </p>
+            </div>
+          </div>
+          <Link href={`/studio/partner/applications/${myApplication.id}`}
+            className="text-sm px-4 py-2 rounded-lg transition"
+            style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+            查看详情 →
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // 征集已结束
+  if (!isCollecting) {
+    return null  // 不显示承办入口
+  }
+
+  // 未登录
+  if (!currentUser) {
+    return (
+      <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
+        <div className="flex items-start gap-4">
+          <span className="text-3xl">🏛️</span>
+          <div className="flex-1">
+            <p className="font-bold mb-1" style={{ color: '#1E3A8A' }}>
+              你是艺术机构吗?
+            </p>
+            <p className="text-sm mb-4" style={{ color: '#3730A3', lineHeight: 1.8 }}>
+              这份邀请函开放合作伙伴报名承办。如果你是画廊、美术馆、工作室或艺术空间,欢迎以机构身份参与承办这场展览。
+            </p>
+            <Link href={`/login?redirect=/invitations/${invitation.id}`}
+              className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
+              style={{ backgroundColor: '#2563EB' }}>
+              登录后了解承办 →
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 已登录但非合作伙伴
+  if (!isPartner) {
+    return (
+      <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
+        <div className="flex items-start gap-4">
+          <span className="text-3xl">🏛️</span>
+          <div className="flex-1">
+            <p className="font-bold mb-1" style={{ color: '#1E3A8A' }}>
+              想承办这场展览?
+            </p>
+            <p className="text-sm mb-4" style={{ color: '#3730A3', lineHeight: 1.8 }}>
+              这份邀请函开放合作伙伴报名承办。成为 Cradle 合作伙伴后,你可以提交承办方案,经策展人和摇篮双重审核后,在你的场地承办展览。
+            </p>
+            <Link href="/profile/apply/partner"
+              className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
+              style={{ backgroundColor: '#2563EB' }}>
+              申请成为合作伙伴 →
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 已是合作伙伴,未报名
+  return (
+    <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+      <div className="flex items-start gap-4">
+        <span className="text-3xl">🏛️</span>
+        <div className="flex-1">
+          <p className="font-bold mb-1" style={{ color: '#1E3A8A' }}>
+            以机构身份报名承办
+          </p>
+          <p className="text-sm mb-4" style={{ color: '#3730A3', lineHeight: 1.8 }}>
+            告诉策展人你的场地、展期、配套服务和承办理由。通过初审和摇篮终审后,展览会在你的场地举办。
+          </p>
+          <Link href={`/studio/partner/invitations/${invitation.id}`}
+            className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
+            style={{ backgroundColor: '#2563EB' }}>
+            提交承办申请 →
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
