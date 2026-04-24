@@ -42,7 +42,7 @@ function Pagination({ page, totalPages, total, unit, onPageChange }) {
   )
 }
 
-export default function GalleryClient({ works, museums, galleryArtists = [], curations = [] }) {
+export default function GalleryClient({ works, museums, galleryArtists = [], curations = [], isAdminPreview = false }) {
   const [viewMode, setViewMode] = useState('curation')
   const [selectedMuseum, setSelectedMuseum] = useState(null)
   const [selectedArtist, setSelectedArtist] = useState(null)
@@ -332,7 +332,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                   </div>
                   <Pagination page={museumPage} totalPages={museumTotalPages} total={filteredMuseums.length} unit="座博物馆" onPageChange={setMuseumPage} />
                 </>
-              ) : (<div className="text-center py-16"><div className="text-5xl mb-4">🏛️</div><p style={{ color: '#9CA3AF' }}>该地区暂无收录的美术馆作品</p></div>)}
+              ) : (<div className="text-center py-16"><div className="text-5xl mb-4">🏛️</div><p style={{ color: '#9CA3AF' }}>
+                {isAdminPreview ? '该地区暂无任何博物馆' : '该地区暂无已精选作品的博物馆'}
+              </p></div>)}
             </div>
           )}
 
@@ -393,7 +395,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                   </div>
                   <Pagination page={artistPage} totalPages={artistTotalPages} total={filteredArtists.length} unit="位艺术家" onPageChange={setArtistPage} />
                 </>
-              ) : (<div className="text-center py-16"><div className="text-5xl mb-4">🎭</div><p style={{ color: '#9CA3AF' }}>{artistSearch ? '没有找到匹配的艺术家' : '暂无收录的艺术家作品'}</p></div>)}
+              ) : (<div className="text-center py-16"><div className="text-5xl mb-4">🎭</div><p style={{ color: '#9CA3AF' }}>
+                {artistSearch ? '没有找到匹配的艺术家' : (isAdminPreview ? '暂无收录的艺术家' : '暂无已精选作品的艺术家')}
+              </p></div>)}
             </div>
           )}
 
@@ -426,9 +430,23 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
             <div style={{ paddingTop: '16px' }}>
               <div className="flex items-center justify-between mb-4">
                 <button onClick={() => switchView('curation')} className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>← 返回本期精选</button>
-                <span className="text-sm" style={{ color: '#9CA3AF' }}>共 {works.length} 件作品</span>
+                <span className="text-sm" style={{ color: '#9CA3AF' }}>
+                  共 {works.length} 件作品
+                  {isAdminPreview && <span className="ml-2 px-2 py-0.5 rounded text-xs" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>🔓 含未精选</span>}
+                </span>
               </div>
-              <WorkGrid works={works} />
+              {works.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="text-6xl mb-4">📰</div>
+                  <h3 className="text-xl font-bold mb-2" style={{ color: '#111827' }}>馆藏即将展出</h3>
+                  <p className="text-sm" style={{ color: '#6B7280', lineHeight: 1.9 }}>
+                    阅览室的作品由策展人精选后揭幕,<br/>
+                    每一件都经过审慎挑选。敬请期待本期精选。
+                  </p>
+                </div>
+              ) : (
+                <WorkGrid works={works} />
+              )}
             </div>
           )}
         </div>
