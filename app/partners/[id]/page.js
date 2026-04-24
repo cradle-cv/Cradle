@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import UserNav from '@/components/UserNav'
 import PartnerDetailClient from '@/components/PartnerDetailClient'
+import PartnerHostedExhibitions from '@/components/PartnerHostedExhibitions'
 
 async function getPartner(id) {
   const { data: partner } = await supabase
@@ -12,7 +13,6 @@ async function getPartner(id) {
     .single()
   if (!partner) return null
 
-  // 明确指定嵌套 join 的外键:artists:owner_user_id (整合后 artists 有两个外键指向 users)
   const { data: partnerArtists } = await supabase
     .from('partner_artists')
     .select('*, artists(*, users:owner_user_id(id, username, avatar_url))')
@@ -51,7 +51,6 @@ export default async function PartnerDetailPage({ params }) {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
-      {/* 导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-12">
@@ -79,9 +78,7 @@ export default async function PartnerDetailPage({ params }) {
           {partner.cover_image ? (
             <img src={partner.cover_image} alt={partner.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full" style={{
-              background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)',
-            }} />
+            <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)' }} />
           )}
         </div>
         <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
@@ -137,7 +134,6 @@ export default async function PartnerDetailPage({ params }) {
             </p>
           )}
 
-          {/* 联系/社交 快捷区 */}
           <div className="flex items-center justify-center gap-5 mt-8 text-sm flex-wrap">
             {partner.website && (
               <a href={partner.website} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: '#6B7280' }}>
@@ -154,15 +150,13 @@ export default async function PartnerDetailPage({ params }) {
             )}
           </div>
 
-          {/* 社交链接: 小圆按钮 */}
           {hasSocial && (
             <div className="flex items-center justify-center gap-2 mt-5 flex-wrap">
               {partner.social_links.map((url, i) => (
                 <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center justify-center w-10 h-10 rounded-full transition hover:opacity-80"
                   style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}
-                  title={url}
-                >
+                  title={url}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M6.5 9.5l-2.5 2.5a2.5 2.5 0 11-3.5-3.5l2.5-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
                     <path d="M9.5 6.5l2.5-2.5a2.5 2.5 0 113.5 3.5l-2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
@@ -192,7 +186,10 @@ export default async function PartnerDetailPage({ params }) {
         </section>
       )}
 
-      {/* 场地照片(交互部分抽到 Client 组件) */}
+      {/* ═══ B:承办展览履历 ═══ */}
+      <PartnerHostedExhibitions partnerId={partner.id} />
+
+      {/* 场地照片 */}
       {(hasVenuePhotos || partner.floor_plan_url) && (
         <PartnerDetailClient
           venuePhotos={partner.venue_photos || []}
@@ -268,7 +265,7 @@ export default async function PartnerDetailPage({ params }) {
         </section>
       )}
 
-      {/* 联系方式网格 */}
+      {/* 联系方式 */}
       <section className="py-16 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
@@ -278,12 +275,8 @@ export default async function PartnerDetailPage({ params }) {
             </h2>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            {partner.address && (
-              <ContactCard title="地址">{partner.address}</ContactCard>
-            )}
-            {partner.opening_hours && (
-              <ContactCard title="营业时间">{partner.opening_hours}</ContactCard>
-            )}
+            {partner.address && <ContactCard title="地址">{partner.address}</ContactCard>}
+            {partner.opening_hours && <ContactCard title="营业时间">{partner.opening_hours}</ContactCard>}
             {partner.contact_email && (
               <ContactCard title="邮箱">
                 <a href={`mailto:${partner.contact_email}`} className="hover:underline" style={{ color: '#374151' }}>
