@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import GalleryClient from './GalleryClient'
@@ -7,13 +9,57 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-async function getData() {
+// 检查当前访问用户是不是 admin
+async function checkIsAdmin() {
+  try {
+    const cookieStore = await cookies()
+    const supabaseServer = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll() { /* read-only in server component */ },
+        },
+      }
+    )
+    const { data: { user } } = await supabaseServer.auth.getUser()
+    if (!user) return false
+
+    const { data: userData } = await supabase
+      .from('users').select('role').eq('auth_id', user.id).maybeSingle()
+    return userData?.role === 'admin'
+  } catch {
+    return false
+  }
+}
+
+async function getData(isAdminPreview) {
+  // ─── 期刊(全部已发布) ───
+  const { data: allCurations } = await supabase
+    .from('gallery_curations')
+    .select('*')
+    .eq('status', 'published')
+    .order('issue_number', { ascending: false })
+
+  // 收集所有已发布期刊引用过的作品 id —— 这是"已进入阅览室"的白名单
+  const curatedWorkIdSet = new Set()
+  ;(allCurations || []).forEach(c => {
+    (c.work_ids || []).forEach(id => curatedWorkIdSet.add(id))
+  })
+
   // ─── 作品 ───
-  const { data: works } = await supabase
+  const { data: rawWorks } = await supabase
     .from('gallery_works')
     .select('*, museums(id, name, name_en, city, country, cover_image, region)')
     .eq('status', 'published')
     .order('display_order', { ascending: true })
+
+  // 公开作品 = 被任意一期精选过的作品
+  // admin 预览模式:看全量
+  const works = isAdminPreview
+    ? (rawWorks || [])
+    : (rawWorks || []).filter(w => curatedWorkIdSet.has(w.id))
 
   // ─── 博物馆 ───
   const { data: museums } = await supabase
@@ -23,7 +69,7 @@ async function getData() {
     .order('sort_order')
 
   const museumWorkCounts = {}
-  ;(works || []).forEach(w => {
+  works.forEach(w => {
     if (w.museum_id) {
       museumWorkCounts[w.museum_id] = (museumWorkCounts[w.museum_id] || 0) + 1
     }
@@ -35,7 +81,7 @@ async function getData() {
 
   // ─── 艺术家 ───
   const artistWorkCounts = {}
-  ;(works || []).forEach(w => {
+  works.forEach(w => {
     if (w.gallery_artist_id) {
       artistWorkCounts[w.gallery_artist_id] = (artistWorkCounts[w.gallery_artist_id] || 0) + 1
     }
@@ -48,7 +94,7 @@ async function getData() {
     .order('sort_order')
 
   const artistAvatarFromWorks = {}
-  ;(works || []).forEach(w => {
+  works.forEach(w => {
     if (w.gallery_artist_id && w.artist_avatar && !artistAvatarFromWorks[w.gallery_artist_id]) {
       artistAvatarFromWorks[w.gallery_artist_id] = w.artist_avatar
     }
@@ -62,23 +108,14 @@ async function getData() {
       avatar_url: a.avatar_url || artistAvatarFromWorks[a.id] || null,
     }))
 
-  // ─── 期刊（全部已发布） ───
-  const { data: allCurations } = await supabase
-    .from('gallery_curations')
-    .select('*')
-    .eq('status', 'published')
-    .order('issue_number', { ascending: false })
-
-  // 收集所有期刊的 work_ids，一次性查询作品详情
+  // ─── 期刊详细作品(这一步保持原逻辑) ───
   const allWorkIds = [...new Set((allCurations || []).flatMap(c => c.work_ids || []))]
   let curationWorksMap = {}
   if (allWorkIds.length > 0) {
-    const { data: curationWorks, error: cwError } = await supabase
+    const { data: curationWorks } = await supabase
       .from('gallery_works')
       .select('id, title, title_en, artist_name, cover_image, year, description')
       .in('id', allWorkIds)
-    console.log('curationWorks error:', cwError)
-    console.log('curationWorks count:', curationWorks?.length)
     if (curationWorks) {
       curationWorks.forEach(w => { curationWorksMap[w.id] = w })
     }
@@ -89,16 +126,23 @@ async function getData() {
     works: (c.work_ids || []).map(id => curationWorksMap[id] || null).filter(Boolean),
   }))
 
+  // 给 admin 用:统计未被精选过的作品数量
+  const unpublishedCount = isAdminPreview
+    ? (rawWorks || []).filter(w => !curatedWorkIdSet.has(w.id)).length
+    : 0
+
   return {
-    works: works || [],
+    works,
     museums: museumsWithWorks,
     galleryArtists: artistsWithWorks,
     curations: curationsWithWorks,
+    unpublishedCount,
   }
 }
 
 export default async function GalleryPage() {
-  const { works, museums, galleryArtists, curations } = await getData()
+  const isAdminPreview = await checkIsAdmin()
+  const { works, museums, galleryArtists, curations, unpublishedCount } = await getData(isAdminPreview)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -113,14 +157,14 @@ export default async function GalleryPage() {
               </div>
             </a>
             <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-  <li><a href="/gallery" className="font-bold text-gray-900">艺术阅览室</a></li>
-  <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-  <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
-  <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-  <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-  <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-  <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
-</ul>
+              <li><a href="/gallery" className="font-bold text-gray-900">艺术阅览室</a></li>
+              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
+            </ul>
           </div>
           <div className="flex items-center gap-4">
             <UserNav />
@@ -128,12 +172,42 @@ export default async function GalleryPage() {
         </div>
       </nav>
 
+      {/* ═══ Admin 预览模式提示条 ═══ */}
+      {isAdminPreview && (
+        <div style={{
+          backgroundColor: '#FEF3C7',
+          borderBottom: '0.5px solid #FCD34D',
+          padding: '10px 24px',
+        }}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <span style={{ fontSize: '16px' }}>🔓</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: '#92400E' }}>
+                  管理员预览模式 · 你正在看到全量馆藏
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>
+                  普通访客只能看到已被精选过的作品 ·
+                  当前有 <strong>{unpublishedCount}</strong> 件作品待精选(对访客不可见)
+                </p>
+              </div>
+            </div>
+            <Link href="/admin/curations"
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition hover:opacity-80"
+              style={{ backgroundColor: '#FFFFFF', color: '#92400E', border: '0.5px solid #FCD34D' }}>
+              去本期精选管理 →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* 客户端交互部分 */}
       <GalleryClient
         works={works}
         museums={museums}
         galleryArtists={galleryArtists}
         curations={curations}
+        isAdminPreview={isAdminPreview}
       />
 
       {/* 页脚 */}
