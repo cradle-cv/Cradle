@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -76,7 +75,7 @@ export default function PartnerInvitationDetailPage() {
   if (!invitation) return null
 
   const canApply = !myApplication && invitation.open_to_partners &&
-    invitation.status === 'active' && new Date(invitation.deadline) > new Date()
+    invitation.status === 'collecting' && new Date(invitation.deadline) > new Date()
   const missingPartner = !partnerRecord
 
   return (
