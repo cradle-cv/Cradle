@@ -284,7 +284,17 @@ export default function PartnerEditor({ mode, initialData }) {
         if (insErr) throw insErr
       }
 
-      router.push(isEdit ? '/studio' : '/profile/apply')
+      // 新建机构时,给非 admin 用户一个友好说明
+      if (!isEdit && userData?.role !== 'admin') {
+        alert(
+          '🎉 机构主页已创建!\n\n' +
+          '你的机构现在会出现在 /partners 公共列表页。\n' +
+          '如希望纳入首页合作伙伴精选位,可以联系摇篮官方。\n\n' +
+          '接下来,你可以去工作台浏览开放承办的邀请函。'
+        )
+      }
+
+      router.push('/studio')
     } catch (e) {
       setError(e.message || '保存失败')
     } finally {
