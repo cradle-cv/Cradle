@@ -13,7 +13,6 @@ async function getExhibition(id) {
 
   if (!exhibition) return null
 
-  // 获取展览包含的作品
   const { data: exhibitionArtworks } = await supabase
     .from('exhibition_artworks')
     .select('*, artworks(*, artists(*))')
@@ -24,7 +23,7 @@ async function getExhibition(id) {
     ?.map(ea => ea.artworks)
     .filter(Boolean) || []
 
-  // 如果有承办方 (partner_id),查承办机构信息
+  // 承办方
   let partner = null
   if (exhibition.partner_id) {
     const { data: pData } = await supabase
@@ -35,7 +34,25 @@ async function getExhibition(id) {
     partner = pData || null
   }
 
-  return { exhibition, artworks, partner }
+  // 源邀请函 (从 source_application_id 反查)
+  let sourceInvitation = null
+  if (exhibition.source_application_id) {
+    const { data: appData } = await supabase
+      .from('invitation_partner_applications')
+      .select('invitation_id')
+      .eq('id', exhibition.source_application_id)
+      .maybeSingle()
+    if (appData?.invitation_id) {
+      const { data: invData } = await supabase
+        .from('invitations')
+        .select('id, title, is_official, theme_color, cover_image, creator:creator_user_id(id, username, avatar_url)')
+        .eq('id', appData.invitation_id)
+        .maybeSingle()
+      sourceInvitation = invData || null
+    }
+  }
+
+  return { exhibition, artworks, partner, sourceInvitation }
 }
 
 function getStatusLabel(status) {
@@ -64,7 +81,7 @@ export default async function ExhibitionDetailPage({ params }) {
 
   if (!data) notFound()
 
-  const { exhibition, artworks, partner } = data
+  const { exhibition, artworks, partner, sourceInvitation } = data
   const status = getStatusLabel(exhibition.status)
 
   return (
@@ -101,7 +118,6 @@ export default async function ExhibitionDetailPage({ params }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
         </div>
 
-        {/* 展览标题覆盖在封面上 */}
         <div className="absolute bottom-0 left-0 right-0 p-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center gap-3 mb-3">
@@ -133,6 +149,42 @@ export default async function ExhibitionDetailPage({ params }) {
         <div className="grid md:grid-cols-3 gap-12">
           {/* 左侧:展览详情 */}
           <div className="md:col-span-2">
+            {/* 源邀请函横幅 */}
+            {sourceInvitation && (
+              <a href={`/invitations/${sourceInvitation.id}`}
+                className="block mb-8 rounded-xl overflow-hidden group transition hover:shadow-md"
+                style={{
+                  border: `0.5px solid ${sourceInvitation.is_official ? '#E5E7EB' : (sourceInvitation.theme_color || '#8a7a5c') + '66'}`,
+                  backgroundColor: sourceInvitation.is_official ? '#FAFAFA' : (sourceInvitation.theme_color || '#8a7a5c') + '10',
+                }}>
+                <div className="flex items-center gap-4 p-5">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                    {sourceInvitation.cover_image ? (
+                      <img src={sourceInvitation.cover_image} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl">📯</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs mb-1" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>
+                      SOURCE INVITATION · 源自邀请函
+                    </p>
+                    <p className="font-bold truncate group-hover:text-[#F59E0B] transition-colors" style={{ color: '#111827' }}>
+                      {sourceInvitation.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                      {sourceInvitation.is_official
+                        ? 'Cradle 官方邀请函'
+                        : `由 ${sourceInvitation.creator?.username || '策展人'} 发起`}
+                    </p>
+                  </div>
+                  <span className="text-sm flex-shrink-0" style={{ color: '#9CA3AF' }}>
+                    查看邀请函 ›
+                  </span>
+                </div>
+              </a>
+            )}
+
             {/* 描述 */}
             {exhibition.description && (
               <div className="mb-10">
@@ -317,7 +369,6 @@ export default async function ExhibitionDetailPage({ params }) {
         </div>
       </div>
 
-      {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-8 px-6 mt-12">
         <div className="max-w-6xl mx-auto text-center text-sm text-gray-500">
           © 2026 Cradle摇篮. All rights reserved.
