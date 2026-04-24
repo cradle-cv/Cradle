@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -52,7 +51,7 @@ export default function PartnerApplyPage() {
       const { data: inv } = await supabase.from('invitations')
         .select('*').eq('id', invitationId).maybeSingle()
       if (!inv) { alert('邀请函不存在'); router.push('/studio'); return }
-      if (!inv.open_to_partners || inv.status !== 'active' || new Date(inv.deadline) < new Date()) {
+      if (!inv.open_to_partners || inv.status !== 'collecting' || new Date(inv.deadline) < new Date()) {
         alert('该邀请函不再接受承办报名')
         router.push(`/studio/partner/invitations/${invitationId}`)
         return
