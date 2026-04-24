@@ -60,10 +60,10 @@ export default function StudioPage() {
   const [openInvitations, setOpenInvitations] = useState([])
   const [myApplications, setMyApplications] = useState([])
   const [myPartnerExhibitions, setMyPartnerExhibitions] = useState([])
+  const [unreadMsgs, setUnreadMsgs] = useState(0)
 
   const [showQuickCreate, setShowQuickCreate] = useState(null)
 
-  // ───── 初始加载 ─────
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
@@ -97,7 +97,6 @@ export default function StudioPage() {
       setIsPartner(hasPartner)
       setIsResident(hasResident)
 
-      // 取 artist / partner 记录
       if (hasArtist) {
         const { data: a } = await supabase.from('artists')
           .select('*').eq('owner_user_id', userData.id).maybeSingle()
@@ -109,7 +108,6 @@ export default function StudioPage() {
         setPartnerRecord(p)
       }
 
-      // 决定默认激活的身份(localStorage 优先,否则按优先级)
       const availableIdentities = IDENTITY_PRIORITY.filter(k =>
         (k === 'artist' && hasArtist) ||
         (k === 'curator' && hasCurator) ||
@@ -125,12 +123,12 @@ export default function StudioPage() {
         setActiveIdentity(initial)
       }
 
-      // 加载各身份的数据
       await Promise.all([
         hasArtist ? loadArtistData(userData.id) : Promise.resolve(),
         hasCurator ? loadCuratorData() : Promise.resolve(),
         hasPartner ? loadPartnerData() : Promise.resolve(),
         loadMagazines(userData.id),
+        loadUnreadMessages(),
       ])
 
     } catch (err) {
@@ -140,7 +138,6 @@ export default function StudioPage() {
     }
   }
 
-  // 切换身份时持久化 + 重置 tab
   useEffect(() => {
     if (!activeIdentity) return
     try { localStorage.setItem('studio:activeIdentity', activeIdentity) } catch {}
@@ -155,7 +152,6 @@ export default function StudioPage() {
     return null
   }
 
-  // ───── 艺术家数据 ─────
   async function loadArtistData(userId) {
     const { data: a } = await supabase.from('artists')
       .select('*').eq('owner_user_id', userId).maybeSingle()
@@ -182,7 +178,6 @@ export default function StudioPage() {
     } catch (e) { console.error('杂志:', e) }
   }
 
-  // ───── 策展人数据 ─────
   async function loadCuratorData() {
     try {
       const { data, error } = await supabase.rpc('my_invitations_with_application_counts')
@@ -191,7 +186,6 @@ export default function StudioPage() {
     } catch (e) { console.error('策展人数据:', e) }
   }
 
-  // ───── 合作伙伴数据 ─────
   async function loadPartnerData() {
     try {
       const [openRes, myAppsRes, myExhRes] = await Promise.all([
@@ -205,7 +199,68 @@ export default function StudioPage() {
     } catch (e) { console.error('合作伙伴数据:', e) }
   }
 
-  // ───── 渲染 ─────
+  async function loadUnreadMessages() {
+    try {
+      const { data, error } = await supabase.rpc('unread_message_count')
+      if (!error) setUnreadMsgs(data || 0)
+    } catch (e) { /* silent */ }
+  }
+
+  // ─── 计算跨身份的待办事项 ───
+  const todos = useMemo(() => {
+    const list = []
+
+    // 策展人待办
+    if (isCurator) {
+      const pendingPartnerReviews = myInvitations.reduce((s, i) => s + (Number(i.pending_count) || 0), 0)
+      if (pendingPartnerReviews > 0) {
+        list.push({
+          icon: '📯',
+          color: '#7C3AED',
+          bg: '#F5F3FF',
+          text: `${pendingPartnerReviews} 份承办报名待初审`,
+          actionLabel: '进入策展人工作台',
+          action: () => {
+            setActiveIdentity('curator')
+            setActiveTab('partner_reviews')
+          },
+        })
+      }
+    }
+
+    // 合作伙伴待办
+    if (isPartner) {
+      const draftExhibitions = myPartnerExhibitions.filter(e => e.exhibition_status === 'draft').length
+      if (draftExhibitions > 0) {
+        list.push({
+          icon: '🏛️',
+          color: '#2563EB',
+          bg: '#EFF6FF',
+          text: `${draftExhibitions} 份展览草稿待完善`,
+          actionLabel: '进入合作伙伴工作台',
+          action: () => {
+            setActiveIdentity('partner')
+            setActiveTab('my_exhibitions')
+          },
+        })
+      }
+    }
+
+    // 站内信待办(所有身份通用)
+    if (unreadMsgs > 0) {
+      list.push({
+        icon: '✉️',
+        color: '#DC2626',
+        bg: '#FEF2F2',
+        text: `${unreadMsgs} 封站内信未读`,
+        actionLabel: '查看站内信',
+        href: '/messages',
+      })
+    }
+
+    return list
+  }, [isCurator, isPartner, myInvitations, myPartnerExhibitions, unreadMsgs])
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400">加载中...</p>
@@ -236,20 +291,15 @@ export default function StudioPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* 无身份:引导申请 */}
-        {!hasAnyIdentity && !isResident && (
-          <NoIdentityView />
-        )}
+        {!hasAnyIdentity && !isResident && <NoIdentityView />}
+        {!hasAnyIdentity && isResident && <ResidentOnlyView />}
 
-        {/* 只有驻地身份:引导到驻地 */}
-        {!hasAnyIdentity && isResident && (
-          <ResidentOnlyView />
-        )}
-
-        {/* 有身份:正常工作台 */}
         {hasAnyIdentity && (
           <>
-            {/* 身份切换器(单身份不显示) */}
+            {/* 全局待办汇总条 */}
+            {todos.length > 0 && <TodoSummaryBar todos={todos} />}
+
+            {/* 身份切换器 */}
             {availableIdentities.length > 1 && (
               <IdentitySwitcher
                 identities={availableIdentities}
@@ -258,7 +308,6 @@ export default function StudioPage() {
               />
             )}
 
-            {/* 艺术家身份 */}
             {activeIdentity === 'artist' && (
               <ArtistModule
                 user={user}
@@ -273,7 +322,6 @@ export default function StudioPage() {
               />
             )}
 
-            {/* 策展人身份 */}
             {activeIdentity === 'curator' && (
               <CuratorModule
                 user={user}
@@ -283,7 +331,6 @@ export default function StudioPage() {
               />
             )}
 
-            {/* 合作伙伴身份 */}
             {activeIdentity === 'partner' && (
               <PartnerModule
                 user={user}
@@ -314,7 +361,45 @@ export default function StudioPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 身份切换器 (segmented control)
+// 全局待办汇总条
+// ═══════════════════════════════════════════════════════════════
+function TodoSummaryBar({ todos }) {
+  return (
+    <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: '#FFFBEB', border: '0.5px solid #FCD34D' }}>
+      <div className="flex items-start gap-3">
+        <span className="text-xl flex-shrink-0">⚠️</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium mb-2" style={{ color: '#92400E' }}>
+            你有 {todos.length} 件待处理事项
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {todos.map((t, i) => (
+              <TodoItem key={i} todo={t} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TodoItem({ todo }) {
+  const content = (
+    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition hover:opacity-80 cursor-pointer"
+      style={{ backgroundColor: '#FFFFFF', border: `0.5px solid ${todo.color}33` }}>
+      <span style={{ fontSize: '14px' }}>{todo.icon}</span>
+      <span style={{ color: '#374151' }}>{todo.text}</span>
+      <span style={{ color: todo.color, fontWeight: 500 }}>{todo.actionLabel} →</span>
+    </span>
+  )
+  if (todo.href) {
+    return <Link href={todo.href}>{content}</Link>
+  }
+  return <button onClick={todo.action}>{content}</button>
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 身份切换器
 // ═══════════════════════════════════════════════════════════════
 function IdentitySwitcher({ identities, active, onChange }) {
   return (
@@ -417,7 +502,6 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
 
   return (
     <>
-      {/* 身份头卡 */}
       <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0"
@@ -469,7 +553,6 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
         </div>
       </div>
 
-      {/* 新艺术家引导 */}
       {stats.collections === 0 && stats.artworks === 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 mb-6">
           <div className="flex items-start gap-4">
@@ -489,7 +572,6 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
         </div>
       )}
 
-      {/* Tab */}
       <TabRow
         tabs={[
           { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
@@ -501,7 +583,6 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
         setActiveTab={setActiveTab}
       />
 
-      {/* Tab 内容 */}
       {activeTab === 'artworks' && (
         <ArtworksTab artworks={artworks} hasNoCollections={hasNoCollections} statusColors={statusColors} />
       )}
@@ -675,7 +756,7 @@ function MagazinesTab({ magazines, statusColors }) {
         <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的杂志</h2>
         <Link href="/residency/workshop"
           className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
-          ✏️ 去驻地工作台创作
+          ✏️ 去装帧台创作
         </Link>
       </div>
       {magazines.length > 0 ? (
@@ -713,7 +794,7 @@ function MagazinesTab({ magazines, statusColors }) {
         </div>
       ) : (
         <EmptyState icon="📖" text="还没有杂志">
-          <p className="text-xs mt-2" style={{ color: '#D1D5DB' }}>前往驻地工作台开始创作</p>
+          <p className="text-xs mt-2" style={{ color: '#D1D5DB' }}>前往装帧台开始创作</p>
         </EmptyState>
       )}
     </div>
@@ -730,7 +811,6 @@ function CuratorModule({ user, myInvitations, activeTab, setActiveTab }) {
 
   return (
     <>
-      {/* 身份头卡 */}
       <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0"
@@ -810,9 +890,9 @@ function CuratorInvitationsTab({ myInvitations }) {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h3 className="font-bold truncate" style={{ color: '#111827' }}>{inv.title}</h3>
                   <span className="px-2 py-0.5 rounded-full text-xs"
-                    style={{ backgroundColor: inv.status === 'active' ? '#ECFDF5' : '#F3F4F6',
-                             color: inv.status === 'active' ? '#059669' : '#6B7280' }}>
-                    {inv.status === 'active' ? '进行中' : inv.status}
+                    style={{ backgroundColor: inv.status === 'collecting' ? '#ECFDF5' : '#F3F4F6',
+                             color: inv.status === 'collecting' ? '#059669' : '#6B7280' }}>
+                    {inv.status === 'collecting' ? '征集中' : inv.status}
                   </span>
                   {inv.open_to_partners && (
                     <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
@@ -916,7 +996,6 @@ function PartnerModule({ user, partnerRecord, openInvitations, myApplications, m
 
   return (
     <>
-      {/* 身份头卡 */}
       <div className="bg-white rounded-2xl p-8 shadow-sm mb-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0"
@@ -978,7 +1057,7 @@ function PartnerModule({ user, partnerRecord, openInvitations, myApplications, m
         tabs={[
           { key: 'open_invitations', label: '📯 可承办邀请函', count: openInvitations.filter(i => !i.already_applied).length },
           { key: 'my_applications', label: '📋 我的申请', count: myApplications.length },
-          { key: 'my_exhibitions', label: '🏛️ 承办的展览', count: myPartnerExhibitions.length },
+          { key: 'my_exhibitions', label: '🏛️ 承办的展览', count: myPartnerExhibitions.length, highlight: myPartnerExhibitions.some(e => e.exhibition_status === 'draft') },
         ]}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
