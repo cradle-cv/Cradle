@@ -42,10 +42,11 @@ const SECTIONS = [
     icon: '🖼️',
     label: '每日一展',
     sub: '旅行者 · 经典与当代的对话',
-    prefixes: ['/admin/exhibitions', '/admin/dialogue'],
+    prefixes: ['/admin/exhibitions', '/admin/dialogue', '/admin/exhibition-reviews'],
     links: [
       { href: '/admin/exhibitions', icon: '🎪', label: '展览管理' },
       { href: '/admin/dialogue', icon: '🎐', label: '本期对话排期' },
+      { href: '/admin/exhibition-reviews', icon: '📮', label: '展览上架审核' },
     ],
   },
   {
@@ -63,9 +64,10 @@ const SECTIONS = [
     icon: '🤝',
     label: '合作伙伴',
     sub: '画廊 · 美术馆 · 艺术机构',
-    prefixes: ['/admin/partners'],
+    prefixes: ['/admin/partners', '/admin/partner-applications'],
     links: [
       { href: '/admin/partners', icon: '🤝', label: '合作伙伴管理' },
+      { href: '/admin/partner-applications', icon: '📋', label: '承办申请终审' },
     ],
   },
   {
