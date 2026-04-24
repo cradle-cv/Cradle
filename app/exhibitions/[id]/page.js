@@ -23,33 +23,29 @@ async function getExhibition(id) {
     ?.map(ea => ea.artworks)
     .filter(Boolean) || []
 
-  // 承办方
+  // ═══════════════════════════════════════════════════════
+  // 通过 ipa 反查承办方和源邀请函
+  // 注意:exhibitions 表本身没有 partner_id / source_application_id 字段
+  // ═══════════════════════════════════════════════════════
   let partner = null
-  if (exhibition.partner_id) {
-    const { data: pData } = await supabase
-      .from('partners')
-      .select('id, name, name_en, logo_url, city, type, description')
-      .eq('id', exhibition.partner_id)
-      .maybeSingle()
-    partner = pData || null
-  }
-
-  // 源邀请函 (从 source_application_id 反查)
   let sourceInvitation = null
-  if (exhibition.source_application_id) {
-    const { data: appData } = await supabase
-      .from('invitation_partner_applications')
-      .select('invitation_id')
-      .eq('id', exhibition.source_application_id)
-      .maybeSingle()
-    if (appData?.invitation_id) {
-      const { data: invData } = await supabase
-        .from('invitations')
-        .select('id, title, is_official, theme_color, cover_image, creator:creator_user_id(id, username, avatar_url)')
-        .eq('id', appData.invitation_id)
-        .maybeSingle()
-      sourceInvitation = invData || null
-    }
+
+  const { data: ipa } = await supabase
+    .from('invitation_partner_applications')
+    .select(`
+      partner_id,
+      invitation_id,
+      partners:partner_id (id, name, name_en, logo_url, city, type, description),
+      invitations:invitation_id (id, title, is_official, theme_color, cover_image,
+        creator:creator_user_id (id, username, avatar_url))
+    `)
+    .eq('generated_exhibition_id', id)
+    .eq('selection_status', 'approved')
+    .maybeSingle()
+
+  if (ipa) {
+    partner = ipa.partners || null
+    sourceInvitation = ipa.invitations || null
   }
 
   return { exhibition, artworks, partner, sourceInvitation }
@@ -105,11 +101,7 @@ export default async function ExhibitionDetailPage({ params }) {
       <div className="relative">
         <div className="h-[400px] bg-gray-200">
           {exhibition.cover_image ? (
-            <img
-              src={exhibition.cover_image}
-              alt={exhibition.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={exhibition.cover_image} alt={exhibition.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-8xl bg-gradient-to-br from-gray-100 to-gray-200">
               🖼️
@@ -203,30 +195,17 @@ export default async function ExhibitionDetailPage({ params }) {
                 </h2>
                 <div className="grid md:grid-cols-3 gap-6">
                   {artworks.map((artwork) => (
-                    <a
-                      key={artwork.id}
-                      href={`/artworks/${artwork.id}`}
-                      className="group"
-                    >
+                    <a key={artwork.id} href={`/artworks/${artwork.id}`} className="group">
                       <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
                         {artwork.image_url ? (
-                          <img
-                            src={artwork.image_url}
-                            alt={artwork.title}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
+                          <img src={artwork.image_url} alt={artwork.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-4xl">
-                            🎨
-                          </div>
+                          <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
                         )}
                       </div>
-                      <h3 className="text-base font-bold text-gray-900 mb-1">
-                        {artwork.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {artwork.artists?.display_name || '未知艺术家'}
-                      </p>
+                      <h3 className="text-base font-bold text-gray-900 mb-1">{artwork.title}</h3>
+                      <p className="text-sm text-gray-600">{artwork.artists?.display_name || '未知艺术家'}</p>
                     </a>
                   ))}
                 </div>
@@ -257,11 +236,9 @@ export default async function ExhibitionDetailPage({ params }) {
                           year: 'numeric', month: 'long', day: 'numeric'
                         })}
                         {exhibition.end_date && (
-                          <>
-                            <br />— {new Date(exhibition.end_date).toLocaleDateString('zh-CN', {
-                              year: 'numeric', month: 'long', day: 'numeric'
-                            })}
-                          </>
+                          <><br />— {new Date(exhibition.end_date).toLocaleDateString('zh-CN', {
+                            year: 'numeric', month: 'long', day: 'numeric'
+                          })}</>
                         )}
                       </p>
                     </div>
@@ -298,7 +275,7 @@ export default async function ExhibitionDetailPage({ params }) {
                   </div>
                 )}
 
-                {(exhibition.is_free || exhibition.ticket_price || exhibition.ticket_info) && (
+                {(exhibition.is_free || exhibition.ticket_price) && (
                   <div className="flex items-start gap-3">
                     <span className="text-[#F59E0B] text-lg">🎫</span>
                     <div>
@@ -306,9 +283,7 @@ export default async function ExhibitionDetailPage({ params }) {
                       <p className="font-medium text-gray-900">
                         {exhibition.is_free === true
                           ? '免费'
-                          : exhibition.ticket_price
-                            ? `¥ ${exhibition.ticket_price}`
-                            : exhibition.ticket_info || '—'}
+                          : exhibition.ticket_price ? `¥ ${exhibition.ticket_price}` : '—'}
                       </p>
                     </div>
                   </div>
@@ -321,10 +296,7 @@ export default async function ExhibitionDetailPage({ params }) {
                   <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
                     HOSTED BY · 承办方
                   </p>
-                  <a
-                    href={`/partners/${partner.id}`}
-                    className="block group"
-                  >
+                  <a href={`/partners/${partner.id}`} className="block group">
                     <div className="flex items-center gap-3 p-3 rounded-lg transition"
                       style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
                       <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0"
