@@ -9,24 +9,9 @@ import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 
 const IDENTITY_CONFIG = {
-  artist: {
-    label: '艺术家',
-    icon: '🎨',
-    color: '#059669',
-    bg: '#ECFDF5',
-  },
-  curator: {
-    label: '策展人',
-    icon: '📯',
-    color: '#7C3AED',
-    bg: '#F5F3FF',
-  },
-  partner: {
-    label: '合作伙伴',
-    icon: '🏛️',
-    color: '#2563EB',
-    bg: '#EFF6FF',
-  },
+  artist: { label: '艺术家', icon: '🎨', color: '#059669', bg: '#ECFDF5' },
+  curator: { label: '策展人', icon: '📯', color: '#7C3AED', bg: '#F5F3FF' },
+  partner: { label: '合作伙伴', icon: '🏛️', color: '#2563EB', bg: '#EFF6FF' },
 }
 
 const IDENTITY_PRIORITY = ['artist', 'curator', 'partner']
@@ -36,27 +21,24 @@ export default function StudioPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
 
-  // 身份识别
   const [isArtist, setIsArtist] = useState(false)
   const [isCurator, setIsCurator] = useState(false)
   const [isPartner, setIsPartner] = useState(false)
   const [isResident, setIsResident] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  // 身份主体记录
   const [artistRecord, setArtistRecord] = useState(null)
   const [partnerRecord, setPartnerRecord] = useState(null)
 
-  // 当前激活的身份
   const [activeIdentity, setActiveIdentity] = useState(null)
   const [activeTab, setActiveTab] = useState(null)
 
-  // 数据桶
   const [artworks, setArtworks] = useState([])
   const [collections, setCollections] = useState([])
   const [exhibitions, setExhibitions] = useState([])
   const [magazines, setMagazines] = useState([])
   const [myInvitations, setMyInvitations] = useState([])
+  const [myCuratedExhibitions, setMyCuratedExhibitions] = useState([])  // B4
   const [openInvitations, setOpenInvitations] = useState([])
   const [myApplications, setMyApplications] = useState([])
   const [myPartnerExhibitions, setMyPartnerExhibitions] = useState([])
@@ -79,7 +61,6 @@ export default function StudioPage() {
       const admin = userData.role === 'admin'
       setIsAdmin(admin)
 
-      // 查身份
       const { data: identities } = await supabase
         .from('user_identities')
         .select('identity_type, is_active')
@@ -156,7 +137,6 @@ export default function StudioPage() {
     const { data: a } = await supabase.from('artists')
       .select('*').eq('owner_user_id', userId).maybeSingle()
     if (!a) return
-
     try {
       const [worksRes, colsRes, exRes] = await Promise.all([
         supabase.from('artworks').select('*').eq('artist_id', a.id).order('created_at', { ascending: false }),
@@ -180,9 +160,12 @@ export default function StudioPage() {
 
   async function loadCuratorData() {
     try {
-      const { data, error } = await supabase.rpc('my_invitations_with_application_counts')
-      if (error) throw error
-      setMyInvitations(data || [])
+      const [invsRes, exhsRes] = await Promise.all([
+        supabase.rpc('my_invitations_with_application_counts'),
+        supabase.rpc('curator_generated_exhibitions'),
+      ])
+      setMyInvitations(invsRes.data || [])
+      setMyCuratedExhibitions(exhsRes.data || [])
     } catch (e) { console.error('策展人数据:', e) }
   }
 
@@ -206,58 +189,38 @@ export default function StudioPage() {
     } catch (e) { /* silent */ }
   }
 
-  // ─── 计算跨身份的待办事项 ───
   const todos = useMemo(() => {
     const list = []
-
-    // 策展人待办
     if (isCurator) {
       const pendingPartnerReviews = myInvitations.reduce((s, i) => s + (Number(i.pending_count) || 0), 0)
       if (pendingPartnerReviews > 0) {
         list.push({
-          icon: '📯',
-          color: '#7C3AED',
-          bg: '#F5F3FF',
+          icon: '📯', color: '#7C3AED', bg: '#F5F3FF',
           text: `${pendingPartnerReviews} 份承办报名待初审`,
           actionLabel: '进入策展人工作台',
-          action: () => {
-            setActiveIdentity('curator')
-            setActiveTab('partner_reviews')
-          },
+          action: () => { setActiveIdentity('curator'); setActiveTab('partner_reviews') },
         })
       }
     }
-
-    // 合作伙伴待办
     if (isPartner) {
       const draftExhibitions = myPartnerExhibitions.filter(e => e.exhibition_status === 'draft').length
       if (draftExhibitions > 0) {
         list.push({
-          icon: '🏛️',
-          color: '#2563EB',
-          bg: '#EFF6FF',
+          icon: '🏛️', color: '#2563EB', bg: '#EFF6FF',
           text: `${draftExhibitions} 份展览草稿待完善`,
           actionLabel: '进入合作伙伴工作台',
-          action: () => {
-            setActiveIdentity('partner')
-            setActiveTab('my_exhibitions')
-          },
+          action: () => { setActiveIdentity('partner'); setActiveTab('my_exhibitions') },
         })
       }
     }
-
-    // 站内信待办(所有身份通用)
     if (unreadMsgs > 0) {
       list.push({
-        icon: '✉️',
-        color: '#DC2626',
-        bg: '#FEF2F2',
+        icon: '✉️', color: '#DC2626', bg: '#FEF2F2',
         text: `${unreadMsgs} 封站内信未读`,
         actionLabel: '查看站内信',
         href: '/messages',
       })
     }
-
     return list
   }, [isCurator, isPartner, myInvitations, myPartnerExhibitions, unreadMsgs])
 
@@ -290,16 +253,13 @@ export default function StudioPage() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-
         {!hasAnyIdentity && !isResident && <NoIdentityView />}
         {!hasAnyIdentity && isResident && <ResidentOnlyView />}
 
         {hasAnyIdentity && (
           <>
-            {/* 全局待办汇总条 */}
             {todos.length > 0 && <TodoSummaryBar todos={todos} />}
 
-            {/* 身份切换器 */}
             {availableIdentities.length > 1 && (
               <IdentitySwitcher
                 identities={availableIdentities}
@@ -326,6 +286,7 @@ export default function StudioPage() {
               <CuratorModule
                 user={user}
                 myInvitations={myInvitations}
+                myCuratedExhibitions={myCuratedExhibitions}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
               />
@@ -373,9 +334,7 @@ function TodoSummaryBar({ todos }) {
             你有 {todos.length} 件待处理事项
           </p>
           <div className="flex flex-wrap gap-2">
-            {todos.map((t, i) => (
-              <TodoItem key={i} todo={t} />
-            ))}
+            {todos.map((t, i) => <TodoItem key={i} todo={t} />)}
           </div>
         </div>
       </div>
@@ -392,9 +351,7 @@ function TodoItem({ todo }) {
       <span style={{ color: todo.color, fontWeight: 500 }}>{todo.actionLabel} →</span>
     </span>
   )
-  if (todo.href) {
-    return <Link href={todo.href}>{content}</Link>
-  }
+  if (todo.href) return <Link href={todo.href}>{content}</Link>
   return <button onClick={todo.action}>{content}</button>
 }
 
@@ -404,24 +361,19 @@ function TodoItem({ todo }) {
 function IdentitySwitcher({ identities, active, onChange }) {
   return (
     <div className="mb-6 flex justify-center">
-      <div
-        className="inline-flex rounded-full p-1"
-        style={{ backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}
-      >
+      <div className="inline-flex rounded-full p-1"
+        style={{ backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
         {identities.map(key => {
           const cfg = IDENTITY_CONFIG[key]
           const isActive = active === key
           return (
-            <button
-              key={key}
-              onClick={() => onChange(key)}
+            <button key={key} onClick={() => onChange(key)}
               className="px-5 py-2 rounded-full text-sm font-medium transition-all"
               style={{
                 backgroundColor: isActive ? '#FFFFFF' : 'transparent',
                 color: isActive ? cfg.color : '#6B7280',
                 boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
-            >
+              }}>
               <span className="mr-1.5">{cfg.icon}</span>
               {cfg.label}
             </button>
@@ -804,7 +756,7 @@ function MagazinesTab({ magazines, statusColors }) {
 // ═══════════════════════════════════════════════════════════════
 // 策展人模块
 // ═══════════════════════════════════════════════════════════════
-function CuratorModule({ user, myInvitations, activeTab, setActiveTab }) {
+function CuratorModule({ user, myInvitations, myCuratedExhibitions, activeTab, setActiveTab }) {
   const totalPending = myInvitations.reduce((s, i) => s + (Number(i.pending_count) || 0), 0)
   const totalShortlisted = myInvitations.reduce((s, i) => s + (Number(i.shortlisted_count) || 0), 0)
   const totalApproved = myInvitations.reduce((s, i) => s + (Number(i.approved_count) || 0), 0)
@@ -843,7 +795,7 @@ function CuratorModule({ user, myInvitations, activeTab, setActiveTab }) {
           {[
             { label: '邀请函', value: myInvitations.length, icon: '📯' },
             { label: '待初审', value: totalPending, icon: '⏳' },
-            { label: '待终审', value: totalShortlisted, icon: '🕓' },
+            { label: '已生成展览', value: myCuratedExhibitions.length, icon: '🏛️' },
             { label: '已通过', value: totalApproved, icon: '✓' },
           ].map((s, i) => (
             <div key={i} className="text-center p-4 rounded-xl" style={{ backgroundColor: '#F9FAFB' }}>
@@ -858,18 +810,30 @@ function CuratorModule({ user, myInvitations, activeTab, setActiveTab }) {
         tabs={[
           { key: 'invitations', label: '📯 我的邀请函', count: myInvitations.length },
           { key: 'partner_reviews', label: '👥 承办报名初审', count: totalPending, highlight: totalPending > 0 },
+          { key: 'curated_exhibitions', label: '🏛️ 我策展的展览', count: myCuratedExhibitions.length },
         ]}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      {activeTab === 'invitations' && <CuratorInvitationsTab myInvitations={myInvitations} />}
+      {activeTab === 'invitations' && <CuratorInvitationsTab myInvitations={myInvitations} myCuratedExhibitions={myCuratedExhibitions} />}
       {activeTab === 'partner_reviews' && <CuratorPartnerReviewsTab myInvitations={myInvitations} />}
+      {activeTab === 'curated_exhibitions' && <CuratedExhibitionsTab exhibitions={myCuratedExhibitions} />}
     </>
   )
 }
 
-function CuratorInvitationsTab({ myInvitations }) {
+function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
+  // 为每个邀请函统计已生成的展览数(通过 invitation_id 分组)
+  const exhibitionsByInvitation = useMemo(() => {
+    const map = new Map()
+    for (const ex of myCuratedExhibitions || []) {
+      if (!map.has(ex.invitation_id)) map.set(ex.invitation_id, [])
+      map.get(ex.invitation_id).push(ex)
+    }
+    return map
+  }, [myCuratedExhibitions])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -877,52 +841,77 @@ function CuratorInvitationsTab({ myInvitations }) {
       </div>
       {myInvitations.length > 0 ? (
         <div className="space-y-3">
-          {myInvitations.map(inv => (
-            <div key={inv.id} className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
-              <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                {inv.cover_image ? (
-                  <img src={inv.cover_image} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-2xl">📯</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 className="font-bold truncate" style={{ color: '#111827' }}>{inv.title}</h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs"
-                    style={{ backgroundColor: inv.status === 'collecting' ? '#ECFDF5' : '#F3F4F6',
-                             color: inv.status === 'collecting' ? '#059669' : '#6B7280' }}>
-                    {inv.status === 'collecting' ? '征集中' : inv.status}
-                  </span>
-                  {inv.open_to_partners && (
-                    <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
-                      开放承办
+          {myInvitations.map(inv => {
+            const exs = exhibitionsByInvitation.get(inv.id) || []
+            return (
+              <div key={inv.id} className="bg-white rounded-xl shadow-sm p-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                    {inv.cover_image ? (
+                      <img src={inv.cover_image} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl">📯</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className="font-bold truncate" style={{ color: '#111827' }}>{inv.title}</h3>
+                      <span className="px-2 py-0.5 rounded-full text-xs"
+                        style={{ backgroundColor: inv.status === 'collecting' ? '#ECFDF5' : '#F3F4F6',
+                                 color: inv.status === 'collecting' ? '#059669' : '#6B7280' }}>
+                        {inv.status === 'collecting' ? '征集中' : inv.status}
+                      </span>
+                      {inv.open_to_partners && (
+                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
+                          开放承办
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: '#6B7280' }}>
+                      <span>截止 {new Date(inv.deadline).toLocaleDateString('zh-CN')}</span>
+                      {Number(inv.total_count) > 0 && (
+                        <span>· {inv.total_count} 份承办报名</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    {Number(inv.pending_count) > 0 && (
+                      <Link href={`/curator/invitations/${inv.id}/applications`}
+                        className="px-3 py-2 rounded-lg text-xs font-medium text-white"
+                        style={{ backgroundColor: '#DC2626' }}>
+                        初审 {inv.pending_count}
+                      </Link>
+                    )}
+                    <Link href={`/invitations/${inv.id}`}
+                      className="px-3 py-2 rounded-lg text-xs font-medium"
+                      style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+                      查看
+                    </Link>
+                  </div>
+                </div>
+
+                {/* 已生成展览的小链接 */}
+                {exs.length > 0 && (
+                  <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: '0.5px solid #F3F4F6' }}>
+                    <span className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>
+                      GENERATED · 已生成展览
                     </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-xs" style={{ color: '#6B7280' }}>
-                  <span>截止 {new Date(inv.deadline).toLocaleDateString('zh-CN')}</span>
-                  {Number(inv.total_count) > 0 && (
-                    <span>· {inv.total_count} 份承办报名</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                {Number(inv.pending_count) > 0 && (
-                  <Link href={`/curator/invitations/${inv.id}/applications`}
-                    className="px-3 py-2 rounded-lg text-xs font-medium text-white"
-                    style={{ backgroundColor: '#DC2626' }}>
-                    初审 {inv.pending_count}
-                  </Link>
+                    {exs.map(ex => (
+                      <Link key={ex.exhibition_id} href={`/exhibitions/${ex.exhibition_id}`}
+                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition hover:shadow-sm"
+                        style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>
+                        <span>🏛️</span>
+                        <span className="font-medium">{ex.exhibition_title}</span>
+                        {ex.partner_name && (
+                          <span style={{ opacity: 0.7 }}>· {ex.partner_name}</span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
                 )}
-                <Link href={`/invitations/${inv.id}`}
-                  className="px-3 py-2 rounded-lg text-xs font-medium"
-                  style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
-                  查看
-                </Link>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <EmptyState icon="📯" text="还没有发起任何邀请函">
@@ -981,6 +970,89 @@ function CuratorPartnerReviewsTab({ myInvitations }) {
       ) : (
         <EmptyState icon="👥" text="暂无承办报名">
           <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>只有勾选了「开放承办」的邀请函才会收到报名</p>
+        </EmptyState>
+      )}
+    </div>
+  )
+}
+
+// B4 新 tab:策展人全景视图 —— 我策展的展览
+function CuratedExhibitionsTab({ exhibitions }) {
+  return (
+    <div>
+      <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>我策展的展览</h2>
+      <p className="text-sm mb-5" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+        你发起的邀请函经过合作伙伴承办后,最终落地成这些展览。你可以跟踪每一场的上架进度。
+      </p>
+      {exhibitions.length > 0 ? (
+        <div className="grid md:grid-cols-2 gap-4">
+          {exhibitions.map(ex => {
+            const statusMap = {
+              active: { text: '进行中', bg: '#ECFDF5', color: '#059669' },
+              draft: { text: '筹备中', bg: '#FEF3C7', color: '#B45309' },
+              pending_review: { text: '待上架审核', bg: '#DBEAFE', color: '#2563EB' },
+              archived: { text: '已结束', bg: '#F3F4F6', color: '#6B7280' },
+            }
+            const s = statusMap[ex.exhibition_status] || { text: ex.exhibition_status, bg: '#F3F4F6', color: '#6B7280' }
+            return (
+              <Link key={ex.exhibition_id} href={`/exhibitions/${ex.exhibition_id}`}
+                className="block bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition">
+                <div className="aspect-[16/9] bg-gray-100">
+                  {ex.exhibition_cover ? (
+                    <img src={ex.exhibition_cover} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl">🏛️</div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <h3 className="font-bold truncate" style={{ color: '#111827' }}>{ex.exhibition_title}</h3>
+                    <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0"
+                      style={{ backgroundColor: s.bg, color: s.color }}>
+                      {s.text}
+                    </span>
+                  </div>
+
+                  {/* 源邀请函 */}
+                  <p className="text-xs mb-2" style={{ color: '#6B7280' }}>
+                    📯 源自 <span className="font-medium">{ex.invitation_title}</span>
+                  </p>
+
+                  {/* 承办方 */}
+                  {ex.partner_id && ex.partner_name && (
+                    <div className="flex items-center gap-2 pt-2 mt-2" style={{ borderTop: '0.5px solid #F3F4F6' }}>
+                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                        {ex.partner_logo ? (
+                          <img src={ex.partner_logo} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs">🏛️</div>
+                        )}
+                      </div>
+                      <span className="text-xs" style={{ color: '#6B7280' }}>
+                        由 <span className="font-medium" style={{ color: '#2563EB' }}>{ex.partner_name}</span> 承办
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 日期和地点 */}
+                  {(ex.exhibition_start_date || ex.exhibition_location) && (
+                    <div className="flex items-center gap-3 text-xs mt-2" style={{ color: '#9CA3AF' }}>
+                      {ex.exhibition_start_date && (
+                        <span>📅 {new Date(ex.exhibition_start_date).toLocaleDateString('zh-CN')}</span>
+                      )}
+                      {ex.exhibition_location && <span>📍 {ex.exhibition_location}</span>}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      ) : (
+        <EmptyState icon="🏛️" text="还没有策展的展览">
+          <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>
+            当你的邀请函通过合作伙伴承办落地时,展览会出现在这里
+          </p>
         </EmptyState>
       )}
     </div>
