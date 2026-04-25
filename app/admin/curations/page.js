@@ -10,7 +10,6 @@ const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
 
 function toRoman(n) { return ROMAN[n] || `${n}` }
 
-// 中文数字(用于特刊编号)
 const CN_NUM = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
   '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十']
 
@@ -31,11 +30,11 @@ export default function AdminCurationsPage() {
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    // 策略 Z:按 created_at 倒序混排(最新在最上面)
+    // 按 display_order 升序(越小越靠上)
     const { data: cData } = await supabase
       .from('gallery_curations')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('display_order', { ascending: true })
 
     const { data: wData } = await supabase
       .from('gallery_works')
@@ -46,7 +45,6 @@ export default function AdminCurationsPage() {
     setCurations(cData || [])
     setWorks(wData || [])
 
-    // 自动设置下一个期号(主线和特刊分开计数)
     if (cData && cData.length > 0) {
       const mainIssues = cData.filter(c => !c.is_special).map(c => c.issue_number)
       const maxIssue = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
@@ -81,24 +79,19 @@ export default function AdminCurationsPage() {
     })
   }
 
-  // 切换是否特刊时,自动重算 issue_number
   function toggleSpecial(checked) {
     if (checked) {
-      // 切换为特刊:取最大特刊号 + 1
       const specialIssues = curations.filter(c => c.is_special && c.id !== editing).map(c => c.issue_number)
       const maxSpecial = specialIssues.length > 0 ? Math.max(...specialIssues) : 0
       setForm(prev => ({ ...prev, is_special: true, issue_number: maxSpecial + 1 }))
     } else {
-      // 切换为主线:取最大主线号 + 1
       const mainIssues = curations.filter(c => !c.is_special && c.id !== editing).map(c => c.issue_number)
       const maxMain = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
       setForm(prev => ({ ...prev, is_special: false, special_label: '', issue_number: maxMain + 1 }))
     }
   }
 
-  function cancelEdit() {
-    setEditing(null)
-  }
+  function cancelEdit() { setEditing(null) }
 
   async function handleSave() {
     if (!form.theme_en && !form.theme_zh) { alert('请填写主题'); return }
@@ -121,6 +114,9 @@ export default function AdminCurationsPage() {
       }
 
       if (editing === 'new') {
+        // 新建期默认放到列表最上面(最小 display_order - 10)
+        const minOrder = curations.length > 0 ? Math.min(...curations.map(c => c.display_order ?? 0)) : 0
+        payload.display_order = minOrder - 10
         const { error } = await supabase.from('gallery_curations').insert(payload)
         if (error) throw error
       } else {
@@ -136,7 +132,7 @@ export default function AdminCurationsPage() {
   }
 
   async function handleDelete(id, issueNum, isSpecial) {
-    const labelText = isSpecial ? `特刊·${toCnNum(issueNum)}` : `No. ${toRoman(issueNum)}`
+    const labelText = isSpecial ? `特·${toCnNum(issueNum)}` : `No. ${toRoman(issueNum)}`
     if (!confirm(`确定删除 ${labelText}？`)) return
     const { error } = await supabase.from('gallery_curations').delete().eq('id', id)
     if (error) alert('删除失败: ' + error.message)
@@ -152,15 +148,36 @@ export default function AdminCurationsPage() {
     if (!error) loadData()
   }
 
-  function getWorkById(id) { return works.find(w => w.id === id) }
+  // 上下箭头:与相邻一行交换 display_order
+  async function moveItem(idx, direction) {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= curations.length) return
 
-  // 期号显示:特刊 → "特·一",主线 → 罗马数字
-  function getIssueLabel(c) {
-    if (c.is_special) return `特·${toCnNum(c.issue_number)}`
-    return toRoman(c.issue_number)
+    const a = curations[idx]
+    const b = curations[targetIdx]
+
+    // 交换两个 display_order 值
+    const aOrder = a.display_order ?? 0
+    const bOrder = b.display_order ?? 0
+
+    // 如果两个值相等,加微小偏移避免无效操作
+    if (aOrder === bOrder) {
+      const newAOrder = direction === 'up' ? bOrder - 1 : bOrder + 1
+      const { error } = await supabase.from('gallery_curations').update({ display_order: newAOrder }).eq('id', a.id)
+      if (error) alert('排序失败: ' + error.message)
+      else loadData()
+      return
+    }
+
+    // 正常交换
+    const { error: e1 } = await supabase.from('gallery_curations').update({ display_order: bOrder }).eq('id', a.id)
+    const { error: e2 } = await supabase.from('gallery_curations').update({ display_order: aOrder }).eq('id', b.id)
+    if (e1 || e2) alert('排序失败: ' + (e1?.message || e2?.message))
+    else loadData()
   }
 
-  // 搜索作品
+  function getWorkById(id) { return works.find(w => w.id === id) }
+
   const filteredWorks = works.filter(w => {
     if (!searchTerm.trim()) return true
     const s = searchTerm.toLowerCase()
@@ -255,14 +272,12 @@ export default function AdminCurationsPage() {
               </div>
             </div>
 
-            {/* 选择作品 */}
             <div className="mb-4">
               <label className="block text-xs mb-2" style={{ color: '#6B7280' }}>精选作品(选3幅)</label>
               <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-sm text-gray-900 mb-3" style={{ borderColor: '#D1D5DB' }}
                 placeholder="搜索作品标题或艺术家..." />
 
-              {/* 已选作品 */}
               <div className="flex gap-3 mb-3">
                 {form.work_ids.map((wid, idx) => {
                   const w = wid ? getWorkById(wid) : null
@@ -291,7 +306,6 @@ export default function AdminCurationsPage() {
                 })}
               </div>
 
-              {/* 作品列表 */}
               <div className="max-h-48 overflow-y-auto border rounded-lg" style={{ borderColor: '#E5E7EB' }}>
                 {filteredWorks.map(w => {
                   const isSelected = form.work_ids.includes(w.id)
@@ -319,7 +333,6 @@ export default function AdminCurationsPage() {
               </div>
             </div>
 
-            {/* 状态+保存 */}
             <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: '#F3F4F6' }}>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={form.status === 'published'}
@@ -350,8 +363,10 @@ export default function AdminCurationsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {curations.map(c => {
+            {curations.map((c, idx) => {
               const cWorks = (c.work_ids || []).map(id => getWorkById(id)).filter(Boolean)
+              const isFirst = idx === 0
+              const isLast = idx === curations.length - 1
               return (
                 <div key={c.id} className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-5"
                   style={{
@@ -362,6 +377,26 @@ export default function AdminCurationsPage() {
                       ? '#FFFBEB'
                       : (c.status === 'published' ? '#FEFCFF' : '#FFFFFF')
                   }}>
+
+                  {/* 上下箭头 */}
+                  <div className="flex flex-col gap-1 flex-shrink-0">
+                    <button onClick={() => moveItem(idx, 'up')} disabled={isFirst}
+                      className="w-7 h-7 rounded flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                      title="上移"
+                      aria-label="上移">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 9 L7 5 L11 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <button onClick={() => moveItem(idx, 'down')} disabled={isLast}
+                      className="w-7 h-7 rounded flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                      title="下移"
+                      aria-label="下移">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 5 L7 9 L11 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
 
                   {/* 期号 */}
                   <div className="text-center flex-shrink-0" style={{ width: '70px' }}>
