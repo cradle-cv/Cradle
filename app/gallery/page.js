@@ -40,7 +40,7 @@ async function getData(isAdminPreview) {
     .from('gallery_curations')
     .select('*')
     .eq('status', 'published')
-    .order('display_order', { ascending: true })
+    .order('display_order', { ascending: false })
 
   // 收集所有已发布期刊引用过的作品 id —— 这是"已进入阅览室"的白名单
   const curatedWorkIdSet = new Set()
