@@ -10,13 +10,20 @@ const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
 
 function toRoman(n) { return ROMAN[n] || `${n}` }
 
+// 中文数字(用于特刊编号)
+const CN_NUM = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
+  '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十']
+
+function toCnNum(n) { return CN_NUM[n] || `${n}` }
+
 export default function AdminCurationsPage() {
   const [curations, setCurations] = useState([])
   const [works, setWorks] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({
-    issue_number: 1, theme_en: '', theme_zh: '', quote: '', quote_author: '', work_ids: ['', '', ''], status: 'draft'
+    issue_number: 1, theme_en: '', theme_zh: '', quote: '', quote_author: '', work_ids: ['', '', ''], status: 'draft',
+    is_special: false, special_label: '',
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -24,10 +31,11 @@ export default function AdminCurationsPage() {
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
+    // 策略 Z:按 created_at 倒序混排(最新在最上面)
     const { data: cData } = await supabase
       .from('gallery_curations')
       .select('*')
-      .order('issue_number', { ascending: false })
+      .order('created_at', { ascending: false })
 
     const { data: wData } = await supabase
       .from('gallery_works')
@@ -38,9 +46,10 @@ export default function AdminCurationsPage() {
     setCurations(cData || [])
     setWorks(wData || [])
 
-    // 自动设置下一个期号
+    // 自动设置下一个期号(主线和特刊分开计数)
     if (cData && cData.length > 0) {
-      const maxIssue = Math.max(...cData.map(c => c.issue_number))
+      const mainIssues = cData.filter(c => !c.is_special).map(c => c.issue_number)
+      const maxIssue = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
       setForm(prev => ({ ...prev, issue_number: maxIssue + 1 }))
     }
 
@@ -57,15 +66,34 @@ export default function AdminCurationsPage() {
       quote_author: c.quote_author || '',
       work_ids: [...(c.work_ids || []), '', '', ''].slice(0, 3),
       status: c.status || 'draft',
+      is_special: c.is_special || false,
+      special_label: c.special_label || '',
     })
   }
 
   function startNew() {
     setEditing('new')
-    const maxIssue = curations.length > 0 ? Math.max(...curations.map(c => c.issue_number)) : 0
+    const mainIssues = curations.filter(c => !c.is_special).map(c => c.issue_number)
+    const maxIssue = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
     setForm({
-      issue_number: maxIssue + 1, theme_en: '', theme_zh: '', quote: '', quote_author: '', work_ids: ['', '', ''], status: 'draft'
+      issue_number: maxIssue + 1, theme_en: '', theme_zh: '', quote: '', quote_author: '', work_ids: ['', '', ''], status: 'draft',
+      is_special: false, special_label: '',
     })
+  }
+
+  // 切换是否特刊时,自动重算 issue_number
+  function toggleSpecial(checked) {
+    if (checked) {
+      // 切换为特刊:取最大特刊号 + 1
+      const specialIssues = curations.filter(c => c.is_special && c.id !== editing).map(c => c.issue_number)
+      const maxSpecial = specialIssues.length > 0 ? Math.max(...specialIssues) : 0
+      setForm(prev => ({ ...prev, is_special: true, issue_number: maxSpecial + 1 }))
+    } else {
+      // 切换为主线:取最大主线号 + 1
+      const mainIssues = curations.filter(c => !c.is_special && c.id !== editing).map(c => c.issue_number)
+      const maxMain = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
+      setForm(prev => ({ ...prev, is_special: false, special_label: '', issue_number: maxMain + 1 }))
+    }
   }
 
   function cancelEdit() {
@@ -87,6 +115,8 @@ export default function AdminCurationsPage() {
         quote_author: form.quote_author || null,
         work_ids: validIds,
         status: form.status,
+        is_special: form.is_special,
+        special_label: form.is_special ? (form.special_label || null) : null,
         published_at: form.status === 'published' ? new Date().toISOString() : null,
       }
 
@@ -105,8 +135,9 @@ export default function AdminCurationsPage() {
     } finally { setSaving(false) }
   }
 
-  async function handleDelete(id, issueNum) {
-    if (!confirm(`确定删除 No. ${toRoman(issueNum)}？`)) return
+  async function handleDelete(id, issueNum, isSpecial) {
+    const labelText = isSpecial ? `特刊·${toCnNum(issueNum)}` : `No. ${toRoman(issueNum)}`
+    if (!confirm(`确定删除 ${labelText}？`)) return
     const { error } = await supabase.from('gallery_curations').delete().eq('id', id)
     if (error) alert('删除失败: ' + error.message)
     else loadData()
@@ -123,6 +154,12 @@ export default function AdminCurationsPage() {
 
   function getWorkById(id) { return works.find(w => w.id === id) }
 
+  // 期号显示:特刊 → "特·一",主线 → 罗马数字
+  function getIssueLabel(c) {
+    if (c.is_special) return `特·${toCnNum(c.issue_number)}`
+    return toRoman(c.issue_number)
+  }
+
   // 搜索作品
   const filteredWorks = works.filter(w => {
     if (!searchTerm.trim()) return true
@@ -136,6 +173,7 @@ export default function AdminCurationsPage() {
 
   const published = curations.filter(c => c.status === 'published')
   const drafts = curations.filter(c => c.status === 'draft')
+  const specials = curations.filter(c => c.is_special)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -144,7 +182,7 @@ export default function AdminCurationsPage() {
           <div className="flex items-center gap-4">
             <Link href="/admin" className="text-gray-500 hover:text-gray-900">← 后台</Link>
             <h1 className="text-xl font-bold text-gray-900">📰 本期精选 · 排期管理</h1>
-            <span className="text-sm text-gray-500">已发布 {published.length} 期 · 草稿 {drafts.length} 期</span>
+            <span className="text-sm text-gray-500">已发布 {published.length} 期 · 草稿 {drafts.length} 期 · 特刊 {specials.length} 期</span>
           </div>
           <button onClick={startNew} className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium">
             + 新建一期
@@ -158,23 +196,44 @@ export default function AdminCurationsPage() {
         {editing && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border" style={{ borderColor: '#E5E7EB' }}>
             <h2 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>
-              {editing === 'new' ? '新建一期' : `编辑 No. ${toRoman(form.issue_number)}`}
+              {editing === 'new' ? '新建一期' : `编辑 ${form.is_special ? `特·${toCnNum(form.issue_number)}` : `No. ${toRoman(form.issue_number)}`}`}
             </h2>
+
+            {/* 是否特刊 */}
+            <div className="mb-4 flex items-center gap-6 p-3 rounded-lg" style={{ backgroundColor: form.is_special ? '#FEF3C7' : '#F9FAFB' }}>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={form.is_special}
+                  onChange={e => toggleSpecial(e.target.checked)} />
+                <span style={{ color: form.is_special ? '#B45309' : '#6B7280', fontWeight: form.is_special ? 600 : 400 }}>
+                  {form.is_special ? '🌟 这是一期特刊' : '主线期(取消勾选 = 主线)'}
+                </span>
+              </label>
+              {form.is_special && (
+                <div className="flex-1 flex items-center gap-3">
+                  <label className="text-xs flex-shrink-0" style={{ color: '#92400E' }}>特刊标签:</label>
+                  <input value={form.special_label} onChange={e => setForm(prev => ({ ...prev, special_label: e.target.value }))}
+                    className="flex-1 px-3 py-1.5 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#FCD34D', backgroundColor: '#FFFFFF' }}
+                    placeholder="例:读书日 / 劳动节 / 立秋" />
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>期号 *</label>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>
+                  期号 * {form.is_special && <span style={{ color: '#B45309' }}>(特刊独立计数)</span>}
+                </label>
                 <input type="number" value={form.issue_number} onChange={e => setForm(prev => ({ ...prev, issue_number: parseInt(e.target.value) || 1 }))}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }} />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>主题（英文）*</label>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>主题(英文)*</label>
                 <input value={form.theme_en} onChange={e => setForm(prev => ({ ...prev, theme_en: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}
                   placeholder="Threshold" />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>主题（中文）*</label>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280' }}>主题(中文)*</label>
                 <input value={form.theme_zh} onChange={e => setForm(prev => ({ ...prev, theme_zh: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-gray-900" style={{ borderColor: '#D1D5DB' }}
                   placeholder="门槛之处" />
@@ -198,7 +257,7 @@ export default function AdminCurationsPage() {
 
             {/* 选择作品 */}
             <div className="mb-4">
-              <label className="block text-xs mb-2" style={{ color: '#6B7280' }}>精选作品（选3幅）</label>
+              <label className="block text-xs mb-2" style={{ color: '#6B7280' }}>精选作品(选3幅)</label>
               <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-sm text-gray-900 mb-3" style={{ borderColor: '#D1D5DB' }}
                 placeholder="搜索作品标题或艺术家..." />
@@ -240,7 +299,7 @@ export default function AdminCurationsPage() {
                     <button key={w.id} disabled={isSelected}
                       onClick={() => {
                         const emptyIdx = form.work_ids.findIndex(id => !id)
-                        if (emptyIdx === -1) { alert('已选满3幅，请先移除一幅'); return }
+                        if (emptyIdx === -1) { alert('已选满3幅,请先移除一幅'); return }
                         const ids = [...form.work_ids]; ids[emptyIdx] = w.id
                         setForm(prev => ({ ...prev, work_ids: ids }))
                       }}
@@ -286,7 +345,7 @@ export default function AdminCurationsPage() {
           <div className="text-center py-20 bg-white rounded-xl shadow-sm">
             <div className="text-5xl mb-4">📰</div>
             <h2 className="text-xl font-bold mb-2" style={{ color: '#111827' }}>还没有精选期刊</h2>
-            <p className="mb-6" style={{ color: '#9CA3AF' }}>创建第一期，选择3幅作品并设定主题</p>
+            <p className="mb-6" style={{ color: '#9CA3AF' }}>创建第一期,选择3幅作品并设定主题</p>
             <button onClick={startNew} className="px-6 py-3 bg-gray-900 text-white rounded-lg font-medium">+ 新建第一期</button>
           </div>
         ) : (
@@ -295,15 +354,32 @@ export default function AdminCurationsPage() {
               const cWorks = (c.work_ids || []).map(id => getWorkById(id)).filter(Boolean)
               return (
                 <div key={c.id} className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-5"
-                  style={{ border: c.status === 'published' ? '1px solid #C4B5FD' : '1px solid #E5E7EB',
-                    backgroundColor: c.status === 'published' ? '#FEFCFF' : '#FFFFFF' }}>
+                  style={{
+                    border: c.is_special
+                      ? '1px solid #FCD34D'
+                      : (c.status === 'published' ? '1px solid #C4B5FD' : '1px solid #E5E7EB'),
+                    backgroundColor: c.is_special
+                      ? '#FFFBEB'
+                      : (c.status === 'published' ? '#FEFCFF' : '#FFFFFF')
+                  }}>
 
                   {/* 期号 */}
-                  <div className="text-center flex-shrink-0" style={{ width: '60px' }}>
-                    <div className="text-2xl font-bold" style={{ color: '#111827', fontFamily: '"Playfair Display", serif' }}>
-                      {toRoman(c.issue_number)}
-                    </div>
-                    <div className="text-xs" style={{ color: '#9CA3AF' }}>
+                  <div className="text-center flex-shrink-0" style={{ width: '70px' }}>
+                    {c.is_special ? (
+                      <>
+                        <div className="text-lg font-bold" style={{ color: '#B45309', fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
+                          特·{toCnNum(c.issue_number)}
+                        </div>
+                        {c.special_label && (
+                          <div className="text-xs mt-0.5" style={{ color: '#92400E' }}>{c.special_label}</div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-2xl font-bold" style={{ color: '#111827', fontFamily: '"Playfair Display", serif' }}>
+                        {toRoman(c.issue_number)}
+                      </div>
+                    )}
+                    <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>
                       {c.status === 'published' ? '✅ 已发布' : '📝 草稿'}
                     </div>
                   </div>
@@ -340,7 +416,7 @@ export default function AdminCurationsPage() {
                       {c.status === 'published' ? '撤回' : '发布'}
                     </button>
                     <button onClick={() => startEdit(c)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50">编辑</button>
-                    <button onClick={() => handleDelete(c.id, c.issue_number)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50">删除</button>
+                    <button onClick={() => handleDelete(c.id, c.issue_number, c.is_special)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50">删除</button>
                   </div>
                 </div>
               )
