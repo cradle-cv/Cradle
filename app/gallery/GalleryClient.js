@@ -65,8 +65,8 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
   const artistsPerPage = 12
 
   const currentCuration = curations[activeCuration] || null
-  const pastCurations = curations.slice(1, 4)
-  const allPastCurations = curations.slice(1)
+  const pastCurations = curations.filter((_, i) => i !== activeCuration).slice(0, 3)
+  const allPastCurations = curations.filter((_, i) => i !== activeCuration)
   const museumWorks = selectedMuseum ? works.filter(w => w.museum_id === selectedMuseum) : works
   const artistWorks = selectedArtist ? works.filter(w => w.gallery_artist_id === selectedArtist) : works
   const filteredMuseums = regionFilter === 'all' ? museums : museums.filter(m => m.region === regionFilter)
@@ -227,10 +227,11 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                       </div>
                       <div className="flex items-center justify-center gap-3 flex-wrap">
                         {pastCurations.map((pc, i) => {
-                          const isActive = activeCuration === i + 1
+                          const realIdx = curations.findIndex(c => c.id === pc.id)
+                          const isActive = false  // 当前激活的已被 filter 掉,不会出现在这里
                           const isPcSpecial = pc.is_special
                           return (
-                            <button key={pc.id} onClick={() => switchCuration(i + 1)}
+                            <button key={pc.id} onClick={() => switchCuration(realIdx)}
                               className="inline-flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
                               style={{
                                 padding: '10px 20px',
