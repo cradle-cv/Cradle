@@ -6,6 +6,15 @@ import Link from 'next/link'
 const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
 function toRoman(n) { return ROMAN[n] || `${n}` }
 
+const CN_NUM = ['零','一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十']
+function toCnNum(n) { return CN_NUM[n] || `${n}` }
+
+// 期号显示:特刊用"特·一",主线用罗马数字
+function getIssueLabel(c) {
+  if (c?.is_special) return `特·${toCnNum(c.issue_number)}`
+  return `No. ${toRoman(c?.issue_number)}`
+}
+
 const REGION_LABELS = {
   asia: { name: '亚洲', icon: '🏯' },
   europe: { name: '欧洲', icon: '🏰' },
@@ -98,6 +107,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
   const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
   const zhSerif = '"Noto Serif SC", "Source Han Serif SC", serif'
 
+  // 当前期是否特刊(特刊用暖色调,主线保持原黑白)
+  const isSpecialCurrent = currentCuration?.is_special
+
   return (
     <>
       <section className="px-6 pt-8 pb-4">
@@ -128,19 +140,56 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
             <div>
               {currentCuration ? (
                 <>
+                  {/* ── 期数标头 ── */}
                   <div className="flex items-center justify-center gap-6" style={{ padding: '16px 0' }}>
-                    <div style={{ border: '1.5px solid #111827', width: '72px', textAlign: 'center', padding: '2px 0', flexShrink: 0 }}>
-                      <div style={{ fontFamily: serif, fontSize: '36px', fontWeight: 700, lineHeight: 1.1 }}>{dayNum}</div>
+                    {/* 左侧日期方块(特刊用暖色) */}
+                    <div style={{
+                      border: isSpecialCurrent ? '1.5px solid #B45309' : '1.5px solid #111827',
+                      width: '72px', textAlign: 'center', padding: '2px 0', flexShrink: 0,
+                      backgroundColor: isSpecialCurrent ? '#FFFBEB' : 'transparent'
+                    }}>
+                      <div style={{ fontFamily: serif, fontSize: '36px', fontWeight: 700, lineHeight: 1.1, color: isSpecialCurrent ? '#92400E' : '#111827' }}>{dayNum}</div>
                       <div style={{ fontFamily: serif, fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', color: '#6B7280', borderTop: '0.5px solid #D1D5DB', marginTop: '2px', paddingTop: '2px' }}>{monthName}</div>
                     </div>
+
+                    {/* 中央主题区 */}
                     <div style={{ textAlign: 'center', flex: 1 }}>
-                      <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', margin: '0 0 6px' }}>本期精选</p>
+                      <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', margin: '0 0 6px' }}>
+                        {isSpecialCurrent ? (
+                          <>
+                            <span>特 刊</span>
+                            {currentCuration.special_label && (
+                              <span style={{ marginLeft: '12px', color: '#B45309', letterSpacing: '3px' }}>· {currentCuration.special_label}</span>
+                            )}
+                          </>
+                        ) : '本期精选'}
+                      </p>
                       <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '38px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>{currentCuration.theme_en || ''}</p>
                       <p style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '4px', marginTop: '4px' }}>{currentCuration.theme_zh || ''}</p>
                     </div>
-                    <div style={{ fontFamily: serif, fontSize: '11px', letterSpacing: '4px', color: '#6B7280', width: '72px', textAlign: 'center', flexShrink: 0 }}>No. {toRoman(currentCuration.issue_number)}</div>
+
+                    {/* 右侧期号(特刊用中文衬线) */}
+                    <div style={{
+                      width: '72px', textAlign: 'center', flexShrink: 0,
+                      fontSize: '11px', letterSpacing: '4px', color: '#6B7280'
+                    }}>
+                      {isSpecialCurrent ? (
+                        <span style={{ fontFamily: zhSerif, fontSize: '14px', color: '#92400E', letterSpacing: '2px' }}>
+                          特·{toCnNum(currentCuration.issue_number)}
+                        </span>
+                      ) : (
+                        <span style={{ fontFamily: serif }}>No. {toRoman(currentCuration.issue_number)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
+
+                  <div style={{
+                    borderTop: isSpecialCurrent ? '0.5px solid #B45309' : '0.5px solid #111827',
+                    borderBottom: isSpecialCurrent ? '3px double #B45309' : '3px double #111827',
+                    height: '6px'
+                  }}></div>
+
+                  {/* ── 三幅作品 ── */}
                   <div className="grid md:grid-cols-3 gap-6" style={{ padding: '24px 0' }}>
                     {(currentCuration.works || []).map(work => (
                       <Link key={work.id} href={`/gallery/${work.id}`} className="group text-center">
@@ -154,35 +203,60 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                       </Link>
                     ))}
                   </div>
+
+                  {/* ── 卷首语 ── */}
                   {currentCuration.quote && (
                     <div style={{ padding: '16px 0', margin: '8px 0' }}>
-                      <div style={{ borderBottom: '0.5px solid #111827', marginBottom: '16px' }}></div>
-                      <div style={{ borderLeft: '2px solid #111827', paddingLeft: '20px', margin: '0 40px' }}>
-                        <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>"{currentCuration.quote}"</p>
+                      <div style={{ borderBottom: isSpecialCurrent ? '0.5px solid #B45309' : '0.5px solid #111827', marginBottom: '16px' }}></div>
+                      <div style={{
+                        borderLeft: isSpecialCurrent ? '2px solid #B45309' : '2px solid #111827',
+                        paddingLeft: '20px', margin: '0 40px'
+                      }}>
+                        <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{currentCuration.quote}</p>
                         {currentCuration.quote_author && (<p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>—— {currentCuration.quote_author}</p>)}
                       </div>
-                      <div style={{ borderBottom: '0.5px solid #111827', marginTop: '16px' }}></div>
+                      <div style={{ borderBottom: isSpecialCurrent ? '0.5px solid #B45309' : '0.5px solid #111827', marginTop: '16px' }}></div>
                     </div>
                   )}
+
+                  {/* ── 往期回顾 ── */}
                   {pastCurations.length > 0 && (
                     <div style={{ padding: '24px 0' }}>
                       <div style={{ fontSize: '11px', letterSpacing: '4px', color: '#6B7280', marginBottom: '16px', textAlign: 'center', fontWeight: 600 }}>
                         <span style={{ display: 'inline-block', borderBottom: '1px solid #D1D5DB', paddingBottom: '4px' }}>往 期 回 顾</span>
                       </div>
                       <div className="flex items-center justify-center gap-3 flex-wrap">
-                        {pastCurations.map((pc, i) => (
-                          <button key={pc.id} onClick={() => switchCuration(i + 1)}
-                            className="inline-flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-                            style={{ padding: '10px 20px',
-                              border: activeCuration === i + 1 ? '1.5px solid #111827' : '1px solid #D1D5DB',
-                              backgroundColor: activeCuration === i + 1 ? '#111827' : '#FAFAF9',
-                              cursor: 'pointer',
-                              opacity: i === 0 ? 1 : i === 1 ? 0.75 : 0.5 }}>
-                            <span style={{ fontFamily: serif, fontSize: '12px', letterSpacing: '2px', fontWeight: 700, color: activeCuration === i + 1 ? '#FFF' : '#374151' }}>No. {toRoman(pc.issue_number)}</span>
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: activeCuration === i + 1 ? '#FFF' : '#9CA3AF', flexShrink: 0 }}></span>
-                            <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: activeCuration === i + 1 ? '#E5E7EB' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${pc.theme_zh}` : ''}</span>
-                          </button>
-                        ))}
+                        {pastCurations.map((pc, i) => {
+                          const isActive = activeCuration === i + 1
+                          const isPcSpecial = pc.is_special
+                          return (
+                            <button key={pc.id} onClick={() => switchCuration(i + 1)}
+                              className="inline-flex items-center gap-2 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                              style={{
+                                padding: '10px 20px',
+                                border: isActive
+                                  ? '1.5px solid #111827'
+                                  : isPcSpecial
+                                    ? '1px solid #FCD34D'
+                                    : '1px solid #D1D5DB',
+                                backgroundColor: isActive
+                                  ? '#111827'
+                                  : isPcSpecial
+                                    ? '#FFFBEB'
+                                    : '#FAFAF9',
+                                cursor: 'pointer',
+                                opacity: i === 0 ? 1 : i === 1 ? 0.85 : 0.7
+                              }}>
+                              <span style={{
+                                fontFamily: isPcSpecial ? zhSerif : serif,
+                                fontSize: '12px', letterSpacing: '2px', fontWeight: 700,
+                                color: isActive ? '#FFF' : isPcSpecial ? '#92400E' : '#374151'
+                              }}>{getIssueLabel(pc)}</span>
+                              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: isActive ? '#FFF' : isPcSpecial ? '#FCD34D' : '#9CA3AF', flexShrink: 0 }}></span>
+                              <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: isActive ? '#E5E7EB' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${pc.theme_zh}` : ''}</span>
+                            </button>
+                          )
+                        })}
                         {activeCuration !== 0 && (
                           <button onClick={() => switchCuration(0)}
                             className="inline-flex items-center gap-1 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
@@ -215,13 +289,28 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                         {allPastCurations.map((pc, i) => {
                           const idx = curations.findIndex(c => c.id === pc.id)
                           const hasWorks = pc.works && pc.works.length > 0
+                          const isPcSpecial = pc.is_special
                           return (
                             <button key={pc.id} onClick={() => { switchCuration(idx); setShowArchive(false) }}
                               className="text-left transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-                              style={{ border: '1px solid #E5E7EB', padding: '16px', background: '#FAFAF9', cursor: 'pointer' }}>
+                              style={{
+                                border: isPcSpecial ? '1px solid #FCD34D' : '1px solid #E5E7EB',
+                                padding: '16px',
+                                background: isPcSpecial ? '#FFFBEB' : '#FAFAF9',
+                                cursor: 'pointer'
+                              }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                                <span style={{ fontFamily: serif, fontSize: '13px', fontWeight: 700, letterSpacing: '2px', color: '#374151' }}>
-                                  No. {toRoman(pc.issue_number)}
+                                <span style={{
+                                  fontFamily: isPcSpecial ? zhSerif : serif,
+                                  fontSize: '13px', fontWeight: 700, letterSpacing: '2px',
+                                  color: isPcSpecial ? '#92400E' : '#374151'
+                                }}>
+                                  {getIssueLabel(pc)}
+                                  {isPcSpecial && pc.special_label && (
+                                    <span style={{ marginLeft: '8px', fontSize: '11px', letterSpacing: '1px', color: '#B45309', fontWeight: 400 }}>
+                                      · {pc.special_label}
+                                    </span>
+                                  )}
                                 </span>
                                 <span style={{ fontSize: '11px', color: '#D1D5DB' }}>
                                   {pc.published_at ? new Date(pc.published_at).toLocaleDateString('zh-CN') : ''}
