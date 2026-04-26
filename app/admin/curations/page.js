@@ -69,8 +69,18 @@ export default function AdminCurationsPage() {
     })
   }
 
-  function startNew() {
-    setEditing('new')
+  function startNew(asSpecial = false) {
+  setEditing('new')
+  if (asSpecial) {
+    // 新建特刊:取最大特刊号 + 1
+    const specialIssues = curations.filter(c => c.is_special).map(c => c.issue_number)
+    const maxSpecial = specialIssues.length > 0 ? Math.max(...specialIssues) : 0
+    setForm({
+      issue_number: maxSpecial + 1, theme_en: '', theme_zh: '', quote: '', quote_author: '', work_ids: ['', '', ''], status: 'draft',
+      is_special: true, special_label: '',
+    })
+  } else {
+    // 新建主线:取最大主线号 + 1
     const mainIssues = curations.filter(c => !c.is_special).map(c => c.issue_number)
     const maxIssue = mainIssues.length > 0 ? Math.max(...mainIssues) : 0
     setForm({
@@ -78,6 +88,7 @@ export default function AdminCurationsPage() {
       is_special: false, special_label: '',
     })
   }
+}
 
   function toggleSpecial(checked) {
     if (checked) {
@@ -201,9 +212,17 @@ export default function AdminCurationsPage() {
             <h1 className="text-xl font-bold text-gray-900">📰 本期精选 · 排期管理</h1>
             <span className="text-sm text-gray-500">已发布 {published.length} 期 · 草稿 {drafts.length} 期 · 特刊 {specials.length} 期</span>
           </div>
-          <button onClick={startNew} className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium">
-            + 新建一期
-          </button>
+          <div className="flex gap-2">
+  <button onClick={() => startNew(false)}
+    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium">
+    + 新建一期
+  </button>
+  <button onClick={() => startNew(true)}
+    className="px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+    style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }}>
+    ✦ 新建特刊
+  </button>
+</div>
         </div>
       </div>
 
@@ -359,7 +378,7 @@ export default function AdminCurationsPage() {
             <div className="text-5xl mb-4">📰</div>
             <h2 className="text-xl font-bold mb-2" style={{ color: '#111827' }}>还没有精选期刊</h2>
             <p className="mb-6" style={{ color: '#9CA3AF' }}>创建第一期,选择3幅作品并设定主题</p>
-            <button onClick={startNew} className="px-6 py-3 bg-gray-900 text-white rounded-lg font-medium">+ 新建第一期</button>
+            <button onClick={() => startNew(false)} className="px-6 py-3 bg-gray-900 text-white rounded-lg font-medium">+ 新建第一期</button>
           </div>
         ) : (
           <div className="space-y-3">
