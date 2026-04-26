@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-// 用户名校验:2-20 个字符,只允许英文/数字/下划线
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{2,20}$/
 const RESERVED_USERNAMES = ['admin', 'cradle']
 
@@ -17,15 +16,13 @@ function validateUsername(name) {
   return null
 }
 
-// 密码强度:0=空 / 1=弱 / 2=中 / 3=强
 function passwordStrength(pwd) {
   if (!pwd) return 0
   const len = pwd.length
   const hasLetter = /[a-zA-Z]/.test(pwd)
   const hasDigit = /\d/.test(pwd)
-  const hasSymbol = /[^a-zA-Z0-9]/.test(pwd)
   if (len >= 10 && hasLetter && hasDigit) return 3
-  if (len >= 8 && (hasLetter || hasDigit)) return 2
+  if (len >= 8 && hasLetter && hasDigit) return 2
   if (len >= 6) return 1
   return 1
 }
@@ -33,7 +30,6 @@ function passwordStrength(pwd) {
 const STRENGTH_LABELS = ['', '弱', '中', '强']
 const STRENGTH_COLORS = ['', '#DC2626', '#D97706', '#16A34A']
 
-// 眼睛图标(SVG,无 emoji)
 function IconEye({ open }) {
   if (open) {
     return (
@@ -53,7 +49,6 @@ function IconEye({ open }) {
   )
 }
 
-// 密码输入框带显示密码切换
 function PasswordInput({ name, value, onChange, placeholder, style }) {
   const [show, setShow] = useState(false)
   return (
@@ -72,18 +67,11 @@ function PasswordInput({ name, value, onChange, placeholder, style }) {
         onClick={() => setShow(s => !s)}
         aria-label={show ? '隐藏密码' : '显示密码'}
         style={{
-          position: 'absolute',
-          right: '12px',
-          top: '50%',
+          position: 'absolute', right: '12px', top: '50%',
           transform: 'translateY(-50%)',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: '#9CA3AF',
-          padding: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: '#9CA3AF', padding: '4px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
         <IconEye open={show} />
       </button>
@@ -91,7 +79,6 @@ function PasswordInput({ name, value, onChange, placeholder, style }) {
   )
 }
 
-// 密码强度指示器(3 段)
 function PasswordStrength({ pwd }) {
   const strength = passwordStrength(pwd)
   if (!pwd) return null
@@ -100,9 +87,7 @@ function PasswordStrength({ pwd }) {
       <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
         {[1, 2, 3].map(level => (
           <div key={level} style={{
-            flex: 1,
-            height: '3px',
-            borderRadius: '1.5px',
+            flex: 1, height: '3px', borderRadius: '1.5px',
             backgroundColor: strength >= level ? STRENGTH_COLORS[strength] : '#E5E7EB',
             transition: 'background-color 0.2s',
           }} />
@@ -111,9 +96,7 @@ function PasswordStrength({ pwd }) {
       <span style={{
         fontSize: '11px',
         color: STRENGTH_COLORS[strength] || '#9CA3AF',
-        letterSpacing: '2px',
-        fontWeight: 500,
-        minWidth: '14px',
+        letterSpacing: '2px', fontWeight: 500, minWidth: '14px',
       }}>
         {STRENGTH_LABELS[strength]}
       </span>
@@ -203,13 +186,14 @@ function LoginForm() {
   async function handleEmailRegister(e) {
     e?.preventDefault()
 
-    // 用户名校验
     const usernameError = validateUsername(form.username)
     if (usernameError) { setError(usernameError); return }
 
     if (!form.email) { setError('请输入邮箱'); return }
     if (!form.password) { setError('请输入密码'); return }
-    if (form.password.length < 6) { setError('密码至少 6 位'); return }
+    if (passwordStrength(form.password) < 2) { 
+      setError('密码强度不够,需要至少 8 位且同时包含字母和数字'); return 
+    }
     if (form.password !== form.confirmPassword) { setError('两次密码不一致'); return }
 
     setLoading(true); setError(''); setErrorAction(null)
@@ -227,55 +211,24 @@ function LoginForm() {
         return
       }
 
+      // signUp:Supabase 会自动发验证邮件(因为 Confirm email 是开的)
+      // 用户尚未通过验证,authData.session 应为 null
+      // 把 username + inviteCode 存进 user_metadata,验证成功后再写到 users 表
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
-        options: { data: { username: form.username } }
+        options: {
+          data: {
+            username: form.username,
+            invite_code: form.inviteCode || null,
+          }
+        }
       })
       if (authError) throw authError
 
-      if (authData.user) {
-        const { error: ue } = await supabase.from('users').insert({
-          auth_id: authData.user.id,
-          email: form.email,
-          username: form.username,
-          role: 'user',
-          total_points: 0,
-          level: 1,
-          profile_completed: false,
-          email_verified: false,
-        })
-        if (ue && !ue.message.includes('duplicate')) throw ue
-      }
-
-      if (form.inviteCode && authData.user) {
-        try {
-          const { data: newUser } = await supabase
-            .from('users').select('id').eq('auth_id', authData.user.id).single()
-          if (newUser) {
-            await fetch('/api/invite', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ inviteCode: form.inviteCode, newUserId: newUser.id }),
-            })
-          }
-        } catch (e) { console.error('邀请处理失败:', e) }
-      }
-
-      if (authData.session) {
-        router.push('/profile/edit?new=1')
-      } else {
-        try {
-          await supabase.auth.signInWithPassword({
-            email: form.email,
-            password: form.password,
-          })
-          router.push('/profile/edit?new=1')
-        } catch {
-          setSuccess('注册成功,请手动登录。')
-          switchMode('login', form.email)
-        }
-      }
+      // 跳到验证页
+      const params = new URLSearchParams({ email: form.email })
+      router.push(`/verify-email?${params.toString()}`)
     } catch (err) {
       if (err.message.includes('already registered')) {
         setError('该邮箱已注册')
@@ -300,7 +253,6 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
 
-      {/* 左侧 */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#1a1a2e' }}>
         <div className="absolute inset-0" style={{
           background: 'radial-gradient(ellipse at 30% 50%, rgba(59,130,246,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(168,85,247,0.1) 0%, transparent 50%)'
@@ -334,31 +286,23 @@ function LoginForm() {
                   fontWeight: 500,
                   flexShrink: 0,
                   minWidth: '70px',
-                }}>
-                  {f.title}
-                </span>
+                }}>{f.title}</span>
                 <span style={{
-                  width: '24px',
-                  height: '0.5px',
+                  width: '24px', height: '0.5px',
                   backgroundColor: 'rgba(255,255,255,0.25)',
-                  display: 'inline-block',
-                  marginBottom: '4px',
-                  flexShrink: 0,
+                  display: 'inline-block', marginBottom: '4px', flexShrink: 0,
                 }} />
                 <span style={{
                   fontSize: '13px',
                   color: 'rgba(255,255,255,0.5)',
                   letterSpacing: '1px',
-                }}>
-                  {f.desc}
-                </span>
+                }}>{f.desc}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* 右侧 */}
       <div className="flex-1 flex items-center justify-center px-8 py-12" style={{ backgroundColor: '#FAFAFA' }}>
         <div className="w-full max-w-md">
 
@@ -409,18 +353,13 @@ function LoginForm() {
             <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
               style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', border: '0.5px solid #FECACA' }}>
               <span style={{
-                width: '3px',
-                alignSelf: 'stretch',
-                backgroundColor: '#DC2626',
-                borderRadius: '1px',
-                flexShrink: 0,
+                width: '3px', alignSelf: 'stretch', backgroundColor: '#DC2626',
+                borderRadius: '1px', flexShrink: 0,
               }} />
               <div className="flex-1 flex items-center justify-between gap-3 flex-wrap">
                 <span>{error}</span>
                 {errorAction && (
-                  <button
-                    type="button"
-                    onClick={errorAction.onClick}
+                  <button type="button" onClick={errorAction.onClick}
                     className="text-xs px-3 py-1 rounded transition-colors hover:opacity-80"
                     style={{
                       backgroundColor: '#FFFFFF',
@@ -440,11 +379,8 @@ function LoginForm() {
             <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
               style={{ backgroundColor: '#F0FDF4', color: '#166534', border: '0.5px solid #BBF7D0' }}>
               <span style={{
-                width: '3px',
-                alignSelf: 'stretch',
-                backgroundColor: '#16A34A',
-                borderRadius: '1px',
-                flexShrink: 0,
+                width: '3px', alignSelf: 'stretch', backgroundColor: '#16A34A',
+                borderRadius: '1px', flexShrink: 0,
               }} />
               <span className="flex-1">{success}</span>
             </div>
@@ -468,8 +404,6 @@ function LoginForm() {
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '登录中...' : '登录'}
               </button>
-
-              {/* 忘记密码链接 */}
               <div className="text-center pt-2">
                 <Link href="/forgot-password" 
                   style={{ color: '#6B7280', fontSize: '13px' }} 
@@ -498,7 +432,6 @@ function LoginForm() {
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '登录中...' : '登录'}
               </button>
-
               <div className="text-center pt-2">
                 <Link href="/forgot-password" 
                   style={{ color: '#6B7280', fontSize: '13px' }} 
@@ -525,7 +458,7 @@ function LoginForm() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>密码 *</label>
                 <PasswordInput name="password" value={form.password} onChange={handleChange} 
-                  placeholder="至少 6 位" style={inputStyle} />
+                  placeholder="至少 8 位,字母 + 数字" style={inputStyle} />
                 <PasswordStrength pwd={form.password} />
               </div>
               <div>
@@ -536,7 +469,7 @@ function LoginForm() {
               <button type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-xl font-medium text-white"
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
-                {loading ? '注册中...' : '注册并进入'}
+                {loading ? '提交中...' : '下一步:邮箱验证'}
               </button>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码(可选)</label>
@@ -545,9 +478,8 @@ function LoginForm() {
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
               <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
-                注册即表示你同意我们的服务条款和隐私政策。
-                <br/>
-                将来申请艺术家 / 策展人 / 合作伙伴身份时需验证邮箱。
+                注册即表示你同意我们的服务条款和隐私政策。<br/>
+                提交后,我们会发送验证码到你的邮箱。
               </p>
             </form>
           )}
