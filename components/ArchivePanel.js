@@ -44,7 +44,7 @@ export default function ArchivePanel({ userId, userLevel }) {
         .from('user_jianyu_collections')
         .select(`
           id, drawn_at, drawn_date, position_in_day, is_pinned,
-          jianyu_cards ( id, series, content, category, jieqi_name )
+          jianyu_cards ( id, series, content, content_en, category, jieqi_name )
         `)
         .order('drawn_at', { ascending: false })
       if (error) throw error
@@ -295,7 +295,13 @@ function JianyuCardModal({ item, flipped, onFlip, onClose }) {
           }}
         >
           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
-            <ModalCardFront content={card.content} dateStr={dateStr} seriesLabel={seriesLabel} numberPart={numberPart} />
+            <ModalCardFront
+              content={card.content}
+              contentEn={card.content_en}
+              dateStr={dateStr}
+              seriesLabel={seriesLabel}
+              numberPart={numberPart}
+            />
           </div>
           <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
             <ModalCardBack
@@ -318,7 +324,8 @@ function JianyuCardModal({ item, flipped, onFlip, onClose }) {
   )
 }
 
-function ModalCardFront({ content, dateStr, seriesLabel, numberPart }) {
+function ModalCardFront({ content, contentEn, dateStr, seriesLabel, numberPart }) {
+  const hasEn = contentEn && contentEn.trim().length > 0
   return (
     <div style={{
       width: '300px', height: '400px',
@@ -331,16 +338,37 @@ function ModalCardFront({ content, dateStr, seriesLabel, numberPart }) {
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ borderTop: '1.5px solid #8a7a5c', borderBottom: '0.5px solid #8a7a5c', height: '3px' }} />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 8px' }}>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 8px' }}>
+        {/* 中文 */}
         <p style={{
           fontFamily: '"Noto Serif SC", serif',
-          fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
+          fontSize: '16px', color: '#3d3528', lineHeight: 2.0,
           textAlign: 'center', letterSpacing: '2px',
           margin: 0, whiteSpace: 'pre-line',
           wordBreak: 'keep-all',
           overflowWrap: 'break-word',
         }}>{content}</p>
+
+        {/* 中英分隔虚线 + 英文 */}
+        {hasEn && (
+          <>
+            <div style={{
+              borderTop: '0.5px dashed #b8a880',
+              margin: '18px auto',
+              width: '40%',
+            }} />
+            <p style={{
+              fontFamily: '"Cormorant Garamond", "EB Garamond", Georgia, serif',
+              fontStyle: 'italic',
+              fontSize: '12px', color: '#8a7a5c', lineHeight: 1.8,
+              textAlign: 'center', letterSpacing: '0.3px',
+              margin: 0, whiteSpace: 'pre-line',
+            }}>{contentEn}</p>
+          </>
+        )}
       </div>
+
       <div style={{ borderTop: '0.5px solid #8a7a5c', borderBottom: '1.5px solid #8a7a5c', height: '3px' }} />
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -387,7 +415,7 @@ function ModalCardBack({ seriesDesc, positionInDay, dateStr, seriesLabel, number
         fontFamily: 'Georgia, serif', fontSize: '10px', color: '#8a7a5c', letterSpacing: '1px',
       }}>
         <span>{dateStr}</span>
-        <span>{seriesLabel} · #{numberPart}</span>
+        <span>{seriesLabel} · {numberPart}</span>
       </div>
     </div>
   )
