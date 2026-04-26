@@ -646,6 +646,8 @@ function CardFront({ card }) {
   const seriesLabel = SERIES_LABELS[card.card_series] || card.card_series
   const date = new Date(card.drawn_at)
   const dateStr = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`
+  const hasEn = card.card_content_en && card.card_content_en.trim().length > 0
+
   return (
     <div style={{ width: '300px', height: '400px', background: '#f5ebdc',
       border: '0.5px solid #d4c4a8', borderRadius: '2px',
@@ -653,11 +655,36 @@ function CardFront({ card }) {
       padding: '24px 22px', boxSizing: 'border-box',
       display: 'flex', flexDirection: 'column', fontFamily: '"Noto Serif SC", serif' }}>
       <div style={{ borderTop: '1.5px solid #8a7a5c', borderBottom: '0.5px solid #8a7a5c', height: '3px' }} />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 8px' }}>
-        <p style={{ fontSize: '17px', color: '#3d3528', lineHeight: 2.2,
+      
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 8px' }}>
+        {/* 中文 */}
+        <p style={{ fontSize: '16px', color: '#3d3528', lineHeight: 2.0,
           textAlign: 'center', letterSpacing: '2px', margin: 0, whiteSpace: 'pre-line',
           wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{card.card_content}</p>
+        
+        {/* 中英分隔虚线 + 英文 */}
+        {hasEn && (
+          <>
+            <div style={{ 
+              borderTop: '0.5px dashed #b8a880', 
+              margin: '18px auto', 
+              width: '40%' 
+            }} />
+            <p style={{ 
+              fontSize: '12px', 
+              color: '#8a7a5c', 
+              lineHeight: 1.8,
+              textAlign: 'center', 
+              letterSpacing: '0.3px', 
+              margin: 0, 
+              whiteSpace: 'pre-line',
+              fontFamily: '"Cormorant Garamond", "EB Garamond", Georgia, serif',
+              fontStyle: 'italic'
+            }}>{card.card_content_en}</p>
+          </>
+        )}
       </div>
+      
       <div style={{ borderTop: '0.5px solid #8a7a5c', borderBottom: '1.5px solid #8a7a5c', height: '3px' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginTop: '12px', fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
