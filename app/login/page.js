@@ -15,6 +15,7 @@ function LoginForm() {
   const [method, setMethod] = useState('email') // email | username
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errorAction, setErrorAction] = useState(null)  // 错误提示带按钮:{ label, onClick }
   const [success, setSuccess] = useState('')
 
   const [form, setForm] = useState({
@@ -25,17 +26,18 @@ function LoginForm() {
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setError('')
+    setError(''); setErrorAction(null)
   }
 
-  function switchMode(m) {
-    setMode(m); setError(''); setSuccess('')
+  function switchMode(m, prefillEmail = '') {
+    setMode(m); setError(''); setErrorAction(null); setSuccess('')
+    if (prefillEmail) setForm(prev => ({ ...prev, email: prefillEmail }))
   }
 
   async function handleEmailLogin(e) {
     e?.preventDefault()
     if (!form.email || !form.password) { setError('请输入邮箱和密码'); return }
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setErrorAction(null)
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: form.email,
@@ -51,7 +53,7 @@ function LoginForm() {
   async function handleUsernameLogin(e) {
     e?.preventDefault()
     if (!form.loginUsername || !form.loginPassword) { setError('请输入用户名和密码'); return }
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setErrorAction(null)
     try {
       const { data: user, error: findError } = await supabase
         .from('users')
@@ -88,7 +90,7 @@ function LoginForm() {
     if (form.password.length < 6) { setError('密码至少 6 位'); return }
     if (form.password !== form.confirmPassword) { setError('两次密码不一致'); return }
 
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setErrorAction(null)
     try {
       // 检查用户名重复
       const { data: existing } = await supabase
@@ -120,7 +122,7 @@ function LoginForm() {
           total_points: 0,
           level: 1,
           profile_completed: false,
-          email_verified: false,  // 新字段: 默认未验证,关键操作时按需触发验证
+          email_verified: false,
         })
         if (ue && !ue.message.includes('duplicate')) throw ue
       }
@@ -140,11 +142,9 @@ function LoginForm() {
         } catch (e) { console.error('邀请处理失败:', e) }
       }
 
-      // 关闭 Confirm email 后,authData.session 应该存在 → 直接进入
       if (authData.session) {
         router.push('/profile/edit?new=1')
       } else {
-        // 兜底: 万一 Supabase 侧配置没关,手动做一次登录
         try {
           await supabase.auth.signInWithPassword({
             email: form.email,
@@ -153,15 +153,31 @@ function LoginForm() {
           router.push('/profile/edit?new=1')
         } catch {
           setSuccess('注册成功,请手动登录。')
-          switchMode('login')
+          switchMode('login', form.email)
         }
       }
     } catch (err) {
-      setError(err.message.includes('already registered') ? '该邮箱已注册,请直接登录' : err.message)
+      // 邮箱已注册:加切换登录按钮
+      if (err.message.includes('already registered')) {
+        setError('该邮箱已注册')
+        setErrorAction({
+          label: '切换到登录',
+          onClick: () => switchMode('login', form.email)
+        })
+      } else {
+        setError(err.message)
+      }
     } finally { setLoading(false) }
   }
 
   const inputStyle = { borderColor: '#D1D5DB', color: '#111827', backgroundColor: '#FFFFFF' }
+
+  // 三个特色描述(无符号,字距 + 短竖线)
+  const features = [
+    { title: '谜 题', desc: '趣 味 答 题 · 探 索 艺 术 知 识' },
+    { title: '日 课', desc: '每 日 一 课 · 深 入 了 解 作 品' },
+    { title: '风 赏', desc: '沉 浸 体 验 · 感 受 艺 术 之 美' },
+  ]
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
@@ -177,25 +193,50 @@ function LoginForm() {
         <div className="absolute bottom-20 right-16 w-16 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
 
         <div className="relative z-10 flex flex-col justify-center px-16">
-          <div className="mb-12">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <span className="text-xl font-bold text-white">Cradle摇篮</span>
+          {/* 顶部 logo */}
+          <div className="flex items-center gap-3 mb-12">
+            <div style={{ height: '69px', overflow: 'hidden' }}>
+              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px', filter: 'brightness(0) invert(1)' }} className="object-contain" />
             </div>
-            <h2 className="text-5xl font-bold text-white leading-tight mb-6">在艺术中<br/>找到自己</h2>
-            <p className="text-lg leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              每一件作品都是一段对话。<br/>加入我们,开始你的艺术之旅。
-            </p>
           </div>
-          <div className="space-y-5">
-            {[
-              { icon: '🧩', text: '谜题挑战 · 趣味答题探索艺术知识' },
-              { icon: '📖', text: '日课学习 · 每日一课深入了解作品' },
-              { icon: '🎐', text: '风赏体验 · 沉浸式感受艺术之美' }
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <span className="text-2xl">{item.icon}</span>
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '15px' }}>{item.text}</span>
+
+          {/* 大标题 */}
+          <h2 className="text-5xl font-bold text-white leading-tight mb-6" style={{ letterSpacing: '4px' }}>
+            在艺术中<br/>找到自己
+          </h2>
+          <p className="text-lg leading-relaxed mb-16" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '2px' }}>
+            每一件作品都是一段对话。<br/>加入我们,开始你的艺术之旅。
+          </p>
+
+          {/* 三个特色 — 字距 + 短竖线 */}
+          <div className="space-y-6">
+            {features.map((f, i) => (
+              <div key={i} className="flex items-baseline gap-4">
+                <span style={{
+                  fontSize: '14px',
+                  color: 'rgba(255,255,255,0.85)',
+                  letterSpacing: '6px',
+                  fontWeight: 500,
+                  flexShrink: 0,
+                  minWidth: '70px',
+                }}>
+                  {f.title}
+                </span>
+                <span style={{
+                  width: '24px',
+                  height: '0.5px',
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                  display: 'inline-block',
+                  marginBottom: '4px',
+                  flexShrink: 0,
+                }} />
+                <span style={{
+                  fontSize: '13px',
+                  color: 'rgba(255,255,255,0.5)',
+                  letterSpacing: '1px',
+                }}>
+                  {f.desc}
+                </span>
               </div>
             ))}
           </div>
@@ -207,8 +248,9 @@ function LoginForm() {
         <div className="w-full max-w-md">
 
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-            <span className="text-xl font-bold" style={{ color: '#111827' }}>Cradle摇篮</span>
+            <div style={{ height: '50px', overflow: 'hidden' }}>
+              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '70px', marginTop: '-8px' }} className="object-contain" />
+            </div>
           </div>
 
           <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ backgroundColor: '#E5E7EB' }}>
@@ -227,8 +269,8 @@ function LoginForm() {
 
           {mode === 'login' && (
             <div className="flex gap-4 mb-6">
-              {[{ key: 'email', label: '📧 邮箱登录' }, { key: 'username', label: '👤 用户名登录' }].map(t => (
-                <button key={t.key} onClick={() => { setMethod(t.key); setError('') }}
+              {[{ key: 'email', label: '邮箱登录' }, { key: 'username', label: '用户名登录' }].map(t => (
+                <button key={t.key} onClick={() => { setMethod(t.key); setError(''); setErrorAction(null) }}
                   className="text-sm pb-2 transition-colors"
                   style={{
                     color: method === t.key ? '#111827' : '#9CA3AF',
@@ -245,11 +287,55 @@ function LoginForm() {
             {mode === 'login' ? '欢迎回来' : '创建账号'}
           </h1>
           <p className="mb-6" style={{ color: '#6B7280', fontSize: '15px' }}>
-            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后直接开始,无需验证邮箱'}
+            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后开始你的艺术之旅'}
           </p>
 
-          {error && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>❌ {error}</div>}
-          {success && <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#F0FDF4', color: '#16A34A' }}>✅ {success}</div>}
+          {/* 错误提示(克制版) */}
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
+              style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', border: '0.5px solid #FECACA' }}>
+              <span style={{
+                width: '3px',
+                alignSelf: 'stretch',
+                backgroundColor: '#DC2626',
+                borderRadius: '1px',
+                flexShrink: 0,
+              }} />
+              <div className="flex-1 flex items-center justify-between gap-3 flex-wrap">
+                <span>{error}</span>
+                {errorAction && (
+                  <button
+                    type="button"
+                    onClick={errorAction.onClick}
+                    className="text-xs px-3 py-1 rounded transition-colors hover:opacity-80"
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      color: '#B91C1C',
+                      border: '0.5px solid #FECACA',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                    }}>
+                    {errorAction.label}  →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 成功提示(克制版) */}
+          {success && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
+              style={{ backgroundColor: '#F0FDF4', color: '#166534', border: '0.5px solid #BBF7D0' }}>
+              <span style={{
+                width: '3px',
+                alignSelf: 'stretch',
+                backgroundColor: '#16A34A',
+                borderRadius: '1px',
+                flexShrink: 0,
+              }} />
+              <span className="flex-1">{success}</span>
+            </div>
+          )}
 
           {mode === 'login' && method === 'email' && (
             <form onSubmit={handleEmailLogin} className="space-y-4">
