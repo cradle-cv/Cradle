@@ -251,7 +251,7 @@ export default function WorkshopPage() {
               backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)',
             }}>
               <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
-                ✏️ 在这里装帧你的杂志或画册，完成后会出现在你的工作台
+                ✏️ 在这里装帧你的杂志或画册，像操作 PPT 一样使用它，完成后会出现在你的工作台
               </span>
               <button onClick={() => setShowHint(false)} style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>×</button>
             </div>
