@@ -33,12 +33,26 @@ const FONT_LIST = [
   { value: '"Helvetica Neue", sans-serif', label: 'Helvetica' },
 ]
 
+// HTML 转义工具:防止用户输入的 < > & " 被当成 HTML 标签
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function TextElement({ el, isSel, isEditing, scale, onUpdate, onStartEdit, borderStyle, shadowStyle }) {
   const ref = useRef(null)
 
   useEffect(() => {
     if (!isEditing && ref.current) {
-      ref.current.innerHTML = (el.content || '').replace(/\n/g, '<br>')
+      // 把每一行包在 <div> 里(空行用 <div><br></div>)
+      // 这是 contentEditable 的默认换行结构,浏览器不会吞掉换行
+      const lines = (el.content || '').split('\n')
+      ref.current.innerHTML = lines
+        .map(line => line === '' ? '<div><br></div>' : `<div>${escapeHtml(line)}</div>`)
+        .join('')
     }
   }, [el.content, isEditing])
 
@@ -72,6 +86,7 @@ function TextElement({ el, isSel, isEditing, scale, onUpdate, onStartEdit, borde
       .replace(/&amp;/gi, '&')
       .replace(/&lt;/gi, '<')
       .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
     onUpdate(text)
   }
 
@@ -671,7 +686,7 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
           </>
         )}
 
-        {/* 右侧：坐标+尺寸+全屏+撤销+保存 */}
+        {/* 右侧:坐标+尺寸+全屏+撤销+保存 */}
         <div className="flex items-center gap-1 ml-auto">
           {selEl && <span className="text-xs" style={{ color: '#D1D5DB' }}>{Math.round(selEl.x)},{Math.round(selEl.y)}</span>}
           <button onClick={undo} disabled={undoStack.length === 0} className="px-1 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-30 text-gray-700" title="撤销">↩</button>
