@@ -36,7 +36,7 @@ const ZONES = [
     id: 'desk',
     name: '书桌',
     subtitle: '雨天玻璃 · 文字创作',
-    icon: '🪟',
+    icon: '✍️',
     href: '/residency/rain',
     requireLevel: 0,
     gridArea: '2 / 3 / 3 / 4',
