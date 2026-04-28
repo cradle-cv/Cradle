@@ -7,7 +7,7 @@ import Link from 'next/link'
 const ZONES = [
   {
     id: 'workshop',
-    name: '工作台',
+    name: '装帧台',
     subtitle: '杂志 · 画册编辑',
     icon: '✏️',
     href: '/residency/workshop',
