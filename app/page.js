@@ -31,7 +31,6 @@ async function getData() {
     console.error('get_homepage_invitations failed:', e)
   }
 
-  // 查当前用户已投稿过的 invitation_id 集合 - 用于 M2 "已投稿" tag
   let submittedInvitationIds = []
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -98,7 +97,6 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
   const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a`
   const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66`
 
-  // 是否显示"征集中"提示:邀请函 status 是 collecting 或 null/undefined(兼容)且未投稿
   const shouldShowPrompt = !alreadySubmitted && (inv.status === 'collecting' || !inv.status)
 
   return (
@@ -111,7 +109,6 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
           boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}
       >
-        {/* 封面 */}
         <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
           {inv.cover_image ? (
             <img
@@ -132,7 +129,6 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
               </span>
             </div>
           )}
-          {/* 右上角:已投稿 tag (M2) 或 倒计时 */}
           {alreadySubmitted ? (
             <div
               className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
@@ -158,7 +154,6 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
           )}
         </div>
 
-        {/* 文字 */}
         <div className="px-4 py-3">
           <div className="flex items-center gap-2 mb-1.5">
             <span
@@ -178,7 +173,6 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
           >
             {inv.title}
           </h3>
-          {/* γ 样式:底部征集提示或已投稿提示 */}
           {shouldShowPrompt && (
             <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
               <span
@@ -379,7 +373,6 @@ export default async function Home() {
               </div>
             )}
 
-            {/* E2 出口按钮组 */}
             <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
               {exhibition && (
                 <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
@@ -585,14 +578,19 @@ export default async function Home() {
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
                 <div className="text-xl font-bold">Cradle摇篮</div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
+              {/* ★ 信房入口 */}
+              <a href="/concierge" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors group">
+                <span style={{ letterSpacing: '3px' }}>→ 信 房</span>
+                <span className="text-xs text-gray-500 group-hover:text-gray-300">有什么想说的</span>
+              </a>
             </div>
             <div>
               <h5 className="font-bold mb-3 md:mb-4 text-sm md:text-base">关于我们</h5>
               <ul className="space-y-2 text-xs md:text-sm text-gray-400">
                 <li><a href="#" className="hover:text-white">平台介绍</a></li>
                 <li><a href="#" className="hover:text-white">团队成员</a></li>
-                <li><a href="#" className="hover:text-white">联系我们</a></li>
+                <li><a href="/concierge" className="hover:text-white">联系我们</a></li>
                 <li><a href="#" className="hover:text-white">加入我们</a></li>
               </ul>
             </div>
