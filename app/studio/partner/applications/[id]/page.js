@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -6,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import ConversationDrawer from '@/components/ConversationDrawer'
 
 const STATUS_MAP = {
   pending: { text: '等待策展人初审', bg: '#FEF3C7', color: '#B45309', icon: '⏳' },
@@ -21,9 +21,14 @@ export default function MyApplicationDetailPage() {
   const appId = params.id
 
   const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
   const [application, setApplication] = useState(null)
   const [invitation, setInvitation] = useState(null)
   const [exhibition, setExhibition] = useState(null)
+  const [creatorInfo, setCreatorInfo] = useState(null)
+
+  // ★ 对话抽屉
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => { init() }, [appId])
 
@@ -32,7 +37,12 @@ export default function MyApplicationDetailPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push(`/login?redirect=/studio/partner/applications/${appId}`); return }
 
-      // 取申请(RLS 会限制只能看自己的)
+      // 当前用户
+      const { data: u } = await supabase.from('users')
+        .select('id, username').eq('auth_id', session.user.id).maybeSingle()
+      setCurrentUser(u)
+
+      // 申请
       const { data: app, error } = await supabase.from('invitation_partner_applications')
         .select('*').eq('id', appId).maybeSingle()
       if (error || !app) {
@@ -44,8 +54,9 @@ export default function MyApplicationDetailPage() {
 
       // 邀请函
       const { data: inv } = await supabase.from('invitations')
-        .select('*').eq('id', app.invitation_id).maybeSingle()
+        .select('*, creator:creator_user_id(id, username, avatar_url)').eq('id', app.invitation_id).maybeSingle()
       setInvitation(inv)
+      if (inv?.creator) setCreatorInfo(inv.creator)
 
       // 生成的展览
       if (app.generated_exhibition_id) {
@@ -94,6 +105,26 @@ export default function MyApplicationDetailPage() {
               申请承办:<Link href={`/studio/partner/invitations/${invitation.id}`}
                 className="underline" style={{ color: '#2563EB' }}>{invitation.title}</Link>
             </p>
+          )}
+
+          {/* ★ 与策展人对话按钮 */}
+          {creatorInfo && currentUser && (
+            <div className="mt-5 pt-5 border-t" style={{ borderColor: '#F3F4F6' }}>
+              <button
+                onClick={() => setDrawerOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#374151',
+                  border: '0.5px solid #D1D5DB',
+                }}>
+                💬 与策展人对话
+                <span className="text-xs" style={{ color: '#9CA3AF' }}>· {creatorInfo.username}</span>
+              </button>
+              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
+                有问题可以直接和策展人沟通
+              </p>
+            </div>
           )}
 
           {/* 跳转到展览草稿 */}
@@ -169,6 +200,27 @@ export default function MyApplicationDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* ★ 对话抽屉 */}
+      {drawerOpen && currentUser && invitation && (
+        <ConversationDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          invitationId={application.invitation_id}
+          applicantUserId={currentUser.id}
+          applicantType="partner"
+          partnerId={application.partner_id}
+          partnerApplicationId={application.id}
+          currentUserId={currentUser.id}
+          currentRole="applicant"
+          contextSummary={{
+            title: invitation.title,
+            cover: invitation.cover_image,
+            counterpartName: creatorInfo?.username,
+            counterpartAvatar: creatorInfo?.avatar_url,
+          }}
+        />
+      )}
     </div>
   )
 }
