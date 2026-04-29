@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import ResidencyExitButton from '@/components/ResidencyExitButton'
 
 const COLORS = [
   '#2a2a2a', '#6b6b6b', '#b0b0b0',
@@ -221,13 +222,13 @@ export default function MeditationSpace() {
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#080a0c' }}>
       <canvas ref={shaderRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      {/* 顶部 */}
+      {/* 顶部标题(还是 hover 才显) */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.7 : 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '5px', color: 'rgba(160,180,150,0.4)', textTransform: 'uppercase' }}>Mandala · 冥想绘画</span>
       </div>
-      <div className="absolute top-0 left-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.6 : 0 }}>
-        <Link href="/residency" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(160,180,150,0.3)', textDecoration: 'none' }}>← BACK</Link>
-      </div>
+
+      {/* 退出按钮(始终可见) */}
+      <ResidencyExitButton theme="dark" />
 
       {/* 画板 + 呼吸圆 */}
       <div className="absolute inset-0 flex items-center justify-center z-10"
