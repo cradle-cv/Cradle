@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import ResidencyExitButton from '@/components/ResidencyExitButton'
 
 const FONTS = [
   { id: 'serif', label: '宋体', family: '"Noto Serif SC", "Source Han Serif SC", serif' },
@@ -309,7 +310,7 @@ export default function RainWriting() {
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#8a9aaa' }}>
       <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      {/* 顶部 */}
+      {/* 顶部模式切换(还是 hover 才显) */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.8 : 0 }}>
         <div className="flex items-center gap-8">
           {['rain', 'snow'].map(m => (
@@ -319,9 +320,11 @@ export default function RainWriting() {
           ))}
         </div>
       </div>
-      <div className="absolute top-0 left-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.6 : 0 }}>
-        <Link href="/residency" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(0,0,0,0.3)', textDecoration: 'none' }}>← BACK</Link>
-      </div>
+
+      {/* 退出按钮(始终可见,浅色主题) */}
+      <ResidencyExitButton theme="light" />
+
+      {/* 右上角保存提示 */}
       <div className="absolute top-0 right-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.5 : 0 }}>
         {saved && <span style={{ fontSize: '10px', color: 'rgba(0,0,0,0.25)', letterSpacing: '1px' }}>SAVED {saved.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
       </div>
@@ -348,9 +351,9 @@ export default function RainWriting() {
               {FONTS.map((f, i) => (
                 <button key={f.id} onClick={() => setFont(i)} style={{ fontSize: '11px', color: font === i ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.18)', fontFamily: f.family, transition: 'color 0.3s', letterSpacing: '1px' }}>{f.label}</button>
               ))}
-<div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(0,0,0,0.08)', margin: '0 4px' }} />
-<input type="color" value={textColor} onChange={e => setTextColor(e.target.value)}
-  style={{ width: '18px', height: '18px', border: 'none', padding: 0, cursor: 'pointer', backgroundColor: 'transparent', borderRadius: '50%' }} />
+              <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(0,0,0,0.08)', margin: '0 4px' }} />
+              <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)}
+                style={{ width: '18px', height: '18px', border: 'none', padding: 0, cursor: 'pointer', backgroundColor: 'transparent', borderRadius: '50%' }} />
             </div>
             <div className="flex items-center gap-4">
               <button onClick={saveNow} style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(0,0,0,0.22)', textTransform: 'uppercase' }}>Save</button>
