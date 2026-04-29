@@ -15,7 +15,7 @@ export default function AdminInvitationsListPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [invitations, setInvitations] = useState([])
-  const [filter, setFilter] = useState('all') // all | official | curator | cancelled
+  const [filter, setFilter] = useState('all')
   const [searchQ, setSearchQ] = useState('')
 
   useEffect(() => {
@@ -78,6 +78,41 @@ export default function AdminInvitationsListPage() {
     }
   }
 
+  // ★ 永久删除
+  async function deleteInvitation(inv) {
+    // 先查有没有数据
+    let hasData = false
+    let dataDesc = ''
+    try {
+      const { data: dInfo } = await supabase.rpc('invitation_has_data', { p_invitation_id: inv.id })
+      if (dInfo && dInfo[0]) {
+        const d = dInfo[0]
+        if (d.has_submissions || d.has_partner_apps) {
+          hasData = true
+          if (d.has_submissions) dataDesc += `\n  · ${d.submission_count} 份艺术家投稿`
+          if (d.has_partner_apps) dataDesc += `\n  · ${d.partner_app_count} 份合作伙伴申请`
+        }
+      }
+    } catch (e) { console.warn(e) }
+    
+    let warningMsg = `确定永久删除「${inv.title}」吗?\n\n此操作不可恢复。`
+    if (hasData) {
+      warningMsg += `\n\n⚠️ 此邀请函有:${dataDesc}\n\n这些数据也会一并删除!\n\n请输入"确认删除"以继续:`
+      const confirmText = prompt(warningMsg)
+      if (confirmText !== '确认删除') return
+    } else {
+      if (!confirm(warningMsg)) return
+    }
+    
+    try {
+      const { error } = await supabase.rpc('delete_invitation', { p_invitation_id: inv.id })
+      if (error) throw error
+      await loadInvitations()
+    } catch (e) {
+      alert('删除失败:' + e.message)
+    }
+  }
+
   const filtered = useMemo(() => {
     let list = invitations
     if (filter === 'official') list = list.filter(i => i.is_official)
@@ -92,7 +127,6 @@ export default function AdminInvitationsListPage() {
     return list
   }, [invitations, filter, searchQ])
 
-  // 统计
   const stats = useMemo(() => ({
     total: invitations.length,
     official: invitations.filter(i => i.is_official).length,
@@ -109,7 +143,6 @@ export default function AdminInvitationsListPage() {
 
   return (
     <div>
-      {/* 页头 */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>邀请函管理</h1>
@@ -126,7 +159,6 @@ export default function AdminInvitationsListPage() {
         </Link>
       </div>
 
-      {/* 统计卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard label="总邀请函" value={stats.total} />
         <StatCard label="官方" value={stats.official} />
@@ -135,7 +167,6 @@ export default function AdminInvitationsListPage() {
         <StatCard label="已取消" value={stats.cancelled} color="#6B7280" />
       </div>
 
-      {/* 过滤栏 */}
       <div className="bg-white rounded-xl p-4 mb-4 flex flex-wrap items-center gap-3" style={{ border: '0.5px solid #E5E7EB' }}>
         <div className="flex gap-2">
           {[
@@ -167,7 +198,6 @@ export default function AdminInvitationsListPage() {
         </div>
       </div>
 
-      {/* 列表 */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
           <p style={{ color: '#9CA3AF' }}>
@@ -196,7 +226,6 @@ export default function AdminInvitationsListPage() {
 
                 return (
                   <tr key={inv.id} style={{ borderTop: '0.5px solid #F3F4F6' }}>
-                    {/* 邀请函 */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         {inv.cover_image ? (
@@ -213,12 +242,12 @@ export default function AdminInvitationsListPage() {
                           </p>
                           <p className="text-xs" style={{ color: '#9CA3AF' }}>
                             {new Date(inv.created_at).toLocaleDateString('zh-CN')}
+                            {inv.invitation_type === 'solo' && ' · 个展'}
                           </p>
                         </div>
                       </div>
                     </td>
 
-                    {/* 发起人 */}
                     <td className="px-5 py-4">
                       {inv.is_official ? (
                         <span className="text-sm" style={{ color: '#111827' }}>Cradle 官方</span>
@@ -237,7 +266,6 @@ export default function AdminInvitationsListPage() {
                       )}
                     </td>
 
-                    {/* 类型 */}
                     <td className="px-5 py-4">
                       <span className="px-2 py-0.5 rounded-full text-xs"
                         style={{
@@ -248,7 +276,6 @@ export default function AdminInvitationsListPage() {
                       </span>
                     </td>
 
-                    {/* 状态 */}
                     <td className="px-5 py-4">
                       <span className="px-2 py-0.5 rounded-full text-xs"
                         style={{ backgroundColor: status.bg, color: status.color }}>
@@ -256,16 +283,14 @@ export default function AdminInvitationsListPage() {
                       </span>
                     </td>
 
-                    {/* 截止日期 */}
                     <td className="px-5 py-4">
                       <span className="text-xs" style={{ color: isPast ? '#DC2626' : '#6B7280' }}>
                         {deadlineStr}{isPast && ' (已过)'}
                       </span>
                     </td>
 
-                    {/* 操作 */}
                     <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
                         <Link href={`/invitations/${inv.id}`} target="_blank"
                           className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
                           style={{ color: '#374151', borderColor: '#D1D5DB' }}>
@@ -289,6 +314,13 @@ export default function AdminInvitationsListPage() {
                             强制取消
                           </button>
                         )}
+                        {/* ★ 永久删除按钮 */}
+                        <button onClick={() => deleteInvitation(inv)}
+                          className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-100 transition"
+                          style={{ color: '#FFFFFF', backgroundColor: '#DC2626' }}
+                          title="永久删除(不可恢复)">
+                          🗑 删除
+                        </button>
                       </div>
                     </td>
                   </tr>
