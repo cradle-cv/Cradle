@@ -11,7 +11,7 @@ const ZONES = [
     subtitle: '杂志 · 画册编辑',
     icon: '✏️',
     href: '/residency/workshop',
-    requireLevel: 6,
+    requireLevel: 2,           // 慢识
     gridArea: '1 / 1 / 2 / 3',
   },
   {
@@ -20,7 +20,7 @@ const ZONES = [
     subtitle: '篝火 · 吉他和弦',
     icon: '🔥',
     href: '/residency/campfire',
-    requireLevel: 6,
+    requireLevel: 2,           // 慢识
     gridArea: '1 / 3 / 2 / 5',
   },
   {
@@ -29,7 +29,7 @@ const ZONES = [
     subtitle: '冥想 · 绘画创作',
     icon: '🧘',
     href: '/residency/canvas',
-    requireLevel: 6,
+    requireLevel: 3,           // 入心
     gridArea: '2 / 1 / 3 / 3',
   },
   {
@@ -38,7 +38,7 @@ const ZONES = [
     subtitle: '雨天玻璃 · 文字创作',
     icon: '✍️',
     href: '/residency/rain',
-    requireLevel: 0,
+    requireLevel: 0,           // 全开放
     gridArea: '2 / 3 / 3 / 4',
   },
   {
@@ -47,7 +47,7 @@ const ZONES = [
     subtitle: '共创空间',
     icon: '🌿',
     href: '#',
-    requireLevel: -1,
+    requireLevel: -1,          // 即将开放
     gridArea: '2 / 4 / 3 / 5',
   },
   {
@@ -56,7 +56,7 @@ const ZONES = [
     subtitle: '星空 · 夜间创作',
     icon: '🌙',
     href: '/residency/attic',
-    requireLevel: 6,
+    requireLevel: 3,           // 入心
     gridArea: '3 / 1 / 4 / 3',
   },
   {
@@ -65,10 +65,16 @@ const ZONES = [
     subtitle: '秘密进行中',
     icon: '🔮',
     href: '/residency/basement',
-    requireLevel: 6,
+    requireLevel: 5,           // 夜行
     gridArea: '3 / 3 / 4 / 5',
   },
 ]
+
+// 等级到称号的映射(用于"还需 Lv.X · 名称"这种提示)
+const LEVEL_NAMES = {
+  1: '初见', 2: '慢识', 3: '入心', 4: '深念', 5: '夜行',
+  6: '长留', 7: '入帷', 8: '生根', 9: '与共',
+}
 
 export default function ResidencyHouse() {
   const [hoveredZone, setHoveredZone] = useState(null)
@@ -145,7 +151,7 @@ export default function ResidencyHouse() {
 
                 {isLocked && (
                   <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: '#F3F4F6', fontSize: '9px', color: '#9CA3AF', letterSpacing: '1px' }}>
-                    🔒 Lv.{zone.requireLevel}
+                    🔒 {LEVEL_NAMES[zone.requireLevel]}
                   </div>
                 )}
                 {isComing && (
@@ -160,7 +166,7 @@ export default function ResidencyHouse() {
 
                 {isLocked && isHovered && (
                   <p className="absolute bottom-4 text-xs" style={{ color: '#D1D5DB' }}>
-                    {loggedIn ? `还需 Lv.${zone.requireLevel}` : '请先登录'}
+                    {loggedIn ? `还需到 ${LEVEL_NAMES[zone.requireLevel]}` : '请先登录'}
                   </p>
                 )}
               </Wrapper>
