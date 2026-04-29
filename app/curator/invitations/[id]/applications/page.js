@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -6,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import ConversationDrawer from '@/components/ConversationDrawer'
 
 export default function CuratorApplicationsReviewPage() {
   const router = useRouter()
@@ -13,6 +13,7 @@ export default function CuratorApplicationsReviewPage() {
   const invitationId = params.id
 
   const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
   const [invitation, setInvitation] = useState(null)
   const [applications, setApplications] = useState([])
   const [expandedId, setExpandedId] = useState(null)
@@ -20,6 +21,9 @@ export default function CuratorApplicationsReviewPage() {
   const [reviewDecision, setReviewDecision] = useState(null)
   const [reviewNotes, setReviewNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // ★ 对话抽屉状态
+  const [drawerApp, setDrawerApp] = useState(null)
 
   useEffect(() => { init() }, [invitationId])
 
@@ -31,13 +35,12 @@ export default function CuratorApplicationsReviewPage() {
       const { data: userData } = await supabase.from('users')
         .select('*').eq('auth_id', session.user.id).single()
       if (!userData) { router.push('/login'); return }
+      setCurrentUser(userData)
 
-      // 邀请函
       const { data: inv } = await supabase.from('invitations')
         .select('*').eq('id', invitationId).maybeSingle()
       if (!inv) { alert('邀请函不存在'); router.push('/studio'); return }
 
-      // 权限:发起人 or admin
       if (inv.creator_user_id !== userData.id && userData.role !== 'admin') {
         alert('无权查看'); router.push('/studio'); return
       }
@@ -87,6 +90,30 @@ export default function CuratorApplicationsReviewPage() {
       })
       if (error) throw error
 
+      // ★ 审核动作触发系统消息(如果该申请已有对话)
+      try {
+        const app = applications.find(a => a.id === reviewingId)
+        if (app && app.applicant_user_id) {
+          // 找对话 id
+          const { data: conv } = await supabase
+            .from('invitation_conversations')
+            .select('id')
+            .eq('invitation_id', invitationId)
+            .eq('applicant_user_id', app.applicant_user_id)
+            .maybeSingle()
+          if (conv) {
+            const sysContent = reviewDecision === 'shortlist'
+              ? `✓ 策展人将你列为候选承办方${reviewNotes.trim() ? '\n' + reviewNotes.trim() : ''}`
+              : `✕ 策展人未通过本次申请${reviewNotes.trim() ? '\n' + reviewNotes.trim() : ''}`
+            await supabase.rpc('send_system_message', {
+              p_conversation_id: conv.id,
+              p_action: reviewDecision === 'shortlist' ? 'shortlisted' : 'rejected',
+              p_content: sysContent,
+            })
+          }
+        }
+      } catch (e) { console.warn('系统消息发送失败:', e) }
+
       cancelReview()
       await loadApplications()
     } catch (e) {
@@ -95,6 +122,11 @@ export default function CuratorApplicationsReviewPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // ★ 打开对话抽屉
+  function openConversation(app) {
+    setDrawerApp(app)
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">加载中…</p></div>
@@ -166,6 +198,7 @@ export default function CuratorApplicationsReviewPage() {
                   app={app}
                   expanded={expandedId === app.id}
                   onToggle={() => setExpandedId(expandedId === app.id ? null : app.id)}
+                  onOpenConversation={() => openConversation(app)}
                   actions={
                     <>
                       <button
@@ -201,6 +234,7 @@ export default function CuratorApplicationsReviewPage() {
                   app={app}
                   expanded={expandedId === app.id}
                   onToggle={() => setExpandedId(expandedId === app.id ? null : app.id)}
+                  onOpenConversation={() => openConversation(app)}
                   actions={null}
                 />
               ))}
@@ -257,11 +291,32 @@ export default function CuratorApplicationsReviewPage() {
           </div>
         </div>
       )}
+
+      {/* ★ 对话抽屉 */}
+      {drawerApp && currentUser && (
+        <ConversationDrawer
+          open={!!drawerApp}
+          onClose={() => setDrawerApp(null)}
+          invitationId={invitationId}
+          applicantUserId={drawerApp.applicant_user_id}
+          applicantType="partner"
+          partnerId={drawerApp.partner_id}
+          partnerApplicationId={drawerApp.id}
+          currentUserId={currentUser.id}
+          currentRole="curator"
+          contextSummary={{
+            title: invitation?.title,
+            cover: invitation?.cover_image,
+            counterpartName: drawerApp.partner_name || drawerApp.applicant_username,
+            counterpartAvatar: drawerApp.partner_logo,
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function ApplicationCard({ app, expanded, onToggle, actions }) {
+function ApplicationCard({ app, expanded, onToggle, actions, onOpenConversation }) {
   const statusStyles = {
     pending: { bg: '#FEF3C7', color: '#B45309', text: '待初审' },
     shortlisted: { bg: '#DBEAFE', color: '#2563EB', text: '已初审通过' },
@@ -298,6 +353,13 @@ function ApplicationCard({ app, expanded, onToggle, actions }) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* ★ 对话按钮 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenConversation && onOpenConversation() }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
+              style={{ backgroundColor: '#F3F4F6', color: '#374151', border: '0.5px solid #E5E7EB' }}>
+              💬 对话
+            </button>
             {actions}
             <span className="text-xs" style={{ color: '#9CA3AF' }}>
               {expanded ? '收起 ▲' : '展开 ▼'}
