@@ -40,12 +40,6 @@ const IconSettings = () => (
     <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" />
   </svg>
 )
-const IconHandshake = () => (
-  <svg viewBox="0 0 16 16" {...iconProps}>
-    <path d="M2 7l2-1.5 2 1L8 8.5l2-1.5 2-1 2 1" />
-    <path d="M6 6.5v3l2 1.5 2-1.5v-3" />
-  </svg>
-)
 const IconLogout = () => (
   <svg viewBox="0 0 16 16" {...iconProps}>
     <path d="M10 4V3c0-.6-.4-1-1-1H3c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h6c.6 0 1-.4 1-1v-1" />
@@ -61,6 +55,12 @@ const IconEnvelope = () => (
 const IconStar = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" stroke="none">
     <path d="M8 1.5l1.9 4.2 4.6.5-3.4 3.1 1 4.5L8 11.5l-4.1 2.3 1-4.5L1.5 6.2l4.6-.5L8 1.5z" />
+  </svg>
+)
+const IconBell = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <path d="M12 8a4 4 0 0 0-8 0c0 4-2 5-2 5h12s-2-1-2-5"/>
+    <path d="M9.2 14a1.4 1.4 0 0 1-2.4 0"/>
   </svg>
 )
 const IconMail = () => (
@@ -319,11 +319,9 @@ export default function UserNav() {
   const isPartner = myIdentities.some(i => i.identity_type === 'partner')
   const isResident = myIdentities.some(i => i.identity_type === 'resident')
 
-  // 红点提示条件
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
   const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing
 
-  // 当前主身份标签
   const primaryIdentityLabel = isArtist ? '艺术家' 
     : isCurator ? '策展人' 
     : isPartner ? '合作伙伴' 
@@ -337,10 +335,9 @@ export default function UserNav() {
 
   return (
     <>
-      {/* ★ 整体容器 — 铃铛 + 头像菜单 */}
       <div className="flex items-center gap-2">
         
-        {/* ★ 站内信铃铛 */}
+        {/* ★ 通知铃铛 */}
         <NotificationBell />
         
         {/* 头像菜单 */}
@@ -433,16 +430,18 @@ export default function UserNav() {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span style={{ color: '#6B7280' }}><IconUser /></span> 个人主页
                 </a>
+                {/* ★ 通知 — 跳到 /notifications */}
                 <a href="/notifications" onClick={() => setShowMenu(false)}
                   className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconMail /></span> 站内信
+                    <span style={{ color: '#6B7280' }}><IconBell /></span> 通知
                   </span>
                 </a>
+                {/* ★ 站内信 — 跳到 /messages(原私信系统) */}
                 <a href="/messages" onClick={() => setShowMenu(false)}
                   className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconMail /></span> 私信
+                    <span style={{ color: '#6B7280' }}><IconMail /></span> 站内信
                   </span>
                   {unreadMsgs > 0 && (
                     <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#DC2626', color: '#FFFFFF', minWidth: '18px', textAlign: 'center' }}>
