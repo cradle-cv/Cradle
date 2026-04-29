@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -38,16 +37,20 @@ export default function AdminEditInvitationPage() {
   const [invitation, setInvitation] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+  const [dataInfo, setDataInfo] = useState({ has_submissions: false, has_partner_apps: false, submission_count: 0, partner_app_count: 0 })
 
   const [form, setForm] = useState({
     title: '',
     description: '',
     cover_image: '',
+    deadline: '', // YYYY-MM-DD
     expected_count: '',
     submission_limit_per_artist: 5,
     medium_restrictions: [],
     open_to_partners: true,
+    invitation_type: 'group',
   })
 
   useEffect(() => {
@@ -56,7 +59,6 @@ export default function AdminEditInvitationPage() {
   }, [id])
 
   async function init() {
-    // 权限检查
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       router.push('/admin')
@@ -70,7 +72,6 @@ export default function AdminEditInvitationPage() {
       return
     }
 
-    // 加载邀请函
     const { data: inv, error } = await supabase
       .from('invitations')
       .select('*')
@@ -84,15 +85,30 @@ export default function AdminEditInvitationPage() {
     }
 
     setInvitation(inv)
+    
+    // deadline 转 YYYY-MM-DD
+    const deadlineDate = inv.deadline ? new Date(inv.deadline) : null
+    const deadlineStr = deadlineDate
+      ? `${deadlineDate.getFullYear()}-${String(deadlineDate.getMonth() + 1).padStart(2, '0')}-${String(deadlineDate.getDate()).padStart(2, '0')}`
+      : ''
+    
     setForm({
       title: inv.title || '',
       description: inv.description || '',
       cover_image: inv.cover_image || '',
+      deadline: deadlineStr,
       expected_count: inv.expected_count || '',
       submission_limit_per_artist: inv.submission_limit_per_artist || 5,
       medium_restrictions: inv.medium_restrictions || [],
       open_to_partners: inv.open_to_partners ?? true,
+      invitation_type: inv.invitation_type || 'group',
     })
+
+    // 检查有没有数据
+    try {
+      const { data: dInfo } = await supabase.rpc('invitation_has_data', { p_invitation_id: id })
+      if (dInfo && dInfo[0]) setDataInfo(dInfo[0])
+    } catch (e) { console.warn(e) }
 
     setLoading(false)
   }
@@ -113,7 +129,6 @@ export default function AdminEditInvitationPage() {
   async function handleCoverUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    // 支持 SVG 也接受
     const isImage = file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.svg')
     if (!isImage) {
       alert('请选择图片文件(支持 jpg/png/webp/svg)')
@@ -141,6 +156,9 @@ export default function AdminEditInvitationPage() {
     if (!form.description?.trim() || form.description.length < 50) {
       setError('请填写主题描述(至少 50 字)'); return
     }
+    if (!form.deadline) { setError('请选择截止日期'); return }
+    
+    const deadlineDate = new Date(form.deadline + 'T23:59:59')
 
     setSaving(true)
     try {
@@ -148,10 +166,12 @@ export default function AdminEditInvitationPage() {
         title: form.title.trim(),
         description: form.description.trim(),
         cover_image: form.cover_image || null,
+        deadline: deadlineDate.toISOString(),
         expected_count: form.expected_count ? parseInt(form.expected_count, 10) : null,
         submission_limit_per_artist: parseInt(form.submission_limit_per_artist, 10),
         medium_restrictions: form.medium_restrictions,
         open_to_partners: form.open_to_partners,
+        invitation_type: form.invitation_type,
         updated_at: new Date().toISOString(),
       }
 
@@ -167,6 +187,36 @@ export default function AdminEditInvitationPage() {
       setError(e.message || '保存失败')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    const hasData = dataInfo.has_submissions || dataInfo.has_partner_apps
+    
+    let warningMsg = `确定永久删除「${invitation.title}」吗?\n\n此操作不可恢复。`
+    if (hasData) {
+      warningMsg += `\n\n⚠️ 此邀请函有:`
+      if (dataInfo.has_submissions) warningMsg += `\n  · ${dataInfo.submission_count} 份艺术家投稿`
+      if (dataInfo.has_partner_apps) warningMsg += `\n  · ${dataInfo.partner_app_count} 份合作伙伴申请`
+      warningMsg += `\n\n这些数据也会一并删除!\n\n请输入"确认删除"以继续:`
+      
+      const confirmText = prompt(warningMsg)
+      if (confirmText !== '确认删除') {
+        return
+      }
+    } else {
+      if (!confirm(warningMsg)) return
+    }
+    
+    setDeleting(true)
+    try {
+      const { error: delErr } = await supabase.rpc('delete_invitation', { p_invitation_id: id })
+      if (delErr) throw delErr
+      alert('✅ 已删除')
+      router.push('/admin/invitations')
+    } catch (e) {
+      alert('删除失败:' + e.message)
+      setDeleting(false)
     }
   }
 
@@ -195,8 +245,8 @@ export default function AdminEditInvitationPage() {
     color: '#111827', outline: 'none', fontSize: '14px',
   }
 
-  const deadline = new Date(invitation.deadline)
-  const deadlineStr = deadline.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+  // admin 编辑时,deadline 没有上下限
+  const todayStr = new Date().toISOString().split('T')[0]
 
   return (
     <div>
@@ -209,6 +259,7 @@ export default function AdminEditInvitationPage() {
           <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>编辑邀请函</h1>
           <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
             {invitation.is_official ? 'Cradle 官方邀请函' : '策展人邀请函'}
+            {invitation.invitation_type === 'solo' && ' · 个展'}
           </p>
         </div>
         <div className="flex gap-3">
@@ -220,15 +271,27 @@ export default function AdminEditInvitationPage() {
         </div>
       </div>
 
+      {/* 数据情况提示 */}
+      {(dataInfo.has_submissions || dataInfo.has_partner_apps) && (
+        <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: '#FEF3C7', border: '0.5px solid #FCD34D' }}>
+          <p className="text-xs" style={{ color: '#92400E', lineHeight: 1.8 }}>
+            <strong>⚠️ 此邀请函已有数据</strong><br/>
+            {dataInfo.has_submissions && `· ${dataInfo.submission_count} 份艺术家投稿  `}
+            {dataInfo.has_partner_apps && `· ${dataInfo.partner_app_count} 份合作伙伴申请`}
+            <br/>
+            修改截止日期或类型时请谨慎。删除会一并清理这些数据(不可恢复)。
+          </p>
+        </div>
+      )}
+
       {/* 不可改字段提示 */}
       <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: '#FEFCE8', border: '0.5px solid #FDE68A' }}>
         <p className="text-xs" style={{ color: '#854D0E', lineHeight: 1.8 }}>
-          <strong>以下字段不可修改</strong><br/>
-          · 截止日期:<strong>{deadlineStr}</strong>(发布后不可延期)<br/>
-          · 邀请函类型:<strong>{invitation.is_official ? '官方' : '策展人'}</strong>(不可转换)<br/>
+          <strong>以下字段需要其他操作来改</strong><br/>
+          · 邀请函身份:<strong>{invitation.is_official ? '官方' : '策展人'}</strong>(不可转换)<br/>
           · 当前状态:<strong>{
             { collecting: '征集中', curating: '评选中', completed: '已完成', cancelled: '已取消' }[invitation.status]
-          }</strong>(使用"强制取消"/"恢复"改状态)
+          }</strong>(使用列表页的"强制取消"/"恢复"改状态)
         </p>
       </div>
 
@@ -266,21 +329,57 @@ export default function AdminEditInvitationPage() {
         </Section>
 
         <Section title="规则">
-          <Field label="预期入选数量" hint="大约选几件作品(选填)">
-            <input
-              type="number" style={inputBase}
-              value={form.expected_count}
-              onChange={e => updateField('expected_count', e.target.value)}
-              placeholder="如:15"
-              min={1} max={100}
-            />
+          <div className="grid md:grid-cols-2 gap-5">
+            <Field label="截止日期" required hint="管理员可以修改截止日期(无 4 周限制)">
+              <input
+                type="date" style={inputBase}
+                value={form.deadline}
+                min={todayStr}
+                onChange={e => updateField('deadline', e.target.value)}
+              />
+            </Field>
+            <Field label="预期入选数量" hint="大约选几件作品(选填)">
+              <input
+                type="number" style={inputBase}
+                value={form.expected_count}
+                onChange={e => updateField('expected_count', e.target.value)}
+                placeholder="如:15"
+                min={1} max={100}
+              />
+            </Field>
+          </div>
+
+          <Field label="邀请函类型" hint="联展(默认):每人最多 5 件 · 个展:单一艺术家,最多 50 件">
+            <div className="flex gap-2">
+              <button type="button"
+                onClick={() => updateField('invitation_type', 'group')}
+                className="flex-1 px-4 py-2 rounded-lg text-sm transition"
+                style={{
+                  backgroundColor: form.invitation_type === 'group' ? '#111827' : '#F3F4F6',
+                  color: form.invitation_type === 'group' ? '#FFFFFF' : '#6B7280',
+                  border: '0.5px solid ' + (form.invitation_type === 'group' ? '#111827' : '#E5E7EB'),
+                }}>
+                联展
+              </button>
+              <button type="button"
+                onClick={() => updateField('invitation_type', 'solo')}
+                className="flex-1 px-4 py-2 rounded-lg text-sm transition"
+                style={{
+                  backgroundColor: form.invitation_type === 'solo' ? '#111827' : '#F3F4F6',
+                  color: form.invitation_type === 'solo' ? '#FFFFFF' : '#6B7280',
+                  border: '0.5px solid ' + (form.invitation_type === 'solo' ? '#111827' : '#E5E7EB'),
+                }}>
+                个展
+              </button>
+            </div>
           </Field>
 
-          <Field label="每位艺术家投稿上限">
+          <Field label="每位艺术家投稿上限" hint={form.invitation_type === 'solo' ? '个展模式下,系统自动允许最多 50 件' : '联展每人上限,最高 5'}>
             <select
-              style={inputBase}
+              style={{ ...inputBase, opacity: form.invitation_type === 'solo' ? 0.5 : 1 }}
               value={form.submission_limit_per_artist}
               onChange={e => updateField('submission_limit_per_artist', e.target.value)}
+              disabled={form.invitation_type === 'solo'}
             >
               <option value="1">1 件</option>
               <option value="2">2 件</option>
@@ -339,11 +438,11 @@ export default function AdminEditInvitationPage() {
         <div className="flex gap-3">
           <button
             onClick={save}
-            disabled={saving || uploading}
+            disabled={saving || uploading || deleting}
             className="flex-1 py-3.5 rounded-xl font-medium text-white transition"
             style={{
-              backgroundColor: (saving || uploading) ? '#9CA3AF' : '#111827',
-              cursor: (saving || uploading) ? 'not-allowed' : 'pointer',
+              backgroundColor: (saving || uploading || deleting) ? '#9CA3AF' : '#111827',
+              cursor: (saving || uploading || deleting) ? 'not-allowed' : 'pointer',
             }}>
             {saving ? '保存中…' : (uploading ? '图片上传中…' : '保存修改')}
           </button>
@@ -354,6 +453,30 @@ export default function AdminEditInvitationPage() {
             取消
           </Link>
         </div>
+      </div>
+
+      {/* 危险操作区 */}
+      <div className="mt-8 bg-white rounded-2xl p-6" style={{ border: '0.5px solid #FECACA' }}>
+        <h3 className="text-sm font-bold mb-2" style={{ color: '#DC2626' }}>
+          🛑 危险操作
+        </h3>
+        <p className="text-xs mb-4" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+          永久删除此邀请函。
+          {(dataInfo.has_submissions || dataInfo.has_partner_apps) ? (
+            <span style={{ color: '#DC2626' }}>
+              {' '}此邀请函有投稿/申请数据,删除会一并清理(不可恢复)。
+            </span>
+          ) : (
+            <span> 此邀请函暂无投稿/申请数据,可以安全删除。</span>
+          )}
+        </p>
+        <button
+          onClick={handleDelete}
+          disabled={deleting || saving}
+          className="px-5 py-2.5 rounded-lg text-sm font-medium text-white transition disabled:opacity-50"
+          style={{ backgroundColor: '#DC2626' }}>
+          {deleting ? '删除中…' : '永久删除此邀请函'}
+        </button>
       </div>
     </div>
   )
