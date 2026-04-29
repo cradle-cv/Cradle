@@ -1,8 +1,14 @@
+// ════════════════════════════════════════════════════════════════════
+// 策展人工作台 - 我的邀请函管理
+// 路径: app/curator/invitations/page.js
+// ════════════════════════════════════════════════════════════════════
 'use client'
+
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import UserNav from '@/components/UserNav'
 
 const STATUS_LABELS = {
   collecting: { text: '征集中', bg: '#DBEAFE', color: '#1E40AF' },
@@ -11,74 +17,60 @@ const STATUS_LABELS = {
   cancelled: { text: '已取消', bg: '#F3F4F6', color: '#6B7280' },
 }
 
-export default function AdminInvitationsListPage() {
+export default function CuratorMyInvitationsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
   const [invitations, setInvitations] = useState([])
-  const [filter, setFilter] = useState('all')
-  const [searchQ, setSearchQ] = useState('')
+  const [filter, setFilter] = useState('active') // active | cancelled | all
 
-  useEffect(() => {
-    init()
-  }, [])
+  useEffect(() => { init() }, [])
 
   async function init() {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      router.push('/admin')
-      return
-    }
+    if (!session) { router.push('/login?redirect=/curator/invitations'); return }
+    
     const { data: u } = await supabase.from('users')
-      .select('role').eq('auth_id', session.user.id).maybeSingle()
-    if (!u || u.role !== 'admin') {
-      alert('只有管理员可以访问')
-      router.push('/')
+      .select('id, username').eq('auth_id', session.user.id).maybeSingle()
+    if (!u) { router.push('/login'); return }
+    
+    // 检查策展人身份
+    const { data: idents } = await supabase.from('user_identities')
+      .select('id').eq('user_id', u.id).eq('identity_type', 'curator')
+      .eq('is_active', true).maybeSingle()
+    if (!idents) {
+      alert('只有策展人可以访问')
+      router.push('/profile/apply')
       return
     }
-
-    await loadInvitations()
-  }
-
-  async function loadInvitations() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*, creator:creator_user_id(id, username, avatar_url)')
-      .order('created_at', { ascending: false })
-    if (!error) setInvitations(data || [])
+    
+    setCurrentUser(u)
+    await loadInvitations(u.id)
     setLoading(false)
   }
 
-  async function forceCancelInvitation(inv) {
-    if (!confirm(`确定强制取消「${inv.title}」?\n\n已提交的投稿会保留但不再接收新投稿。\n此操作可在下方"恢复"中回滚。`)) return
+  async function loadInvitations(userId) {
+    const { data } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('creator_user_id', userId)
+      .order('created_at', { ascending: false })
+    setInvitations(data || [])
+  }
+
+  async function cancelInvitation(inv) {
+    if (!confirm(`确定取消「${inv.title}」?\n\n已提交的投稿会保留但不再接收新投稿。\n你也可以联系管理员恢复。`)) return
     try {
       const { error } = await supabase.from('invitations')
         .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', inv.id)
       if (error) throw error
-      await loadInvitations()
+      await loadInvitations(currentUser.id)
     } catch (e) {
       alert('取消失败:' + e.message)
     }
   }
 
-  async function restoreInvitation(inv) {
-    if (!confirm(`确定恢复「${inv.title}」?\n\n会把状态从"已取消"改回"征集中"(如果还在截止日内)或"评选中"(如果已过截止日)。`)) return
-    try {
-      const now = new Date()
-      const deadline = new Date(inv.deadline)
-      const newStatus = now < deadline ? 'collecting' : 'curating'
-      const { error } = await supabase.from('invitations')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', inv.id)
-      if (error) throw error
-      await loadInvitations()
-    } catch (e) {
-      alert('恢复失败:' + e.message)
-    }
-  }
-
-  // ★ 永久删除
   async function deleteInvitation(inv) {
     // 先查有没有数据
     let hasData = false
@@ -95,250 +87,210 @@ export default function AdminInvitationsListPage() {
       }
     } catch (e) { console.warn(e) }
     
-    let warningMsg = `确定永久删除「${inv.title}」吗?\n\n此操作不可恢复。`
     if (hasData) {
-      warningMsg += `\n\n⚠️ 此邀请函有:${dataDesc}\n\n这些数据也会一并删除!\n\n请输入"确认删除"以继续:`
-      const confirmText = prompt(warningMsg)
-      if (confirmText !== '确认删除') return
-    } else {
-      if (!confirm(warningMsg)) return
+      alert(`无法删除「${inv.title}」\n\n此邀请函已有数据:${dataDesc}\n\n请使用"取消"代替删除。\n如果确实需要彻底删除,请联系管理员。`)
+      return
     }
+    
+    if (!confirm(`确定永久删除「${inv.title}」吗?\n\n此邀请函暂无投稿/申请数据,可以安全删除。\n此操作不可恢复。`)) return
     
     try {
       const { error } = await supabase.rpc('delete_invitation', { p_invitation_id: inv.id })
       if (error) throw error
-      await loadInvitations()
+      await loadInvitations(currentUser.id)
     } catch (e) {
       alert('删除失败:' + e.message)
     }
   }
 
   const filtered = useMemo(() => {
-    let list = invitations
-    if (filter === 'official') list = list.filter(i => i.is_official)
-    else if (filter === 'curator') list = list.filter(i => !i.is_official && i.status !== 'cancelled')
-    else if (filter === 'cancelled') list = list.filter(i => i.status === 'cancelled')
+    if (filter === 'active') return invitations.filter(i => i.status !== 'cancelled')
+    if (filter === 'cancelled') return invitations.filter(i => i.status === 'cancelled')
+    return invitations
+  }, [invitations, filter])
 
-    const q = searchQ.trim().toLowerCase()
-    if (q) list = list.filter(i =>
-      (i.title || '').toLowerCase().includes(q) ||
-      (i.creator?.username || '').toLowerCase().includes(q)
-    )
-    return list
-  }, [invitations, filter, searchQ])
-
-  const stats = useMemo(() => ({
-    total: invitations.length,
-    official: invitations.filter(i => i.is_official).length,
-    curator: invitations.filter(i => !i.is_official).length,
-    collecting: invitations.filter(i => i.status === 'collecting').length,
-    cancelled: invitations.filter(i => i.status === 'cancelled').length,
-  }), [invitations])
+  const collectingCount = invitations.filter(i => i.status === 'collecting').length
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5F5F4' }}>
       <p style={{ color: '#9CA3AF' }}>加载中…</p>
     </div>
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>邀请函管理</h1>
-          <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
-            管理官方和策展人发起的所有邀请函
-          </p>
+    <div className="min-h-screen" style={{ backgroundColor: '#F5F5F4', fontFamily: '"Noto Serif SC", serif' }}>
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b z-50" style={{ borderColor: '#E5E7EB' }}>
+        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Link href="/studio" className="flex items-center gap-3">
+              <img src="/image/logo.png" alt="Cradle" style={{ height: '99px' }} className="object-contain" />
+            </Link>
+            <span style={{ color: '#D1D5DB' }}>/</span>
+            <Link href="/studio" className="text-sm" style={{ color: '#6B7280' }}>工作台</Link>
+            <span style={{ color: '#D1D5DB' }}>/</span>
+            <span className="text-sm font-medium" style={{ color: '#7C3AED' }}>我的邀请函</span>
+          </div>
+          <UserNav />
         </div>
-        <Link
-          href="/admin/invitations/new"
-          className="px-5 py-2.5 rounded-lg font-medium text-white text-sm"
-          style={{ backgroundColor: '#111827' }}
-        >
-          + 发起官方邀请函
-        </Link>
-      </div>
+      </nav>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="总邀请函" value={stats.total} />
-        <StatCard label="官方" value={stats.official} />
-        <StatCard label="策展人" value={stats.curator} />
-        <StatCard label="征集中" value={stats.collecting} color="#1E40AF" />
-        <StatCard label="已取消" value={stats.cancelled} color="#6B7280" />
-      </div>
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* 头部 */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '4px', marginBottom: '6px' }}>
+              MY INVITATIONS
+            </p>
+            <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>
+              我的邀请函
+            </h1>
+            <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
+              {collectingCount > 0 ? `${collectingCount} 份正在征集中` : '当前没有正在征集的邀请函'}
+              {' · 一位策展人最多同时持有 2 份征集中的邀请函'}
+            </p>
+          </div>
+          <Link
+            href="/curator/invitations/new"
+            className="px-5 py-2.5 rounded-lg font-medium text-white text-sm"
+            style={{ backgroundColor: collectingCount >= 2 ? '#9CA3AF' : '#111827', cursor: collectingCount >= 2 ? 'not-allowed' : 'pointer' }}
+            onClick={(e) => {
+              if (collectingCount >= 2) {
+                e.preventDefault()
+                alert('你已有 2 份征集中的邀请函,请等其中一份完成后再发起新的。')
+              }
+            }}>
+            + 发起邀请函
+          </Link>
+        </div>
 
-      <div className="bg-white rounded-xl p-4 mb-4 flex flex-wrap items-center gap-3" style={{ border: '0.5px solid #E5E7EB' }}>
-        <div className="flex gap-2">
+        {/* 筛选 */}
+        <div className="flex gap-2 mb-4">
           {[
-            { key: 'all', label: '全部' },
-            { key: 'official', label: '官方' },
-            { key: 'curator', label: '策展人' },
+            { key: 'active', label: '进行中' },
             { key: 'cancelled', label: '已取消' },
+            { key: 'all', label: '全部' },
           ].map(opt => (
             <button key={opt.key}
               onClick={() => setFilter(opt.key)}
-              className="px-3 py-1.5 rounded-full text-xs transition"
+              className="px-4 py-1.5 rounded-full text-xs transition"
               style={{
-                backgroundColor: filter === opt.key ? '#111827' : '#F3F4F6',
+                backgroundColor: filter === opt.key ? '#111827' : '#FFFFFF',
                 color: filter === opt.key ? '#FFFFFF' : '#6B7280',
+                border: filter === opt.key ? 'none' : '0.5px solid #E5E7EB',
               }}>
               {opt.label}
             </button>
           ))}
         </div>
-        <div className="flex-1 min-w-[200px]">
-          <input
-            type="text"
-            placeholder="搜索标题或发起人..."
-            value={searchQ}
-            onChange={e => setSearchQ(e.target.value)}
-            className="w-full px-3 py-1.5 rounded-lg text-sm"
-            style={{ border: '0.5px solid #D1D5DB', backgroundColor: '#FAFAFA' }}
-          />
-        </div>
-      </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
-          <p style={{ color: '#9CA3AF' }}>
-            {searchQ ? '没有找到匹配的邀请函' : '暂无邀请函'}
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #E5E7EB' }}>
-          <table className="w-full">
-            <thead style={{ backgroundColor: '#FAFAFA' }}>
-              <tr>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>邀请函</th>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>发起人</th>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>类型</th>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>状态</th>
-                <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>截止日期</th>
-                <th className="text-right px-5 py-3 text-xs font-medium" style={{ color: '#6B7280' }}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(inv => {
-                const status = STATUS_LABELS[inv.status] || STATUS_LABELS.collecting
-                const deadline = new Date(inv.deadline)
-                const deadlineStr = deadline.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-                const isPast = deadline < new Date()
+        {/* 列表 */}
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl p-16 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
+            <div className="text-4xl mb-3 opacity-40">📯</div>
+            <p className="text-sm mb-4" style={{ color: '#9CA3AF' }}>
+              {filter === 'cancelled' ? '没有已取消的邀请函' : '你还没有发起过邀请函'}
+            </p>
+            {filter !== 'cancelled' && (
+              <Link href="/curator/invitations/new"
+                className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#111827' }}>
+                发起第一份邀请函
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(inv => {
+              const status = STATUS_LABELS[inv.status] || STATUS_LABELS.collecting
+              const deadline = new Date(inv.deadline)
+              const deadlineStr = deadline.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+              const isPast = deadline < new Date()
+              const isCollecting = inv.status === 'collecting'
+              const isCancelled = inv.status === 'cancelled'
 
-                return (
-                  <tr key={inv.id} style={{ borderTop: '0.5px solid #F3F4F6' }}>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        {inv.cover_image ? (
-                          <img src={inv.cover_image} alt="" className="w-12 h-9 rounded object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-12 h-9 rounded flex-shrink-0 flex items-center justify-center text-xs"
-                            style={{ backgroundColor: inv.theme_color || '#F3F4F6', color: '#FFFFFF' }}>
-                            📬
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: '#111827', maxWidth: '300px' }}>
-                            {inv.title}
-                          </p>
-                          <p className="text-xs" style={{ color: '#9CA3AF' }}>
-                            {new Date(inv.created_at).toLocaleDateString('zh-CN')}
-                            {inv.invitation_type === 'solo' && ' · 个展'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {inv.is_official ? (
-                        <span className="text-sm" style={{ color: '#111827' }}>Cradle 官方</span>
+              return (
+                <div key={inv.id} className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #E5E7EB' }}>
+                  <div className="p-5">
+                    <div className="flex items-start gap-4">
+                      {inv.cover_image ? (
+                        <img src={inv.cover_image} alt="" className="w-20 h-14 rounded object-cover flex-shrink-0" />
                       ) : (
-                        <div className="flex items-center gap-2">
-                          {inv.creator?.avatar_url ? (
-                            <img src={inv.creator.avatar_url} alt="" className="w-6 h-6 rounded-full" />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                              style={{ backgroundColor: '#F3F4F6' }}>👤</div>
-                          )}
-                          <span className="text-sm" style={{ color: '#374151' }}>
-                            {inv.creator?.username || '—'}
-                          </span>
+                        <div className="w-20 h-14 rounded flex-shrink-0 flex items-center justify-center text-xl"
+                          style={{ backgroundColor: inv.theme_color || '#F3F4F6', color: '#FFFFFF' }}>
+                          📯
                         </div>
                       )}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span className="px-2 py-0.5 rounded-full text-xs"
-                        style={{
-                          backgroundColor: inv.is_official ? '#FEF3C7' : '#E0E7FF',
-                          color: inv.is_official ? '#92400E' : '#3730A3',
-                        }}>
-                        {inv.is_official ? '官方' : '策展人'}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span className="px-2 py-0.5 rounded-full text-xs"
-                        style={{ backgroundColor: status.bg, color: status.color }}>
-                        {status.text}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span className="text-xs" style={{ color: isPast ? '#DC2626' : '#6B7280' }}>
-                        {deadlineStr}{isPast && ' (已过)'}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 flex-wrap">
-                        <Link href={`/invitations/${inv.id}`} target="_blank"
-                          className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
-                          style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                          查看
-                        </Link>
-                        <Link href={`/admin/invitations/${inv.id}`}
-                          className="px-3 py-1.5 text-xs rounded-lg border hover:bg-blue-50"
-                          style={{ color: '#2563EB', borderColor: '#BFDBFE' }}>
-                          编辑
-                        </Link>
-                        {inv.status === 'cancelled' ? (
-                          <button onClick={() => restoreInvitation(inv)}
-                            className="px-3 py-1.5 text-xs rounded-lg hover:bg-green-50"
-                            style={{ color: '#059669', border: '0.5px solid #A7F3D0' }}>
-                            恢复
-                          </button>
-                        ) : (
-                          <button onClick={() => forceCancelInvitation(inv)}
-                            className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50"
-                            style={{ color: '#DC2626', border: '0.5px solid #FECACA' }}>
-                            强制取消
-                          </button>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h3 className="text-base font-bold truncate" style={{ color: '#111827' }}>
+                            {inv.title}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full text-xs"
+                            style={{ backgroundColor: status.bg, color: status.color }}>
+                            {status.text}
+                          </span>
+                          {inv.invitation_type === 'solo' && (
+                            <span className="px-2 py-0.5 rounded-full text-xs"
+                              style={{ backgroundColor: '#F3E8FF', color: '#7C3AED' }}>
+                              个展
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>
+                          截止 {deadlineStr}{isPast && isCollecting && ' (已过截止)'} · 
+                          创建于 {new Date(inv.created_at).toLocaleDateString('zh-CN')}
+                        </p>
+                        {inv.description && (
+                          <p className="text-xs line-clamp-2" style={{ color: '#6B7280', lineHeight: 1.7 }}>
+                            {inv.description}
+                          </p>
                         )}
-                        {/* ★ 永久删除按钮 */}
-                        <button onClick={() => deleteInvitation(inv)}
-                          className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-100 transition"
-                          style={{ color: '#FFFFFF', backgroundColor: '#DC2626' }}
-                          title="永久删除(不可恢复)">
-                          🗑 删除
-                        </button>
                       </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StatCard({ label, value, color = '#111827' }) {
-  return (
-    <div className="bg-white rounded-xl px-4 py-3" style={{ border: '0.5px solid #E5E7EB' }}>
-      <p className="text-xs mb-1" style={{ color: '#6B7280' }}>{label}</p>
-      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+                    </div>
+                    
+                    {/* 操作 */}
+                    <div className="mt-4 pt-4 flex items-center gap-2 flex-wrap" style={{ borderTop: '0.5px solid #F3F4F6' }}>
+                      <Link href={`/invitations/${inv.id}`}
+                        className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
+                        style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                        查看
+                      </Link>
+                      {!isCancelled && (
+                        <Link href={`/curator/invitations/${inv.id}/applications`}
+                          className="px-3 py-1.5 text-xs rounded-lg hover:bg-purple-50"
+                          style={{ color: '#7C3AED', border: '0.5px solid #DDD6FE' }}>
+                          📋 审核报名
+                        </Link>
+                      )}
+                      {!isCancelled && (
+                        <Link href={`/curator/invitations/${inv.id}/edit`}
+                          className="px-3 py-1.5 text-xs rounded-lg hover:bg-blue-50"
+                          style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
+                          ✏ 编辑
+                        </Link>
+                      )}
+                      {!isCancelled && (
+                        <button onClick={() => cancelInvitation(inv)}
+                          className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50"
+                          style={{ color: '#DC2626', border: '0.5px solid #FECACA' }}>
+                          取消
+                        </button>
+                      )}
+                      <button onClick={() => deleteInvitation(inv)}
+                        className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-100 ml-auto"
+                        style={{ color: '#DC2626', border: '0.5px solid #DC2626' }}
+                        title="只对没有数据的邀请函可用">
+                        🗑 删除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
