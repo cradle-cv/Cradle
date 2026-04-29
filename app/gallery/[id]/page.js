@@ -87,6 +87,29 @@ function KeywordWall({ keywords }) {
   )
 }
 
+// ══ 徽章自动检测(完成动作后调用) ═════════════════════════════════
+// 静默在后台调用 /api/badges,如果用户拿到新徽章就弹 Toast
+// 失败不影响主流程
+async function silentlyCheckBadges(userId, onNewBadge) {
+  if (!userId) return
+  try {
+    const resp = await fetch('/api/badges', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    const data = await resp.json()
+    if (data.newBadges && data.newBadges.length > 0 && onNewBadge) {
+      // 一个一个弹,间隔 1.5 秒
+      data.newBadges.forEach((b, i) => {
+        setTimeout(() => onNewBadge(b), i * 1800)
+      })
+    }
+  } catch (err) {
+    console.warn('徽章检测失败(静默):', err)
+  }
+}
+
 export default function GalleryDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -135,6 +158,11 @@ export default function GalleryDetailPage() {
     setToastMessage(msg)
     setShowToast(true)
     setTimeout(() => setShowToast(false), 3000)
+  }
+
+  // ── 新徽章弹出提示 ──
+  function showNewBadgeToast(badge) {
+    showInspirationToast(`🏅 获得新徽章「${badge.name}」`)
   }
 
   useEffect(() => {
@@ -369,6 +397,8 @@ export default function GalleryDetailPage() {
       if (data) setProgress(data)
       setShowPointsBanner(true)
       setTimeout(() => setShowPointsBanner(false), 5000)
+      // ★ 三步全完成 → 检测徽章(可能拿到合成徽章)
+      silentlyCheckBadges(currentUser.id, showNewBadgeToast)
     }
   }
 
@@ -467,6 +497,8 @@ export default function GalleryDetailPage() {
       puzzle_completed: true, puzzle_correct_count: cc, puzzle_total_count: questions.length, current_step: 'rike',
     })
     if (newProg) checkAndSettlePoints(newProg)
+    // ★ 完成谜题 → 检测探索者系列徽章(雾森系列依赖满分谜题数)
+    silentlyCheckBadges(currentUser.id, showNewBadgeToast)
   }
 
   // ── 日课 ────────────────────────────────────────────────────
@@ -482,6 +514,8 @@ export default function GalleryDetailPage() {
       rike_completed: true, rike_read_seconds: rikeSeconds, rike_completed_at: new Date().toISOString(), current_step: 'fengshang',
     })
     if (newProg) checkAndSettlePoints(newProg)
+    // ★ 完成日课 → 检测探索者·台灯系列(完成 30 / 100 篇日课)
+    silentlyCheckBadges(currentUser.id, showNewBadgeToast)
   }
 
   // ── 风赏：写短评 = 自动完成 ──────────────────────────────────
@@ -511,6 +545,8 @@ export default function GalleryDetailPage() {
           fengshang_completed: true, fengshang_completed_at: new Date().toISOString(), current_step: 'fengshang',
         })
         if (newProg) checkAndSettlePoints(newProg)
+        // ★ 完成风赏 → 检测探索者·花枝系列(完成 30 / 100 次风赏)
+        silentlyCheckBadges(currentUser.id, showNewBadgeToast)
       }
     } catch (err) { console.error(err) }
   }
