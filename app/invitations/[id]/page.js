@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import ConversationDrawer from '@/components/ConversationDrawer'
 
 const MEDIUM_LABELS = {
   painting: '绘画', photography: '摄影', sculpture: '雕塑',
@@ -29,34 +30,32 @@ export default function InvitationDetailPage() {
   const [myPartnerApplication, setMyPartnerApplication] = useState(null)
   const [approvedPartner, setApprovedPartner] = useState(null)
 
+  // ★ 对话抽屉(从此页打开,需指定我是哪种身份)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerType, setDrawerType] = useState(null) // 'artist' | 'partner'
+
   useEffect(() => { if (id) load() }, [id])
 
   async function load() {
     setLoading(true)
 
-    // 懒触发:collecting + 过期自动流转
     try {
       await supabase.rpc('auto_transition_invitation', { p_invitation_id: id })
     } catch (e) {
       console.warn('auto_transition_invitation failed:', e)
     }
 
-    // 邀请函本体
     const { data: inv } = await supabase.from('invitations')
       .select('*, creator:creator_user_id(id, username, avatar_url)')
       .eq('id', id).maybeSingle()
     if (!inv) { setLoading(false); return }
     setInvitation(inv)
 
-    // 统计
     try {
       const { data: s } = await supabase.rpc('get_invitation_stats', { p_invitation_id: id })
       setStats(s?.[0] || null)
     } catch (e) { /* silent */ }
 
-    // 已 approved 的承办方(通过 invitation_partner_applications)
-    // 注意:RLS 限制一般用户只能看自己的 application
-    // 但如果 generated_exhibition_id 已填,说明已通过终审,我们从 exhibition 反查 partner
     if (inv.generated_exhibition_id) {
       try {
         const { data: ex } = await supabase.from('exhibitions')
@@ -73,7 +72,6 @@ export default function InvitationDetailPage() {
       } catch (e) { /* silent */ }
     }
 
-    // 当前用户
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       const { data: u } = await supabase.from('users')
@@ -81,23 +79,20 @@ export default function InvitationDetailPage() {
       if (u) {
         setCurrentUser(u)
 
-        // 身份识别
         const { data: idents } = await supabase.from('user_identities')
           .select('identity_type').eq('user_id', u.id).eq('is_active', true)
         const types = (idents || []).map(i => i.identity_type)
         setIsArtist(types.includes('artist'))
         setIsPartner(types.includes('partner'))
 
-        // 已有投稿?
         try {
           const { data: sub } = await supabase.rpc('my_submission_for', { p_invitation_id: id })
           setMySubmission(sub?.[0] || null)
         } catch (e) { /* silent */ }
 
-        // 已有承办申请?
         if (types.includes('partner')) {
           const { data: app } = await supabase.from('invitation_partner_applications')
-            .select('id, selection_status, applied_at')
+            .select('id, partner_id, selection_status, applied_at')
             .eq('invitation_id', id)
             .eq('applicant_user_id', u.id)
             .order('applied_at', { ascending: false })
@@ -135,6 +130,12 @@ export default function InvitationDetailPage() {
   const mediums = invitation.medium_restrictions || []
   const isCollecting = invitation.status === 'collecting' && days >= 0
 
+  // ★ 打开对话
+  function openConversation(type) {
+    setDrawerType(type)
+    setDrawerOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
@@ -158,7 +159,6 @@ export default function InvitationDetailPage() {
         </div>
       </nav>
 
-      {/* Hero 封面 */}
       <section className="w-full relative" style={{ backgroundColor: isOfficial ? '#FAFAFA' : `${themeColor}15` }}>
         {invitation.cover_image ? (
           <div style={{ maxHeight: '540px', overflow: 'hidden' }}>
@@ -175,7 +175,6 @@ export default function InvitationDetailPage() {
         )}
       </section>
 
-      {/* 标题区 */}
       <section className="px-6 pt-10 pb-6 max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-3 mb-4">
           <span className="px-3 py-1 rounded-full text-xs"
@@ -190,7 +189,6 @@ export default function InvitationDetailPage() {
               由 {invitation.creator.username} 发起
             </span>
           )}
-          {/* 承办方已确认的标识 */}
           {approvedPartner && (
             <span className="px-3 py-1 rounded-full text-xs"
               style={{ backgroundColor: '#EFF6FF', color: '#2563EB', letterSpacing: '1px' }}>
@@ -213,7 +211,6 @@ export default function InvitationDetailPage() {
         </div>
       </section>
 
-      {/* 描述 */}
       <section className="px-6 py-8 max-w-3xl mx-auto">
         <div
           className="whitespace-pre-line leading-relaxed"
@@ -223,7 +220,6 @@ export default function InvitationDetailPage() {
         </div>
       </section>
 
-      {/* 规则 + 统计 */}
       <section className="px-6 py-8 max-w-4xl mx-auto">
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl p-5" style={{ border: '0.5px solid #E5E7EB' }}>
@@ -263,7 +259,6 @@ export default function InvitationDetailPage() {
         </div>
       </section>
 
-      {/* 承办方展示 (已 approved 时才显示) */}
       {approvedPartner && (
         <section className="px-6 py-6 max-w-4xl mx-auto">
           <Link href={`/partners/${approvedPartner.id}`}
@@ -298,7 +293,6 @@ export default function InvitationDetailPage() {
         </section>
       )}
 
-      {/* 行动区 - 艺术家投稿入口 */}
       <section className="px-6 py-8 max-w-3xl mx-auto">
         <ActionArea
           invitation={invitation}
@@ -308,10 +302,10 @@ export default function InvitationDetailPage() {
           mySubmission={mySubmission}
           themeColor={themeColor}
           router={router}
+          onOpenConversation={() => openConversation('artist')}
         />
       </section>
 
-      {/* 行动区 - 合作伙伴承办入口 */}
       {invitation.open_to_partners && !approvedPartner && (
         <section className="px-6 py-4 max-w-3xl mx-auto">
           <PartnerActionArea
@@ -320,6 +314,7 @@ export default function InvitationDetailPage() {
             currentUser={currentUser}
             isPartner={isPartner}
             myApplication={myPartnerApplication}
+            onOpenConversation={() => openConversation('partner')}
           />
         </section>
       )}
@@ -329,6 +324,28 @@ export default function InvitationDetailPage() {
           © 2026 Cradle摇篮. All rights reserved.
         </div>
       </footer>
+
+      {/* ★ 对话抽屉 */}
+      {drawerOpen && currentUser && drawerType && (
+        <ConversationDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          invitationId={invitation.id}
+          applicantUserId={currentUser.id}
+          applicantType={drawerType}
+          partnerId={drawerType === 'partner' ? myPartnerApplication?.partner_id : null}
+          partnerApplicationId={drawerType === 'partner' ? myPartnerApplication?.id : null}
+          artistSubmissionId={drawerType === 'artist' ? mySubmission?.id : null}
+          currentUserId={currentUser.id}
+          currentRole="applicant"
+          contextSummary={{
+            title: invitation.title,
+            cover: invitation.cover_image,
+            counterpartName: invitation.creator?.username || '策展人',
+            counterpartAvatar: invitation.creator?.avatar_url,
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -336,7 +353,7 @@ export default function InvitationDetailPage() {
 // ═══════════════════════════════════════════════════════════════
 // 艺术家投稿行动区
 // ═══════════════════════════════════════════════════════════════
-function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmission, themeColor, router }) {
+function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmission, themeColor, router, onOpenConversation }) {
   if (!isCollecting) {
     const statusText = {
       curating: '评选中,投稿已截止',
@@ -347,13 +364,17 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
       <div className="bg-gray-50 rounded-xl p-8 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
         <p style={{ color: '#6B7280' }}>{statusText}</p>
         {mySubmission && (
-          <Link
-            href={`/invitations/${invitation.id}/submit`}
-            className="inline-block mt-4 text-sm underline"
-            style={{ color: themeColor }}
-          >
-            查看我的投稿
-          </Link>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Link href={`/invitations/${invitation.id}/submit`}
+              className="text-sm underline" style={{ color: themeColor }}>
+              查看我的投稿
+            </Link>
+            <span style={{ color: '#D1D5DB' }}>|</span>
+            <button onClick={onOpenConversation}
+              className="text-sm" style={{ color: '#374151' }}>
+              💬 与策展人对话
+            </button>
+          </div>
         )}
       </div>
     )
@@ -418,7 +439,7 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
             ? '你的投稿已进入待评选。在评选开始前,你还可以修改选定的作品。'
             : '评选已开始,你的投稿已锁定,感谢参与。'}
         </p>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Link
             href={`/invitations/${invitation.id}/submit`}
             className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
@@ -426,6 +447,14 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
           >
             {editable ? '修改投稿' : '查看投稿'}
           </Link>
+          {/* ★ 对话按钮 */}
+          <button
+            onClick={onOpenConversation}
+            className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: '#FFFFFF', color: '#065F46', border: '0.5px solid #A7F3D0' }}
+          >
+            💬 与策展人对话
+          </button>
         </div>
       </div>
     )
@@ -453,8 +482,7 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
 // ═══════════════════════════════════════════════════════════════
 // 合作伙伴承办行动区
 // ═══════════════════════════════════════════════════════════════
-function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, myApplication }) {
-  // 已有申请 - 展示状态(只要是 partner 本人就能看)
+function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, myApplication, onOpenConversation }) {
   if (myApplication) {
     const statusMap = {
       pending: { text: '等待策展人初审', bg: '#FEF3C7', color: '#B45309', icon: '⏳' },
@@ -469,7 +497,7 @@ function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, m
         <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
           HOSTING APPLICATION · 你的承办申请
         </p>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <span className="text-2xl">{s.icon}</span>
             <div>
@@ -482,22 +510,28 @@ function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, m
               </p>
             </div>
           </div>
-          <Link href={`/studio/partner/applications/${myApplication.id}`}
-            className="text-sm px-4 py-2 rounded-lg transition"
-            style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
-            查看详情 →
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* ★ 对话按钮 */}
+            <button onClick={onOpenConversation}
+              className="text-sm px-4 py-2 rounded-lg transition"
+              style={{ backgroundColor: '#FFFFFF', color: '#374151', border: '0.5px solid #D1D5DB' }}>
+              💬 与策展人对话
+            </button>
+            <Link href={`/studio/partner/applications/${myApplication.id}`}
+              className="text-sm px-4 py-2 rounded-lg transition"
+              style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+              查看详情 →
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
-  // 征集已结束
   if (!isCollecting) {
-    return null  // 不显示承办入口
+    return null
   }
 
-  // 未登录
   if (!currentUser) {
     return (
       <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
@@ -521,7 +555,6 @@ function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, m
     )
   }
 
-  // 已登录但非合作伙伴
   if (!isPartner) {
     return (
       <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '0.5px solid #BFDBFE' }}>
@@ -545,7 +578,6 @@ function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, m
     )
   }
 
-  // 已是合作伙伴,未报名
   return (
     <div className="rounded-xl p-6" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
       <div className="flex items-start gap-4">
