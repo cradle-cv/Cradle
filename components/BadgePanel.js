@@ -19,15 +19,18 @@ const TIER_COLORS = {
   special: { text: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD', badge: '#8B5CF6' },
 }
 
+// ★ 已开放系列(用户当前能拿到的)
+const OPEN_SERIES = ['exploration', 'magazinist', 'special']
+// ★ 敬请期待(等功能开放)
+const COMING_SERIES = ['creation', 'influence', 'community', 'ultimate']
+
 export default function BadgePanel({ userId }) {
   const [allBadges, setAllBadges] = useState([])
   const [ownedBadges, setOwnedBadges] = useState([])
   const [equipped, setEquipped] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('wall')
+  const [activeTab, setActiveTab] = useState('open') // open | coming | synthesis
   const [selectedBadge, setSelectedBadge] = useState(null)
-  const [checking, setChecking] = useState(false)
-  const [newlyEarned, setNewlyEarned] = useState([])
 
   useEffect(() => { if (userId) loadBadges() }, [userId])
 
@@ -40,24 +43,6 @@ export default function BadgePanel({ userId }) {
       setEquipped(data.equipped || [])
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
-  }
-
-  async function checkBadges() {
-    setChecking(true)
-    setNewlyEarned([])
-    try {
-      const resp = await fetch('/api/badges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      })
-      const data = await resp.json()
-      if (data.newBadges?.length > 0) {
-        setNewlyEarned(data.newBadges)
-        await loadBadges()
-      }
-    } catch (e) { console.error(e) }
-    finally { setChecking(false) }
   }
 
   async function equipBadge(badgeId, slot) {
@@ -87,9 +72,11 @@ export default function BadgePanel({ userId }) {
     grouped[b.series].push(b)
   })
 
-  const seriesOrder = ['exploration', 'creation', 'influence', 'community', 'magazinist', 'special', 'ultimate']
+  // 计数
   const ownedCount = ownedBadges.length
   const totalCount = allBadges.length
+  const openTotal = OPEN_SERIES.reduce((sum, s) => sum + (grouped[s]?.length || 0), 0)
+  const openOwned = OPEN_SERIES.reduce((sum, s) => sum + (grouped[s]?.filter(b => ownedIds.has(b.id)).length || 0), 0)
 
   if (loading) return <div className="text-center py-12" style={{ color: '#9CA3AF' }}>加载徽章中...</div>
 
@@ -99,32 +86,15 @@ export default function BadgePanel({ userId }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold" style={{ color: '#111827' }}>🏅 我的徽章</h2>
-          <p className="text-sm mt-1" style={{ color: '#6B7280' }}>已获得 {ownedCount} / {totalCount} 枚</p>
+          <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
+            已获得 {ownedCount} 枚 · 当前可获得 {openTotal} 枚
+          </p>
         </div>
-        <button onClick={checkBadges} disabled={checking}
-          className="px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
-          style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>
-          {checking ? '检测中...' : '🔍 检测新徽章'}
-        </button>
       </div>
-
-      {/* 新获得提示 */}
-      {newlyEarned.length > 0 && (
-        <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-          <p className="text-sm font-medium mb-2" style={{ color: '#92400E' }}>🎉 恭喜获得新徽章！</p>
-          <div className="flex flex-wrap gap-2">
-            {newlyEarned.map(b => (
-              <span key={b.code} className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FFFFFF', color: '#92400E' }}>
-                {b.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 佩戴槽位 */}
       <div className="mb-8 p-5 rounded-xl" style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-        <h3 className="text-sm font-medium mb-3" style={{ color: '#374151' }}>佩戴展示（最多3枚）</h3>
+        <h3 className="text-sm font-medium mb-3" style={{ color: '#374151' }}>佩戴展示（最多 3 枚）</h3>
         <div className="flex gap-4">
           {[1, 2, 3].map(slot => {
             const eq = equipped.find(e => e.slot === slot)
@@ -153,25 +123,38 @@ export default function BadgePanel({ userId }) {
         </div>
       </div>
 
-      {/* Tab切换 */}
-      <div className="flex gap-2 mb-6">
-        {[
-          { key: 'wall', label: '🏛️ 徽章墙' },
-          { key: 'synthesis', label: '⚗️ 合成' },
-        ].map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition"
-            style={{
-              backgroundColor: activeTab === tab.key ? '#111827' : '#F3F4F6',
-              color: activeTab === tab.key ? '#FFFFFF' : '#6B7280',
-            }}>{tab.label}</button>
-        ))}
+      {/* Tab 切换:已开放 / 敬请期待 / 合成 */}
+      <div className="flex gap-2 mb-6 overflow-x-auto">
+        <button onClick={() => setActiveTab('open')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0"
+          style={{
+            backgroundColor: activeTab === 'open' ? '#111827' : '#F3F4F6',
+            color: activeTab === 'open' ? '#FFFFFF' : '#6B7280',
+          }}>
+          🏛️ 当前可获得 ({openOwned}/{openTotal})
+        </button>
+        <button onClick={() => setActiveTab('coming')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0"
+          style={{
+            backgroundColor: activeTab === 'coming' ? '#111827' : '#F3F4F6',
+            color: activeTab === 'coming' ? '#FFFFFF' : '#6B7280',
+          }}>
+          🔮 敬请期待
+        </button>
+        <button onClick={() => setActiveTab('synthesis')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0"
+          style={{
+            backgroundColor: activeTab === 'synthesis' ? '#111827' : '#F3F4F6',
+            color: activeTab === 'synthesis' ? '#FFFFFF' : '#6B7280',
+          }}>
+          ⚗️ 合成
+        </button>
       </div>
 
-      {/* 徽章墙 */}
-      {activeTab === 'wall' && (
+      {/* 当前可获得 */}
+      {activeTab === 'open' && (
         <div className="space-y-8">
-          {seriesOrder.map(series => {
+          {OPEN_SERIES.map(series => {
             const badges = grouped[series]
             if (!badges || badges.length === 0) return null
             const info = SERIES_INFO[series] || { name: series, icon: '🏅', color: '#6B7280', bg: '#F3F4F6' }
@@ -189,7 +172,6 @@ export default function BadgePanel({ userId }) {
                     const owned = ownedIds.has(badge.id)
                     const isEquipped = equippedIds.has(badge.id)
                     const tierColor = TIER_COLORS[badge.tier] || TIER_COLORS.silver
-                    const isNew = newlyEarned.some(n => n.code === badge.code)
 
                     return (
                       <div key={badge.id}
@@ -200,8 +182,6 @@ export default function BadgePanel({ userId }) {
                           opacity: owned ? 1 : 0.45,
                         }}
                         onClick={() => setSelectedBadge(badge)}>
-                        {/* 新获得闪光 */}
-                        {isNew && <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#EF4444', color: '#FFF' }}>!</div>}
                         {/* 已佩戴标记 */}
                         {isEquipped && <div className="absolute -top-1 -left-1 w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#7C3AED', color: '#FFF' }}>✦</div>}
 
@@ -223,6 +203,58 @@ export default function BadgePanel({ userId }) {
         </div>
       )}
 
+      {/* 敬请期待 */}
+      {activeTab === 'coming' && (
+        <div className="space-y-8">
+          <div className="px-5 py-4 rounded-xl text-sm leading-relaxed" style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', color: '#6B7280' }}>
+            🔮 这些徽章对应的功能 Cradle 还在打磨中。等艺术家身份、社区互动、办展等功能正式开放,这里会逐渐亮起。
+          </div>
+          {COMING_SERIES.map(series => {
+            const badges = grouped[series]
+            if (!badges || badges.length === 0) return null
+            const info = SERIES_INFO[series] || { name: series, icon: '🏅', color: '#6B7280', bg: '#F3F4F6' }
+            const seriesOwned = badges.filter(b => ownedIds.has(b.id)).length
+
+            return (
+              <div key={series} style={{ opacity: 0.65 }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">{info.icon}</span>
+                  <h3 className="font-bold" style={{ color: '#111827' }}>{info.name}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>即将开放</span>
+                  {seriesOwned > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: info.bg, color: info.color }}>{seriesOwned}/{badges.length}</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                  {badges.map(badge => {
+                    const owned = ownedIds.has(badge.id)
+                    const tierColor = TIER_COLORS[badge.tier] || TIER_COLORS.silver
+                    return (
+                      <div key={badge.id}
+                        className="relative rounded-xl p-3 flex flex-col items-center cursor-pointer transition hover:shadow-md"
+                        style={{
+                          backgroundColor: owned ? tierColor.bg : '#F9FAFB',
+                          border: `2px solid ${owned ? tierColor.border : '#E5E7EB'}`,
+                          opacity: owned ? 1 : 0.4,
+                        }}
+                        onClick={() => setSelectedBadge(badge)}>
+                        <span className="text-2xl mb-1">{badge.icon}</span>
+                        <span className="text-xs font-medium text-center leading-tight" style={{ color: owned ? tierColor.text : '#9CA3AF' }}>
+                          {badge.name}
+                        </span>
+                        {badge.tier !== 'special' && (
+                          <span className="mt-1 w-2 h-2 rounded-full" style={{ backgroundColor: badge.tier === 'gold' ? '#F59E0B' : '#9CA3AF' }} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* 合成 */}
       {activeTab === 'synthesis' && (
         <div className="space-y-6">
@@ -231,7 +263,6 @@ export default function BadgePanel({ userId }) {
             const materials = parseMaterials(badge, allBadges).map(m => ({
               ...m, owned: m.badge ? ownedIds.has(m.badge.id) : false
             }))
-            const allMaterialsOwned = materials.every(m => m.owned)
             const tierColor = TIER_COLORS[badge.tier] || TIER_COLORS.silver
             const info = SERIES_INFO[badge.series] || {}
 
@@ -284,7 +315,7 @@ export default function BadgePanel({ userId }) {
                       </div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#E5E7EB' }}>
                         <div className="h-full rounded-full transition-all" style={{
-                          width: `${(materials.filter(m => m.owned).length / materials.length) * 100}%`,
+                          width: `${materials.length === 0 ? 0 : (materials.filter(m => m.owned).length / materials.length) * 100}%`,
                           backgroundColor: info.color || '#7C3AED',
                         }} />
                       </div>
@@ -349,9 +380,13 @@ export default function BadgePanel({ userId }) {
                       : ''}
                   </p>
                 </div>
+              ) : COMING_SERIES.includes(selectedBadge.series) ? (
+                <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#F5F3FF' }}>
+                  <p className="text-sm" style={{ color: '#7C3AED' }}>🔮 敬请期待 · 功能开放后可获得</p>
+                </div>
               ) : (
                 <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
-                  <p className="text-sm" style={{ color: '#9CA3AF' }}>🔒 尚未获得</p>
+                  <p className="text-sm" style={{ color: '#9CA3AF' }}>🔒 尚未获得 · 完成对应动作时会自动颁发</p>
                 </div>
               )}
 
@@ -396,7 +431,7 @@ function parseMaterials(badge, allBadges) {
   if (action.includes('+') && !action.match(/^(\w+)_(silver|gold)_(\d+)$/)) {
     return action.split('+').map(code => {
       const b = badgeByCode[code.trim()]
-      return { code: code.trim(), badge: b, owned: false } // owned 由外部设置
+      return { code: code.trim(), badge: b, owned: false }
     })
   }
 
