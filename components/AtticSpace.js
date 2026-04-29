@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import ResidencyExitButton from '@/components/ResidencyExitButton'
 
 const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
 
-// 星河 shader（接受相机偏移）
+// 星河 shader（暗版本：背景星星显著减弱，留下星云、银河带、流星）
 const FS = `
 precision highp float;
 uniform float u_time;
@@ -28,7 +29,7 @@ float stars(vec2 uv,float scale,float brightness){
   vec2 off=vec2(hash(id+0.1)-0.5,hash(id+0.2)-0.5)*0.7;
   float d=length(f-off);
   float tw=0.5+0.5*sin(u_time*1.5+h*50.0);
-  return smoothstep(0.05,0.0,d)*(0.5+0.5*tw)*h*3.0;
+  return smoothstep(0.04,0.0,d)*(0.5+0.5*tw)*h*3.0;
 }
 float shootingStar(vec2 uv,float seed){
   float t=fract(u_time*0.04+seed);
@@ -49,49 +50,51 @@ void main(){
   vec2 wuv=uv+u_cam; // 宇宙坐标
   float t=u_time*0.02;
 
-  vec3 col=vec3(0.008,0.008,0.025);
+  vec3 col=vec3(0.005,0.005,0.018);  // 底色更暗
 
-  // 星云（根据宇宙坐标变化，不同区域不同配色）
+  // 星云（保留，作为暗背景的层次感，但稍微减弱）
   float region=fbm(wuv*0.3);
   float n1=fbm(wuv*2.0+vec2(t,t*0.7));
   float n2=fbm(wuv*3.5-vec2(t*0.5,t*0.3)+n1*0.3);
 
-  // 区域色彩变化
   vec3 neb1=mix(
-    vec3(0.15,0.05,0.25),  // 紫
-    vec3(0.05,0.15,0.25),  // 青
+    vec3(0.10,0.04,0.18),  // 紫(减弱)
+    vec3(0.04,0.10,0.18),  // 青(减弱)
     smoothstep(0.3,0.7,region)
-  )*smoothstep(0.3,0.7,n1)*0.7;
+  )*smoothstep(0.3,0.7,n1)*0.45;
 
   vec3 neb2=mix(
-    vec3(0.2,0.08,0.05),   // 橙
-    vec3(0.05,0.2,0.1),    // 绿
+    vec3(0.14,0.06,0.04),  // 橙(减弱)
+    vec3(0.04,0.14,0.07),  // 绿(减弱)
     smoothstep(0.4,0.6,region)
-  )*smoothstep(0.35,0.7,n2)*0.5;
+  )*smoothstep(0.35,0.7,n2)*0.32;
 
   col+=neb1+neb2;
 
-  // 多层星星
+  // ─── 关键改动:背景星星大幅减弱 ───
+  // 旧版有 4 层星星,亮度倍数 1×/1.5×/2.5×/4×,顶部加权 8 倍
+  // 新版只保留两层小星星,亮度大幅压低,效果是几乎只看见极弱微光
   float s=0.0;
-  s+=stars(wuv,100.0,0.55);
-  s+=stars(wuv,50.0,0.65)*1.5;
-  s+=stars(wuv,25.0,0.8)*2.5;
-  s+=stars(wuv,12.0,0.9)*4.0;
-  vec3 sc=mix(vec3(0.8,0.85,1.0),vec3(1.0,0.9,0.7),hash(floor(wuv*50.0)));
+  s+=stars(wuv,100.0,0.45)*0.18;   // 最细密的微光,几乎看不见(原 1.0)
+  s+=stars(wuv,50.0,0.55)*0.28;    // 稀疏小星星(原 1.5)
+  // 移除了 scale 25 和 12 的两层(那两层是最亮的"近星")
+
+  // 星色调成暗银 + 微微暖色,亮度低
+  vec3 sc=mix(vec3(0.55,0.60,0.75),vec3(0.70,0.65,0.55),hash(floor(wuv*50.0)));
   col+=s*sc;
 
-  // 银河带（随区域旋转）
+  // 银河带保留,稍微减弱
   float mAngle=region*3.14;
   vec2 mUV=mat2(cos(mAngle),-sin(mAngle),sin(mAngle),cos(mAngle))*wuv;
   float milky=fbm(vec2(mUV.x*5.0+t,mUV.y*0.5))*smoothstep(0.12,0.0,abs(mUV.y*0.8));
-  col+=milky*vec3(0.1,0.08,0.14)*1.5;
+  col+=milky*vec3(0.07,0.05,0.10)*1.2;
 
-  // 流星（屏幕空间，不随相机）
+  // 流星保留(屏幕空间,不随相机)
   col+=shootingStar(uv,1.0)*vec3(0.9,0.95,1.0);
   col+=shootingStar(uv,4.2)*vec3(1.0,0.9,0.8);
 
-  // 轻微暗角
-  col*=1.0-0.2*dot(uv,uv);
+  // 暗角加强
+  col*=1.0-0.28*dot(uv,uv);
 
   gl_FragColor=vec4(col,1.0);
 }
@@ -206,7 +209,9 @@ export default function AtticSpace() {
     return () => { window.removeEventListener('resize', rs); if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [])
 
-  // 叠加层绘制（航迹 + 天灯）
+  // ─── 关键改动:overlay 绘制 ───
+  // 1. 轨迹改成"星光颗粒"(每个点是小亮点 + glow,而不是连线)
+  // 2. 天灯加强(更大光晕 + 呼吸感)
   function drawOverlay() {
     const cv = overlayRef.current; if (!cv) return
     const ctx = cv.getContext('2d'); if (!ctx) return
@@ -216,47 +221,91 @@ export default function AtticSpace() {
     ctx.clearRect(0, 0, cv.width, cv.height)
 
     const cx = cv.width / 2, cy = cv.height / 2
-    const scale = cv.height // 1 unit = screen height
+    const scale = cv.height
     const cam = camRef.current
+    const now = performance.now()
 
-    // 绘制航迹
+    // ─── 绘制星光轨迹 ───
+    // 每个点画成暖色小星,新点亮、旧点暗
     const trail = trailRef.current
-    if (trail.length > 1) {
-      for (let i = 1; i < trail.length; i++) {
-        const alpha = Math.max(0.02, (i / trail.length) * 0.25)
-        const sx = (trail[i - 1].x - cam.x) * scale + cx
-        const sy = -(trail[i - 1].y - cam.y) * scale + cy
-        const ex = (trail[i].x - cam.x) * scale + cx
-        const ey = -(trail[i].y - cam.y) * scale + cy
+    if (trail.length > 0) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'  // 加色混合,轨迹会有光感
+      for (let i = 0; i < trail.length; i++) {
+        const sx = (trail[i].x - cam.x) * scale + cx
+        const sy = -(trail[i].y - cam.y) * scale + cy
+        if (sx < -50 || sx > cv.width + 50 || sy < -50 || sy > cv.height + 50) continue
 
-        // 只画屏幕内的
-        if (Math.max(sx,ex) < -100 || Math.min(sx,ex) > cv.width+100) continue
-        if (Math.max(sy,ey) < -100 || Math.min(sy,ey) > cv.height+100) continue
+        // 越靠后(越新)越亮
+        const ageRatio = i / trail.length
+        const baseAlpha = ageRatio * 0.4 + 0.05  // 0.05 ~ 0.45
 
-        ctx.strokeStyle = `rgba(255,200,100,${alpha})`
-        ctx.lineWidth = 1.5
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke()
+        // 颗粒间相邻较近时画一条暗淡连线(让轨迹有连贯性)
+        if (i > 0) {
+          const px = (trail[i-1].x - cam.x) * scale + cx
+          const py = -(trail[i-1].y - cam.y) * scale + cy
+          const dist = Math.hypot(sx - px, sy - py)
+          if (dist < 40) {  // 只在点足够密时连线
+            ctx.strokeStyle = `rgba(255,200,140,${baseAlpha * 0.15})`
+            ctx.lineWidth = 0.6
+            ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, sy); ctx.stroke()
+          }
+        }
+
+        // 颗粒光晕
+        const r = 2 + ageRatio * 1.5
+        const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 4)
+        glow.addColorStop(0, `rgba(255,220,160,${baseAlpha * 0.6})`)
+        glow.addColorStop(0.5, `rgba(255,180,120,${baseAlpha * 0.2})`)
+        glow.addColorStop(1, 'rgba(255,180,120,0)')
+        ctx.fillStyle = glow
+        ctx.beginPath(); ctx.arc(sx, sy, r * 4, 0, Math.PI * 2); ctx.fill()
+
+        // 颗粒亮心
+        ctx.fillStyle = `rgba(255,240,200,${baseAlpha * 0.95})`
+        ctx.beginPath(); ctx.arc(sx, sy, r * 0.5, 0, Math.PI * 2); ctx.fill()
       }
+      ctx.restore()
     }
 
-    // 绘制天灯
+    // ─── 绘制天灯(显著加强发光) ───
     const lts = lanternsRef.current
     lts.forEach(l => {
       const lx = (l.pos_x - cam.x) * scale + cx
       const ly = -(l.pos_y - cam.y) * scale + cy
 
-      if (lx < -50 || lx > cv.width + 50 || ly < -50 || ly > cv.height + 50) return
+      if (lx < -100 || lx > cv.width + 100 || ly < -100 || ly > cv.height + 100) return
 
       const isH = hoveredId === l.id
-      const r = isH ? 12 : 6
-      const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 3)
-      glow.addColorStop(0, `hsla(${l.color_hue},80%,70%,${isH ? 0.5 : 0.25})`)
-      glow.addColorStop(1, `hsla(${l.color_hue},80%,60%,0)`)
-      ctx.fillStyle = glow
-      ctx.beginPath(); ctx.arc(lx, ly, r * 3, 0, Math.PI * 2); ctx.fill()
+      // 呼吸感:用 hue+id 给每盏灯不同节奏
+      const phase = (now / 1000 + (l.color_hue || 0) * 0.05) % (Math.PI * 2)
+      const breath = 0.85 + 0.15 * Math.sin(phase * 1.5)
 
-      ctx.fillStyle = `hsla(${l.color_hue},80%,80%,0.9)`
-      ctx.beginPath(); ctx.arc(lx, ly, isH ? 5 : 3, 0, Math.PI * 2); ctx.fill()
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+
+      // 大外晕(让它在屏幕里显眼)
+      const outerR = (isH ? 60 : 45) * breath
+      const outerGlow = ctx.createRadialGradient(lx, ly, 0, lx, ly, outerR)
+      outerGlow.addColorStop(0, `hsla(${l.color_hue},85%,70%,${(isH ? 0.55 : 0.35) * breath})`)
+      outerGlow.addColorStop(0.4, `hsla(${l.color_hue},80%,60%,${(isH ? 0.18 : 0.12) * breath})`)
+      outerGlow.addColorStop(1, `hsla(${l.color_hue},80%,55%,0)`)
+      ctx.fillStyle = outerGlow
+      ctx.beginPath(); ctx.arc(lx, ly, outerR, 0, Math.PI * 2); ctx.fill()
+
+      // 中圈
+      const midR = (isH ? 22 : 16) * breath
+      const midGlow = ctx.createRadialGradient(lx, ly, 0, lx, ly, midR)
+      midGlow.addColorStop(0, `hsla(${l.color_hue},90%,80%,${(isH ? 0.85 : 0.65) * breath})`)
+      midGlow.addColorStop(1, `hsla(${l.color_hue},80%,65%,0)`)
+      ctx.fillStyle = midGlow
+      ctx.beginPath(); ctx.arc(lx, ly, midR, 0, Math.PI * 2); ctx.fill()
+
+      // 亮心
+      ctx.fillStyle = `hsla(${l.color_hue},90%,90%,${0.95 * breath})`
+      ctx.beginPath(); ctx.arc(lx, ly, isH ? 4 : 2.8, 0, Math.PI * 2); ctx.fill()
+
+      ctx.restore()
     })
   }
 
@@ -279,7 +328,7 @@ export default function AtticSpace() {
       dragRef.current.lastY = p.clientY
       setCoords({ x: camRef.current.x, y: camRef.current.y })
 
-      // 记录航迹（每移动一段距离记录一个点）
+      // 记录航迹(每移动一段距离记录一个点)
       const trail = trailRef.current
       const last = trail.length > 0 ? trail[trail.length - 1] : null
       if (!last || Math.abs(camRef.current.x - last.x) > 0.005 || Math.abs(camRef.current.y - last.y) > 0.005) {
@@ -320,7 +369,7 @@ export default function AtticSpace() {
       for (const l of lanternsRef.current) {
         const lx = (l.pos_x - cam.x) * scale + cx
         const ly = -(l.pos_y - cam.y) * scale + cy
-        if (Math.abs(mx - lx) < 20 && Math.abs(my - ly) < 20) {
+        if (Math.abs(mx - lx) < 24 && Math.abs(my - ly) < 24) {
           setSelectedId(prev => prev === l.id ? null : l.id)
           return
         }
@@ -342,7 +391,7 @@ export default function AtticSpace() {
       for (const l of lanternsRef.current) {
         const lx = (l.pos_x - cam.x) * scale + cx
         const ly = -(l.pos_y - cam.y) * scale + cy
-        if (Math.abs(e.clientX - lx) < 20 && Math.abs(e.clientY - ly) < 20) { found = l.id; break }
+        if (Math.abs(e.clientX - lx) < 24 && Math.abs(e.clientY - ly) < 24) { found = l.id; break }
       }
       setHoveredId(found)
       el.style.cursor = found ? 'pointer' : (inputFocused ? 'default' : 'grab')
@@ -357,7 +406,6 @@ export default function AtticSpace() {
     const text = inputText.trim()
     setInputText('')
 
-    // 在当前相机位置放飞
     const posX = camRef.current.x + (Math.random() - 0.5) * 0.3
     const posY = camRef.current.y + (Math.random() - 0.5) * 0.2 + 0.15
     const hue = 20 + Math.random() * 30
@@ -397,16 +445,18 @@ export default function AtticSpace() {
       {/* Shader 层 */}
       <canvas ref={shaderRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
-      {/* 叠加层（航迹 + 天灯 + 交互） */}
+      {/* 叠加层(轨迹 + 天灯 + 交互) */}
       <canvas ref={overlayRef} className="absolute inset-0" style={{ zIndex: 1, cursor: 'grab' }} />
 
-      {/* 顶部 */}
+      {/* 顶部标题(还是 hover 才显) */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.7 : 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '5px', color: 'rgba(150,170,220,0.4)', textTransform: 'uppercase' }}>Star River · 星河漫游</span>
       </div>
-      <div className="absolute top-0 left-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.6 : 0 }}>
-        <Link href="/residency" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(150,170,220,0.3)', textDecoration: 'none' }}>← BACK</Link>
-      </div>
+
+      {/* 退出按钮(始终可见) */}
+      <ResidencyExitButton theme="dark" />
+
+      {/* 右上角坐标 */}
       <div className="absolute top-0 right-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.5 : 0 }}>
         <span style={{ fontSize: '10px', color: 'rgba(150,170,220,0.2)', letterSpacing: '1px', fontFamily: 'monospace' }}>
           ({coords.x.toFixed(2)}, {coords.y.toFixed(2)})
@@ -453,7 +503,7 @@ export default function AtticSpace() {
         </div>
       )}
 
-      {/* 拖拽提示（首次进入） */}
+      {/* 拖拽提示(首次进入) */}
       {lanterns.length === 0 && !userId && (
         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
           <p style={{ fontSize: '14px', color: 'rgba(150,170,220,0.2)', letterSpacing: '3px', fontFamily: '"Noto Serif SC", serif' }}>拖拽漫游星河</p>
