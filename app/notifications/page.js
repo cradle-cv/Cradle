@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 站内信收件箱
+// 通知中心
 // 路径: app/notifications/page.js
 // ════════════════════════════════════════════════════════════════════
 'use client'
@@ -21,7 +21,7 @@ export default function NotificationsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState([])
-  const [filter, setFilter] = useState('all') // 'all' | 'unread' | 'new_message' | 'concierge_reply'
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => { init() }, [])
 
@@ -102,7 +102,7 @@ export default function NotificationsPage() {
               <img src="/image/logo.png" alt="Cradle" style={{ height: '99px' }} className="object-contain" />
             </Link>
             <span style={{ color: '#D1D5DB' }}>/</span>
-            <span className="text-sm font-medium" style={{ color: '#111827' }}>站内信</span>
+            <span className="text-sm font-medium" style={{ color: '#111827' }}>通知</span>
           </div>
           <UserNav />
         </div>
@@ -110,14 +110,13 @@ export default function NotificationsPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-8">
 
-        {/* 头部 */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <p style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '4px', marginBottom: '6px' }}>
-              MESSAGES
+              NOTIFICATIONS
             </p>
             <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>
-              站内信
+              通知
             </h1>
             <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
               {unreadCount > 0 ? `${unreadCount} 条未读` : '暂无未读'}
@@ -132,7 +131,6 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* 筛选 */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
           {[
             { key: 'all', label: '全部' },
@@ -152,12 +150,11 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        {/* 列表 */}
         {filtered.length === 0 ? (
           <div className="bg-white rounded-2xl p-16 text-center" style={{ border: '0.5px solid #E5E7EB' }}>
-            <div className="text-4xl mb-3 opacity-40">✉</div>
+            <div className="text-4xl mb-3 opacity-40">🔔</div>
             <p className="text-sm" style={{ color: '#9CA3AF' }}>
-              {filter === 'unread' ? '没有未读' : filter === 'all' ? '收件箱是空的' : '没有这类通知'}
+              {filter === 'unread' ? '没有未读' : filter === 'all' ? '暂无通知' : '没有这类通知'}
             </p>
           </div>
         ) : (
@@ -173,13 +170,11 @@ export default function NotificationsPage() {
                     backgroundColor: n.is_read ? '#FFFFFF' : '#FAFAFA',
                   }}>
                   <div className="flex items-start gap-3">
-                    {/* 图标 */}
                     <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-lg"
                       style={{ backgroundColor: info.bg, color: info.color }}>
                       {n.icon || '·'}
                     </div>
 
-                    {/* 内容 */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-2 mb-1">
                         {!n.is_read && (
@@ -208,7 +203,6 @@ export default function NotificationsPage() {
                       </div>
                     </div>
 
-                    {/* 删除 */}
                     <button onClick={(e) => { e.stopPropagation(); deleteOne(n.id) }}
                       className="opacity-0 group-hover:opacity-100 transition w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100"
                       style={{ color: '#9CA3AF', fontSize: '14px' }}>
