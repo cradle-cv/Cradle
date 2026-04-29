@@ -347,19 +347,32 @@ export default function CuratorEditInvitationPage() {
               </div>
             </Field>
 
-            <Field label="每位艺术家投稿上限" hint={form.invitation_type === 'solo' ? '个展模式下,系统自动允许最多 50 件' : '联展每人上限,最高 5'}>
-              <select
-                style={{ ...inputBase, opacity: form.invitation_type === 'solo' ? 0.5 : 1 }}
-                value={form.submission_limit_per_artist}
-                onChange={e => updateField('submission_limit_per_artist', e.target.value)}
-                disabled={form.invitation_type === 'solo'}
-              >
-                <option value="1">1 件</option>
-                <option value="2">2 件</option>
-                <option value="3">3 件</option>
-                <option value="5">5 件</option>
-              </select>
-            </Field>
+            {form.invitation_type === 'solo' ? (
+              <Field label="每位艺术家投稿上限" hint="个展由系统自动应用上限">
+                <div style={{
+                  ...inputBase,
+                  backgroundColor: '#F3E8FF',
+                  color: '#7C3AED',
+                  fontWeight: 500,
+                  cursor: 'not-allowed',
+                }}>
+                  个展模式 · 单一艺术家最多 50 件作品
+                </div>
+              </Field>
+            ) : (
+              <Field label="每位艺术家投稿上限" hint="联展每位艺术家最多投几件作品(最高 5)">
+                <select
+                  style={inputBase}
+                  value={form.submission_limit_per_artist}
+                  onChange={e => updateField('submission_limit_per_artist', e.target.value)}
+                >
+                  <option value="1">1 件</option>
+                  <option value="2">2 件</option>
+                  <option value="3">3 件</option>
+                  <option value="5">5 件</option>
+                </select>
+              </Field>
+            )}
 
             <Field label="作品媒介限制" hint="不选任何一项表示不限媒介">
               <div className="flex flex-wrap gap-2">
