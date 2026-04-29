@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import * as Tone from 'tone'
+import ResidencyExitButton from '@/components/ResidencyExitButton'
 
 const FONTS = [
   { id: 'serif', label: '宋体', family: '"Noto Serif SC", "Source Han Serif SC", serif' },
@@ -433,13 +434,16 @@ export default function CampfireSpace() {
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#0a0500' }}>
       <canvas ref={canvasRef} className="absolute inset-0" style={{ zIndex: 0 }} />
 
+      {/* 顶部标题(还是 hover 才显) */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-center py-4 z-30 transition-opacity duration-700"
         style={{ opacity: topHover ? 0.7 : 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '5px', color: 'rgba(255,200,150,0.4)', textTransform: 'uppercase' }}>Campfire · 篝火</span>
       </div>
-      <div className="absolute top-0 left-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.6 : 0 }}>
-        <Link href="/residency" style={{ fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,200,150,0.3)', textDecoration: 'none' }}>← BACK</Link>
-      </div>
+
+      {/* 退出按钮(始终可见的小标签) */}
+      <ResidencyExitButton theme="dark" />
+
+      {/* 右上角保存提示 */}
       <div className="absolute top-0 right-0 py-4 px-5 z-30 transition-opacity duration-700" style={{ opacity: topHover ? 0.5 : 0 }}>
         {saved && <span style={{ fontSize: '10px', color: 'rgba(255,200,150,0.25)', letterSpacing: '1px' }}>SAVED {saved.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
       </div>
