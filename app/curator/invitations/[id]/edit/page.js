@@ -348,29 +348,28 @@ export default function CuratorEditInvitationPage() {
             </Field>
 
             {form.invitation_type === 'solo' ? (
-              <Field label="每位艺术家投稿上限" hint="个展由系统自动应用上限">
-                <div style={{
-                  ...inputBase,
-                  backgroundColor: '#F3E8FF',
-                  color: '#7C3AED',
-                  fontWeight: 500,
-                  cursor: 'not-allowed',
-                }}>
-                  个展模式 · 单一艺术家最多 50 件作品
-                </div>
-              </Field>
-            ) : (
-              <Field label="每位艺术家投稿上限" hint="联展每位艺术家最多投几件作品(最高 5)">
-                <select
+              <Field label="总作品数量" hint="本场个展总共展出多少件作品(1-100 件)">
+                <input
+                  type="number"
                   style={inputBase}
                   value={form.submission_limit_per_artist}
                   onChange={e => updateField('submission_limit_per_artist', e.target.value)}
-                >
-                  <option value="1">1 件</option>
-                  <option value="2">2 件</option>
-                  <option value="3">3 件</option>
-                  <option value="5">5 件</option>
-                </select>
+                  min={1}
+                  max={100}
+                  placeholder="如:25"
+                />
+              </Field>
+            ) : (
+              <Field label="每位艺术家投稿上限" hint="每位艺术家最多投几件作品(1-50 件)">
+                <input
+                  type="number"
+                  style={inputBase}
+                  value={form.submission_limit_per_artist}
+                  onChange={e => updateField('submission_limit_per_artist', e.target.value)}
+                  min={1}
+                  max={50}
+                  placeholder="如:5"
+                />
               </Field>
             )}
 
