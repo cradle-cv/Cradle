@@ -183,6 +183,10 @@ function LoginForm() {
     } finally { setLoading(false) }
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // 注册流程 — 因为 Supabase Confirm Email 已关闭,
+  // 注册成功后直接登录,不再跳 /verify-email
+  // ════════════════════════════════════════════════════════════════
   async function handleEmailRegister(e) {
     e?.preventDefault()
 
@@ -211,9 +215,9 @@ function LoginForm() {
         return
       }
 
-      // signUp:Supabase 会自动发验证邮件(因为 Confirm email 是开的)
-      // 用户尚未通过验证,authData.session 应为 null
-      // 把 username + inviteCode 存进 user_metadata,验证成功后再写到 users 表
+      // signUp:注册账号
+      // 因为 Confirm Email 已关闭,Supabase 会直接创建并 confirm 账号
+      // authData.session 应有值(自动登录)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -226,9 +230,29 @@ function LoginForm() {
       })
       if (authError) throw authError
 
-      // 跳到验证页
-      const params = new URLSearchParams({ email: form.email })
-      router.push(`/verify-email?${params.toString()}`)
+      // ★ 改动:不再跳 /verify-email
+      if (authData?.session) {
+        // Supabase 自动登录了,直接跳目标页
+        setSuccess('注册成功,正在进入摇篮...')
+        setTimeout(() => router.push(redirect), 600)
+      } else {
+        // 兜底:如果 session 没自动建立,用密码再登一次
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        })
+        if (signInError) {
+          // 极端情况:连这也失败,引导用户去登录页手动登录
+          setError('注册成功,但自动登录失败。请用注册时的邮箱和密码手动登录。')
+          setErrorAction({
+            label: '去登录',
+            onClick: () => switchMode('login', form.email)
+          })
+        } else {
+          setSuccess('注册成功,正在进入摇篮...')
+          setTimeout(() => router.push(redirect), 600)
+        }
+      }
     } catch (err) {
       if (err.message.includes('already registered')) {
         setError('该邮箱已注册')
@@ -346,7 +370,7 @@ function LoginForm() {
             {mode === 'login' ? '欢迎回来' : '创建账号'}
           </h1>
           <p className="mb-6" style={{ color: '#6B7280', fontSize: '15px' }}>
-            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后开始你的艺术之旅'}
+            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后立即开始你的艺术之旅'}
           </p>
 
           {error && (
@@ -466,20 +490,19 @@ function LoginForm() {
                 <PasswordInput name="confirmPassword" value={form.confirmPassword} onChange={handleChange} 
                   placeholder="再次输入密码" style={inputStyle} />
               </div>
-              <button type="submit" disabled={loading}
-                className="w-full py-3.5 rounded-xl font-medium text-white"
-                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
-                {loading ? '提交中...' : '下一步:邮箱验证'}
-              </button>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码(可选)</label>
                 <input name="inviteCode" value={form.inviteCode} onChange={handleChange}
                   placeholder="如有好友邀请码,填写可获额外奖励"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-xl font-medium text-white"
+                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
+                {loading ? '注册中...' : '注册并进入摇篮'}
+              </button>
               <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
-                注册即表示你同意我们的服务条款和隐私政策。<br/>
-                提交后,我们会发送验证码到你的邮箱。
+                注册即表示你同意我们的服务条款和隐私政策。
               </p>
             </form>
           )}
