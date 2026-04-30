@@ -30,9 +30,8 @@ export default function InvitationDetailPage() {
   const [myPartnerApplication, setMyPartnerApplication] = useState(null)
   const [approvedPartner, setApprovedPartner] = useState(null)
 
-  // ★ 对话抽屉(从此页打开,需指定我是哪种身份)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerType, setDrawerType] = useState(null) // 'artist' | 'partner'
+  const [drawerType, setDrawerType] = useState(null)
 
   useEffect(() => { if (id) load() }, [id])
 
@@ -130,7 +129,6 @@ export default function InvitationDetailPage() {
   const mediums = invitation.medium_restrictions || []
   const isCollecting = invitation.status === 'collecting' && days >= 0
 
-  // ★ 打开对话
   function openConversation(type) {
     setDrawerType(type)
     setDrawerOpen(true)
@@ -159,16 +157,86 @@ export default function InvitationDetailPage() {
         </div>
       </nav>
 
-      <section className="w-full relative" style={{ backgroundColor: isOfficial ? '#FAFAFA' : `${themeColor}15` }}>
+      {/* ★ 改造后的 Banner — 中间完整 + 两边模糊背景 */}
+      <section
+        className="w-full relative overflow-hidden"
+        style={{
+          backgroundColor: isOfficial ? '#FAFAFA' : `${themeColor}15`,
+          aspectRatio: '21 / 9',
+          maxHeight: '540px',
+        }}
+      >
         {invitation.cover_image ? (
-          <div style={{ maxHeight: '540px', overflow: 'hidden' }}>
-            <img src={invitation.cover_image} alt={invitation.title}
-              style={{ width: '100%', aspectRatio: '21 / 9', objectFit: 'cover', display: 'block' }} />
-          </div>
+          <>
+            {/* 模糊背景层 — 同一张图,放大,模糊,半透明 */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${invitation.cover_image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(40px) saturate(1.2)',
+                transform: 'scale(1.2)',
+                opacity: 0.6,
+              }}
+            />
+            {/* 上下白色渐变(让模糊背景更柔和地融入页面) */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.25) 100%)',
+              }}
+            />
+            {/* 前景层 — 完整图片,居中显示 */}
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1,
+              }}
+            >
+              <img
+                src={invitation.cover_image}
+                alt={invitation.title}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                }}
+              />
+            </div>
+          </>
         ) : (
-          <div style={{ aspectRatio: '21 / 9', maxHeight: '420px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: isOfficial ? '#F3F4F6' : themeColor }}>
-            <span style={{ color: isOfficial ? '#6B7280' : '#FFFFFF', letterSpacing: '12px', fontSize: '14px', opacity: 0.7 }}>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isOfficial ? '#F3F4F6' : themeColor,
+            }}
+          >
+            <span
+              style={{
+                color: isOfficial ? '#6B7280' : '#FFFFFF',
+                letterSpacing: '12px',
+                fontSize: '14px',
+                opacity: 0.7,
+              }}
+            >
               OPEN CALL
             </span>
           </div>
@@ -228,7 +296,11 @@ export default function InvitationDetailPage() {
             </h3>
             <ul className="space-y-2 text-sm" style={{ color: '#374151' }}>
               {invitation.expected_count && <li>· 预计入选 <strong>{invitation.expected_count}</strong> 件</li>}
-              <li>· 每人最多投稿 <strong>{invitation.submission_limit_per_artist || 5}</strong> 件</li>
+              {invitation.invitation_type === 'solo' ? (
+                <li>· 个展总作品数:<strong>{invitation.submission_limit_per_artist || 25}</strong> 件</li>
+              ) : (
+                <li>· 每人最多投稿 <strong>{invitation.submission_limit_per_artist || 5}</strong> 件</li>
+              )}
               <li>· 作品媒介:<strong>{mediums.length === 0 ? '不限' : mediums.map(m => MEDIUM_LABELS[m] || m).join('、')}</strong></li>
               <li>· 合作伙伴报名:<strong>{invitation.open_to_partners ? '开放' : '不开放'}</strong></li>
               <li>· 截止日期:<strong>{deadlineStr}</strong></li>
@@ -325,7 +397,6 @@ export default function InvitationDetailPage() {
         </div>
       </footer>
 
-      {/* ★ 对话抽屉 */}
       {drawerOpen && currentUser && drawerType && (
         <ConversationDrawer
           open={drawerOpen}
@@ -447,7 +518,6 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
           >
             {editable ? '修改投稿' : '查看投稿'}
           </Link>
-          {/* ★ 对话按钮 */}
           <button
             onClick={onOpenConversation}
             className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium"
@@ -466,7 +536,10 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
         把你的作品送到 Cradle
       </p>
       <p className="text-sm mb-6" style={{ color: '#6B7280', lineHeight: 1.8 }}>
-        从你已发布的作品中选择,最多 {invitation.submission_limit_per_artist || 5} 件
+        {invitation.invitation_type === 'solo' 
+          ? `从你已发布的作品中选择,本场个展共展出 ${invitation.submission_limit_per_artist || 25} 件作品`
+          : `从你已发布的作品中选择,最多 ${invitation.submission_limit_per_artist || 5} 件`
+        }
       </p>
       <Link
         href={`/invitations/${invitation.id}/submit`}
@@ -511,7 +584,6 @@ function PartnerActionArea({ invitation, isCollecting, currentUser, isPartner, m
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* ★ 对话按钮 */}
             <button onClick={onOpenConversation}
               className="text-sm px-4 py-2 rounded-lg transition"
               style={{ backgroundColor: '#FFFFFF', color: '#374151', border: '0.5px solid #D1D5DB' }}>
