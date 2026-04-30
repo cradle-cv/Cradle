@@ -38,7 +38,7 @@ export default function StudioPage() {
   const [exhibitions, setExhibitions] = useState([])
   const [magazines, setMagazines] = useState([])
   const [myInvitations, setMyInvitations] = useState([])
-  const [myCuratedExhibitions, setMyCuratedExhibitions] = useState([])  // B4
+  const [myCuratedExhibitions, setMyCuratedExhibitions] = useState([])
   const [openInvitations, setOpenInvitations] = useState([])
   const [myApplications, setMyApplications] = useState([])
   const [myPartnerExhibitions, setMyPartnerExhibitions] = useState([])
@@ -224,6 +224,11 @@ export default function StudioPage() {
     return list
   }, [isCurator, isPartner, myInvitations, myPartnerExhibitions, unreadMsgs])
 
+  // ★ 给 CuratorInvitationsTab 用的回调
+  async function refreshCuratorData() {
+    await loadCuratorData()
+  }
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400">加载中...</p>
@@ -289,6 +294,7 @@ export default function StudioPage() {
                 myCuratedExhibitions={myCuratedExhibitions}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
+                onRefresh={refreshCuratorData}
               />
             )}
 
@@ -355,9 +361,6 @@ function TodoItem({ todo }) {
   return <button onClick={todo.action}>{content}</button>
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 身份切换器
-// ═══════════════════════════════════════════════════════════════
 function IdentitySwitcher({ identities, active, onChange }) {
   return (
     <div className="mb-6 flex justify-center">
@@ -384,9 +387,6 @@ function IdentitySwitcher({ identities, active, onChange }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 无身份 / 驻地欢迎页
-// ═══════════════════════════════════════════════════════════════
 function NoIdentityView() {
   return (
     <div className="max-w-lg mx-auto text-center bg-white rounded-2xl p-12 shadow-sm mt-12">
@@ -756,9 +756,8 @@ function MagazinesTab({ magazines, statusColors }) {
 // ═══════════════════════════════════════════════════════════════
 // 策展人模块
 // ═══════════════════════════════════════════════════════════════
-function CuratorModule({ user, myInvitations, myCuratedExhibitions, activeTab, setActiveTab }) {
+function CuratorModule({ user, myInvitations, myCuratedExhibitions, activeTab, setActiveTab, onRefresh }) {
   const totalPending = myInvitations.reduce((s, i) => s + (Number(i.pending_count) || 0), 0)
-  const totalShortlisted = myInvitations.reduce((s, i) => s + (Number(i.shortlisted_count) || 0), 0)
   const totalApproved = myInvitations.reduce((s, i) => s + (Number(i.approved_count) || 0), 0)
 
   return (
@@ -816,15 +815,14 @@ function CuratorModule({ user, myInvitations, myCuratedExhibitions, activeTab, s
         setActiveTab={setActiveTab}
       />
 
-      {activeTab === 'invitations' && <CuratorInvitationsTab myInvitations={myInvitations} myCuratedExhibitions={myCuratedExhibitions} />}
+      {activeTab === 'invitations' && <CuratorInvitationsTab myInvitations={myInvitations} myCuratedExhibitions={myCuratedExhibitions} onRefresh={onRefresh} />}
       {activeTab === 'partner_reviews' && <CuratorPartnerReviewsTab myInvitations={myInvitations} />}
       {activeTab === 'curated_exhibitions' && <CuratedExhibitionsTab exhibitions={myCuratedExhibitions} />}
     </>
   )
 }
 
-function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
-  // 为每个邀请函统计已生成的展览数(通过 invitation_id 分组)
+function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions, onRefresh }) {
   const exhibitionsByInvitation = useMemo(() => {
     const map = new Map()
     for (const ex of myCuratedExhibitions || []) {
@@ -833,6 +831,52 @@ function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
     }
     return map
   }, [myCuratedExhibitions])
+
+  // ★ 取消邀请函(soft delete)
+  async function cancelInvitation(inv) {
+    if (!confirm(`确定取消「${inv.title}」?\n\n已提交的投稿会保留但不再接收新投稿。\n如果改变主意,请联系管理员恢复。`)) return
+    try {
+      const { error } = await supabase.from('invitations')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', inv.id)
+      if (error) throw error
+      onRefresh && onRefresh()
+    } catch (e) {
+      alert('取消失败:' + e.message)
+    }
+  }
+
+  // ★ 永久删除(只对没数据的开放)
+  async function deleteInvitation(inv) {
+    let hasData = false
+    let dataDesc = ''
+    try {
+      const { data: dInfo } = await supabase.rpc('invitation_has_data', { p_invitation_id: inv.id })
+      if (dInfo && dInfo[0]) {
+        const d = dInfo[0]
+        if (d.has_submissions || d.has_partner_apps) {
+          hasData = true
+          if (d.has_submissions) dataDesc += `\n  · ${d.submission_count} 份艺术家投稿`
+          if (d.has_partner_apps) dataDesc += `\n  · ${d.partner_app_count} 份合作伙伴申请`
+        }
+      }
+    } catch (e) { console.warn(e) }
+    
+    if (hasData) {
+      alert(`无法删除「${inv.title}」\n\n此邀请函已有数据:${dataDesc}\n\n请使用"取消"代替删除。\n如果确实需要彻底删除,请联系管理员。`)
+      return
+    }
+    
+    if (!confirm(`确定永久删除「${inv.title}」吗?\n\n此邀请函暂无投稿/申请数据,可以安全删除。\n此操作不可恢复。`)) return
+    
+    try {
+      const { error } = await supabase.rpc('delete_invitation', { p_invitation_id: inv.id })
+      if (error) throw error
+      onRefresh && onRefresh()
+    } catch (e) {
+      alert('删除失败:' + e.message)
+    }
+  }
 
   return (
     <div>
@@ -843,6 +887,7 @@ function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
         <div className="space-y-3">
           {myInvitations.map(inv => {
             const exs = exhibitionsByInvitation.get(inv.id) || []
+            const isCancelled = inv.status === 'cancelled'
             return (
               <div key={inv.id} className="bg-white rounded-xl shadow-sm p-5">
                 <div className="flex items-center gap-4">
@@ -857,10 +902,31 @@ function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-bold truncate" style={{ color: '#111827' }}>{inv.title}</h3>
                       <span className="px-2 py-0.5 rounded-full text-xs"
-                        style={{ backgroundColor: inv.status === 'collecting' ? '#ECFDF5' : '#F3F4F6',
-                                 color: inv.status === 'collecting' ? '#059669' : '#6B7280' }}>
-                        {inv.status === 'collecting' ? '征集中' : inv.status}
+                        style={{
+                          backgroundColor: 
+                            inv.status === 'collecting' ? '#ECFDF5' : 
+                            inv.status === 'curating' ? '#FEF3C7' :
+                            inv.status === 'completed' ? '#DBEAFE' :
+                            isCancelled ? '#FEE2E2' : '#F3F4F6',
+                          color: 
+                            inv.status === 'collecting' ? '#059669' : 
+                            inv.status === 'curating' ? '#92400E' :
+                            inv.status === 'completed' ? '#1E40AF' :
+                            isCancelled ? '#DC2626' : '#6B7280'
+                        }}>
+                        {
+                          inv.status === 'collecting' ? '征集中' : 
+                          inv.status === 'curating' ? '评选中' :
+                          inv.status === 'completed' ? '已完成' :
+                          isCancelled ? '已取消' : 
+                          inv.status
+                        }
                       </span>
+                      {inv.invitation_type === 'solo' && (
+                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#F3E8FF', color: '#7C3AED' }}>
+                          个展
+                        </span>
+                      )}
                       {inv.open_to_partners && (
                         <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}>
                           开放承办
@@ -874,23 +940,52 @@ function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions }) {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    {Number(inv.pending_count) > 0 && (
-                      <Link href={`/curator/invitations/${inv.id}/applications`}
-                        className="px-3 py-2 rounded-lg text-xs font-medium text-white"
-                        style={{ backgroundColor: '#DC2626' }}>
-                        初审 {inv.pending_count}
-                      </Link>
-                    )}
-                    <Link href={`/invitations/${inv.id}`}
-                      className="px-3 py-2 rounded-lg text-xs font-medium"
-                      style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
-                      查看
-                    </Link>
-                  </div>
                 </div>
 
-                {/* 已生成展览的小链接 */}
+                {/* ★ 操作按钮区 */}
+                <div className="mt-4 pt-4 flex items-center gap-2 flex-wrap" style={{ borderTop: '0.5px solid #F3F4F6' }}>
+                  <Link href={`/invitations/${inv.id}`}
+                    className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
+                    style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                    查看
+                  </Link>
+                  {!isCancelled && Number(inv.pending_count) > 0 && (
+                    <Link href={`/curator/invitations/${inv.id}/applications`}
+                      className="px-3 py-1.5 text-xs rounded-lg text-white"
+                      style={{ backgroundColor: '#DC2626' }}>
+                      初审 {inv.pending_count}
+                    </Link>
+                  )}
+                  {!isCancelled && Number(inv.pending_count) === 0 && Number(inv.total_count) > 0 && (
+                    <Link href={`/curator/invitations/${inv.id}/applications`}
+                      className="px-3 py-1.5 text-xs rounded-lg hover:bg-purple-50"
+                      style={{ color: '#7C3AED', border: '0.5px solid #DDD6FE' }}>
+                      📋 已审报名
+                    </Link>
+                  )}
+                  {!isCancelled && (
+                    <Link href={`/curator/invitations/${inv.id}/edit`}
+                      className="px-3 py-1.5 text-xs rounded-lg hover:bg-blue-50"
+                      style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
+                      ✏ 编辑
+                    </Link>
+                  )}
+                  {!isCancelled && (
+                    <button onClick={() => cancelInvitation(inv)}
+                      className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50"
+                      style={{ color: '#DC2626', border: '0.5px solid #FECACA' }}>
+                      取消
+                    </button>
+                  )}
+                  <button onClick={() => deleteInvitation(inv)}
+                    className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-100 ml-auto"
+                    style={{ color: '#DC2626', border: '0.5px solid #DC2626' }}
+                    title="只对没有数据的邀请函可用">
+                    🗑 删除
+                  </button>
+                </div>
+
+                {/* 已生成展览 */}
                 {exs.length > 0 && (
                   <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: '0.5px solid #F3F4F6' }}>
                     <span className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>
@@ -976,7 +1071,6 @@ function CuratorPartnerReviewsTab({ myInvitations }) {
   )
 }
 
-// B4 新 tab:策展人全景视图 —— 我策展的展览
 function CuratedExhibitionsTab({ exhibitions }) {
   return (
     <div>
@@ -1013,12 +1107,10 @@ function CuratedExhibitionsTab({ exhibitions }) {
                     </span>
                   </div>
 
-                  {/* 源邀请函 */}
                   <p className="text-xs mb-2" style={{ color: '#6B7280' }}>
                     📯 源自 <span className="font-medium">{ex.invitation_title}</span>
                   </p>
 
-                  {/* 承办方 */}
                   {ex.partner_id && ex.partner_name && (
                     <div className="flex items-center gap-2 pt-2 mt-2" style={{ borderTop: '0.5px solid #F3F4F6' }}>
                       <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
@@ -1034,7 +1126,6 @@ function CuratedExhibitionsTab({ exhibitions }) {
                     </div>
                   )}
 
-                  {/* 日期和地点 */}
                   {(ex.exhibition_start_date || ex.exhibition_location) && (
                     <div className="flex items-center gap-3 text-xs mt-2" style={{ color: '#9CA3AF' }}>
                       {ex.exhibition_start_date && (
