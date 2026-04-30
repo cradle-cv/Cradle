@@ -1,4 +1,3 @@
-
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -61,6 +60,7 @@ export default function InvitationEditor({ mode, currentUser }) {
     submission_limit_per_artist: 5,
     medium_restrictions: [],
     open_to_partners: true,
+    invitation_type: 'group',  // ★ 新增:联展(group) / 个展(solo)
   })
 
   const [uploading, setUploading] = useState(false)
@@ -69,6 +69,16 @@ export default function InvitationEditor({ mode, currentUser }) {
 
   function updateField(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  // ★ 切换展览类型时,自动调整默认投稿上限
+  function changeInvitationType(newType) {
+    setForm(prev => ({
+      ...prev,
+      invitation_type: newType,
+      // 联展默认 5,个展默认 25
+      submission_limit_per_artist: newType === 'solo' ? 25 : 5,
+    }))
   }
 
   function toggleMedium(value) {
@@ -120,6 +130,13 @@ export default function InvitationEditor({ mode, currentUser }) {
       setError('征集时间最长 4 周'); return
     }
 
+    // ★ 投稿上限校验
+    const limit = parseInt(form.submission_limit_per_artist, 10)
+    const maxLimit = form.invitation_type === 'solo' ? 100 : 50
+    if (!limit || limit < 1 || limit > maxLimit) {
+      setError(`投稿上限请填 1-${maxLimit} 之间的数字`); return
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -131,9 +148,10 @@ export default function InvitationEditor({ mode, currentUser }) {
         cover_image: form.cover_image || null,
         deadline: deadlineDate.toISOString(),
         expected_count: form.expected_count ? parseInt(form.expected_count, 10) : null,
-        submission_limit_per_artist: parseInt(form.submission_limit_per_artist, 10),
+        submission_limit_per_artist: limit,
         medium_restrictions: form.medium_restrictions,
         open_to_partners: form.open_to_partners,
+        invitation_type: form.invitation_type,  // ★ 新增
         status: 'collecting',
       }
 
@@ -162,6 +180,8 @@ export default function InvitationEditor({ mode, currentUser }) {
   const today = new Date()
   const minDate = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const maxDate = new Date(today.getTime() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  const isSolo = form.invitation_type === 'solo'
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F5F4', fontFamily: '"Noto Serif SC", serif' }}>
@@ -227,6 +247,34 @@ export default function InvitationEditor({ mode, currentUser }) {
           </Section>
 
           <Section title="规则">
+            {/* ★ 展览类型选择 */}
+            <Field label="展览类型" required hint="联展:多位艺术家共同参与 · 个展:单一艺术家的专题展览">
+              <div className="flex gap-2">
+                <button type="button"
+                  onClick={() => changeInvitationType('group')}
+                  className="flex-1 px-4 py-3 rounded-lg text-sm transition"
+                  style={{
+                    backgroundColor: form.invitation_type === 'group' ? '#111827' : '#F3F4F6',
+                    color: form.invitation_type === 'group' ? '#FFFFFF' : '#6B7280',
+                    border: '0.5px solid ' + (form.invitation_type === 'group' ? '#111827' : '#E5E7EB'),
+                    fontWeight: form.invitation_type === 'group' ? 500 : 400,
+                  }}>
+                  联展(多位艺术家)
+                </button>
+                <button type="button"
+                  onClick={() => changeInvitationType('solo')}
+                  className="flex-1 px-4 py-3 rounded-lg text-sm transition"
+                  style={{
+                    backgroundColor: form.invitation_type === 'solo' ? '#111827' : '#F3F4F6',
+                    color: form.invitation_type === 'solo' ? '#FFFFFF' : '#6B7280',
+                    border: '0.5px solid ' + (form.invitation_type === 'solo' ? '#111827' : '#E5E7EB'),
+                    fontWeight: form.invitation_type === 'solo' ? 500 : 400,
+                  }}>
+                  个展(单一艺术家)
+                </button>
+              </div>
+            </Field>
+
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="截止日期" required hint="最短 1 天,最长 4 周">
                 <input
@@ -248,18 +296,28 @@ export default function InvitationEditor({ mode, currentUser }) {
               </Field>
             </div>
 
-            <Field label="每位艺术家投稿上限" hint="每个艺术家最多可以投多少件作品,最高 5">
-              <select
-                style={inputBase}
-                value={form.submission_limit_per_artist}
-                onChange={e => updateField('submission_limit_per_artist', e.target.value)}
-              >
-                <option value="1">1 件</option>
-                <option value="2">2 件</option>
-                <option value="3">3 件</option>
-                <option value="5">5 件</option>
-              </select>
-            </Field>
+            {/* ★ 投稿上限 - 数字输入 */}
+            {isSolo ? (
+              <Field label="总作品数量" required hint="本场个展总共展出多少件作品(1-100 件)">
+                <input
+                  type="number" style={inputBase}
+                  value={form.submission_limit_per_artist}
+                  onChange={e => updateField('submission_limit_per_artist', e.target.value)}
+                  min={1} max={100}
+                  placeholder="如:25"
+                />
+              </Field>
+            ) : (
+              <Field label="每位艺术家投稿上限" required hint="每位艺术家最多投几件作品(1-50 件)">
+                <input
+                  type="number" style={inputBase}
+                  value={form.submission_limit_per_artist}
+                  onChange={e => updateField('submission_limit_per_artist', e.target.value)}
+                  min={1} max={50}
+                  placeholder="如:5"
+                />
+              </Field>
+            )}
 
             <Field label="作品媒介限制" hint="不选任何一项表示不限媒介">
               <div className="flex flex-wrap gap-2">
@@ -307,7 +365,7 @@ export default function InvitationEditor({ mode, currentUser }) {
               <p className="text-xs" style={{ color: '#854D0E', lineHeight: 1.8 }}>
                 <strong>关于发起权限</strong><br/>
                 一位策展人同时最多能开启 2 份征集中的邀请函。<br/>
-                发起后无法修改截止日期,但可以修改标题、描述、封面。
+                发起后可在工作台编辑大部分字段(包括截止日期、投稿上限等)。
               </p>
             </div>
           )}
