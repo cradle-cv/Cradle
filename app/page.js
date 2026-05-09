@@ -19,10 +19,28 @@ async function getData() {
   }
 
   const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').order('created_at', { ascending: false }).limit(8)
-  // 明确指定通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
   const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
-  const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4)
+  const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('created_at', { ascending: false }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
+
+  let homepageInvitations = []
+  try {
+    const { data: invs } = await supabase.rpc('get_homepage_invitations')
+    homepageInvitations = invs || []
+  } catch (e) {
+    console.error('get_homepage_invitations failed:', e)
+  }
+
+  let submittedInvitationIds = []
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: subs } = await supabase.rpc('get_my_invitation_submissions')
+      if (subs) {
+        submittedInvitationIds = subs.map(s => s.invitation_id)
+      }
+    }
+  } catch (e) { /* silent */ }
 
   let homepageDaily = null
   let homepageSelect = null
@@ -59,11 +77,143 @@ async function getData() {
     exhibition, collections: collections || [], artists: artists || [],
     partners: partners || [], galleryWorks: galleryWorks || [],
     homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
+    homepageInvitations,
+    submittedInvitationIds,
   }
 }
 
+function daysRemaining(deadline) {
+  if (!deadline) return null
+  const now = new Date()
+  const dl = new Date(deadline)
+  return Math.ceil((dl - now) / (1000 * 60 * 60 * 24))
+}
+
+function InvitationCompactCard({ inv, alreadySubmitted }) {
+  const days = daysRemaining(inv.deadline)
+  const themeColor = inv.theme_color || '#8a7a5c'
+  const isOfficial = inv.is_official
+
+  const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a`
+  const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66`
+
+  const shouldShowPrompt = !alreadySubmitted && (inv.status === 'collecting' || !inv.status)
+
+  return (
+    <a href={`/invitations/${inv.id}`} className="group block">
+      <div
+        className="rounded-xl overflow-hidden transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md"
+        style={{
+          border: `1px solid ${cardBorder}`,
+          backgroundColor: cardBg,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
+          {inv.cover_image ? (
+            <img
+              src={inv.cover_image}
+              alt={inv.title}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: isOfficial ? '#F3F4F6' : themeColor }}
+            >
+              <span
+                className="text-xs tracking-widest"
+                style={{ color: isOfficial ? '#9CA3AF' : '#FFFFFF', opacity: 0.7, letterSpacing: '6px' }}
+              >
+                OPEN CALL
+              </span>
+            </div>
+          )}
+          {alreadySubmitted ? (
+            <div
+              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.95)',
+                color: '#FFFFFF',
+                fontSize: '11px',
+              }}
+            >
+              ✓ 已投稿
+            </div>
+          ) : days !== null && days >= 0 && (
+            <div
+              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                color: days <= 7 ? '#DC2626' : '#374151',
+                fontSize: '11px',
+              }}
+            >
+              {days === 0 ? '今日截止' : `还剩 ${days} 天`}
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span
+              className="text-xs"
+              style={{
+                color: isOfficial ? '#111827' : themeColor,
+                fontWeight: 500,
+                letterSpacing: '1px',
+              }}
+            >
+              {isOfficial ? 'Cradle 官方' : '策展人邀请'}
+            </span>
+          </div>
+          <h3
+            className="text-sm md:text-base font-bold line-clamp-2 mb-2"
+            style={{ color: '#111827', lineHeight: 1.5 }}
+          >
+            {inv.title}
+          </h3>
+          {shouldShowPrompt && (
+            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#10B981' }}
+              />
+              <span
+                className="text-xs"
+                style={{
+                  color: '#059669',
+                  fontSize: '11px',
+                  letterSpacing: '1px',
+                }}
+              >
+                征集中 · 这里征集你的作品 →
+              </span>
+            </div>
+          )}
+          {alreadySubmitted && (
+            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
+              <span
+                className="text-xs"
+                style={{
+                  color: '#059669',
+                  fontSize: '11px',
+                  letterSpacing: '1px',
+                }}
+              >
+                ✓ 你已投稿 · 点击查看详情
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </a>
+  )
+}
+
 export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions } = await getData()
+  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
+  const submittedSet = new Set(submittedInvitationIds)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -150,51 +300,90 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 每日一展 */}
-      {exhibition && (
+      {/* 每日一展 + 邀请函 */}
+      {(exhibition || homepageInvitations.length > 0) && (
         <section id="daily" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
-            <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
-            <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="relative">
-                  <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
-                  <div className="aspect-[4/3]">
-                    <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
+            {exhibition && (
+              <>
+                <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
+                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
+
+                <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
+                  <div className="grid md:grid-cols-2 gap-0">
+                    <div className="relative">
+                      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
+                      <div className="aspect-[4/3]">
+                        <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                    <div className="p-6 md:p-10 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
+                        <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
+                          <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
+                        </div>
+                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
+                        <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
+                          {exhibition.start_date && (
+                            <div className="flex items-start gap-3">
+                              <span className="text-[#F59E0B]">📅</span>
+                              <div>
+                                <div className="text-xs md:text-sm text-gray-500">展期</div>
+                                <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
+                              </div>
+                            </div>
+                          )}
+                          {exhibition.location && (
+                            <div className="flex items-start gap-3">
+                              <span className="text-[#F59E0B]">📍</span>
+                              <div>
+                                <div className="text-xs md:text-sm text-gray-500">地点</div>
+                                <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
+                    </div>
                   </div>
                 </div>
-                <div className="p-6 md:p-10 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
-                    <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                      <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
-                    </div>
-                    <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
-                    <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
-                      {exhibition.start_date && (
-                        <div className="flex items-start gap-3">
-                          <span className="text-[#F59E0B]">📅</span>
-                          <div>
-                            <div className="text-xs md:text-sm text-gray-500">展期</div>
-                            <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
-                          </div>
-                        </div>
-                      )}
-                      {exhibition.location && (
-                        <div className="flex items-start gap-3">
-                          <span className="text-[#F59E0B]">📍</span>
-                          <div>
-                            <div className="text-xs md:text-sm text-gray-500">地点</div>
-                            <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
+              </>
+            )}
+
+            {/* 邀请函小卡片区 */}
+            {homepageInvitations.length > 0 && (
+              <div className="mt-8 md:mt-10">
+                <div className={
+                  homepageInvitations.length === 1
+                    ? 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
+                    : homepageInvitations.length === 2
+                    ? 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'
+                    : 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
+                }>
+                  {homepageInvitations.map(inv => (
+                    <InvitationCompactCard
+                      key={inv.id}
+                      inv={inv}
+                      alreadySubmitted={submittedSet.has(inv.id)}
+                    />
+                  ))}
                 </div>
               </div>
+            )}
+
+            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
+              {exhibition && (
+                <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+                  查看更多展览 →
+                </a>
+              )}
+              {homepageInvitations.length > 0 && (
+                <a href="/invitations" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+                  查看所有邀请函 →
+                </a>
+              )}
             </div>
           </div>
         </section>
@@ -288,7 +477,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 艺术家 - 等高卡片，按钮底部对齐 */}
+      {/* 艺术家 */}
       <section id="artists" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
@@ -319,7 +508,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 合作伙伴 - 等高卡片，城市标签底部对齐 */}
+      {/* 合作伙伴 */}
       <section id="partners" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
@@ -389,14 +578,19 @@ export default async function Home() {
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
                 <div className="text-xl font-bold">Cradle摇篮</div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
+              {/* ★ 信房入口 */}
+              <a href="/concierge" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors group">
+                <span style={{ letterSpacing: '3px' }}>→ 信 房</span>
+                <span className="text-xs text-gray-500 group-hover:text-gray-300">有什么想说的</span>
+              </a>
             </div>
             <div>
               <h5 className="font-bold mb-3 md:mb-4 text-sm md:text-base">关于我们</h5>
               <ul className="space-y-2 text-xs md:text-sm text-gray-400">
                 <li><a href="#" className="hover:text-white">平台介绍</a></li>
                 <li><a href="#" className="hover:text-white">团队成员</a></li>
-                <li><a href="#" className="hover:text-white">联系我们</a></li>
+                <li><a href="/concierge" className="hover:text-white">联系我们</a></li>
                 <li><a href="#" className="hover:text-white">加入我们</a></li>
               </ul>
             </div>
