@@ -184,8 +184,8 @@ function LoginForm() {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // 注册流程 — 因为 Supabase Confirm Email 已关闭,
-  // 注册成功后直接登录,不再跳 /verify-email
+  // 注册流程 — Confirm Email 关闭后,signUp 直接成功,
+  // 立即 INSERT 用户到 public.users,然后跳转
   // ════════════════════════════════════════════════════════════════
   async function handleEmailRegister(e) {
     e?.preventDefault()
@@ -202,7 +202,7 @@ function LoginForm() {
 
     setLoading(true); setError(''); setErrorAction(null)
     try {
-      // 检查用户名重复
+      // 1. 检查用户名重复
       const { data: existing } = await supabase
         .from('users')
         .select('id')
@@ -215,9 +215,7 @@ function LoginForm() {
         return
       }
 
-      // signUp:注册账号
-      // 因为 Confirm Email 已关闭,Supabase 会直接创建并 confirm 账号
-      // authData.session 应有值(自动登录)
+      // 2. signUp:创建 Auth 账号
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -230,20 +228,55 @@ function LoginForm() {
       })
       if (authError) throw authError
 
-      // ★ 改动:不再跳 /verify-email
-      if (authData?.session) {
-        // Supabase 自动登录了,直接跳目标页
+      if (!authData?.user) {
+        setError('注册失败,请重试')
+        setLoading(false)
+        return
+      }
+
+      // 3. ★ 关键:把用户插入 public.users 表
+      const { error: insertError } = await supabase.from('users').insert({
+        auth_id: authData.user.id,
+        username: form.username,
+        email: form.email,
+      })
+
+      if (insertError) {
+        // 即使 insert 失败,Auth 账号已经创建了
+        // 提示用户但不阻塞登录流程
+        console.error('users 表 insert 失败:', insertError)
+        // 不抛出错误,继续登录(让用户能用,问题之后修)
+      }
+
+      // 4. 处理邀请码(如果填了)
+      if (form.inviteCode) {
+        try {
+          await fetch('/api/invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invite_code: form.inviteCode,
+              new_user_auth_id: authData.user.id,
+            }),
+          })
+        } catch (e) {
+          console.warn('邀请码处理失败:', e)
+        }
+      }
+
+      // 5. 跳转
+      if (authData.session) {
+        // 已自动登录
         setSuccess('注册成功,正在进入摇篮...')
         setTimeout(() => router.push(redirect), 600)
       } else {
-        // 兜底:如果 session 没自动建立,用密码再登一次
+        // 兜底:用密码登录
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password,
         })
         if (signInError) {
-          // 极端情况:连这也失败,引导用户去登录页手动登录
-          setError('注册成功,但自动登录失败。请用注册时的邮箱和密码手动登录。')
+          setError('注册成功,但自动登录失败。请用刚才的邮箱和密码手动登录。')
           setErrorAction({
             label: '去登录',
             onClick: () => switchMode('login', form.email)
