@@ -211,13 +211,53 @@ function InvitationCompactCard({ inv, alreadySubmitted }) {
   )
 }
 
+// ★ 展览状态按钮组件 — 统一的按钮逻辑
+function ExhibitionActionButton({ exhibition }) {
+  // is_open = true → 进入展览
+  if (exhibition.is_open) {
+    return (
+      <a href={`/exhibitions/${exhibition.id}`}
+        className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base text-white hover:opacity-90 transition"
+        style={{ backgroundColor: '#111827' }}>
+        进入展览 →
+      </a>
+    )
+  }
+  
+  // 根据 status 显示不同的"未开放"状态
+  if (exhibition.status === 'ended') {
+    return (
+      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base"
+        style={{ backgroundColor: '#E5E7EB', color: '#9CA3AF', cursor: 'default' }}>
+        展览已结束
+      </div>
+    )
+  }
+  
+  if (exhibition.status === 'upcoming') {
+    return (
+      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base"
+        style={{ backgroundColor: '#FEF3C7', color: '#B45309', cursor: 'default' }}>
+        📅 即将开展
+      </div>
+    )
+  }
+  
+  // 默认: 布展中
+  return (
+    <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base"
+      style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>
+      🔨 布展中,敬请期待
+    </div>
+  )
+}
+
 export default async function Home() {
   const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
   const submittedSet = new Set(submittedInvitationIds)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-1 flex justify-between items-center">
           <div className="flex items-center gap-6 md:gap-12">
@@ -307,7 +347,7 @@ export default async function Home() {
             {exhibition && (
               <>
                 <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
-                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
+                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览,感受艺术的魅力</p>
 
                 <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
                   <div className="grid md:grid-cols-2 gap-0">
@@ -345,7 +385,9 @@ export default async function Home() {
                           )}
                         </div>
                       </div>
-                      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
+                      
+                      {/* ★ 改动:用 ExhibitionActionButton 组件代替写死的"布展中"按钮 */}
+                      <ExhibitionActionButton exhibition={exhibition} />
                     </div>
                   </div>
                 </div>
@@ -546,22 +588,45 @@ export default async function Home() {
             <div className="grid md:grid-cols-3 gap-4 md:gap-6">
               {recentExhibitions.map(ex => (
                 <div key={ex.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
-                  <div className="flex gap-3 md:gap-4 p-4 md:p-5" style={{ opacity: 0.6 }}>
-                    <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                      {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
-                      {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
-                      <div className="space-y-1 text-xs text-gray-500">
-                        {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
-                        {ex.location && <p>📍 {ex.location}</p>}
+                  {/* ★ 改动:已布展 = 整张可点 + 不灰化;未布展 = 灰化 + 浮层提示 */}
+                  {ex.is_open ? (
+                    <a href={`/exhibitions/${ex.id}`} className="block">
+                      <div className="flex gap-3 md:gap-4 p-4 md:p-5">
+                        <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                          {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
+                          {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
+                          <div className="space-y-1 text-xs text-gray-500">
+                            {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
+                            {ex.location && <p>📍 {ex.location}</p>}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FCD34D' }}>🔨 布展中</span>
-                  </div>
+                    </a>
+                  ) : (
+                    <>
+                      <div className="flex gap-3 md:gap-4 p-4 md:p-5" style={{ opacity: 0.6 }}>
+                        <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
+                          {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
+                          {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
+                          <div className="space-y-1 text-xs text-gray-500">
+                            {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
+                            {ex.location && <p>📍 {ex.location}</p>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FCD34D' }}>
+                          {ex.status === 'ended' ? '已结束' : ex.status === 'upcoming' ? '即将开展' : '🔨 布展中'}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -578,8 +643,7 @@ export default async function Home() {
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
                 <div className="text-xl font-bold">Cradle摇篮</div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
-              {/* ★ 信房入口 */}
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">汇聚全球原创艺术家的创作平台,探索艺术的无限可能</p>
               <a href="/concierge" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors group">
                 <span style={{ letterSpacing: '3px' }}>→ 信 房</span>
                 <span className="text-xs text-gray-500 group-hover:text-gray-300">有什么想说的</span>
