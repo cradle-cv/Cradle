@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase'
 
 const GALLERY_STYLES = [
   { id: 'classic', name: '🏛️ 经典长廊', desc: '深色墙壁 + 金色画框 + 射灯' },
-  { id: 'whitebox', name: '⬜ 白盒子', desc: '现代美术馆，白墙 + 大空间' },
-  { id: 'lshape', name: '↰ L型转角', desc: '走到尽头转弯，两段展廊' },
-  { id: 'circular', name: '⭕ 环形展厅', desc: '圆形空间，画挂在四周' },
+  { id: 'whitebox', name: '⬜ 白盒子', desc: '现代美术馆,白墙 + 大空间' },
+  { id: 'lshape', name: '↰ L型转角', desc: '走到尽头转弯,两段展廊' },
+  { id: 'circular', name: '⭕ 环形展厅', desc: '圆形空间,画挂在四周' },
 ]
 
 const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
@@ -37,6 +37,7 @@ export default function EditExhibitionPage({ params }) {
     end_date: '',
     location: '',
     status: 'draft',
+    is_open: false,                    // ★ 新增:布展是否完成
     exhibition_type: 'special',
     theme_en: '',
     theme_zh: '',
@@ -80,6 +81,7 @@ export default function EditExhibitionPage({ params }) {
           end_date: platformExhibition.end_date || '',
           location: platformExhibition.location || '',
           status: platformExhibition.status || 'draft',
+          is_open: platformExhibition.is_open || false,    // ★ 新增
           exhibition_type: platformExhibition.exhibition_type || 'special',
           theme_en: platformExhibition.theme_en || '',
           theme_zh: platformExhibition.theme_zh || '',
@@ -125,6 +127,7 @@ export default function EditExhibitionPage({ params }) {
           end_date: partnerExhibition.end_date || '',
           location: partnerExhibition.location || '',
           status: partnerExhibition.status || 'draft',
+          is_open: partnerExhibition.is_open || false,    // ★ 新增
           exhibition_type: 'special',
           theme_en: '',
           theme_zh: '',
@@ -180,7 +183,7 @@ export default function EditExhibitionPage({ params }) {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件！')
+      alert('请选择图片文件!')
       return
     }
 
@@ -195,14 +198,14 @@ export default function EditExhibitionPage({ params }) {
 
     setFormData(prev => ({ ...prev, cover_image: imagePath }))
 
-    alert(`✅ 图片已选择！\n\n请将文件复制到：\nD:\\cradle\\public\\image\\${originalFileName}\n\n路径已自动填写为：${imagePath}`)
+    alert(`✅ 图片已选择!\n\n请将文件复制到:\nD:\\cradle\\public\\image\\${originalFileName}\n\n路径已自动填写为:${imagePath}`)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     if (!formData.title) {
-      alert('请填写展览标题！')
+      alert('请填写展览标题!')
       return
     }
 
@@ -222,6 +225,7 @@ export default function EditExhibitionPage({ params }) {
             end_date: formData.end_date || null,
             location: formData.location,
             status: formData.status,
+            is_open: formData.is_open,                    // ★ 新增
             gallery_style: galleryStyle,
             exhibition_type: formData.exhibition_type || 'special',
             theme_en: formData.exhibition_type === 'dialogue' ? (formData.theme_en || null) : null,
@@ -263,18 +267,19 @@ export default function EditExhibitionPage({ params }) {
             start_date: formData.start_date || null,
             end_date: formData.end_date || null,
             location: formData.location,
-            status: formData.status
+            status: formData.status,
+            is_open: formData.is_open,                    // ★ 新增
           })
           .eq('id', exhibitionId)
 
         if (updateError) throw updateError
       }
 
-      alert('展览更新成功！')
+      alert('展览更新成功!')
       router.push('/admin/exhibitions')
     } catch (error) {
       console.error('Error:', error)
-      alert('更新失败：' + error.message)
+      alert('更新失败:' + error.message)
     } finally {
       setSaving(false)
     }
@@ -282,8 +287,8 @@ export default function EditExhibitionPage({ params }) {
 
   const handleDelete = async () => {
     const confirmText = ownerType === 'platform' 
-      ? '确定要删除这个展览吗？\n\n注意：关联的作品不会被删除，只删除展览记录。'
-      : '确定要删除这个合作伙伴展览吗？\n\n此操作不可恢复！'
+      ? '确定要删除这个展览吗?\n\n注意:关联的作品不会被删除,只删除展览记录。'
+      : '确定要删除这个合作伙伴展览吗?\n\n此操作不可恢复!'
 
     if (!confirm(confirmText)) return
 
@@ -297,11 +302,11 @@ export default function EditExhibitionPage({ params }) {
 
       if (error) throw error
 
-      alert('展览已删除！')
+      alert('展览已删除!')
       router.push('/admin/exhibitions')
     } catch (error) {
       console.error('Error:', error)
-      alert('删除失败：' + error.message)
+      alert('删除失败:' + error.message)
     }
   }
 
@@ -334,7 +339,6 @@ export default function EditExhibitionPage({ params }) {
 
   return (
     <div>
-      {/* 页头 */}
       <div className="mb-8">
         <button
           onClick={() => router.back()}
@@ -360,9 +364,7 @@ export default function EditExhibitionPage({ params }) {
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-3 gap-8">
-          {/* 左侧：基本信息 */}
           <div className="col-span-2 space-y-6">
-            {/* 基本信息 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
               
@@ -370,7 +372,7 @@ export default function EditExhibitionPage({ params }) {
                 {ownerType === 'partner' && (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <p className="text-sm text-purple-800">
-                      <strong>🤝 合作伙伴：</strong>
+                      <strong>🤝 合作伙伴:</strong>
                       {partners.find(p => p.id === formData.partner_id)?.name || '未知'}
                     </p>
                     <p className="text-xs text-purple-600 mt-1">
@@ -381,7 +383,7 @@ export default function EditExhibitionPage({ params }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    展览标题（中文） <span className="text-red-500">*</span>
+                    展览标题(中文) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text" name="title" value={formData.title} onChange={handleChange} required
@@ -391,7 +393,7 @@ export default function EditExhibitionPage({ params }) {
 
                 {ownerType === 'platform' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">展览标题（英文）</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">展览标题(英文)</label>
                     <input
                       type="text" name="title_en" value={formData.title_en} onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -428,14 +430,12 @@ export default function EditExhibitionPage({ params }) {
               </div>
             </div>
 
-            {/* 当代回响 · 对话主题（仅对话展显示） */}
             {ownerType === 'platform' && isDialogue && (
               <div className="bg-white rounded-lg shadow p-6" style={{ borderLeft: '4px solid #F59E0B' }}>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">🎐 当代回响 · 对话主题</h2>
-                <p className="text-sm text-gray-500 mb-4">设置对话展的主题，与艺术阅览室的大师精选形成呼应</p>
+                <p className="text-sm text-gray-500 mb-4">设置对话展的主题,与艺术阅览室的大师精选形成呼应</p>
 
                 <div className="space-y-4">
-                  {/* 呼应阅览室期号 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">呼应阅览室期号</label>
                     <select name="curation_issue_number" value={formData.curation_issue_number} onChange={handleChange}
@@ -447,7 +447,7 @@ export default function EditExhibitionPage({ params }) {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-gray-400 mt-1">选择后，前台会显示"呼应阅览室 No. X"</p>
+                    <p className="text-xs text-gray-400 mt-1">选择后,前台会显示"呼应阅览室 No. X"</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -468,7 +468,7 @@ export default function EditExhibitionPage({ params }) {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">策展引言</label>
                     <textarea name="quote" value={formData.quote} onChange={handleChange} rows={3}
-                      placeholder="一段有温度的引言，呼应主题…"
+                      placeholder="一段有温度的引言,呼应主题…"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   </div>
 
@@ -482,7 +482,6 @@ export default function EditExhibitionPage({ params }) {
               </div>
             )}
 
-            {/* 封面图 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 封面图</h2>
               
@@ -497,7 +496,7 @@ export default function EditExhibitionPage({ params }) {
 
                 {imagePreview && (
                   <div className="mt-6">
-                    <p className="text-sm font-medium text-gray-700 mb-3">当前封面：</p>
+                    <p className="text-sm font-medium text-gray-700 mb-3">当前封面:</p>
                     <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                       <img src={imagePreview} alt="预览" className="w-full h-64 object-cover" />
                     </div>
@@ -506,20 +505,18 @@ export default function EditExhibitionPage({ params }) {
               </div>
             </div>
 
-            {/* 展览作品（只有平台展览才有） */}
             {ownerType === 'platform' && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  🎨 {isDialogue ? '参展作品（来自不同艺术家）' : '展览作品'}
+                  🎨 {isDialogue ? '参展作品(来自不同艺术家)' : '展览作品'}
                 </h2>
                 {isDialogue && (
-                  <p className="text-sm text-gray-500 mb-4">选择 4-6 位不同艺术家的作品，构成跨艺术家的主题对话</p>
+                  <p className="text-sm text-gray-500 mb-4">选择 4-6 位不同艺术家的作品,构成跨艺术家的主题对话</p>
                 )}
                 
-                {/* 已选作品 */}
                 {selectedArtworks.length > 0 && (
                   <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: '#F9FAFB' }}>
-                    <p className="text-sm font-medium text-gray-700 mb-3">已选 {selectedArtworks.length} 件：</p>
+                    <p className="text-sm font-medium text-gray-700 mb-3">已选 {selectedArtworks.length} 件:</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedArtworks.map((awId, idx) => {
                         const aw = artworks.find(a => a.id === awId)
@@ -591,13 +588,11 @@ export default function EditExhibitionPage({ params }) {
             )}
           </div>
 
-          {/* 右侧：设置 */}
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
               
               <div className="space-y-4">
-                {/* 展览类型 */}
                 {ownerType === 'platform' && !isDialogue && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">展览类型</label>
@@ -612,11 +607,10 @@ export default function EditExhibitionPage({ params }) {
                 {ownerType === 'platform' && isDialogue && (
                   <div className="p-3 rounded-lg" style={{ backgroundColor: '#FEF3C7' }}>
                     <p className="text-sm font-medium" style={{ color: '#B45309' }}>🎐 当代回响 · 对话展</p>
-                    <p className="text-xs mt-1" style={{ color: '#92400E' }}>此展览由对话排期创建，主题字段在左侧编辑</p>
+                    <p className="text-xs mt-1" style={{ color: '#92400E' }}>此展览由对话排期创建,主题字段在左侧编辑</p>
                   </div>
                 )}
 
-                {/* 发布状态 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
                   <select name="status" value={formData.status} onChange={handleChange}
@@ -628,7 +622,34 @@ export default function EditExhibitionPage({ params }) {
                   </select>
                 </div>
 
-                {/* 展厅风格 */}
+                {/* ★★★ 新增:布展完成开关 ★★★ */}
+                <div className="p-4 rounded-lg" 
+                  style={{ 
+                    backgroundColor: formData.is_open ? '#ECFDF5' : '#FEF3C7', 
+                    border: `1px solid ${formData.is_open ? '#A7F3D0' : '#FDE68A'}` 
+                  }}>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_open}
+                      onChange={(e) => setFormData(prev => ({ ...prev, is_open: e.target.checked }))}
+                      className="mt-1 w-4 h-4"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium" 
+                        style={{ color: formData.is_open ? '#065F46' : '#92400E' }}>
+                        {formData.is_open ? '✓ 布展已完成,允许访问' : '🔨 布展进行中'}
+                      </p>
+                      <p className="text-xs mt-1" 
+                        style={{ color: formData.is_open ? '#059669' : '#B45309', lineHeight: 1.6 }}>
+                        {formData.is_open
+                          ? '前台显示「进入展览 →」按钮,用户可点击进入'
+                          : '前台显示「🔨 布展中,敬请期待」,用户无法进入'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
                 {ownerType === 'platform' && !isDialogue && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">3D展厅风格</label>
@@ -656,7 +677,6 @@ export default function EditExhibitionPage({ params }) {
                   </div>
                 )}
 
-                {/* 布展管理 + 3D预览 */}
                 {ownerType === 'platform' && !isDialogue && exhibitionId && (
                   <div className="pt-2 space-y-2">
                     <a href={`/admin/exhibitions/${exhibitionId}/layout`}
