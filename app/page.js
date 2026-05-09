@@ -1,619 +1,558 @@
+'use client'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import UserNav from '@/components/UserNav'
+import Link from 'next/link'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-export const fetchCache = 'force-no-store'
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{2,20}$/
+const RESERVED_USERNAMES = ['admin', 'cradle']
 
-async function getData() {
-  const { data: dailyExhibitions } = await supabase
-    .from('exhibitions').select('*').eq('type', 'daily').eq('status', 'active')
-
-  let exhibition = null
-  if (dailyExhibitions && dailyExhibitions.length > 0) {
-    const today = new Date()
-    const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
-    let hash = 0
-    for (let i = 0; i < dateString.length; i++) { hash = ((hash << 5) - hash) + dateString.charCodeAt(i); hash = hash & hash }
-    exhibition = dailyExhibitions[Math.abs(hash) % dailyExhibitions.length]
-  }
-
-  const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').order('created_at', { ascending: false }).limit(8)
-  const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
-  const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('created_at', { ascending: false }).limit(4)
-  const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
-
-  let homepageInvitations = []
-  try {
-    const { data: invs } = await supabase.rpc('get_homepage_invitations')
-    homepageInvitations = invs || []
-  } catch (e) {
-    console.error('get_homepage_invitations failed:', e)
-  }
-
-  let submittedInvitationIds = []
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      const { data: subs } = await supabase.rpc('get_my_invitation_submissions')
-      if (subs) {
-        submittedInvitationIds = subs.map(s => s.invitation_id)
-      }
-    }
-  } catch (e) { /* silent */ }
-
-  let homepageDaily = null
-  let homepageSelect = null
-
-  const { data: officialMags } = await supabase
-    .from('magazines')
-    .select('*, users:author_id(id, username, avatar_url)')
-    .eq('source_type', 'official')
-    .in('status', ['published', 'featured'])
-
-  const { data: userMags } = await supabase
-    .from('magazines')
-    .select('*, users:author_id(id, username, avatar_url)')
-    .eq('source_type', 'user')
-    .in('status', ['published', 'featured'])
-
-  const today = new Date()
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
-  if (officialMags && officialMags.length > 0) {
-    homepageDaily = officialMags[seed % officialMags.length]
-  }
-  if (userMags && userMags.length > 0) {
-    homepageSelect = userMags[(seed + 7) % userMags.length]
-  }
-
-  const { data: recentExhibitions } = await supabase
-    .from('exhibitions')
-    .select('*')
-    .eq('status', 'active')
-    .order('start_date', { ascending: false })
-    .limit(3)
-
-  return {
-    exhibition, collections: collections || [], artists: artists || [],
-    partners: partners || [], galleryWorks: galleryWorks || [],
-    homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
-    homepageInvitations,
-    submittedInvitationIds,
-  }
+function validateUsername(name) {
+  if (!name) return '请输入用户名'
+  if (name.length < 2) return '用户名至少 2 个字符'
+  if (name.length > 20) return '用户名最多 20 个字符'
+  if (!USERNAME_REGEX.test(name)) return '用户名只能包含英文、数字、下划线'
+  if (RESERVED_USERNAMES.includes(name.toLowerCase())) return '该用户名被保留,请换一个'
+  return null
 }
 
-function daysRemaining(deadline) {
-  if (!deadline) return null
-  const now = new Date()
-  const dl = new Date(deadline)
-  return Math.ceil((dl - now) / (1000 * 60 * 60 * 24))
+function passwordStrength(pwd) {
+  if (!pwd) return 0
+  const len = pwd.length
+  const hasLetter = /[a-zA-Z]/.test(pwd)
+  const hasDigit = /\d/.test(pwd)
+  if (len >= 10 && hasLetter && hasDigit) return 3
+  if (len >= 8 && hasLetter && hasDigit) return 2
+  if (len >= 6) return 1
+  return 1
 }
 
-function InvitationCompactCard({ inv, alreadySubmitted }) {
-  const days = daysRemaining(inv.deadline)
-  const themeColor = inv.theme_color || '#8a7a5c'
-  const isOfficial = inv.is_official
+const STRENGTH_LABELS = ['', '弱', '中', '强']
+const STRENGTH_COLORS = ['', '#DC2626', '#D97706', '#16A34A']
 
-  const cardBg = isOfficial ? '#FFFFFF' : `${themeColor}1a`
-  const cardBorder = isOfficial ? '#E5E7EB' : `${themeColor}66`
-
-  const shouldShowPrompt = !alreadySubmitted && (inv.status === 'collecting' || !inv.status)
-
+function IconEye({ open }) {
+  if (open) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M1.5 9 C 3.5 5, 6 3.5, 9 3.5 C 12 3.5, 14.5 5, 16.5 9 C 14.5 13, 12 14.5, 9 14.5 C 6 14.5, 3.5 13, 1.5 9 Z"
+          stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none" />
+        <circle cx="9" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      </svg>
+    )
+  }
   return (
-    <a href={`/invitations/${inv.id}`} className="group block">
-      <div
-        className="rounded-xl overflow-hidden transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md"
-        style={{
-          border: `1px solid ${cardBorder}`,
-          backgroundColor: cardBg,
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
-          {inv.cover_image ? (
-            <img
-              src={inv.cover_image}
-              alt={inv.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: isOfficial ? '#F3F4F6' : themeColor }}
-            >
-              <span
-                className="text-xs tracking-widest"
-                style={{ color: isOfficial ? '#9CA3AF' : '#FFFFFF', opacity: 0.7, letterSpacing: '6px' }}
-              >
-                OPEN CALL
-              </span>
-            </div>
-          )}
-          {alreadySubmitted ? (
-            <div
-              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
-              style={{
-                backgroundColor: 'rgba(16, 185, 129, 0.95)',
-                color: '#FFFFFF',
-                fontSize: '11px',
-              }}
-            >
-              ✓ 已投稿
-            </div>
-          ) : days !== null && days >= 0 && (
-            <div
-              className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs"
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.95)',
-                color: days <= 7 ? '#DC2626' : '#374151',
-                fontSize: '11px',
-              }}
-            >
-              {days === 0 ? '今日截止' : `还剩 ${days} 天`}
-            </div>
-          )}
-        </div>
-
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span
-              className="text-xs"
-              style={{
-                color: isOfficial ? '#111827' : themeColor,
-                fontWeight: 500,
-                letterSpacing: '1px',
-              }}
-            >
-              {isOfficial ? 'Cradle 官方' : '策展人邀请'}
-            </span>
-          </div>
-          <h3
-            className="text-sm md:text-base font-bold line-clamp-2 mb-2"
-            style={{ color: '#111827', lineHeight: 1.5 }}
-          >
-            {inv.title}
-          </h3>
-          {shouldShowPrompt && (
-            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: '#10B981' }}
-              />
-              <span
-                className="text-xs"
-                style={{
-                  color: '#059669',
-                  fontSize: '11px',
-                  letterSpacing: '1px',
-                }}
-              >
-                征集中 · 这里征集你的作品 →
-              </span>
-            </div>
-          )}
-          {alreadySubmitted && (
-            <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: '0.5px dashed #E5E7EB' }}>
-              <span
-                className="text-xs"
-                style={{
-                  color: '#059669',
-                  fontSize: '11px',
-                  letterSpacing: '1px',
-                }}
-              >
-                ✓ 你已投稿 · 点击查看详情
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </a>
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M1.5 9 C 3.5 5, 6 3.5, 9 3.5 C 12 3.5, 14.5 5, 16.5 9 C 14.5 13, 12 14.5, 9 14.5 C 6 14.5, 3.5 13, 1.5 9 Z"
+        stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none" />
+      <line x1="3" y1="3" x2="15" y2="15" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
   )
 }
 
-export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
-  const submittedSet = new Set(submittedInvitationIds)
+function PasswordInput({ name, value, onChange, placeholder, style }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        name={name}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full px-4 py-3 rounded-xl border outline-none"
+        style={{ ...style, paddingRight: '44px' }}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        aria-label={show ? '隐藏密码' : '显示密码'}
+        style={{
+          position: 'absolute', right: '12px', top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: '#9CA3AF', padding: '4px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+        <IconEye open={show} />
+      </button>
+    </div>
+  )
+}
+
+function PasswordStrength({ pwd }) {
+  const strength = passwordStrength(pwd)
+  if (!pwd) return null
+  return (
+    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+        {[1, 2, 3].map(level => (
+          <div key={level} style={{
+            flex: 1, height: '3px', borderRadius: '1.5px',
+            backgroundColor: strength >= level ? STRENGTH_COLORS[strength] : '#E5E7EB',
+            transition: 'background-color 0.2s',
+          }} />
+        ))}
+      </div>
+      <span style={{
+        fontSize: '11px',
+        color: STRENGTH_COLORS[strength] || '#9CA3AF',
+        letterSpacing: '2px', fontWeight: 500, minWidth: '14px',
+      }}>
+        {STRENGTH_LABELS[strength]}
+      </span>
+    </div>
+  )
+}
+
+function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/'
+  const initialMode = searchParams.get('mode') || 'login'
+  const inviteCodeFromUrl = searchParams.get('invite') || ''
+
+  const [mode, setMode] = useState(initialMode)
+  const [method, setMethod] = useState('email')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [errorAction, setErrorAction] = useState(null)
+  const [success, setSuccess] = useState('')
+
+  const [form, setForm] = useState({
+    email: '', password: '', confirmPassword: '',
+    username: '', loginUsername: '', loginPassword: '',
+    inviteCode: inviteCodeFromUrl
+  })
+
+  function handleChange(e) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    setError(''); setErrorAction(null)
+  }
+
+  function switchMode(m, prefillEmail = '') {
+    setMode(m); setError(''); setErrorAction(null); setSuccess('')
+    if (prefillEmail) setForm(prev => ({ ...prev, email: prefillEmail }))
+  }
+
+  async function handleEmailLogin(e) {
+    e?.preventDefault()
+    if (!form.email || !form.password) { setError('请输入邮箱和密码'); return }
+    setLoading(true); setError(''); setErrorAction(null)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password
+      })
+      if (error) throw error
+      router.push(redirect)
+    } catch (err) {
+      setError(err.message.includes('Invalid login') ? '邮箱或密码错误' : err.message)
+    } finally { setLoading(false) }
+  }
+
+  async function handleUsernameLogin(e) {
+    e?.preventDefault()
+    if (!form.loginUsername || !form.loginPassword) { setError('请输入用户名和密码'); return }
+    setLoading(true); setError(''); setErrorAction(null)
+    try {
+      const { data: user, error: findError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('username', form.loginUsername)
+        .maybeSingle()
+
+      if (findError) throw findError
+      if (!user || !user.email) {
+        setError('用户名不存在')
+        setLoading(false)
+        return
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: form.loginPassword
+      })
+      if (error) throw error
+      router.push(redirect)
+    } catch (err) {
+      if (err.message.includes('Invalid login')) {
+        setError('密码错误')
+      } else {
+        setError(err.message)
+      }
+    } finally { setLoading(false) }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 注册流程 — Confirm Email 关闭后,signUp 直接成功,
+  // 立即 INSERT 用户到 public.users,然后跳转
+  // ════════════════════════════════════════════════════════════════
+  async function handleEmailRegister(e) {
+    e?.preventDefault()
+
+    const usernameError = validateUsername(form.username)
+    if (usernameError) { setError(usernameError); return }
+
+    if (!form.email) { setError('请输入邮箱'); return }
+    if (!form.password) { setError('请输入密码'); return }
+    if (passwordStrength(form.password) < 2) { 
+      setError('密码强度不够,需要至少 8 位且同时包含字母和数字'); return 
+    }
+    if (form.password !== form.confirmPassword) { setError('两次密码不一致'); return }
+
+    setLoading(true); setError(''); setErrorAction(null)
+    try {
+      // 1. 检查用户名重复
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', form.username)
+        .maybeSingle()
+
+      if (existing) {
+        setError('该用户名已被使用,请换一个')
+        setLoading(false)
+        return
+      }
+
+      // 2. signUp:创建 Auth 账号
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            username: form.username,
+            invite_code: form.inviteCode || null,
+          }
+        }
+      })
+      if (authError) throw authError
+
+      if (!authData?.user) {
+        setError('注册失败,请重试')
+        setLoading(false)
+        return
+      }
+
+      // 3. ★ 关键:把用户插入 public.users 表
+      const { error: insertError } = await supabase.from('users').insert({
+        auth_id: authData.user.id,
+        username: form.username,
+        email: form.email,
+      })
+
+      if (insertError) {
+        // 即使 insert 失败,Auth 账号已经创建了
+        // 提示用户但不阻塞登录流程
+        console.error('users 表 insert 失败:', insertError)
+        // 不抛出错误,继续登录(让用户能用,问题之后修)
+      }
+
+      // 4. 处理邀请码(如果填了)
+      if (form.inviteCode) {
+        try {
+          await fetch('/api/invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invite_code: form.inviteCode,
+              new_user_auth_id: authData.user.id,
+            }),
+          })
+        } catch (e) {
+          console.warn('邀请码处理失败:', e)
+        }
+      }
+
+      // 5. 跳转
+      if (authData.session) {
+        // 已自动登录
+        setSuccess('注册成功,正在进入摇篮...')
+        setTimeout(() => router.push(redirect), 600)
+      } else {
+        // 兜底:用密码登录
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        })
+        if (signInError) {
+          setError('注册成功,但自动登录失败。请用刚才的邮箱和密码手动登录。')
+          setErrorAction({
+            label: '去登录',
+            onClick: () => switchMode('login', form.email)
+          })
+        } else {
+          setSuccess('注册成功,正在进入摇篮...')
+          setTimeout(() => router.push(redirect), 600)
+        }
+      }
+    } catch (err) {
+      if (err.message.includes('already registered')) {
+        setError('该邮箱已注册')
+        setErrorAction({
+          label: '切换到登录',
+          onClick: () => switchMode('login', form.email)
+        })
+      } else {
+        setError(err.message)
+      }
+    } finally { setLoading(false) }
+  }
+
+  const inputStyle = { borderColor: '#D1D5DB', color: '#111827', backgroundColor: '#FFFFFF' }
+
+  const features = [
+    { title: '谜 题', desc: '趣 味 答 题 · 探 索 艺 术 知 识' },
+    { title: '日 课', desc: '每 日 一 课 · 深 入 了 解 作 品' },
+    { title: '风 赏', desc: '沉 浸 体 验 · 感 受 艺 术 之 美' },
+  ]
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 导航栏 */}
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-1 flex justify-between items-center">
-          <div className="flex items-center gap-6 md:gap-12">
-            <a href="/" className="flex items-center gap-3 flex-shrink-0">
-              <div className="w-0 h-10 flex-shrink-0"></div>
-              <div style={{ height: '69px', overflow: 'hidden' }}>
-                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-              </div>
-            </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="#magazine" className="hover:text-gray-900">杂志社</a></li>
-              <li><a href="#collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="#partners" className="hover:text-gray-900">合作伙伴</a></li>
-              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
-            </ul>
-          </div>
-          <div className="flex items-center gap-4"><UserNav /></div>
-        </div>
-      </nav>
+    <div className="min-h-screen flex" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
 
-      {/* Hero区 */}
-      <section className="py-10 md:py-20 px-4 md:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col-reverse md:flex-row items-center gap-8 md:gap-16">
-            <div className="flex-1 w-full">
-              {galleryWorks.length > 0 ? (
-                <>
-                  <h1 className="text-3xl md:text-6xl font-bold text-gray-900 mb-4 md:mb-6 leading-tight">
-                    {galleryWorks[0].title}
-                  </h1>
-                  {galleryWorks[0].title_en && <p className="text-base md:text-xl text-gray-500 mb-3 md:mb-4 italic">{galleryWorks[0].title_en}</p>}
-                  {galleryWorks[0].artist_name && <p className="text-base md:text-lg text-gray-600 mb-3 md:mb-4">{galleryWorks[0].artist_name}{galleryWorks[0].year ? ` · ${galleryWorks[0].year}` : ''}</p>}
-                  {galleryWorks[0].description && (
-                    <p className="text-sm md:text-base text-gray-500 leading-relaxed max-w-xl" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {galleryWorks[0].description}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-3 md:gap-4 mt-6">
-                    <a href={`/gallery/${galleryWorks[0].id}`} className="px-6 md:px-8 py-3 md:py-4 bg-gray-900 text-white text-sm md:text-base font-medium rounded-lg hover:bg-gray-800">探索作品</a>
-                    <a href="/gallery" className="px-6 md:px-8 py-3 md:py-4 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-50">进入阅览室</a>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h1 className="text-3xl md:text-6xl font-bold text-gray-900 mb-4 md:mb-6 leading-tight">探索艺术的<br/>无限可能 🎨<br/>与创作之美</h1>
-                  <p className="text-base md:text-lg text-gray-600 mb-8 md:mb-10 leading-relaxed max-w-xl">汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品</p>
-                  <div className="flex flex-wrap gap-3 md:gap-4">
-                    <a href="/gallery" className="px-6 md:px-8 py-3 md:py-4 bg-gray-900 text-white text-sm md:text-base font-medium rounded-lg hover:bg-gray-800">进入阅览室</a>
-                    <a href="#collections" className="px-6 md:px-8 py-3 md:py-4 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-50">浏览作品集</a>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="relative w-2/3 md:w-1/3 flex-shrink-0">
-              {galleryWorks.length > 0 ? (
-                <a href={`/gallery/${galleryWorks[0].id}`} className="block group">
-                  <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                    {galleryWorks[0].cover_image ? (
-                      <img src={galleryWorks[0].cover_image} alt={galleryWorks[0].title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center"><span className="text-6xl">🖼️</span></div>
-                    )}
-                  </div>
-                </a>
-              ) : (
-                <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                  <img src="/image/hero.jpg" alt="静谧时光" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                  <div className="absolute bottom-8 left-8 z-10">
-                    <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
-                    <p className="text-white drop-shadow-lg">张艺谋</p>
-                  </div>
-                </div>
-              )}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#1a1a2e' }}>
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse at 30% 50%, rgba(59,130,246,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(168,85,247,0.1) 0%, transparent 50%)'
+        }} />
+        <div className="absolute top-20 left-16 w-px h-32" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+        <div className="absolute top-20 left-16 w-16 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+        <div className="absolute bottom-20 right-16 w-px h-32" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+        <div className="absolute bottom-20 right-16 w-16 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+
+        <div className="relative z-10 flex flex-col justify-center px-16">
+          <div className="flex items-center gap-3 mb-12">
+            <div style={{ height: '69px', overflow: 'hidden' }}>
+              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px', filter: 'brightness(0) invert(1)' }} className="object-contain" />
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* 每日一展 + 邀请函 */}
-      {(exhibition || homepageInvitations.length > 0) && (
-        <section id="daily" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
-          <div className="max-w-6xl mx-auto">
-            {exhibition && (
-              <>
-                <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
-                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览，感受艺术的魅力</p>
+          <h2 className="text-5xl font-bold text-white leading-tight mb-6" style={{ letterSpacing: '4px' }}>
+            在艺术中<br/>找到自己
+          </h2>
+          <p className="text-lg leading-relaxed mb-16" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '2px' }}>
+            每一件作品都是一段对话。<br/>加入我们,开始你的艺术之旅。
+          </p>
 
-                <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-                  <div className="grid md:grid-cols-2 gap-0">
-                    <div className="relative">
-                      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
-                      <div className="aspect-[4/3]">
-                        <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                    <div className="p-6 md:p-10 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
-                        <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                          <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
-                        </div>
-                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
-                        <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
-                          {exhibition.start_date && (
-                            <div className="flex items-start gap-3">
-                              <span className="text-[#F59E0B]">📅</span>
-                              <div>
-                                <div className="text-xs md:text-sm text-gray-500">展期</div>
-                                <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
-                              </div>
-                            </div>
-                          )}
-                          {exhibition.location && (
-                            <div className="flex items-start gap-3">
-                              <span className="text-[#F59E0B]">📍</span>
-                              <div>
-                                <div className="text-xs md:text-sm text-gray-500">地点</div>
-                                <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base" style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>🔨 布展中，敬请期待</div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* 邀请函小卡片区 */}
-            {homepageInvitations.length > 0 && (
-              <div className="mt-8 md:mt-10">
-                <div className={
-                  homepageInvitations.length === 1
-                    ? 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
-                    : homepageInvitations.length === 2
-                    ? 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'
-                    : 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
-                }>
-                  {homepageInvitations.map(inv => (
-                    <InvitationCompactCard
-                      key={inv.id}
-                      inv={inv}
-                      alreadySubmitted={submittedSet.has(inv.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
-              {exhibition && (
-                <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                  查看更多展览 →
-                </a>
-              )}
-              {homepageInvitations.length > 0 && (
-                <a href="/invitations" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                  查看所有邀请函 →
-                </a>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 杂志社 */}
-      {(homepageDaily || homepageSelect) && (
-        <section id="magazine" className="py-12 md:py-16 px-4 md:px-6 bg-gray-50" style={{ scrollMarginTop: '80px' }}>
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-8 md:mb-10">
-              <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">杂志社</h2>
-              <p className="text-gray-600 text-sm md:text-base">沉浸式图文导读 · 用户原创精选</p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-              {homepageDaily ? (
-                <a href={`/magazine/view/${homepageDaily.id}`} className="group">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageDaily.cover_image ? (<img src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>📖 摇篮 Daily</div>
-                      <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
-                        <h3 className="text-lg md:text-xl font-bold text-white mb-1 line-clamp-2">{homepageDaily.title}</h3>
-                        {homepageDaily.subtitle && <p className="text-xs md:text-sm text-white/70 hidden md:block">{homepageDaily.subtitle}</p>}
-                      </div>
-                    </div>
-                    <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2"><span className="text-xs" style={{ color: '#7C3AED' }}>官方日课杂志</span>{homepageDaily.pages_count > 0 && <span className="text-xs" style={{ color: '#9CA3AF' }}>· {homepageDaily.pages_count} 页</span>}</div>
-                      <span className="text-xs font-medium group-hover:translate-x-1 transition-transform" style={{ color: '#7C3AED' }}>阅读 →</span>
-                    </div>
-                  </div>
-                </a>
-              ) : (<a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}><div className="text-center py-12"><div className="text-4xl mb-3">📖</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p><p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p></div></a>)}
-              {homepageSelect ? (
-                <a href={`/magazine/view/${homepageSelect.id}`} className="group">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
-                    <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageSelect.cover_image ? (<img src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>)}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>⭐ 摇篮 Select</div>
-                      <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
-                        <h3 className="text-lg md:text-xl font-bold text-white mb-1 line-clamp-2">{homepageSelect.title}</h3>
-                        {homepageSelect.subtitle && <p className="text-xs md:text-sm text-white/70 hidden md:block">{homepageSelect.subtitle}</p>}
-                      </div>
-                    </div>
-                    <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {homepageSelect.users?.avatar_url ? (<img src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>)}
-                        <span className="text-xs" style={{ color: '#6B7280' }}>{homepageSelect.users?.username || '用户原创'}</span>
-                        {homepageSelect.pages_count > 0 && <span className="text-xs" style={{ color: '#9CA3AF' }}>· {homepageSelect.pages_count} 页</span>}
-                      </div>
-                      <span className="text-xs font-medium group-hover:translate-x-1 transition-transform" style={{ color: '#F59E0B' }}>阅读 →</span>
-                    </div>
-                  </div>
-                </a>
-              ) : (<a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}><div className="text-center py-12"><div className="text-4xl mb-3">⭐</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p><p className="text-sm" style={{ color: '#9CA3AF' }}>用户原创杂志精选即将上线</p></div></a>)}
-            </div>
-            <div className="text-center mt-8 md:mt-10">
-              <a href="/magazine" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">进入杂志社 →</a>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 作品集 */}
-      <section id="collections" className="py-12 md:py-16 px-4 md:px-6 bg-gray-50" style={{ scrollMarginTop: '80px' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-8 md:mb-10">
-            <div>
-              <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">作品集</h2>
-              <p className="text-gray-600 text-sm md:text-base">浏览精选艺术作品集</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {collections.map((collection) => (
-              <a key={collection.id} href={`/collections/${collection.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group">
-                <div className="aspect-square bg-gray-100">
-                  {collection.cover_image ? (<img src={collection.cover_image} alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
-                </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1 text-sm md:text-base">{collection.title}</h3>
-                  {collection.title_en && <p className="text-xs text-gray-500 mb-1 md:mb-2 line-clamp-1 hidden md:block">{collection.title_en}</p>}
-                  <p className="text-xs md:text-sm text-gray-600">{collection.artists?.display_name || '未知艺术家'}</p>
-                </div>
-              </a>
-            ))}
-          </div>
-          <div className="text-center mt-8 md:mt-10">
-            <a href="/collections" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看所有作品集 →</a>
-          </div>
-        </div>
-      </section>
-
-      {/* 艺术家 */}
-      <section id="artists" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8 md:mb-10">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">艺术家</h2>
-            <p className="text-gray-600 text-sm md:text-base">认识艺术社群背后的创作者们</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-            {artists.map((artist) => (
-              <div key={artist.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mb-3 md:mb-4 overflow-hidden" style={{ flexShrink: 0 }}>
-                  {(artist.avatar_url || artist.users?.avatar_url) ? (
-                    <img src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl md:text-4xl">👤</div>
-                  )}
-                </div>
-                <h3 className="text-base md:text-xl font-bold text-gray-900 mb-1">{artist.display_name}</h3>
-                <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">{artist.specialty}</p>
-                <p className="text-xs md:text-sm text-gray-500 hidden md:block" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{artist.intro}</p>
-                <div style={{ flex: 1 }} />
-                <a href={`/artists/${artist.id}`} className="inline-block px-4 md:px-6 py-1.5 md:py-2 border border-gray-900 text-gray-900 text-xs md:text-sm rounded-lg hover:bg-gray-900 hover:text-white transition-colors" style={{ marginTop: '16px' }}>查看作品集</a>
+          <div className="space-y-6">
+            {features.map((f, i) => (
+              <div key={i} className="flex items-baseline gap-4">
+                <span style={{
+                  fontSize: '14px',
+                  color: 'rgba(255,255,255,0.85)',
+                  letterSpacing: '6px',
+                  fontWeight: 500,
+                  flexShrink: 0,
+                  minWidth: '70px',
+                }}>{f.title}</span>
+                <span style={{
+                  width: '24px', height: '0.5px',
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                  display: 'inline-block', marginBottom: '4px', flexShrink: 0,
+                }} />
+                <span style={{
+                  fontSize: '13px',
+                  color: 'rgba(255,255,255,0.5)',
+                  letterSpacing: '1px',
+                }}>{f.desc}</span>
               </div>
             ))}
           </div>
-          <div className="text-center mt-8 md:mt-10">
-            <a href="/artists" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看所有艺术家 →</a>
-          </div>
         </div>
-      </section>
+      </div>
 
-      {/* 合作伙伴 */}
-      <section id="partners" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8 md:mb-10">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">合作伙伴</h2>
-            <p className="text-gray-600 text-sm md:text-base">与我们携手共创的艺术机构</p>
+      <div className="flex-1 flex items-center justify-center px-8 py-12" style={{ backgroundColor: '#FAFAFA' }}>
+        <div className="w-full max-w-md">
+
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <div style={{ height: '50px', overflow: 'hidden' }}>
+              <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '70px', marginTop: '-8px' }} className="object-contain" />
+            </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {partners.map((partner) => (
-              <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <div className="w-14 h-14 md:w-20 md:h-20 mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center" style={{ flexShrink: 0 }}>
-                  {partner.logo_url ? <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
-                </div>
-                <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
-                {partner.name_en && <p className="text-xs text-gray-500 mb-2 md:mb-3 hidden md:block">{partner.name_en}</p>}
-                <p className="text-xs text-gray-600 hidden md:block" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{partner.description}</p>
-                <div style={{ flex: 1 }} />
-                {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full" style={{ marginTop: '12px' }}>📍 {partner.city}</div>}
-              </a>
+
+          <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ backgroundColor: '#E5E7EB' }}>
+            {[{ key: 'login', label: '登录' }, { key: 'register', label: '注册' }].map(t => (
+              <button key={t.key} onClick={() => switchMode(t.key)}
+                className="flex-1 py-3 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: mode === t.key ? '#FFFFFF' : 'transparent',
+                  color: mode === t.key ? '#111827' : '#6B7280',
+                  boxShadow: mode === t.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}>
+                {t.label}
+              </button>
             ))}
           </div>
-          <div className="text-center mt-6 md:mt-8">
-            <a href="/partners" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看全部合作伙伴 →</a>
-          </div>
-        </div>
-      </section>
 
-      {/* 近期展览 */}
-      {recentExhibitions.length > 0 && (
-        <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-8 md:mb-10">
-              <h2 className="text-2xl md:text-4xl font-bold text-gray-900">近期展览</h2>
-              <a href="/exhibitions" className="text-gray-600 hover:text-gray-900 text-xs md:text-sm">查看全部展览 →</a>
-            </div>
-            <div className="grid md:grid-cols-3 gap-4 md:gap-6">
-              {recentExhibitions.map(ex => (
-                <div key={ex.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
-                  <div className="flex gap-3 md:gap-4 p-4 md:p-5" style={{ opacity: 0.6 }}>
-                    <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                      {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
-                      {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
-                      <div className="space-y-1 text-xs text-gray-500">
-                        {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
-                        {ex.location && <p>📍 {ex.location}</p>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FCD34D' }}>🔨 布展中</span>
-                  </div>
-                </div>
+          {mode === 'login' && (
+            <div className="flex gap-4 mb-6">
+              {[{ key: 'email', label: '邮箱登录' }, { key: 'username', label: '用户名登录' }].map(t => (
+                <button key={t.key} onClick={() => { setMethod(t.key); setError(''); setErrorAction(null) }}
+                  className="text-sm pb-2 transition-colors"
+                  style={{
+                    color: method === t.key ? '#111827' : '#9CA3AF',
+                    borderBottom: method === t.key ? '2px solid #111827' : '2px solid transparent',
+                    fontWeight: method === t.key ? '600' : '400'
+                  }}>
+                  {t.label}
+                </button>
               ))}
             </div>
-          </div>
-        </section>
-      )}
+          )}
 
-      {/* 页脚 */}
-      <footer className="bg-[#1F2937] text-white py-10 md:py-12 px-4 md:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mb-8">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">Cradle摇篮</div>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
-              {/* ★ 信房入口 */}
-              <a href="/concierge" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors group">
-                <span style={{ letterSpacing: '3px' }}>→ 信 房</span>
-                <span className="text-xs text-gray-500 group-hover:text-gray-300">有什么想说的</span>
-              </a>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3 md:mb-4 text-sm md:text-base">关于我们</h5>
-              <ul className="space-y-2 text-xs md:text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">平台介绍</a></li>
-                <li><a href="#" className="hover:text-white">团队成员</a></li>
-                <li><a href="/concierge" className="hover:text-white">联系我们</a></li>
-                <li><a href="#" className="hover:text-white">加入我们</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3 md:mb-4 text-sm md:text-base">艺术家服务</h5>
-              <ul className="space-y-2 text-xs md:text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">上传作品</a></li>
-                <li><a href="#" className="hover:text-white">创建展览</a></li>
-                <li><a href="#" className="hover:text-white">艺术家认证</a></li>
-                <li><a href="#" className="hover:text-white">版权保护</a></li>
-              </ul>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              <h5 className="font-bold mb-3 md:mb-4 text-sm md:text-base">订阅艺术资讯</h5>
-              <div className="space-y-3">
-                <input type="email" placeholder="输入您的邮箱" className="w-full px-4 py-2.5 md:py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500" />
-                <button className="w-full py-2.5 md:py-3 bg-[#10B981] text-white rounded text-sm font-medium hover:bg-[#059669]">订阅</button>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: '#111827' }}>
+            {mode === 'login' ? '欢迎回来' : '创建账号'}
+          </h1>
+          <p className="mb-6" style={{ color: '#6B7280', fontSize: '15px' }}>
+            {mode === 'login' ? '登录后继续你的艺术之旅' : '注册后立即开始你的艺术之旅'}
+          </p>
+
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
+              style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', border: '0.5px solid #FECACA' }}>
+              <span style={{
+                width: '3px', alignSelf: 'stretch', backgroundColor: '#DC2626',
+                borderRadius: '1px', flexShrink: 0,
+              }} />
+              <div className="flex-1 flex items-center justify-between gap-3 flex-wrap">
+                <span>{error}</span>
+                {errorAction && (
+                  <button type="button" onClick={errorAction.onClick}
+                    className="text-xs px-3 py-1 rounded transition-colors hover:opacity-80"
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      color: '#B91C1C',
+                      border: '0.5px solid #FECACA',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                    }}>
+                    {errorAction.label}  →
+                  </button>
+                )}
               </div>
             </div>
+          )}
+
+          {success && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-3"
+              style={{ backgroundColor: '#F0FDF4', color: '#166534', border: '0.5px solid #BBF7D0' }}>
+              <span style={{
+                width: '3px', alignSelf: 'stretch', backgroundColor: '#16A34A',
+                borderRadius: '1px', flexShrink: 0,
+              }} />
+              <span className="flex-1">{success}</span>
+            </div>
+          )}
+
+          {mode === 'login' && method === 'email' && (
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邮箱</label>
+                <input name="email" type="email" value={form.email} onChange={handleChange}
+                  placeholder="your@email.com"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>密码</label>
+                <PasswordInput name="password" value={form.password} onChange={handleChange}
+                  placeholder="输入密码" style={inputStyle} />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-xl font-medium text-white"
+                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
+                {loading ? '登录中...' : '登录'}
+              </button>
+              <div className="text-center pt-2">
+                <Link href="/forgot-password" 
+                  style={{ color: '#6B7280', fontSize: '13px' }} 
+                  className="hover:underline">
+                  忘记密码?
+                </Link>
+              </div>
+            </form>
+          )}
+
+          {mode === 'login' && method === 'username' && (
+            <form onSubmit={handleUsernameLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>用户名</label>
+                <input name="loginUsername" value={form.loginUsername} onChange={handleChange}
+                  placeholder="输入你的用户名"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>密码</label>
+                <PasswordInput name="loginPassword" value={form.loginPassword} onChange={handleChange}
+                  placeholder="输入密码" style={inputStyle} />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-xl font-medium text-white"
+                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
+                {loading ? '登录中...' : '登录'}
+              </button>
+              <div className="text-center pt-2">
+                <Link href="/forgot-password" 
+                  style={{ color: '#6B7280', fontSize: '13px' }} 
+                  className="hover:underline">
+                  忘记密码?
+                </Link>
+              </div>
+            </form>
+          )}
+
+          {mode === 'register' && (
+            <form onSubmit={handleEmailRegister} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>用户名 *</label>
+                <input name="username" value={form.username} onChange={handleChange} 
+                  placeholder="2-20 个字符,英文/数字/下划线"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邮箱 *</label>
+                <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="your@email.com"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>密码 *</label>
+                <PasswordInput name="password" value={form.password} onChange={handleChange} 
+                  placeholder="至少 8 位,字母 + 数字" style={inputStyle} />
+                <PasswordStrength pwd={form.password} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>确认密码 *</label>
+                <PasswordInput name="confirmPassword" value={form.confirmPassword} onChange={handleChange} 
+                  placeholder="再次输入密码" style={inputStyle} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>邀请码(可选)</label>
+                <input name="inviteCode" value={form.inviteCode} onChange={handleChange}
+                  placeholder="如有好友邀请码,填写可获额外奖励"
+                  className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 rounded-xl font-medium text-white"
+                style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
+                {loading ? '注册中...' : '注册并进入摇篮'}
+              </button>
+              <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
+                注册即表示你同意我们的服务条款和隐私政策。
+              </p>
+            </form>
+          )}
+
+          <div className="mt-8 text-center">
+            <Link href="/" style={{ color: '#6B7280', fontSize: '14px' }} className="hover:underline">← 返回首页</Link>
           </div>
-          <div className="border-t border-gray-700 pt-6 md:pt-8 text-center text-xs md:text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
         </div>
-      </footer>
+      </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p style={{ color: '#9CA3AF' }}>加载中...</p></div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
