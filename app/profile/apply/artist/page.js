@@ -172,15 +172,15 @@ export default function ArtistApplyPage() {
           />
 
           <FileUploadField
-            label="作品集"
-            required
-            maxSizeMB={20}
-            folder="identity-applications"
-            value={form.attachment}
-            onChange={v => setForm(f => ({ ...f, attachment: v }))}
-            hint="请将作品图集、简历、展览资料等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip,最大 20MB。"
-            accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
-          />
+  label="作品集"
+  required
+  maxSizeMB={20}
+  folder="identity-applications"
+  value={form.attachment}
+  onChange={v => setForm(f => ({ ...f, attachment: v }))}
+  hint="请上传作品图集、简历或展览资料。可以是单张作品图,也可以是打包文件。支持图片 / PDF / Word / PPT / zip,最大 20MB。"
+  accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
+/>
 
           {submitError && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>
