@@ -261,15 +261,15 @@ export default function CuratorApplyPage() {
           />
 
           <FileUploadField
-            label="附件材料"
-            required
-            maxSizeMB={20}
-            folder="identity-applications"
-            value={form.attachment}
-            onChange={v => setForm(f => ({ ...f, attachment: v }))}
-            hint="请将策展档案、简历、媒体报道、展览图集等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip,最大 20MB。也可以直接上传图片JPG/PNG格式"
-            accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
-          />
+  label="附件材料"
+  required
+  maxSizeMB={20}
+  folder="identity-applications"
+  value={form.attachment}
+  onChange={v => setForm(f => ({ ...f, attachment: v }))}
+  hint="可以直接上传一张展览/作品照片,也可以将策展档案、简历、媒体报道、图集等打包成一个文件(PDF / Word / PPT / zip)。最大 20MB。"
+  accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
+/>
 
           {submitError && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>
