@@ -178,10 +178,8 @@ export default function ArtistApplyPage() {
     folder="identity-applications"
     value={form.attachment}
     onChange={v => setForm(f => ({ ...f, attachment: v }))}
--   hint="请将作品图集、简历、展览资料等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip,最大 20MB。"
--   accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
-+   hint="可以直接上传作品图(JPG / PNG),也可以将多份材料打包成一个文件(PDF / Word / PPT / zip)。最大 20MB。"
-+   accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
+    hint="可以直接上传作品图(JPG / PNG),也可以将多份材料打包成一个文件(PDF / Word / PPT / zip)。最大 20MB。"
+    accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
   />
 
           {submitError && (
