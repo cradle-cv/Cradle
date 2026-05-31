@@ -163,16 +163,16 @@ export default function PartnerApplyPage() {
             maxLength={100}
           />
 
-          <FileUploadField
-            label="佐证材料"
-            required
-            maxSizeMB={20}
-            folder="identity-applications"
-            value={form.attachment}
-            onChange={v => setForm(f => ({ ...f, attachment: v }))}
-            hint="请将机构介绍、注册证明、空间照片、过往展览资料等所有佐证材料打包成一个文件(推荐 zip)。支持 PDF / Word / PPT / zip / 图片,最大 20MB，也可以直接上传JPG/PNG图片格式。"
-            accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z,.jpg,.jpeg,.png"
-          />
+       <FileUploadField
+  label="佐证材料"
+  required
+  maxSizeMB={20}
+  folder="identity-applications"
+  value={form.attachment}
+  onChange={v => setForm(f => ({ ...f, attachment: v }))}
+  hint="可以直接上传一张空间或展览照片,也可以将机构介绍、注册证明、过往资料等打包成一个文件(PDF / Word / PPT / zip)。最大 20MB。"
+  accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,.7z"
+/>
 
           {submitError && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>
