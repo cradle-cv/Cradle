@@ -5,13 +5,45 @@ import { useSearchParams } from 'next/navigation'
 import UserNav from '@/components/UserNav'
 
 // ════════════════════════════════════════════════════════════════════════
-// Cradle 摇篮 · 使用指南 v2
+// Cradle 摇篮 · 使用指南 v3
 // /guide
-// 新增:搜索框 + URL 锚点 + 关键词高亮
-// 支持 /guide?section=artist 直接打开某张卡片
+// 新增:第一张卡片 = 添加到主屏幕(PWA 引导)
 // ════════════════════════════════════════════════════════════════════════
 
 const SECTIONS = [
+  {
+    id: 'install',
+    label: '把 Cradle 添加到手机主屏幕',
+    labelEn: 'Add to Home Screen',
+    intro: 'Cradle 是网站,但可以"装"到手机主屏幕,变成一个跟 app 一样的图标。装好之后,体验跟 app 完全一样:全屏运行、秒开、不必再每次输入网址。',
+    steps: [
+      {
+        title: '为什么推荐这样做',
+        desc: '装到主屏幕后,打开 Cradle 不再是"浏览器打开网址",而是点一下图标直接进。没有地址栏,没有切换标签的麻烦。这是目前最接近"app" 的体验,而且不必下载安装包,不必占太多手机空间。',
+      },
+      {
+        title: 'iPhone:用 Safari 打开,不能用微信 / Chrome',
+        desc: '在 Safari 里访问 cradle.art。点页面底部的"分享" 按钮(中间那个方框带向上箭头的图标)。在分享菜单里向上滑动,找到"添加到主屏幕"。点击它,确认名称(默认是 Cradle),然后点"添加"。回到桌面,你会看到 Cradle 的图标。',
+      },
+      {
+        title: 'Android:用 Chrome / Edge / 三星浏览器',
+        desc: '在浏览器里访问 cradle.art。等几秒,浏览器底部可能会弹出"添加 Cradle 到主屏幕" 的提示。如果没弹,点右上角的菜单按钮(三个点),选"添加到主屏幕" 或"安装应用"。确认后,桌面就会有 Cradle 图标。',
+      },
+      {
+        title: '电脑也能装(可选)',
+        desc: '如果你常用电脑访问 Cradle,可以同样添加。Chrome 或 Edge 浏览器访问 cradle.art,地址栏右侧会有一个"安装" 图标(像 + 号在小屏幕里)。点击它,确认安装。之后 Cradle 会作为一个独立窗口运行,没有浏览器外壳,跟桌面 app 一样。',
+      },
+      {
+        title: '装好之后,你会发现',
+        desc: '点图标打开 Cradle,没有浏览器地址栏,全屏显示。第二次打开非常快(本地缓存生效)。你可以放在常用 app 同一个屏幕,跟微信、小红书并列。再也不必记网址 / 输网址了。',
+      },
+      {
+        title: '如果你不打算装,也没关系',
+        desc: 'Cradle 不强求任何形式的"承诺"。继续用浏览器访问也完全可以,所有功能都一样。装到主屏幕只是为了让"想常回来" 的人更方便而已。',
+      },
+    ]
+  },
+
   {
     id: 'newcomer',
     label: '我刚来,不知道从哪开始',
@@ -221,7 +253,6 @@ function GuideContent() {
   const [query, setQuery] = useState('')
   const inputRef = useRef(null)
 
-  // 支持 ?section=artist 直接打开
   useEffect(() => {
     const sec = searchParams.get('section')
     if (sec && SECTIONS.some(s => s.id === sec)) {
@@ -274,7 +305,6 @@ function GuideContent() {
         </div>
       </div>
 
-      {/* 搜索框 */}
       <div className="max-w-3xl mx-auto px-6 mb-6">
         <div className="relative bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
           <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9CA3AF' }}>
@@ -288,7 +318,7 @@ function GuideContent() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="试试搜:上传作品、申请艺术家、灵感值..."
+            placeholder="试试搜:添加到主屏幕、上传作品、灵感值..."
             className="w-full pl-12 pr-12 py-4 text-sm outline-none bg-transparent"
             style={{ color: '#111827', fontFamily: '"Noto Serif SC", serif' }}
           />
