@@ -101,6 +101,13 @@ const IconScroll = () => (
     <line x1="6" y1="9" x2="11" y2="9" />
   </svg>
 )
+const IconHelp = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <circle cx="8" cy="8" r="6.5" />
+    <path d="M6 6c0-1 .8-2 2-2s2 .8 2 1.8c0 1-1 1.5-2 2.2v.5" />
+    <circle cx="8" cy="11" r="0.5" fill="currentColor" stroke="none" />
+  </svg>
+)
 
 const SERIES_LABELS = {
   jianshu: '家书', jieqi: '节气', yeshen: '夜深', chuyu: '初遇', yuelan: '阅览室拾遗',
@@ -322,6 +329,9 @@ export default function UserNav() {
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
   const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing
 
+  // 新用户判断:总积分 < 50 + 没身份 + 没待审申请
+  const isNewbie = (userData?.total_points || 0) < 50 && myIdentities.length === 0 && !hasPendingApp
+
   const primaryIdentityLabel = isArtist ? '艺术家' 
     : isCurator ? '策展人' 
     : isPartner ? '合作伙伴' 
@@ -407,6 +417,28 @@ export default function UserNav() {
                   )}
                 </div>
               </div>
+
+              {/* ★ 新用户引导卡片 — 仅对积分<50 且无身份的新用户显示 */}
+              {isNewbie && (
+                <a href="/guide" onClick={() => setShowMenu(false)}
+                  className="block px-4 py-3 border-b transition-colors hover:opacity-90"
+                  style={{ 
+                    backgroundColor: '#FEFCE8',
+                    borderColor: '#F3F4F6',
+                  }}>
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium mb-0.5" style={{ color: '#854D0E' }}>
+                        第一次来?
+                      </div>
+                      <div className="text-xs" style={{ color: '#A16207' }}>
+                        用 2 分钟看一下使用指南
+                      </div>
+                    </div>
+                    <span className="text-base ml-2 flex-shrink-0" style={{ color: '#C0A57C' }}>→</span>
+                  </div>
+                </a>
+              )}
 
               <div className="py-1 border-b" style={{ borderColor: '#F3F4F6' }}>
                 <button onClick={openJianyuModal}
@@ -516,7 +548,12 @@ export default function UserNav() {
                 )}
               </div>
 
+              {/* ★ 使用指南 — 所有用户可见,放在退出登录之前 */}
               <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>
+                <a href="/guide" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#6B7280' }}>
+                  <span style={{ color: '#9CA3AF' }}><IconHelp /></span> 使用指南
+                </a>
                 <button onClick={handleLogout}
                   className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#DC2626' }}>
                   <span style={{ color: '#DC2626' }}><IconLogout /></span> 退出登录
