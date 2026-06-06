@@ -1,71 +1,66 @@
-// ════════════════════════════════════════════════════════════════════════
-// 这是 app/layout.js 需要添加的内容
-// 你不要整个覆盖你现有的 layout.js,只要把下面三处内容加进去就行
-// ════════════════════════════════════════════════════════════════════════
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import AutoCheckIn from "@/components/AutoCheckIn";
+import PetWrapper from "@/components/PetWrapper";
+import PWARegister from "@/components/PWARegister";
+import InAppBrowserHint from "@/components/InAppBrowserHint";
 
-
-// ─────────────────────────────────────────────────────────────────────────
-// 改动 1:在 layout.js 顶部 import 区,加这两行
-// ─────────────────────────────────────────────────────────────────────────
-
-import PWARegister from '@/components/PWARegister'
-import InAppBrowserHint from '@/components/InAppBrowserHint'
-
-
-// ─────────────────────────────────────────────────────────────────────────
-// 改动 2:metadata 加上 PWA 相关
-// 如果你已有 export const metadata = {...},把下面这些字段并进去
-// ─────────────────────────────────────────────────────────────────────────
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata = {
-  // ... 你原本的 metadata ...
-  title: 'Cradle 摇篮',
-  description: '一个慢的、克制的艺术社区。',
-  
-  // PWA 关键配置
-  manifest: '/manifest.json',
-  themeColor: '#C0A57C',
+  title: "Cradle 摇篮",
+  description: "一个慢的、克制的艺术社区。",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
-    title: 'Cradle',
+    statusBarStyle: "default",
+    title: "Cradle",
   },
   icons: {
     icon: [
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: '/icons/icon-180-apple.png', sizes: '180x180', type: 'image/png' },
+      { url: "/icons/icon-180-apple.png", sizes: "180x180", type: "image/png" },
     ],
   },
-}
+};
 
-
-// ─────────────────────────────────────────────────────────────────────────
-// 改动 3:在 <body> 标签里,加这两个组件
-// 通常 <body> 里你已经有 {children}、可能还有 Analytics 等
-// 在 children 渲染之前(或之后,顺序不重要)加这两行
-// ─────────────────────────────────────────────────────────────────────────
+export const viewport = {
+  themeColor: "#C0A57C",
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
-      <body>
-        {/* ★ 新增 - 内置浏览器提示(在最上面,这样优先显示) */}
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Liu+Jian+Mao+Cao&family=Lora:ital,wght@0,400;0,700;1,400&family=Ma+Shan+Zheng&family=Montserrat:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Poppins:wght@300;400;500;600&family=Raleway:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}
+      >
+        {/* ★ 内置浏览器提示(微信/小红书等) */}
         <InAppBrowserHint />
 
+        <AutoCheckIn />
         {children}
+        <PetWrapper />
 
-        {/* ★ 新增 - Service Worker 注册(放在最后,无 UI) */}
+        {/* ★ Service Worker 注册(无 UI) */}
         <PWARegister />
       </body>
     </html>
-  )
+  );
 }
-
-
-// ════════════════════════════════════════════════════════════════════════
-// 如果你的 layout.js 还用了 ThemeProvider / SupabaseProvider / 别的 wrapper
-// 那就把 InAppBrowserHint 和 PWARegister 放进最外层即可,不影响嵌套结构
-// ════════════════════════════════════════════════════════════════════════
