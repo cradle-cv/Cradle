@@ -8,7 +8,7 @@
 //   · API/Supabase:不缓存(总是去网络)
 // ════════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'cradle-v1'
+const CACHE_VERSION = 'cradle-v2'
 const STATIC_CACHE = `${CACHE_VERSION}-static`
 const PAGES_CACHE = `${CACHE_VERSION}-pages`
 const IMAGES_CACHE = `${CACHE_VERSION}-images`
