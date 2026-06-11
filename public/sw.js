@@ -57,8 +57,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // 只处理 GET 请求
+// 只处理 GET 请求
   if (request.method !== 'GET') return
+
+  // gustock 私人研究台 — 不缓存,直接网络
+  if (url.pathname.startsWith('/gustock')) return
 
   // 不处理跨域请求(API、Supabase、第三方等),让它们直连
   if (url.origin !== self.location.origin) {
