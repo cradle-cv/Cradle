@@ -11,7 +11,8 @@ export default function GustockDay() {
   const { date } = useParams();
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
-  const [comparing, setComparing] = useState(false);
+ const [comparing, setComparing] = useState(false);
+  const [crossing, setCrossing] = useState(false);
 
   const headers = () => ({ 'x-gustock-key': localStorage.getItem('gustock_key') || '' });
 
@@ -32,6 +33,19 @@ export default function GustockDay() {
     });
     const d = await res.json();
     setComparing(false);
+    if (d.error) { setErr(d.error); return; }
+    load();
+  }
+
+  async function runCross() {
+    setCrossing(true);
+    const res = await fetch('/api/gustock/crossmarket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers() },
+      body: JSON.stringify({ date })
+    });
+    const d = await res.json();
+    setCrossing(false);
     if (d.error) { setErr(d.error); return; }
     load();
   }
@@ -121,6 +135,52 @@ export default function GustockDay() {
         ) : (
           <p style={{ fontSize: 13, color: '#999' }}>
             收盤篇入庫後點「生成對照」,自動比對盤中觀點與收盤兌現。
+          </p>
+        )}
+     </section>
+
+      <section style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>台股 / 美股映射</h2>
+          <button onClick={runCross} disabled={crossing}
+            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 14,
+                     border: '1px solid #ddd', background: '#fff',
+                     color: '#666', cursor: 'pointer' }}>
+            {crossing ? '生成中…' : data.cross ? '重新生成' : '生成映射'}
+          </button>
+        </div>
+        {data.cross ? (
+          <div style={{ border: '1px solid #eee', borderRadius: 12, padding: 18 }}>
+            {['tw', 'us'].map(mkt => (
+              <div key={mkt} style={{ marginBottom: 14 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: '#888', margin: '0 0 6px' }}>
+                  {mkt === 'tw' ? '台股' : '美股'}
+                </h3>
+                {(data.cross[mkt] ?? []).map((s, i) => (
+                  <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5',
+                      fontSize: 13, lineHeight: 1.6 }}>
+                    <strong>{s.name}</strong>{s.ticker ? `(${s.ticker})` : ''}
+                    <span style={{ color: '#aaa', marginLeft: 8, fontSize: 12 }}>
+                      {s.strength === 'strong' ? '●●●' : s.strength === 'medium' ? '●●○' : '●○○'}
+                      {' '}{s.theme}
+                    </span>
+                    <div style={{ color: '#555' }}>{s.link}</div>
+                    <div style={{ color: '#b07d2b', fontSize: 12 }}>⚠ {s.risk}</div>
+                  </div>
+                ))}
+                {!(data.cross[mkt] ?? []).length && (
+                  <p style={{ fontSize: 12, color: '#bbb' }}>當日主題無紮實對應標的</p>
+                )}
+              </div>
+            ))}
+            <p style={{ fontSize: 12, color: '#999', lineHeight: 1.6 }}>{data.cross.note}</p>
+            <p style={{ fontSize: 11, color: '#ccc', marginTop: 6 }}>
+              僅為邏輯映射,無即時行情,非投資建議;報價請自行查證。
+            </p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: '#999' }}>
+            抽取完成後點「生成映射」,從當日主題推導台股與美股關聯標的。
           </p>
         )}
       </section>
