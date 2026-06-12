@@ -1,10 +1,12 @@
-
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+
+// ★ 公开页路由,如与你站点的实际路由不符,只需修改这一行
+const publicCollectionPath = (id) => `/collections/${id}`
 
 export default function StudioCollectionsPage() {
   const router = useRouter()
@@ -103,17 +105,22 @@ export default function StudioCollectionsPage() {
                   <div className="grid md:grid-cols-2 gap-6">
                     {collections.map(col => (
                       <div key={col.id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors">
-                        <div className="aspect-video bg-gray-100">
-                          {col.cover_image ? (
-                            <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-6xl">📚</div>
-                          )}
-                        </div>
+                        {/* 点击封面 = 进入作品集内容页 */}
+                        <Link href={`/studio/collections/${col.id}`} className="block">
+                          <div className="aspect-video bg-gray-100">
+                            {col.cover_image ? (
+                              <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-6xl">📚</div>
+                            )}
+                          </div>
+                        </Link>
                         <div className="p-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <h3 className="text-lg font-bold text-gray-900 mb-1">{col.title}</h3>
+                              <Link href={`/studio/collections/${col.id}`}>
+                                <h3 className="text-lg font-bold text-gray-900 mb-1 hover:underline">{col.title}</h3>
+                              </Link>
                               {col.title_en && <p className="text-sm text-gray-500 mb-2">{col.title_en}</p>}
                             </div>
                             <StatusBadge status={col.status} />
@@ -125,10 +132,20 @@ export default function StudioCollectionsPage() {
                           {col.description && (
                             <p className="text-sm text-gray-600 mb-4 line-clamp-2">{col.description}</p>
                           )}
+                          {/* 管理作品 / 查看公开页 / 编辑信息 三入口 */}
                           <div className="flex gap-2">
                             <Link href={`/studio/collections/${col.id}`}
                               className="flex-1 px-4 py-2 text-sm text-center bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
-                              编辑
+                              管理作品
+                            </Link>
+                            <Link href={publicCollectionPath(col.id)}
+                              className="px-4 py-2 text-sm text-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+                              查看
+                            </Link>
+                            <Link href={`/studio/collections/${col.id}/edit`}
+                              className="px-4 py-2 text-sm text-center rounded-lg hover:bg-blue-50 transition-colors"
+                              style={{ color: '#2563EB', border: '1px solid #BFDBFE' }}>
+                              ✏ 信息
                             </Link>
                           </div>
                         </div>
