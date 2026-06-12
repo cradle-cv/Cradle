@@ -8,6 +8,10 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 
+// ★ 公开页路由,如与你站点的实际路由不符,只需修改这两行
+const publicCollectionPath = (id) => `/collections/${id}`
+const publicArtworkPath = (id) => `/artworks/${id}`
+
 const IDENTITY_CONFIG = {
   artist: { label: '艺术家', icon: '🎨', color: '#059669', bg: '#ECFDF5' },
   curator: { label: '策展人', icon: '📯', color: '#7C3AED', bg: '#F5F3FF' },
@@ -567,25 +571,41 @@ function ArtworksTab({ artworks, hasNoCollections, statusColors }) {
           {artworks.map(work => {
             const sc = statusColors[work.status] || statusColors.draft
             return (
-              <Link key={work.id} href={`/studio/artworks/${work.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
-                <div className="aspect-square bg-gray-100">
-                  {work.image_url ? (
-                    <img src={work.image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
-                  )}
-                </div>
+              <div key={work.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                {/* 点击图片 = 查看公开详情页 */}
+                <Link href={publicArtworkPath(work.id)} className="block">
+                  <div className="aspect-square bg-gray-100 overflow-hidden">
+                    {work.image_url ? (
+                      <img src={work.image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
+                    )}
+                  </div>
+                </Link>
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{work.title}</h3>
                     <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
+                  <div className="flex items-center gap-3 text-xs mb-3" style={{ color: '#9CA3AF' }}>
                     <span>👁 {work.views_count || 0}</span>
                     <span>❤️ {work.likes_count || 0}</span>
                   </div>
+                  {/* 查看/编辑 双入口 */}
+                  <div className="flex items-center gap-2">
+                    <Link href={publicArtworkPath(work.id)}
+                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg border hover:bg-gray-50"
+                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                      查看
+                    </Link>
+                    <Link href={`/studio/artworks/${work.id}`}
+                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      ✏ 编辑
+                    </Link>
+                  </div>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>
@@ -629,22 +649,43 @@ function CollectionsTab({ collections, statusColors }) {
           {collections.map(col => {
             const sc = statusColors[col.status] || statusColors.draft
             return (
-              <Link key={col.id} href={`/studio/collections/${col.id}`} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
-                <div className="aspect-video bg-gray-100">
-                  {col.cover_image ? (
-                    <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
-                  )}
-                </div>
+              <div key={col.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                {/* 点击封面 = 进入作品集内容页(看到里面的作品) */}
+                <Link href={`/studio/collections/${col.id}`} className="block">
+                  <div className="aspect-video bg-gray-100 overflow-hidden">
+                    {col.cover_image ? (
+                      <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
+                    )}
+                  </div>
+                </Link>
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{col.title}</h3>
                     <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
                   </div>
-                  <p className="text-xs" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
+                  <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
+                  {/* 管理作品 / 查看公开页 / 编辑信息 三入口 */}
+                  <div className="flex items-center gap-2">
+                    <Link href={`/studio/collections/${col.id}`}
+                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg text-white"
+                      style={{ backgroundColor: '#111827' }}>
+                      管理作品
+                    </Link>
+                    <Link href={publicCollectionPath(col.id)}
+                      className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
+                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>
+                      查看
+                    </Link>
+                    <Link href={`/studio/collections/${col.id}/edit`}
+                      className="px-3 py-1.5 text-xs rounded-lg hover:bg-blue-50"
+                      style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
+                      ✏ 信息
+                    </Link>
+                  </div>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>
