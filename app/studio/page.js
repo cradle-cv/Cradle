@@ -678,7 +678,7 @@ function CollectionsTab({ collections, statusColors }) {
                       style={{ color: '#374151', borderColor: '#D1D5DB' }}>
                       查看
                     </Link>
-                    <Link href={`/studio/collections/${col.id}/edit`}
+                    <Link href={`/studio/collections/${col.id}?edit=1`}
                       className="px-3 py-1.5 text-xs rounded-lg hover:bg-blue-50"
                       style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
                       ✏ 信息
