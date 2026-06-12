@@ -142,7 +142,7 @@ export default function StudioCollectionsPage() {
                               className="px-4 py-2 text-sm text-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
                               查看
                             </Link>
-                            <Link href={`/studio/collections/${col.id}/edit`}
+                            <Link href={`/studio/collections/${col.id}?edit=1`}
                               className="px-4 py-2 text-sm text-center rounded-lg hover:bg-blue-50 transition-colors"
                               style={{ color: '#2563EB', border: '1px solid #BFDBFE' }}>
                               ✏ 信息
