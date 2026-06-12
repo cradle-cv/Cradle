@@ -20,8 +20,8 @@ export default function StudioNewCollectionPage() {
     title_en: '',
     description: '',
     cover_image: '',
-    category: 'painting',
-    status: 'draft'
+   category: 'painting',
+    status: 'published'
   })
 
   useEffect(() => { init() }, [])
@@ -245,13 +245,12 @@ export default function StudioNewCollectionPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
-                    <select name="status" value={formData.status} onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option value="draft">草稿</option>
-                      <option value="published">已发布</option>
-                      <option value="archived">已归档</option>
-                    </select>
+                    <p className="text-sm" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+                      建立后,这个系列对所有人可见。
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>
+                      可以在编辑页随时调整或归档。
+                    </p>
                   </div>
                   <div className="pt-4 border-t border-gray-200">
                     <button type="submit" disabled={saving}
