@@ -16,7 +16,13 @@ export default function StudioNewArtworkPage() {
   const [tags, setTags] = useState([])
   const [selectedTags, setSelectedTags] = useState([])
   const fileInputRef = useRef(null)
-  
+
+  // ★ 内联创建作品集弹窗
+  const [showColModal, setShowColModal] = useState(false)
+  const [newColName, setNewColName] = useState('')
+  const [creatingCol, setCreatingCol] = useState(false)
+  const colInputRef = useRef(null)
+
   const [formData, setFormData] = useState({
     title: '',
     collection_id: '',
@@ -30,6 +36,13 @@ export default function StudioNewArtworkPage() {
   })
 
   useEffect(() => { init() }, [])
+
+  // 弹窗打开时自动聚焦输入框
+  useEffect(() => {
+    if (showColModal) {
+      setTimeout(() => colInputRef.current?.focus(), 100)
+    }
+  }, [showColModal])
 
   async function init() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -59,6 +72,15 @@ export default function StudioNewArtworkPage() {
       .select('id, title').eq('artist_id', artist.id).order('title')
     setCollections(cols || [])
 
+    // ★ 支持 ?collection=id 预选(从作品集创建页闭环跳回时)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const preselect = params.get('collection')
+      if (preselect && (cols || []).some(c => c.id === preselect)) {
+        setFormData(prev => ({ ...prev, collection_id: preselect }))
+      }
+    } catch (e) {}
+
     // 标签
     const { data: tagsData } = await supabase.from('tags').select('*').order('name')
     setTags(tagsData || [])
@@ -66,10 +88,39 @@ export default function StudioNewArtworkPage() {
     setLoading(false)
   }
 
+  // ★ 内联创建作品集:只需要一个名字,其余以后再补
+  async function createCollectionInline() {
+    const name = newColName.trim()
+    if (!name) { alert('请给这个系列起个名字'); return }
+    if (!artistRecord) return
+
+    setCreatingCol(true)
+    try {
+      const { data: newCol, error } = await supabase.from('collections').insert({
+        title: name,
+        artist_id: artistRecord.id,
+        category: formData.category,
+        status: 'published'
+      }).select('id, title').single()
+
+      if (error) throw error
+
+      setCollections(prev => [...prev, newCol].sort((a, b) => a.title.localeCompare(b.title, 'zh')))
+      setFormData(prev => ({ ...prev, collection_id: newCol.id }))
+      setShowColModal(false)
+      setNewColName('')
+    } catch (error) {
+      alert('创建失败:' + error.message)
+    } finally {
+      setCreatingCol(false)
+    }
+  }
+
   const handleFileSelect = async (e) => {
     const file = e.target.files[0]
     if (!file) return
     if (!file.type.startsWith('image/')) { alert('请选择图片文件!'); return }
+    if (file.size > 20 * 1024 * 1024) { alert('图片超过 20MB,请压缩后再上传'); return }
 
     const reader = new FileReader()
     reader.onload = (e) => setImagePreview(e.target.result)
@@ -99,7 +150,7 @@ export default function StudioNewArtworkPage() {
       const { data: artwork, error } = await supabase.from('artworks').insert({
         title: formData.title,
         artist_id: artistRecord.id,
-        collection_id: formData.collection_id,  // 必填
+        collection_id: formData.collection_id,
         category: formData.category,
         medium: formData.medium || null,
         size: formData.dimensions || null,
@@ -137,11 +188,63 @@ export default function StudioNewArtworkPage() {
     setSelectedTags(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId])
   }
 
+  // ★ 内联创建弹窗(引导页和主表单共用)
+  const colModal = showColModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+      style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)', backdropFilter: 'blur(2px)' }}
+      onClick={() => { if (!creatingCol) { setShowColModal(false); setNewColName('') } }}
+    >
+      <div
+        className="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+        style={{ fontFamily: '"Noto Serif SC", serif' }}
+      >
+        <h3 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>
+          给这个系列起个名字
+        </h3>
+        <p className="text-sm mb-5" style={{ color: '#6B7280', lineHeight: 1.8 }}>
+          作品集只是作品的归属系列,像一个文件夹。
+          现在只需要一个名字,封面和介绍以后随时可以补。
+        </p>
+        <input
+          ref={colInputRef}
+          type="text"
+          value={newColName}
+          onChange={(e) => setNewColName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createCollectionInline() } }}
+          placeholder="如:城市光影 / 日常速写 / 2026 新作"
+          maxLength={60}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-transparent outline-none mb-5"
+          style={{ color: '#111827' }}
+        />
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={createCollectionInline}
+            disabled={creatingCol}
+            className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-300 transition-colors text-sm"
+          >
+            {creatingCol ? '创建中...' : '创建并继续上传'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setShowColModal(false); setNewColName('') }}
+            disabled={creatingCol}
+            className="px-6 py-3 rounded-lg text-sm border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
   }
 
-  // 没有作品集 - 显示引导页,禁止进入上传
+  // 没有作品集 - 引导页(★ 改为直接在本页弹窗创建,不再跳走)
   if (collections.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
@@ -165,28 +268,38 @@ export default function StudioNewArtworkPage() {
         <div className="max-w-2xl mx-auto px-6 py-16">
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
             <div className="text-5xl mb-6">📚</div>
-            <h1 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>先从作品集开始</h1>
+            <h1 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>先给作品安一个家</h1>
             <p className="mb-2" style={{ color: '#374151', lineHeight: 1.9 }}>
-              作品需要归属于某个作品集。
+              每件作品都需要归属于一个作品集(系列)。
             </p>
             <p className="text-sm mb-8 max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.9 }}>
-              作品集是你创作的主题归属 — 比如"城市光影系列"、"日常速写"、"2026 新作"。
-              先创建一个作品集,再把作品添加进去,你的创作就有了清晰的脉络。
+              作品集像一个文件夹,比如"城市光影"、"日常速写"、"2026 新作"。
+              现在只需要起一个名字,马上就能继续上传你的作品。
             </p>
             <div className="flex items-center gap-3 justify-center">
-              <Link href="/studio/collections/new"
+              <button
+                type="button"
+                onClick={() => setShowColModal(true)}
                 className="px-6 py-3 rounded-lg text-sm font-medium text-white"
                 style={{ backgroundColor: '#111827' }}>
-                创建第一个作品集 →
-              </Link>
+                起个名字,继续上传 →
+              </button>
               <Link href="/studio"
                 className="px-6 py-3 rounded-lg text-sm font-medium"
                 style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
                 返回工作台
               </Link>
             </div>
+            <p className="text-xs mt-6" style={{ color: '#9CA3AF' }}>
+              想先完整地建一个作品集(含封面、介绍)?
+              <Link href="/studio/collections/new?next=artwork" className="underline ml-1" style={{ color: '#6B7280' }}>
+                去完整创建页
+              </Link>
+            </p>
           </div>
         </div>
+
+        {colModal}
       </div>
     )
   }
@@ -230,18 +343,29 @@ export default function StudioNewArtworkPage() {
                 <p className="text-sm mb-4" style={{ color: '#6B7280' }}>
                   把这件作品归到一个作品集里,让它有脉络可循
                 </p>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     所属作品集 <span className="text-red-500">*</span>
                   </label>
-                  <select name="collection_id" value={formData.collection_id} onChange={handleChange} required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="">-- 选择作品集 --</option>
-                    {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                  </select>
+                  <div className="flex gap-2">
+                    <select name="collection_id" value={formData.collection_id} onChange={handleChange} required
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="">-- 选择作品集 --</option>
+                      {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                    {/* ★ 内联创建按钮:不离开本页 */}
+                    <button
+                      type="button"
+                      onClick={() => setShowColModal(true)}
+                      className="px-4 py-3 rounded-lg text-sm font-medium whitespace-nowrap border transition-colors hover:bg-gray-50"
+                      style={{ borderColor: '#D1D5DB', color: '#374151' }}
+                    >
+                      + 新建
+                    </button>
+                  </div>
                   <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
-                    想建一个新的作品集? <Link href="/studio/collections/new" className="underline" style={{ color: '#374151' }}>去创建</Link>
+                    还没想好归属?点"+ 新建" 随手起个名字就行,以后可以改
                   </p>
                 </div>
               </div>
@@ -353,7 +477,7 @@ export default function StudioNewArtworkPage() {
                   <div className="pt-4 border-t border-gray-200">
                     <button type="submit" disabled={saving}
                       className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
-                      {saving ? '创建中...' : '✅ 创建作品'}
+                      {saving ? '创建中...' : '✅ 发布这件作品'}
                     </button>
                     <button type="button" onClick={() => router.back()}
                       className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
@@ -366,6 +490,8 @@ export default function StudioNewArtworkPage() {
           </div>
         </form>
       </div>
+
+      {colModal}
     </div>
   )
 }
