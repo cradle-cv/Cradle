@@ -1,10 +1,12 @@
-
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+
+// ★ 公开页路由,如与你站点的实际路由不符,只需修改这一行
+const publicArtworkPath = (id) => `/artworks/${id}`
 
 export default function StudioArtworksPage() {
   const router = useRouter()
@@ -116,15 +118,19 @@ export default function StudioArtworksPage() {
                     {artworks.map(artwork => (
                       <div key={artwork.id}
                         className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
-                        <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                        {/* 点击缩略图 = 查看公开详情页 */}
+                        <Link href={publicArtworkPath(artwork.id)}
+                          className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 block">
                           {artwork.image_url ? (
                             <img src={artwork.image_url} alt={artwork.title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-3xl">🎨</div>
                           )}
-                        </div>
+                        </Link>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{artwork.title}</h3>
+                          <Link href={publicArtworkPath(artwork.id)}>
+                            <h3 className="text-lg font-bold text-gray-900 mb-1 hover:underline">{artwork.title}</h3>
+                          </Link>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span>📁 {getCategoryLabel(artwork.category)}</span>
                             <span>👁️ {artwork.views_count || 0}</span>
@@ -134,11 +140,15 @@ export default function StudioArtworksPage() {
                             <p className="text-sm text-gray-500 mt-2 line-clamp-1">{artwork.description}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <StatusBadge status={artwork.status} />
+                          <Link href={publicArtworkPath(artwork.id)}
+                            className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+                            查看
+                          </Link>
                           <Link href={`/studio/artworks/${artwork.id}`}
-                            className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            编辑
+                            className="px-4 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors">
+                            ✏ 编辑
                           </Link>
                         </div>
                       </div>
