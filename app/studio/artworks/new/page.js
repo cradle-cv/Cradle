@@ -32,7 +32,7 @@ export default function StudioNewArtworkPage() {
     year: new Date().getFullYear(),
     description: '',
     image_url: '',
-    status: 'draft'
+    status: 'published'
   })
 
   useEffect(() => { init() }, [])
