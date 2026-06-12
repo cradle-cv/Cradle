@@ -43,14 +43,17 @@ export default function GustockLayout({ children }) {
           style={{ marginTop: 12, width: '100%', padding: 10, borderRadius: 8,
                    border: 'none', background: '#1a1a1a', color: '#fff',
                    fontSize: 14, cursor: 'pointer' }}
-        >進入</button>
+       >進入</button>
+      </div>
       </div>
     );
   }
 
   return (
+    <div style={{ background: '#fff', color: '#1a1a1a', minHeight: '100vh',
+                  position: 'fixed', inset: 0, overflow: 'auto' }}>
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px',
-                  fontFamily: 'system-ui', minHeight: '100vh' }}>
+                  fontFamily: 'system-ui' }}>
       <nav style={{ display: 'flex', gap: 18, alignItems: 'baseline',
                     paddingBottom: 16, borderBottom: '1px solid #eee', marginBottom: 24 }}>
         <a href="/gustock" style={{ fontWeight: 600, fontSize: 16,
@@ -61,7 +64,9 @@ export default function GustockLayout({ children }) {
           style={{ marginLeft: 'auto', fontSize: 12, color: '#aaa', border: 'none',
                    background: 'none', cursor: 'pointer' }}>登出</button>
       </nav>
-      {children}
+     {children}
+    </div>
     </div>
   );
+}
 }
