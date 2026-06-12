@@ -15,6 +15,8 @@ export default function GustockLayout({ children }) {
 
   if (!key) {
     return (
+     <div style={{ background: '#fff', color: '#1a1a1a', minHeight: '100vh',
+                    position: 'fixed', inset: 0, overflow: 'auto' }}>
       <div style={{ maxWidth: 360, margin: '20vh auto', padding: 24, fontFamily: 'system-ui' }}>
         <h1 style={{ fontSize: 18, fontWeight: 600 }}>谷股 · 盤後研究台</h1>
         <p style={{ fontSize: 13, color: '#888' }}>輸入訪問密鑰</p>
