@@ -584,24 +584,19 @@ function ArtworksTab({ artworks, hasNoCollections, statusColors }) {
                 </Link>
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{work.title}</h3>
+                    <Link href={publicArtworkPath(work.id)} className="min-w-0">
+                      <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{work.title}</h3>
+                    </Link>
                     <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs mb-3" style={{ color: '#9CA3AF' }}>
-                    <span>👁 {work.views_count || 0}</span>
-                    <span>❤️ {work.likes_count || 0}</span>
-                  </div>
-                  {/* 查看/编辑 双入口 */}
-                  <div className="flex items-center gap-2">
-                    <Link href={publicArtworkPath(work.id)}
-                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg border hover:bg-gray-50"
-                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                      查看
-                    </Link>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
+                      <span>👁 {work.views_count || 0}</span>
+                      <span>❤️ {work.likes_count || 0}</span>
+                    </div>
                     <Link href={`/studio/artworks/${work.id}`}
-                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg text-white"
-                      style={{ backgroundColor: '#111827' }}>
-                      ✏ 编辑
+                      className="text-xs hover:underline" style={{ color: '#6B7280' }}>
+                      编辑
                     </Link>
                   </div>
                 </div>
@@ -662,26 +657,16 @@ function CollectionsTab({ collections, statusColors }) {
                 </Link>
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{col.title}</h3>
+                    <Link href={`/studio/collections/${col.id}`} className="min-w-0">
+                      <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{col.title}</h3>
+                    </Link>
                     <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
                   </div>
-                  <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
-                  {/* 管理作品 / 查看公开页 / 编辑信息 三入口 */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
                     <Link href={`/studio/collections/${col.id}`}
-                      className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg text-white"
-                      style={{ backgroundColor: '#111827' }}>
-                      管理作品
-                    </Link>
-                    <Link href={publicCollectionPath(col.id)}
-                      className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50"
-                      style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                      查看
-                    </Link>
-                    <Link href={`/studio/collections/${col.id}?edit=1`}
-                      className="px-3 py-1.5 text-xs rounded-lg hover:bg-blue-50"
-                      style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
-                      ✏ 信息
+                      className="text-xs hover:underline" style={{ color: '#6B7280' }}>
+                      管理 →
                     </Link>
                   </div>
                 </div>
