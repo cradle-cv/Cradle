@@ -1,310 +1,577 @@
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { notFound } from 'next/navigation'
+import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 
-async function getCollection(id) {
-  const { data: collection } = await supabase
-    .from('collections')
-    .select('*, artists(*)')
-    .eq('id', id)
-    .single()
+// ★ 公开页路由,如与你站点的实际路由不符,只需修改这两行
+const publicCollectionPath = (id) => `/collections/${id}`
+const publicArtworkPath = (id) => `/artworks/${id}`
 
-  if (!collection) return null
-
-  const { data: artworks } = await supabase
-    .from('artworks')
-    .select('*, artists(*)')
-    .eq('collection_id', id)
-    .eq('status', 'published')
-    .order('created_at', { ascending: true })
-
-  // 获取相邻作品集（上一个/下一个）
-  const { data: prevCollection } = await supabase
-    .from('collections')
-    .select('id, title, theme_en, theme_zh')
-    .eq('status', 'published')
-    .lt('display_order', collection.display_order || 999)
-    .order('display_order', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: nextCollection } = await supabase
-    .from('collections')
-    .select('id, title, theme_en, theme_zh')
-    .eq('status', 'published')
-    .gt('display_order', collection.display_order || 0)
-    .order('display_order', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  return {
-    collection,
-    artworks: artworks || [],
-    prevCollection,
-    nextCollection,
-  }
+const STATUS_COLORS = {
+  published: { bg: '#ECFDF5', color: '#059669', text: '已发布' },
+  draft: { bg: '#FEF3C7', color: '#B45309', text: '草稿' },
+  featured: { bg: '#EDE9FE', color: '#7C3AED', text: '精选' },
+  archived: { bg: '#F3F4F6', color: '#6B7280', text: '已归档' },
 }
 
-export default async function CollectionDetailPage({ params }) {
-  const { id } = await params
-  const data = await getCollection(id)
+const CATEGORY_LABELS = {
+  painting: '绘画', photo: '摄影', sculpture: '立体造型', calligraphy: '手迹', vibeart: 'VIBEART',
+}
 
-  if (!data) notFound()
+export default function StudioCollectionDetailPage({ params }) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [collectionId, setCollectionId] = useState(null)
+  const [collection, setCollection] = useState(null)
+  const [ownerArtistId, setOwnerArtistId] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [collectionArtworks, setCollectionArtworks] = useState([])
+  const [allArtworks, setAllArtworks] = useState([])
+  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
-  const { collection, artworks, prevCollection, nextCollection } = data
-  const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
-  const hasTheme = collection.theme_en || collection.theme_zh
+  // ═══ 信息编辑面板状态 ═══
+  const [editing, setEditing] = useState(false)
+  const [imagePreview, setImagePreview] = useState('')
+  const fileInputRef = useRef(null)
+  const [formData, setFormData] = useState({
+    title: '', title_en: '', description: '', cover_image: '',
+    category: 'painting', status: 'draft',
+    theme_en: '', theme_zh: '', quote: '', quote_author: '', display_order: 0,
+  })
+
+  useEffect(() => {
+    async function init() {
+      const resolvedParams = await params
+      const id = resolvedParams.id
+      setCollectionId(id)
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push(`/login?redirect=/studio/collections/${id}`); return }
+
+      const { data: userData } = await supabase.from('users')
+        .select('id, role').eq('auth_id', session.user.id).single()
+      if (!userData) { router.push('/login'); return }
+      setIsAdmin(userData.role === 'admin')
+
+      const { data: identity } = await supabase.from('user_identities')
+        .select('id').eq('user_id', userData.id)
+        .eq('identity_type', 'artist').eq('is_active', true).maybeSingle()
+      const isArtist = !!identity || userData.role === 'admin'
+      if (!isArtist) { router.push('/studio'); return }
+
+      const { data: artist } = await supabase.from('artists')
+        .select('id, display_name').eq('owner_user_id', userData.id).maybeSingle()
+      if (!artist && userData.role !== 'admin') {
+        alert('请先建立艺术家主页')
+        router.push('/profile/my-artist/new')
+        return
+      }
+
+      // 加载作品集 + 所有权校验
+      const { data: col, error } = await supabase.from('collections')
+        .select('*, artists(id, display_name)').eq('id', id).maybeSingle()
+      if (error || !col) {
+        alert('加载作品集失败')
+        router.push('/studio/collections')
+        return
+      }
+      if (userData.role !== 'admin' && col.artist_id !== artist?.id) {
+        alert('这个作品集不属于你')
+        router.push('/studio/collections')
+        return
+      }
+
+      setCollection(col)
+      setOwnerArtistId(col.artist_id)
+      fillForm(col)
+      await loadArtworks(id, col.artist_id)
+
+      // 带 ?edit=1 进来时自动展开编辑面板
+      try {
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edit') === '1') {
+          setEditing(true)
+        }
+      } catch {}
+
+      setLoading(false)
+    }
+    init()
+  }, [params])
+
+  function fillForm(col) {
+    setFormData({
+      title: col.title || '',
+      title_en: col.title_en || '',
+      description: col.description || '',
+      cover_image: col.cover_image || '',
+      category: col.category || 'painting',
+      status: col.status || 'draft',
+      theme_en: col.theme_en || '',
+      theme_zh: col.theme_zh || '',
+      quote: col.quote || '',
+      quote_author: col.quote_author || '',
+      display_order: col.display_order || 0,
+    })
+    setImagePreview(col.cover_image || '')
+  }
+
+  async function loadArtworks(colId, artistId) {
+    const [inRes, allRes] = await Promise.all([
+      supabase.from('artworks')
+        .select('id, title, image_url, status, views_count, likes_count')
+        .eq('collection_id', colId)
+        .order('created_at', { ascending: false }),
+      supabase.from('artworks')
+        .select('id, title, image_url, status, collection_id')
+        .eq('artist_id', artistId)
+        .order('created_at', { ascending: false }),
+    ])
+    setCollectionArtworks(inRes.data || [])
+    setAllArtworks(allRes.data || [])
+  }
+
+  async function handleAddArtwork(artworkId) {
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('artworks')
+        .update({ collection_id: collectionId }).eq('id', artworkId)
+      if (error) throw error
+      await loadArtworks(collectionId, ownerArtistId)
+    } catch (e) {
+      alert('添加失败:' + e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRemoveArtwork(artworkId) {
+    if (!confirm('确定要从作品集中移除这件作品吗?\n\n作品本身不会被删除。')) return
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('artworks')
+        .update({ collection_id: null }).eq('id', artworkId)
+      if (error) throw error
+      await loadArtworks(collectionId, ownerArtistId)
+    } catch (e) {
+      alert('移除失败:' + e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ═══ 信息编辑面板逻辑 ═══
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { alert('请选择图片文件!'); return }
+
+    const reader = new FileReader()
+    reader.onload = (e) => setImagePreview(e.target.result)
+    reader.readAsDataURL(file)
+
+    try {
+      setSaving(true)
+      const { url } = await uploadImage(file, 'collections')
+      setFormData(prev => ({ ...prev, cover_image: url }))
+      alert('✅ 图片上传成功!')
+    } catch (error) {
+      alert('❌ 图片上传失败:' + error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveInfo = async (e) => {
+    e.preventDefault()
+    if (!formData.title) { alert('请填写标题'); return }
+
+    setSaving(true)
+    try {
+      const updatePayload = {
+        title: formData.title,
+        title_en: formData.title_en,
+        description: formData.description,
+        category: formData.category,
+        cover_image: formData.cover_image,
+        status: formData.status,
+      }
+      // 运营字段仅 admin 可更新(范围 B)
+      if (isAdmin) {
+        updatePayload.theme_en = formData.theme_en || null
+        updatePayload.theme_zh = formData.theme_zh || null
+        updatePayload.quote = formData.quote || null
+        updatePayload.quote_author = formData.quote_author || null
+        updatePayload.display_order = formData.display_order || 0
+      }
+
+      const { error } = await supabase.from('collections')
+        .update(updatePayload).eq('id', collectionId)
+      if (error) throw error
+
+      // 更新页面顶部的信息头
+      setCollection(prev => ({ ...prev, ...updatePayload }))
+      setEditing(false)
+      alert('作品集信息已保存!')
+    } catch (error) {
+      alert('保存失败:' + error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    fillForm(collection)  // 还原表单为当前数据
+    setEditing(false)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('确定要删除这个作品集吗?\n\n注意:作品集中的作品不会被删除,只会取消关联。')) return
+    try {
+      await supabase.from('artworks').update({ collection_id: null }).eq('collection_id', collectionId)
+      const { error } = await supabase.from('collections').delete().eq('id', collectionId)
+      if (error) throw error
+      alert('作品集已删除!')
+      router.push('/studio/collections')
+    } catch (error) {
+      alert('删除失败:' + error.message)
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
+  }
+
+  const sc = STATUS_COLORS[collection.status] || STATUS_COLORS.draft
+  const availableArtworks = allArtworks.filter(a => a.collection_id !== collectionId)
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      {/* 导航栏 */}
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-12">
-            <a href="/" className="flex items-center gap-3">
-              <div className="w-0 h-10 flex-shrink-0"></div>
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4 min-w-0">
+            <Link href="/" className="flex items-center gap-3 flex-shrink-0">
               <div style={{ height: '69px', overflow: 'hidden' }}>
                 <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
               </div>
-            </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
-              <li><a href="/collections" className="hover:text-gray-900 font-bold text-gray-900">作品集</a></li>
-              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-            </ul>
+            </Link>
+            <span style={{ color: '#D1D5DB' }}>/</span>
+            <Link href="/studio" className="text-sm flex-shrink-0" style={{ color: '#6B7280' }}>工作台</Link>
+            <span style={{ color: '#D1D5DB' }}>/</span>
+            <Link href="/studio/collections" className="text-sm flex-shrink-0" style={{ color: '#6B7280' }}>我的作品集</Link>
+            <span style={{ color: '#D1D5DB' }}>/</span>
+            <span className="text-sm font-medium truncate" style={{ color: '#111827' }}>{collection.title}</span>
           </div>
-          <div className="flex items-center gap-4">
-            <UserNav />
-          </div>
+          <UserNav />
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6">
-        {/* 返回链接 */}
-        <div style={{ padding: '16px 0 8px' }}>
-          <Link href="/collections" className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>
-            ← 返回作品集
-          </Link>
-        </div>
-
-        {/* 刊头 */}
-        <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
-          <div className="flex items-center justify-between">
-            <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 当代回响</span>
-            <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>{artworks.length} works</span>
-          </div>
-        </div>
-
-        {/* 主题区 */}
-        <div style={{ padding: '32px 0 24px', textAlign: 'center' }}>
-          {hasTheme && (
-            <div className="mb-4">
-              <p style={{ fontSize: '10px', letterSpacing: '5px', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: '8px' }}>Theme</p>
-              <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '42px', fontWeight: 400, color: '#111827', lineHeight: 1.1 }}>
-                {collection.theme_en}
-              </p>
-              {collection.theme_zh && (
-                <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '6px' }}>
-                  {collection.theme_zh}
-                </p>
-              )}
-            </div>
-          )}
-
-          <h1 className="text-2xl font-bold" style={{ color: '#111827', marginBottom: '4px' }}>
-            {collection.title}
-          </h1>
-          {collection.title_en && !hasTheme && (
-            <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', color: '#9CA3AF', marginBottom: '8px' }}>
-              {collection.title_en}
-            </p>
-          )}
-
-          {/* 艺术家 */}
-          {collection.artists && (
-            <div className="flex items-center justify-center gap-3 mt-4">
-              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: '#F3F4F6', border: '2px solid #E5E7EB' }}>
-                {collection.artists.avatar_url ? (
-                  <img src={collection.artists.avatar_url} alt="" className="w-full h-full object-cover" />
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* ═══ 作品集信息头 ═══ */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
+          <div className="md:flex">
+            <div className="md:w-80 flex-shrink-0 bg-gray-100">
+              <div className="aspect-video md:aspect-auto md:h-full">
+                {collection.cover_image ? (
+                  <img src={collection.cover_image} alt={collection.title} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: '#9CA3AF' }}>👤</div>
+                  <div className="w-full h-full min-h-[180px] flex items-center justify-center text-6xl">📚</div>
                 )}
               </div>
-              <span className="text-sm" style={{ color: '#6B7280' }}>{collection.artists.display_name}</span>
             </div>
-          )}
-        </div>
-
-        <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
-
-        {/* 描述 */}
-        {collection.description && (
-          <div style={{ padding: '24px 0', maxWidth: '640px', margin: '0 auto' }}>
-            <p style={{ color: '#374151', fontSize: '15px', lineHeight: 2, textAlign: 'center' }}>
-              {collection.description}
-            </p>
-          </div>
-        )}
-
-        {/* 引言 */}
-        {collection.quote && (
-          <div style={{ padding: '8px 0 24px' }}>
-            <div style={{ borderBottom: '0.5px solid #E5E7EB', marginBottom: '16px' }}></div>
-            <div style={{ borderLeft: '2px solid #111827', paddingLeft: '20px', margin: '0 40px' }}>
-              <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                "{collection.quote}"
-              </p>
-              {collection.quote_author && (
-                <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-                  —— {collection.quote_author}
-                </p>
-              )}
-            </div>
-            <div style={{ borderBottom: '0.5px solid #E5E7EB', marginTop: '16px' }}></div>
-          </div>
-        )}
-
-        {/* 作品网格 */}
-        {artworks.length > 0 ? (
-          <div style={{ padding: '24px 0 40px' }}>
-            <div className="grid md:grid-cols-2 gap-10">
-              {artworks.map((artwork, idx) => (
-                <div key={artwork.id} className="group">
-                  {/* 作品图 */}
-                  <div className="overflow-hidden rounded-sm mb-4" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
-                    {artwork.image_url ? (
-                      <img src={artwork.image_url} alt={artwork.title} loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: '#D1D5DB' }}>🎨</div>
-                    )}
-                  </div>
-
-                  {/* 作品信息 */}
-                  <div className="flex items-start gap-3">
-                    {/* 序号 */}
-                    <span style={{ fontFamily: serif, fontSize: '28px', fontWeight: 300, color: '#D1D5DB', lineHeight: 1, flexShrink: 0, minWidth: '32px' }}>
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold" style={{ color: '#111827', marginBottom: '2px' }}>
-                        {artwork.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
-                        {artwork.artists?.display_name && <span>{artwork.artists.display_name}</span>}
-                        {artwork.year && <span>· {artwork.year}</span>}
-                        {artwork.medium && <span>· {artwork.medium}</span>}
+            <div className="p-6 md:p-8 flex-1">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>{collection.title}</h1>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs flex-shrink-0"
+                    style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
+                  <Link href={publicCollectionPath(collection.id)} title="查看公开页"
+                    className="text-gray-400 hover:text-gray-700 text-lg leading-none">↗</Link>
+                </div>
+                {/* 设置齿轮下拉 */}
+                <div className="relative flex-shrink-0">
+                  <button onClick={() => setShowMenu(v => !v)}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-gray-100 transition"
+                    style={{ color: '#6B7280' }} title="设置">
+                    ⚙
+                  </button>
+                  {showMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                      <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg z-20 py-1"
+                        style={{ border: '0.5px solid #E5E7EB' }}>
+                        <button onClick={() => { setShowMenu(false); setEditing(true) }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50" style={{ color: '#374151' }}>
+                          编辑信息
+                        </button>
+                        <button onClick={() => { setShowMenu(false); handleDelete() }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: '#DC2626' }}>
+                          删除作品集
+                        </button>
                       </div>
-
-                      {/* 策展解读 */}
-                      {artwork.curator_note && (
-                        <div style={{ borderLeft: '2px solid #E5E7EB', paddingLeft: '12px', marginTop: '12px' }}>
-                          <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                            {artwork.curator_note}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* 作品描述（如果没有策展解读就显示原始描述） */}
-                      {!artwork.curator_note && artwork.description && (
-                        <p className="mt-2 text-sm leading-relaxed" style={{ color: '#6B7280' }}>
-                          {artwork.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 分隔线 */}
-                  {idx < artworks.length - 1 && idx % 2 === 1 && (
-                    <div className="col-span-2" style={{ borderBottom: '0.5px solid #E5E7EB', margin: '0', gridColumn: '1 / -1' }}></div>
+                    </>
                   )}
                 </div>
-              ))}
+              </div>
+              {collection.title_en && (
+                <p className="text-sm mb-3" style={{ color: '#9CA3AF', letterSpacing: '1px' }}>{collection.title_en}</p>
+              )}
+              <div className="flex items-center gap-4 text-sm mb-3" style={{ color: '#6B7280' }}>
+                <span>🎨 {collectionArtworks.length} 件作品</span>
+                <span>📁 {CATEGORY_LABELS[collection.category] || collection.category || '未分类'}</span>
+              </div>
+              {collection.description && (
+                <p className="text-sm mb-5" style={{ color: '#6B7280', lineHeight: 1.9 }}>{collection.description}</p>
+              )}
+
+              <button onClick={() => setShowAddPanel(v => !v)}
+                className="px-5 py-2.5 text-sm rounded-lg text-white"
+                style={{ backgroundColor: '#111827' }}>
+                {showAddPanel ? '收起' : '+ 添加作品'}
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* ═══ 信息编辑面板(折叠) ═══ */}
+        {editing && (
+          <form onSubmit={handleSaveInfo}
+            className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mb-8" style={{ border: '0.5px solid #BFDBFE' }}>
+            <h2 className="text-lg font-bold mb-6" style={{ color: '#111827' }}>✏ 编辑作品集信息</h2>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* 左列:文字信息 */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">作品集标题(中文) <span className="text-red-500">*</span></label>
+                  <input type="text" name="title" value={formData.title} onChange={handleChange} required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">作品集标题(英文)</label>
+                  <input type="text" name="title_en" value={formData.title_en} onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">作品集类别</label>
+                    <select name="category" value={formData.category} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="painting">绘画</option>
+                      <option value="photo">摄影</option>
+                      <option value="sculpture">立体造型</option>
+                      <option value="calligraphy">手迹</option>
+                      <option value="vibeart">VIBEART</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
+                    <select name="status" value={formData.status} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="draft">草稿</option>
+                      <option value="published">已发布</option>
+                      <option value="archived">已归档</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">作品集描述</label>
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+              </div>
+
+              {/* 右列:封面图 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">封面图</label>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center">
+                  <div className="text-3xl mb-1">📤</div>
+                  <div className="text-sm font-medium text-gray-900">点击更换封面图</div>
+                </button>
+                {imagePreview && (
+                  <div className="mt-4 rounded-lg overflow-hidden border-2 border-gray-200">
+                    <img src={imagePreview} alt="预览" className="w-full h-48 object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 主题策展 - 只有 admin 可见和可编辑 */}
+            {isAdmin && (
+              <div className="mt-6 pt-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
+                <h3 className="font-bold text-gray-900 mb-1">🎐 主题策展 <span className="text-xs text-gray-400 font-normal">(仅管理员)</span></h3>
+                <p className="text-sm text-gray-500 mb-4">设置主题信息,与艺术阅览室的大师精选形成呼应</p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">主题英文</label>
+                    <input type="text" name="theme_en" value={formData.theme_en} onChange={handleChange}
+                      placeholder="如 Tender Armor"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">主题中文</label>
+                    <input type="text" name="theme_zh" value={formData.theme_zh} onChange={handleChange}
+                      placeholder="如 柔软的铠甲"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">策展引言</label>
+                    <textarea name="quote" value={formData.quote} onChange={handleChange} rows={3}
+                      placeholder="一段有温度的引言,呼应主题..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">引言署名</label>
+                    <input type="text" name="quote_author" value={formData.quote_author} onChange={handleChange}
+                      placeholder="如 策展手记"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">排序</label>
+                    <input type="number" name="display_order" value={formData.display_order} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 操作按钮 */}
+            <div className="mt-6 pt-6 flex items-center gap-3 flex-wrap" style={{ borderTop: '0.5px solid #E5E7EB' }}>
+              <button type="submit" disabled={saving}
+                className="px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                {saving ? '保存中...' : '💾 保存修改'}
+              </button>
+              <button type="button" onClick={handleCancelEdit}
+                className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                取消
+              </button>
+              <button type="button" onClick={handleDelete}
+                className="px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors ml-auto">
+                🗑️ 删除作品集
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ═══ 添加作品面板 ═══ */}
+        {showAddPanel && (
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-8" style={{ border: '0.5px solid #BFDBFE' }}>
+            <h2 className="text-lg font-bold mb-1" style={{ color: '#111827' }}>添加作品到本作品集</h2>
+            <p className="text-xs mb-5" style={{ color: '#9CA3AF' }}>
+              已归属其他作品集的作品,添加后会移动到这里
+            </p>
+            {availableArtworks.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {availableArtworks.map(work => (
+                  <div key={work.id} className="flex gap-3 p-3 rounded-xl" style={{ border: '0.5px solid #E5E7EB' }}>
+                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                      {work.image_url ? (
+                        <img src={work.image_url} alt={work.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">🎨</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm line-clamp-2" style={{ color: '#111827' }}>{work.title}</h3>
+                      <button type="button" disabled={busy} onClick={() => handleAddArtwork(work.id)}
+                        className="text-xs mt-2 disabled:opacity-50" style={{ color: '#2563EB' }}>
+                        + 添加
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-center py-6" style={{ color: '#9CA3AF' }}>
+                没有可添加的作品了,<Link href="/studio/artworks/new" className="underline" style={{ color: '#374151' }}>上传一件新作品</Link>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ═══ 作品集中的作品 ═══ */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold" style={{ color: '#111827' }}>
+            作品 ({collectionArtworks.length})
+          </h2>
+        </div>
+
+        {collectionArtworks.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            {collectionArtworks.map(work => {
+              const wsc = STATUS_COLORS[work.status] || STATUS_COLORS.draft
+              return (
+                <div key={work.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition relative">
+                  {/* 移除:右上角 × 角标,hover 显示 */}
+                  <button type="button" disabled={busy} onClick={() => handleRemoveArtwork(work.id)}
+                    title="从作品集移除"
+                    className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition disabled:opacity-50"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(4px)' }}>
+                    ✕
+                  </button>
+                  <Link href={publicArtworkPath(work.id)} className="block">
+                    <div className="aspect-square bg-gray-100 overflow-hidden">
+                      {work.image_url ? (
+                        <img src={work.image_url} alt={work.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Link href={publicArtworkPath(work.id)} className="min-w-0">
+                        <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{work.title}</h3>
+                      </Link>
+                      <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0"
+                        style={{ backgroundColor: wsc.bg, color: wsc.color }}>{wsc.text}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
+                        <span>👁 {work.views_count || 0}</span>
+                        <span>❤️ {work.likes_count || 0}</span>
+                      </div>
+                      <Link href={`/studio/artworks/${work.id}`}
+                        className="text-xs hover:underline" style={{ color: '#6B7280' }}>
+                        编辑
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
-          <div className="text-center py-16">
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm">
             <div className="text-5xl mb-4">🎨</div>
-            <p style={{ color: '#9CA3AF' }}>该作品集暂无作品</p>
-          </div>
-        )}
-
-        {/* 上一个/下一个 */}
-        {(prevCollection || nextCollection) && (
-          <div style={{ borderTop: '0.5px solid #111827', padding: '20px 0' }}>
-            <div className="flex items-center justify-between">
-              {prevCollection ? (
-                <Link href={`/collections/${prevCollection.id}`}
-                  className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>
-                  ← {prevCollection.theme_en || prevCollection.title}
-                </Link>
-              ) : <div></div>}
-              {nextCollection ? (
-                <Link href={`/collections/${nextCollection.id}`}
-                  className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>
-                  {nextCollection.theme_en || nextCollection.title} →
-                </Link>
-              ) : <div></div>}
+            <p className="mb-2" style={{ color: '#9CA3AF' }}>这个作品集还是空的</p>
+            <p className="text-xs mb-6" style={{ color: '#D1D5DB' }}>点击「+ 添加作品」放入已有作品,或上传新作品</p>
+            <div className="flex items-center gap-3 justify-center">
+              <button onClick={() => setShowAddPanel(true)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+                + 添加已有作品
+              </button>
+              <Link href="/studio/artworks/new"
+                className="px-5 py-2.5 rounded-lg text-sm font-medium" style={{ border: '0.5px solid #D1D5DB', color: '#374151' }}>
+                上传新作品
+              </Link>
             </div>
           </div>
         )}
-
-        {/* 返回作品集列表 */}
-        <Link href="/collections"
-          className="group cursor-pointer transition-all duration-300 hover:bg-gray-50 block"
-          style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '14px 0', marginBottom: '32px', textAlign: 'center' }}>
-          <span className="inline-flex items-center gap-3">
-            <span style={{ fontSize: '12px', letterSpacing: '4px', color: '#6B7280', fontWeight: 500 }}>ALL COLLECTIONS · 全 部 作 品 集</span>
-            <span className="inline-block transition-transform duration-300 group-hover:translate-x-1" style={{ fontSize: '14px', color: '#6B7280' }}>→</span>
-          </span>
-        </Link>
       </div>
-
-      {/* 页脚 */}
-      <footer className="bg-[#1F2937] text-white py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">Cradle摇篮</div>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">关于我们</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">平台介绍</Link></li>
-                <li><Link href="#" className="hover:text-white">团队成员</Link></li>
-                <li><Link href="#" className="hover:text-white">联系我们</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">艺术家服务</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">上传作品</Link></li>
-                <li><Link href="#" className="hover:text-white">创建展览</Link></li>
-                <li><Link href="#" className="hover:text-white">艺术家认证</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
-              <div className="space-y-3">
-                <input type="email" placeholder="输入您的邮箱" className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500" />
-                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">订阅</button>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
-        </div>
-      </footer>
     </div>
   )
 }
