@@ -33,6 +33,7 @@ export default function StudioCollectionDetailPage({ params }) {
   const [collectionArtworks, setCollectionArtworks] = useState([])
   const [allArtworks, setAllArtworks] = useState([])
   const [showAddPanel, setShowAddPanel] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
   // ═══ 信息编辑面板状态 ═══
   const [editing, setEditing] = useState(false)
@@ -289,10 +290,38 @@ export default function StudioCollectionDetailPage({ params }) {
               </div>
             </div>
             <div className="p-6 md:p-8 flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>{collection.title}</h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs flex-shrink-0"
-                  style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>{collection.title}</h1>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs flex-shrink-0"
+                    style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
+                  <Link href={publicCollectionPath(collection.id)} title="查看公开页"
+                    className="text-gray-400 hover:text-gray-700 text-lg leading-none">↗</Link>
+                </div>
+                {/* 设置齿轮下拉 */}
+                <div className="relative flex-shrink-0">
+                  <button onClick={() => setShowMenu(v => !v)}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-gray-100 transition"
+                    style={{ color: '#6B7280' }} title="设置">
+                    ⚙
+                  </button>
+                  {showMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                      <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg z-20 py-1"
+                        style={{ border: '0.5px solid #E5E7EB' }}>
+                        <button onClick={() => { setShowMenu(false); setEditing(true) }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50" style={{ color: '#374151' }}>
+                          编辑信息
+                        </button>
+                        <button onClick={() => { setShowMenu(false); handleDelete() }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: '#DC2626' }}>
+                          删除作品集
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               {collection.title_en && (
                 <p className="text-sm mb-3" style={{ color: '#9CA3AF', letterSpacing: '1px' }}>{collection.title_en}</p>
@@ -305,23 +334,11 @@ export default function StudioCollectionDetailPage({ params }) {
                 <p className="text-sm mb-5" style={{ color: '#6B7280', lineHeight: 1.9 }}>{collection.description}</p>
               )}
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link href={publicCollectionPath(collection.id)}
-                  className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50"
-                  style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                  查看公开页
-                </Link>
-                <button onClick={() => editing ? handleCancelEdit() : setEditing(true)}
-                  className="px-4 py-2 text-sm rounded-lg hover:bg-blue-50"
-                  style={{ color: '#2563EB', border: '0.5px solid #BFDBFE' }}>
-                  {editing ? '收起编辑面板' : '✏ 编辑信息'}
-                </button>
-                <button onClick={() => setShowAddPanel(v => !v)}
-                  className="px-4 py-2 text-sm rounded-lg text-white"
-                  style={{ backgroundColor: '#111827' }}>
-                  {showAddPanel ? '收起添加面板' : '+ 添加作品'}
-                </button>
-              </div>
+              <button onClick={() => setShowAddPanel(v => !v)}
+                className="px-5 py-2.5 text-sm rounded-lg text-white"
+                style={{ backgroundColor: '#111827' }}>
+                {showAddPanel ? '收起' : '+ 添加作品'}
+              </button>
             </div>
           </div>
         </div>
@@ -496,7 +513,14 @@ export default function StudioCollectionDetailPage({ params }) {
             {collectionArtworks.map(work => {
               const wsc = STATUS_COLORS[work.status] || STATUS_COLORS.draft
               return (
-                <div key={work.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
+                <div key={work.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition relative">
+                  {/* 移除:右上角 × 角标,hover 显示 */}
+                  <button type="button" disabled={busy} onClick={() => handleRemoveArtwork(work.id)}
+                    title="从作品集移除"
+                    className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition disabled:opacity-50"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(4px)' }}>
+                    ✕
+                  </button>
                   <Link href={publicArtworkPath(work.id)} className="block">
                     <div className="aspect-square bg-gray-100 overflow-hidden">
                       {work.image_url ? (
@@ -509,30 +533,21 @@ export default function StudioCollectionDetailPage({ params }) {
                   </Link>
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-sm truncate" style={{ color: '#111827' }}>{work.title}</h3>
+                      <Link href={publicArtworkPath(work.id)} className="min-w-0">
+                        <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{work.title}</h3>
+                      </Link>
                       <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0"
                         style={{ backgroundColor: wsc.bg, color: wsc.color }}>{wsc.text}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs mb-3" style={{ color: '#9CA3AF' }}>
-                      <span>👁 {work.views_count || 0}</span>
-                      <span>❤️ {work.likes_count || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Link href={publicArtworkPath(work.id)}
-                        className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg border hover:bg-gray-50"
-                        style={{ color: '#374151', borderColor: '#D1D5DB' }}>
-                        查看
-                      </Link>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
+                        <span>👁 {work.views_count || 0}</span>
+                        <span>❤️ {work.likes_count || 0}</span>
+                      </div>
                       <Link href={`/studio/artworks/${work.id}`}
-                        className="flex-1 px-3 py-1.5 text-xs text-center rounded-lg text-white"
-                        style={{ backgroundColor: '#111827' }}>
-                        ✏ 编辑
+                        className="text-xs hover:underline" style={{ color: '#6B7280' }}>
+                        编辑
                       </Link>
-                      <button type="button" disabled={busy} onClick={() => handleRemoveArtwork(work.id)}
-                        className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50 disabled:opacity-50"
-                        style={{ color: '#DC2626', border: '0.5px solid #FECACA' }}>
-                        移除
-                      </button>
                     </div>
                   </div>
                 </div>
