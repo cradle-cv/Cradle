@@ -16,7 +16,7 @@ export default function EditCollectionPage({ params }) {
   const [artworks, setArtworks] = useState([])
   const [collectionArtworks, setCollectionArtworks] = useState([])
   const fileInputRef = useRef(null)
-  
+
   const [formData, setFormData] = useState({
     title: '',
     title_en: '',
@@ -39,10 +39,10 @@ export default function EditCollectionPage({ params }) {
   useEffect(() => {
     async function init() {
       if (authLoading) return
-      
+
       const { id } = await params
       setCollectionId(id)
-      
+
       await Promise.all([
         loadCollection(id),
         loadArtists()
@@ -124,7 +124,7 @@ export default function EditCollectionPage({ params }) {
       .from('artists')
       .select('id, display_name')
       .order('display_name')
-    
+
     setArtists(data || [])
   }
 
@@ -156,9 +156,16 @@ export default function EditCollectionPage({ params }) {
     }
   }
 
+  // 从作品集内的作品中选一张作为封面
+  const handlePickFromArtwork = (imageUrl) => {
+    if (!imageUrl) return
+    setFormData(prev => ({ ...prev, cover_image: imageUrl }))
+    setImagePreview(imageUrl)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!formData.title || !formData.artist_id) {
       alert('请填写标题并选择艺术家！')
       return
@@ -277,6 +284,9 @@ export default function EditCollectionPage({ params }) {
     artwork => !collectionArtworks.find(ca => ca.id === artwork.id)
   )
 
+  // 作品集内有图片的作品(可用作封面)
+  const artworksWithImage = collectionArtworks.filter(a => a.image_url)
+
   return (
     <div>
       <div className="mb-8">
@@ -296,7 +306,7 @@ export default function EditCollectionPage({ params }) {
             {/* 基本信息 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">📝 基本信息</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -423,7 +433,7 @@ export default function EditCollectionPage({ params }) {
             {/* 封面图 */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🖼️ 封面图</h2>
-              
+
               <div>
                 <input
                   ref={fileInputRef}
@@ -432,7 +442,7 @@ export default function EditCollectionPage({ params }) {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                
+
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -440,9 +450,46 @@ export default function EditCollectionPage({ params }) {
                 >
                   <div className="text-4xl mb-2">📤</div>
                   <div className="text-base font-medium text-gray-900">
-                    点击更换封面图
+                    点击上传新封面图
                   </div>
                 </button>
+
+                {/* 从作品集内的作品中挑选封面 */}
+                {artworksWithImage.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-gray-700 mb-3">
+                      或从作品集内的作品中选一张作封面：
+                    </p>
+                    <div className="grid grid-cols-4 gap-3">
+                      {artworksWithImage.map(artwork => {
+                        const selected = formData.cover_image === artwork.image_url
+                        return (
+                          <button
+                            key={artwork.id}
+                            type="button"
+                            onClick={() => handlePickFromArtwork(artwork.image_url)}
+                            title={artwork.title}
+                            className="relative rounded-lg overflow-hidden transition-all"
+                            style={{
+                              border: selected ? '3px solid #2563EB' : '2px solid #E5E7EB',
+                              boxShadow: selected ? '0 0 0 2px rgba(37,99,235,0.2)' : 'none',
+                            }}
+                          >
+                            <div className="aspect-square bg-gray-100">
+                              <img src={artwork.image_url} alt={artwork.title} className="w-full h-full object-cover" />
+                            </div>
+                            {selected && (
+                              <div className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
+                                style={{ backgroundColor: '#2563EB' }}>
+                                ✓
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {imagePreview && (
                   <div className="mt-6">
@@ -464,7 +511,7 @@ export default function EditCollectionPage({ params }) {
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 🎨 作品集中的作品 ({stats.artworks_count})
               </h2>
-              
+
               {collectionArtworks.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                   {collectionArtworks.map(artwork => (
@@ -479,8 +526,14 @@ export default function EditCollectionPage({ params }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{artwork.title}</h3>
-                          <button type="button" onClick={() => handleRemoveArtwork(artwork.id)}
-                            className="text-xs text-red-600 hover:text-red-700 mt-2">移除</button>
+                          <div className="flex items-center gap-3 mt-2">
+                            {artwork.image_url && (
+                              <button type="button" onClick={() => handlePickFromArtwork(artwork.image_url)}
+                                className="text-xs text-blue-600 hover:text-blue-700">设为封面</button>
+                            )}
+                            <button type="button" onClick={() => handleRemoveArtwork(artwork.id)}
+                              className="text-xs text-red-600 hover:text-red-700">移除</button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -523,7 +576,7 @@ export default function EditCollectionPage({ params }) {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
@@ -540,7 +593,7 @@ export default function EditCollectionPage({ params }) {
                     className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
                     {saving ? '保存中...' : '💾 保存修改'}
                   </button>
-                  
+
                   <button type="button" onClick={() => router.back()}
                     className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
                     取消
