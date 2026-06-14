@@ -132,22 +132,11 @@ export default function StudioCollectionsPage() {
                           {col.description && (
                             <p className="text-sm text-gray-600 mb-4 line-clamp-2">{col.description}</p>
                           )}
-                          {/* 管理作品 / 查看公开页 / 编辑信息 三入口 */}
-                          <div className="flex gap-2">
-                            <Link href={`/studio/collections/${col.id}`}
-                              className="flex-1 px-4 py-2 text-sm text-center bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
-                              管理作品
-                            </Link>
-                            <Link href={publicCollectionPath(col.id)}
-                              className="px-4 py-2 text-sm text-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
-                              查看
-                            </Link>
-                            <Link href={`/studio/collections/${col.id}?edit=1`}
-                              className="px-4 py-2 text-sm text-center rounded-lg hover:bg-blue-50 transition-colors"
-                              style={{ color: '#2563EB', border: '1px solid #BFDBFE' }}>
-                              ✏ 信息
-                            </Link>
-                          </div>
+                          {/* 整卡点击进详情页管理,这里只留一个明确入口 */}
+                          <Link href={`/studio/collections/${col.id}`}
+                            className="inline-block px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+                            管理作品 →
+                          </Link>
                         </div>
                       </div>
                     ))}
