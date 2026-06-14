@@ -24,7 +24,6 @@ export default function ArtworkDetailPage() {
   const [relatedArtworks, setRelatedArtworks] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
-  const [isOwner, setIsOwner] = useState(false)
 
   // 摇摇
   const [showCoinPicker, setShowCoinPicker] = useState(false)
@@ -33,7 +32,7 @@ export default function ArtworkDetailPage() {
   const [recentTips, setRecentTips] = useState([])
   const [yaoCount, setYaoCount] = useState(0)
   const [tipAmount, setTipAmount] = useState(0)
-  const [hasYaoed, setHasYaoed] = useState(false)
+  const [hasYaoed, setHasYaoed] = useState(false)  // 是否已摇过
 
   // 留言
   const [comments, setComments] = useState([])
@@ -55,33 +54,14 @@ export default function ArtworkDetailPage() {
 
   async function loadData() {
     try {
-      // 主查询:只取 artworks 本表,join 失败不会拖垮整体
-      const { data: w, error: wErr } = await supabase
+      const { data: w } = await supabase
         .from('artworks')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
-
-      if (wErr) console.error('加载作品出错:', wErr)
-      if (!w) {
-        console.warn('作品不存在或无权访问, id =', id)
-        router.push('/')
-        return
-      }
+        .select('*, artists(*, users(*)), collections(id, title)')
+        .eq('id', id).single()
+      if (!w) { router.push('/'); return }
       setArtwork(w)
       setFavCount(w.favorites_count || 0)
-
-      // 关联数据分步查,任一失败都不影响主体渲染
-      if (w.artist_id) {
-        const { data: a } = await supabase
-          .from('artists').select('*, users(*)').eq('id', w.artist_id).maybeSingle()
-        if (a) setArtist(a)
-      }
-      if (w.collection_id) {
-        const { data: col } = await supabase
-          .from('collections').select('id, title').eq('id', w.collection_id).maybeSingle()
-        if (col) setArtwork(prev => ({ ...prev, collections: col }))
-      }
+      if (w.artists) setArtist(w.artists)
 
       const { data: tagLinks } = await supabase
         .from('artwork_tags').select('tags(*)').eq('artwork_id', id)
@@ -118,23 +98,20 @@ export default function ArtworkDetailPage() {
           .eq('auth_id', session.user.id).single()
         if (user) {
           setCurrentUser(user)
-          // 判断是否本人作品(本人/管理员可见编辑入口)
-          if (w.artist_id) {
-            const { data: ownArtist } = await supabase
-              .from('artists').select('id').eq('owner_user_id', user.id).maybeSingle()
-            if (ownArtist && ownArtist.id === w.artist_id) setIsOwner(true)
-          }
+          // 检查是否已收藏
           const { data: fav } = await supabase
             .from('artwork_favorites')
-            .select('id').eq('artwork_id', id).eq('user_id', user.id).maybeSingle()
+            .select('id').eq('artwork_id', id).eq('user_id', user.id).single()
           if (fav) setIsFavorited(true)
+          // 检查是否已摇摇过
           const { data: existingTip } = await supabase
             .from('artwork_tips')
-            .select('id').eq('artwork_id', id).eq('user_id', user.id).maybeSingle()
+            .select('id').eq('artwork_id', id).eq('user_id', user.id).single()
           if (existingTip) setHasYaoed(true)
+          // 询价
           const { data: inq } = await supabase
             .from('artwork_inquiries')
-            .select('id').eq('artwork_id', id).eq('user_id', user.id).eq('status', 'open').maybeSingle()
+            .select('id').eq('artwork_id', id).eq('user_id', user.id).eq('status', 'open').single()
           if (inq) {
             setInquiryId(inq.id)
             const { data: msgs } = await supabase
@@ -144,7 +121,7 @@ export default function ArtworkDetailPage() {
           }
         }
       }
-    } catch (err) { console.error('loadData 异常:', err) }
+    } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
 
@@ -322,19 +299,11 @@ export default function ArtworkDetailPage() {
             <span className="text-gray-300">|</span>
             <span className="font-bold text-gray-900">{artwork.title}</span>
           </div>
-          <div className="flex items-center gap-3">
-            {isOwner && (
-              <Link href={`/studio/artworks/${id}`}
-                className="text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
-                ✏ 编辑此作品
-              </Link>
-            )}
-            {currentUser && (
-              <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
-                <CoinIcon size={16} /> {currentUser.total_points || 0} 金币
-              </span>
-            )}
-          </div>
+          {currentUser && (
+            <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
+              <CoinIcon size={16} /> {currentUser.total_points || 0} 金币
+            </span>
+          )}
         </div>
       </nav>
 
@@ -342,18 +311,22 @@ export default function ArtworkDetailPage() {
       {showCradleAnim && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <div className="flex flex-col items-center">
+            {/* 摇篮+金币 居中对齐 */}
             <div className="cradle-swing" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
               <img src={CRADLE_IMG} alt="摇篮" style={{ width: '180px', height: '180px', objectFit: 'contain' }} />
+              {/* 金币落入摇篮中央 */}
               <div className="coin-drop" style={{ position: 'absolute', top: '30px', left: '50%', marginLeft: '-30px' }}>
                 <img src={tipCoinImg} alt="金币" style={{ width: '60px', height: '60px', objectFit: 'contain', borderRadius: '50%' }} />
               </div>
             </div>
+            {/* 星星 */}
             <div style={{ position: 'relative', width: '240px', height: '0' }}>
               <div className="sparkle-1" style={{ position: 'absolute', top: '-180px', left: '0', fontSize: '22px' }}>✨</div>
               <div className="sparkle-2" style={{ position: 'absolute', top: '-190px', right: '0', fontSize: '18px' }}>⭐</div>
               <div className="sparkle-3" style={{ position: 'absolute', top: '-80px', left: '10px', fontSize: '16px' }}>✨</div>
               <div className="sparkle-4" style={{ position: 'absolute', top: '-90px', right: '10px', fontSize: '20px' }}>🌟</div>
             </div>
+            {/* 金币数字+文字，居中对齐 */}
             <div className="text-center mt-4">
               <div className="coin-drop flex items-center justify-center gap-2">
                 <span className="text-3xl font-bold" style={{ color: '#FCD34D' }}>+{tipAmount}</span>
@@ -380,6 +353,7 @@ export default function ArtworkDetailPage() {
               </p>
             </div>
             <div className="flex gap-6 justify-center">
+              {/* 高更银币 50 */}
               <button onClick={() => selectCoin(50)}
                 disabled={(currentUser?.total_points || 0) < 50}
                 className="coin-hover-anim flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
@@ -390,6 +364,7 @@ export default function ArtworkDetailPage() {
                   <p className="text-xs text-gray-400 mt-0.5">高更银币</p>
                 </div>
               </button>
+              {/* 梵高金币 100 */}
               <button onClick={() => selectCoin(100)}
                 disabled={(currentUser?.total_points || 0) < 100}
                 className="coin-hover-anim-delay flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
@@ -495,6 +470,7 @@ export default function ArtworkDetailPage() {
 
           {/* 右侧 */}
           <div>
+            {/* 数据条 */}
             <div className="flex items-center gap-5 mb-6 px-1">
               <span className="text-sm text-gray-500 flex items-center gap-1"><CoinIcon size={15} /> {artwork.tips_total || 0} 金币</span>
               <span className="text-sm text-gray-500">🌙 {yaoCount} 摇摇</span>
@@ -502,8 +478,10 @@ export default function ArtworkDetailPage() {
               <span className="text-sm text-gray-500">💬 {artwork.comments_count || 0} 留言</span>
             </div>
 
+            {/* 操作栏 */}
             <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
               <div className="flex items-center gap-3 flex-wrap">
+                {/* 摇摇按钮 */}
                 <button onClick={onYaoClick} disabled={tipping || !currentUser || hasYaoed}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium border-2 transition-all disabled:hover:translate-y-0 disabled:hover:shadow-none"
                   style={{
@@ -511,6 +489,7 @@ export default function ArtworkDetailPage() {
                     backgroundColor: hasYaoed ? '#EDE9FE' : '#F5F3FF',
                     color: hasYaoed ? '#A78BFA' : '#6D28D9',
                     cursor: hasYaoed ? 'default' : 'pointer',
+                    ...(!hasYaoed && !tipping && currentUser ? {} : {}),
                   }}
                   onMouseEnter={e => { if (!hasYaoed && currentUser) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(139,92,246,0.3)' }}}
                   onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}>
@@ -518,6 +497,7 @@ export default function ArtworkDetailPage() {
                   <span>{hasYaoed ? '已摇摇' : '1摇摇'}</span>
                 </button>
 
+                {/* 收藏 */}
                 <button onClick={toggleFavorite} disabled={togglingFav || !currentUser}
                   className="flex items-center gap-2 px-5 py-3 rounded-xl font-medium border-2 transition-all hover:shadow-md disabled:opacity-40"
                   style={{
@@ -529,6 +509,7 @@ export default function ArtworkDetailPage() {
                   <span>{isFavorited ? '已收藏' : '收藏'}</span>
                 </button>
 
+                {/* 询价 */}
                 {artwork.is_for_sale && (
                   <button onClick={openInquiry}
                     className="flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-white transition-all hover:shadow-md ml-auto"
@@ -552,6 +533,7 @@ export default function ArtworkDetailPage() {
               )}
             </div>
 
+            {/* 作品简介 */}
             {artwork.description && (
               <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">📖 作品简介</h2>
@@ -559,6 +541,7 @@ export default function ArtworkDetailPage() {
               </div>
             )}
 
+            {/* 作品信息 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">📋 作品信息</h2>
               <div className="space-y-0">
@@ -597,6 +580,7 @@ export default function ArtworkDetailPage() {
               )}
             </div>
 
+            {/* 摇摇记录 */}
             {recentTips.length > 0 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
                 <h2 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">🌙 摇摇记录</h2>
@@ -613,6 +597,7 @@ export default function ArtworkDetailPage() {
               </div>
             )}
 
+            {/* 留言区 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">💬 留言 ({comments.length})</h2>
               {currentUser ? (
@@ -667,6 +652,7 @@ export default function ArtworkDetailPage() {
           </div>
         </div>
 
+        {/* 同艺术家其他作品 */}
         {relatedArtworks.length > 0 && (
           <div className="mt-16">
             <h2 className="text-xl font-bold text-gray-900 mb-6">{artist?.display_name} 的其他作品</h2>
