@@ -192,6 +192,13 @@ export default function StudioCollectionDetailPage({ params }) {
     }
   }
 
+  // 从作品集内的作品中选一张作为封面
+  const handlePickCover = (imageUrl) => {
+    if (!imageUrl) return
+    setFormData(prev => ({ ...prev, cover_image: imageUrl }))
+    setImagePreview(imageUrl)
+  }
+
   const handleSaveInfo = async (e) => {
     e.preventDefault()
     if (!formData.title) { alert('请填写标题'); return }
@@ -398,11 +405,43 @@ export default function StudioCollectionDetailPage({ params }) {
                 <button type="button" onClick={() => fileInputRef.current?.click()}
                   className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center">
                   <div className="text-3xl mb-1">📤</div>
-                  <div className="text-sm font-medium text-gray-900">点击更换封面图</div>
+                  <div className="text-sm font-medium text-gray-900">点击上传新封面图</div>
                 </button>
+
+                {/* 从作品集内的作品中挑选封面 */}
+                {collectionArtworks.filter(a => a.image_url).length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs text-gray-500 mb-2">或从作品集内的作品中选一张：</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {collectionArtworks.filter(a => a.image_url).map(work => {
+                        const selected = formData.cover_image === work.image_url
+                        return (
+                          <button key={work.id} type="button" onClick={() => handlePickCover(work.image_url)}
+                            title={work.title}
+                            className="relative rounded-lg overflow-hidden transition-all"
+                            style={{
+                              border: selected ? '3px solid #2563EB' : '1.5px solid #E5E7EB',
+                            }}>
+                            <div className="aspect-square bg-gray-100">
+                              <img src={work.image_url} alt={work.title} className="w-full h-full object-cover" />
+                            </div>
+                            {selected && (
+                              <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-white"
+                                style={{ backgroundColor: '#2563EB', fontSize: '10px' }}>✓</div>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {imagePreview && (
-                  <div className="mt-4 rounded-lg overflow-hidden border-2 border-gray-200">
-                    <img src={imagePreview} alt="预览" className="w-full h-48 object-cover" />
+                  <div className="mt-4">
+                    <p className="text-xs text-gray-500 mb-2">当前封面：</p>
+                    <div className="rounded-lg overflow-hidden border-2 border-gray-200">
+                      <img src={imagePreview} alt="预览" className="w-full h-48 object-cover" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -544,10 +583,18 @@ export default function StudioCollectionDetailPage({ params }) {
                         <span>👁 {work.views_count || 0}</span>
                         <span>❤️ {work.likes_count || 0}</span>
                       </div>
-                      <Link href={`/studio/artworks/${work.id}`}
-                        className="text-xs hover:underline" style={{ color: '#6B7280' }}>
-                        编辑
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        {work.image_url && (
+                          <button type="button" onClick={() => { handlePickCover(work.image_url); setEditing(true) }}
+                            className="text-xs hover:underline" style={{ color: '#2563EB' }}>
+                            设为封面
+                          </button>
+                        )}
+                        <Link href={`/studio/artworks/${work.id}`}
+                          className="text-xs hover:underline" style={{ color: '#6B7280' }}>
+                          编辑
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
