@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 // ═══ 文件上传小组件(调用你现有的 /api/upload) ═══
 export function FileUploadField({ label, required, accept, maxSizeMB = 20, folder, value, onChange, hint }) {
@@ -20,10 +21,21 @@ export function FileUploadField({ label, required, accept, maxSizeMB = 20, folde
 
     setUploading(true)
     try {
+      // 带上登录凭证(服务端 /api/upload 会校验 Authorization 头)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('登录状态已失效,请刷新页面重新登录后再上传')
+      }
+
       const fd = new FormData()
       fd.append('file', file)
       if (folder) fd.append('folder', folder)
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: fd,
+      })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || '上传失败')
