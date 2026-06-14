@@ -142,13 +142,9 @@ export default function StudioArtworksPage() {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <StatusBadge status={artwork.status} />
-                          <Link href={publicArtworkPath(artwork.id)}
-                            className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
-                            查看
-                          </Link>
                           <Link href={`/studio/artworks/${artwork.id}`}
-                            className="px-4 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors">
-                            ✏ 编辑
+                            className="text-sm hover:underline" style={{ color: '#6B7280' }}>
+                            编辑
                           </Link>
                         </div>
                       </div>
