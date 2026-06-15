@@ -8,6 +8,7 @@ export default function AdminArticlesPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [titleSearch, setTitleSearch] = useState('')
   const [page, setPage] = useState(1)
   const perPage = 15
 
@@ -147,6 +148,7 @@ export default function AdminArticlesPage() {
   const filtered = articles.filter(a => {
     if (filter !== 'all' && a.status !== filter) return false
     if (categoryFilter !== 'all' && categoryFilter !== 'fengshang' && a.category !== categoryFilter) return false
+    if (titleSearch.trim() && !(a.title || '').toLowerCase().includes(titleSearch.trim().toLowerCase())) return false
     return true
   })
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
@@ -512,7 +514,7 @@ export default function AdminArticlesPage() {
       </div>
 
       {/* 分类筛选 */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-4">
         <span className="text-xs font-medium" style={{ color: '#6B7280' }}>分类：</span>
         {[
           { key: 'all', label: '全部', icon: '📚' },
@@ -531,8 +533,26 @@ export default function AdminArticlesPage() {
           </button>
         ))}
         <span className="ml-auto text-xs" style={{ color: '#9CA3AF' }}>
-          {filtered.length} 篇{categoryFilter !== 'all' || filter !== 'all' ? '（已筛选）' : ''} · 第 {page}/{totalPages} 页
+          {filtered.length} 篇{categoryFilter !== 'all' || filter !== 'all' || titleSearch.trim() ? '（已筛选）' : ''} · 第 {page}/{totalPages} 页
         </span>
+      </div>
+
+      {/* 标题搜索 */}
+      <div className="flex items-center gap-3 mb-6">
+        <input
+          value={titleSearch}
+          onChange={e => { setTitleSearch(e.target.value); setPage(1) }}
+          placeholder="按标题搜索文章…"
+          className="flex-1 max-w-sm px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        {titleSearch.trim() && (
+          <button
+            onClick={() => { setTitleSearch(''); setPage(1) }}
+            className="px-3 py-2 text-xs rounded-lg transition"
+            style={{ color: '#6B7280', border: '0.5px solid #D1D5DB' }}>
+            清除
+          </button>
+        )}
       </div>
 
       {/* 文章列表 */}
@@ -605,12 +625,14 @@ export default function AdminArticlesPage() {
           {paged.length === 0 && (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📝</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">暂无文章</h3>
-              <p className="text-gray-600 mb-6">点击上方按钮发布第一篇文章</p>
-              <Link href="/admin/articles/new"
-                className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600">
-                发布文章
-              </Link>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{titleSearch.trim() ? '没有匹配的文章' : '暂无文章'}</h3>
+              <p className="text-gray-600 mb-6">{titleSearch.trim() ? `没有标题包含「${titleSearch.trim()}」的文章` : '点击上方按钮发布第一篇文章'}</p>
+              {!titleSearch.trim() && (
+                <Link href="/admin/articles/new"
+                  className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600">
+                  发布文章
+                </Link>
+              )}
             </div>
           )}
         </div>
