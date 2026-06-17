@@ -13,12 +13,20 @@ const TYPE_OPTIONS = [
   { value: 'other', label: '其他空间' },
 ]
 
-// 上传到 R2 的小工具
+// 上传到 R2 的小工具(带登录凭证,服务端 /api/upload 会校验 Authorization 头)
 async function uploadToR2(file, folder) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('登录状态已失效,请刷新页面重新登录后再上传')
+  }
   const fd = new FormData()
   fd.append('file', file)
   fd.append('folder', folder)
-  const res = await fetch('/api/upload', { method: 'POST', body: fd })
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body: fd,
+  })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error || '上传失败')
