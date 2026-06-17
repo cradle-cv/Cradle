@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { uploadFile } from '@/lib/upload'
 import Link from 'next/link'
 
 const TYPE_OPTIONS = [
@@ -12,28 +13,6 @@ const TYPE_OPTIONS = [
   { value: 'academy', label: '艺术学院' },
   { value: 'other', label: '其他空间' },
 ]
-
-// 上传到 R2 的小工具(带登录凭证,服务端 /api/upload 会校验 Authorization 头)
-async function uploadToR2(file, folder) {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    throw new Error('登录状态已失效,请刷新页面重新登录后再上传')
-  }
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('folder', folder)
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    body: fd,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || '上传失败')
-  }
-  const { url } = await res.json()
-  return url
-}
 
 /**
  * 通用机构编辑器
@@ -170,7 +149,7 @@ export default function PartnerEditor({ mode, initialData }) {
 
     setUploading(u => ({ ...u, [setUploadingKey]: true }))
     try {
-      const url = await uploadToR2(file, folder)
+      const { url } = await uploadFile(file, folder)
       updateField(field, url)
     } catch (err) {
       alert(err.message || '上传失败')
@@ -198,7 +177,7 @@ export default function PartnerEditor({ mode, initialData }) {
           alert(`${file.name} 超过 10MB,已跳过`)
           continue
         }
-        const url = await uploadToR2(file, 'partner-venues')
+        const { url } = await uploadFile(file, 'partner-venues')
         urls.push(url)
       }
       if (urls.length > 0) {
