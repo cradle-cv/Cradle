@@ -94,7 +94,7 @@ export default function InvitationSubmitPage() {
   }
 
   function toggleArtwork(artworkId) {
-    if (mySubmission && mySubmission.status !== 'submitted') {
+    if (mySubmission && mySubmission.review_status && mySubmission.review_status !== 'pending') {
       alert('评选已开始,投稿已锁定,无法修改')
       return
     }
@@ -105,7 +105,7 @@ export default function InvitationSubmitPage() {
       } else {
         const maxCount = invitation?.submission_limit_per_artist || 5
         if (next.size >= maxCount) {
-          alert(`最多只能选择 ${maxCount} 件作品`)
+          alert('已达到本次投稿可选数量上限')
           return prev
         }
         next.add(artworkId)
@@ -118,7 +118,7 @@ export default function InvitationSubmitPage() {
     setError('')
     const ids = Array.from(selectedIds)
     if (ids.length === 0) { setError('请至少选择一件作品'); return }
-    if (statement.trim().length < 30) { setError('投稿声明至少 30 字'); return }
+    if (statement.trim().length < 10) { setError('投稿声明至少 10 字'); return }
 
     setSubmitting(true)
     try {
@@ -185,7 +185,7 @@ export default function InvitationSubmitPage() {
 
   const themeColor = invitation.theme_color || '#8a7a5c'
   const maxCount = invitation.submission_limit_per_artist || 5
-  const locked = mySubmission && mySubmission.status !== 'submitted'
+  const locked = mySubmission && mySubmission.review_status && mySubmission.review_status !== 'pending'
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
@@ -228,12 +228,10 @@ export default function InvitationSubmitPage() {
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-bold" style={{ color: '#111827', letterSpacing: '2px' }}>
               选择作品 <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '8px' }}>
-                {selectedIds.size}/{maxCount}
+                已选 {selectedIds.size} 件
               </span>
             </h2>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>
-              最多选 {maxCount} 件
-            </p>
+
           </div>
 
           {artworks.length === 0 ? (
@@ -298,8 +296,8 @@ export default function InvitationSubmitPage() {
             <h2 className="text-sm font-bold" style={{ color: '#111827', letterSpacing: '2px' }}>
               投稿声明 <span style={{ color: '#DC2626', fontWeight: 400 }}>*</span>
             </h2>
-            <p className="text-xs" style={{ color: statement.trim().length >= 30 ? '#059669' : '#9CA3AF' }}>
-              {statement.trim().length} / 30 字以上
+            <p className="text-xs" style={{ color: statement.trim().length >= 10 ? '#059669' : '#9CA3AF' }}>
+              {statement.trim().length} / 10 字以上
             </p>
           </div>
           <p className="text-xs mb-3" style={{ color: '#6B7280', lineHeight: 1.7 }}>
@@ -339,12 +337,12 @@ export default function InvitationSubmitPage() {
           <div className="flex flex-col items-center gap-3">
             <button
               onClick={handleSubmit}
-              disabled={submitting || selectedIds.size === 0 || statement.trim().length < 30 || artworks.length === 0}
+              disabled={submitting || selectedIds.size === 0 || statement.trim().length < 10 || artworks.length === 0}
               className="px-10 py-4 rounded-lg text-base font-medium text-white transition"
               style={{
-                backgroundColor: (submitting || selectedIds.size === 0 || statement.trim().length < 30 || artworks.length === 0)
+                backgroundColor: (submitting || selectedIds.size === 0 || statement.trim().length < 10 || artworks.length === 0)
                   ? '#9CA3AF' : themeColor,
-                cursor: (submitting || selectedIds.size === 0 || statement.trim().length < 30 || artworks.length === 0)
+                cursor: (submitting || selectedIds.size === 0 || statement.trim().length < 10 || artworks.length === 0)
                   ? 'not-allowed' : 'pointer',
               }}
             >
