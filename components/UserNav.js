@@ -151,9 +151,7 @@ export default function UserNav() {
       if (session) {
         setUser(session.user)
         setAuthChecked(true)
-        loadUserData(session.user.id)
-        checkSigninStatus()
-        loadIdentityState()
+        loadNav()
       } else {
         setUser(null); setUserData(null); setSignedToday(null)
         setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
@@ -177,54 +175,31 @@ export default function UserNav() {
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      setUser(session.user); loadUserData(session.user.id); checkSigninStatus()
-      loadIdentityState()
+      setUser(session.user); loadNav()
     }
     setAuthChecked(true)
   }
 
-  async function loadUserData(authId) {
-    const { data } = await supabase.from('users')
-      .select('id, username, avatar_url, total_points, role, user_type, level')
-      .eq('auth_id', authId).maybeSingle()
-    setUserData(data)
-  }
-
-  async function checkSigninStatus() {
+  async function loadNav() {
     try {
-      const { data, error } = await supabase.rpc('has_signed_today')
-      if (!error) setSignedToday(data === true)
-    } catch (e) { console.warn(e) }
-  }
-
-  async function loadIdentityState() {
-    try {
-      const [idsRes, pendingRes, unreadRes] = await Promise.all([
-        supabase.rpc('my_identities'),
-        supabase.rpc('has_pending_identity_application'),
-        supabase.rpc('unread_message_count'),
-      ])
-      if (!idsRes.error && idsRes.data) setMyIdentities(idsRes.data)
-      if (!pendingRes.error) setHasPendingApp(pendingRes.data === true)
-      if (!unreadRes.error) setUnreadMsgs(unreadRes.data || 0)
-
-      const isPartner = (idsRes.data || []).some(i => i.identity_type === 'partner')
-      if (isPartner) {
-        const { data: pRec } = await supabase.rpc('my_partner_record')
-        setPartnerPageMissing(!pRec || pRec.length === 0)
-      } else {
-        setPartnerPageMissing(false)
+      const { data, error } = await supabase.rpc('nav_bootstrap')
+      if (error) throw error
+      if (!data || !data.authenticated || !data.user) {
+        setIdentityLoaded(true)
+        return
       }
-
-      const isArtist = (idsRes.data || []).some(i => i.identity_type === 'artist')
-      if (isArtist) {
-        const { data: aRec } = await supabase.rpc('my_artist_record')
-        setArtistPageMissing(!aRec || aRec.length === 0)
-      } else {
-        setArtistPageMissing(false)
-      }
-    } catch (e) { console.warn('identity state:', e) }
-    finally { setIdentityLoaded(true) }
+      setUserData(data.user)
+      setMyIdentities(data.identities || [])
+      setHasPendingApp(data.has_pending_app === true)
+      setUnreadMsgs(data.unread_msgs || 0)
+      setSignedToday(data.signed_today === true)
+      setPartnerPageMissing(data.partner_page_missing === true)
+      setArtistPageMissing(data.artist_page_missing === true)
+    } catch (e) {
+      console.warn('nav_bootstrap:', e)
+    } finally {
+      setIdentityLoaded(true)
+    }
   }
 
   async function handleLogout() {
