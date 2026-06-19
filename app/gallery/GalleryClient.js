@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useConvert } from '@/components/i18n/LanguageContext'
 
 const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
 function toRoman(n) { return ROMAN[n] || `${n}` }
@@ -52,6 +53,7 @@ function Pagination({ page, totalPages, total, unit, onPageChange }) {
 }
 
 export default function GalleryClient({ works, museums, galleryArtists = [], curations = [], isAdminPreview = false }) {
+  const convert = useConvert()
   const [viewMode, setViewMode] = useState('curation')
   const [selectedMuseum, setSelectedMuseum] = useState(null)
   const [selectedArtist, setSelectedArtist] = useState(null)
@@ -159,13 +161,13 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                           <>
                             <span>特 刊</span>
                             {currentCuration.special_label && (
-                              <span style={{ marginLeft: '12px', color: '#B45309', letterSpacing: '3px' }}>· {currentCuration.special_label}</span>
+                              <span style={{ marginLeft: '12px', color: '#B45309', letterSpacing: '3px' }}>· {convert(currentCuration.special_label)}</span>
                             )}
                           </>
                         ) : '本期精选'}
                       </p>
                       <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '38px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>{currentCuration.theme_en || ''}</p>
-                      <p style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '4px', marginTop: '4px' }}>{currentCuration.theme_zh || ''}</p>
+                      <p style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '4px', marginTop: '4px' }}>{convert(currentCuration.theme_zh || '')}</p>
                     </div>
 
                     {/* 右侧期号(特刊用中文衬线) */}
@@ -197,9 +199,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                           {work.cover_image ? (<img src={work.cover_image} alt={work.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) :
                             (<div className="w-full h-full flex items-center justify-center text-5xl">🖼️</div>)}
                         </div>
-                        <h3 className="text-lg font-bold mt-3 group-hover:text-gray-600 transition-colors" style={{ color: '#111827' }}>{work.title}</h3>
+                        <h3 className="text-lg font-bold mt-3 group-hover:text-gray-600 transition-colors" style={{ color: '#111827' }}>{convert(work.title)}</h3>
                         {work.title_en && <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{work.title_en}</p>}
-                        <p className="text-sm mt-1" style={{ color: '#6B7280' }}>{work.artist_name}{work.year ? ` · ${work.year}` : ''}</p>
+                        <p className="text-sm mt-1" style={{ color: '#6B7280' }}>{convert(work.artist_name)}{work.year ? ` · ${work.year}` : ''}</p>
                       </Link>
                     ))}
                   </div>
@@ -212,8 +214,8 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                         borderLeft: isSpecialCurrent ? '2px solid #B45309' : '2px solid #111827',
                         paddingLeft: '20px', margin: '0 40px'
                       }}>
-                        <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{currentCuration.quote}</p>
-                        {currentCuration.quote_author && (<p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>—— {currentCuration.quote_author}</p>)}
+                        <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{convert(currentCuration.quote)}</p>
+                        {currentCuration.quote_author && (<p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>—— {convert(currentCuration.quote_author)}</p>)}
                       </div>
                       <div style={{ borderBottom: isSpecialCurrent ? '0.5px solid #B45309' : '0.5px solid #111827', marginTop: '16px' }}></div>
                     </div>
@@ -254,7 +256,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                                 color: isActive ? '#FFF' : isPcSpecial ? '#92400E' : '#374151'
                               }}>{getIssueLabel(pc)}</span>
                               <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: isActive ? '#FFF' : isPcSpecial ? '#FCD34D' : '#9CA3AF', flexShrink: 0 }}></span>
-                              <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: isActive ? '#E5E7EB' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${pc.theme_zh}` : ''}</span>
+                              <span style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '13px', color: isActive ? '#E5E7EB' : '#6B7280' }}>{pc.theme_en}{pc.theme_zh ? ` · ${convert(pc.theme_zh)}` : ''}</span>
                             </button>
                           )
                         })}
@@ -309,7 +311,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                                   {getIssueLabel(pc)}
                                   {isPcSpecial && pc.special_label && (
                                     <span style={{ marginLeft: '8px', fontSize: '11px', letterSpacing: '1px', color: '#B45309', fontWeight: 400 }}>
-                                      · {pc.special_label}
+                                      · {convert(pc.special_label)}
                                     </span>
                                   )}
                                 </span>
@@ -321,7 +323,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                                 {pc.theme_en}
                               </div>
                               <div style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '2px', marginBottom: '10px' }}>
-                                {pc.theme_zh}
+                                {convert(pc.theme_zh)}
                               </div>
                               {hasWorks && (
                                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -335,7 +337,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                               {pc.quote && (
                                 <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '10px', lineHeight: 1.6, fontStyle: 'italic',
                                   overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                                  "{pc.quote}"
+                                  "{convert(pc.quote)}"
                                 </p>
                               )}
                             </button>
@@ -409,12 +411,12 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                             🎨 {museum.works_count} 件</div>
                         </div>
                         <div className="p-5">
-                          <h3 className="text-lg font-bold mb-1 group-hover:text-amber-700 transition-colors" style={{ color: '#111827' }}>{museum.name}</h3>
+                          <h3 className="text-lg font-bold mb-1 group-hover:text-amber-700 transition-colors" style={{ color: '#111827' }}>{convert(museum.name)}</h3>
                           {museum.name_en && <p className="text-xs mb-2" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>{museum.name_en}</p>}
-                          <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}><span>📍 {museum.city}，{museum.country}</span></div>
+                          <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}><span>📍 {convert(museum.city)}，{convert(museum.country)}</span></div>
                           {museum.specialties && museum.specialties.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-3">
-                              {museum.specialties.slice(0, 3).map((tag, i) => (<span key={i} className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{tag}</span>))}
+                              {museum.specialties.slice(0, 3).map((tag, i) => (<span key={i} className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{convert(tag)}</span>))}
                             </div>)}
                         </div>
                       </button>
@@ -438,9 +440,9 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                       <div className="w-full h-full flex items-center justify-center text-3xl">🏛️</div>}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>{selectedMuseumData.name}</h2>
+                    <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>{convert(selectedMuseumData.name)}</h2>
                     {selectedMuseumData.name_en && <p className="text-sm" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>{selectedMuseumData.name_en}</p>}
-                    <p className="text-sm mt-1" style={{ color: '#6B7280' }}>📍 {selectedMuseumData.city}，{selectedMuseumData.country} · {museumWorks.length} 件作品</p>
+                    <p className="text-sm mt-1" style={{ color: '#6B7280' }}>📍 {convert(selectedMuseumData.city)}，{convert(selectedMuseumData.country)} · {museumWorks.length} 件作品</p>
                   </div>
                 </div>)}
               <WorkGrid works={museumWorks} />
@@ -472,13 +474,13 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                           {artist.avatar_url ? <img src={artist.avatar_url} alt={artist.name} loading="lazy" className="w-full h-full object-cover" /> :
                             <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>👤</div>}
                         </div>
-                        <h3 className="text-base font-bold mb-0.5 group-hover:text-amber-700 transition-colors" style={{ color: '#111827' }}>{artist.name}</h3>
+                        <h3 className="text-base font-bold mb-0.5 group-hover:text-amber-700 transition-colors" style={{ color: '#111827' }}>{convert(artist.name)}</h3>
                         {artist.name_en && <p className="text-xs mb-2" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>{artist.name_en}</p>}
                         <div className="text-xs mb-2" style={{ color: '#6B7280' }}>
-                          {artist.nationality && <span>{artist.nationality}</span>}
+                          {artist.nationality && <span>{convert(artist.nationality)}</span>}
                           {artist.birth_year && <span> · {artist.birth_year}–{artist.death_year || '至今'}</span>}
                         </div>
-                        {artist.art_movement && <span className="inline-block px-3 py-1 rounded-full text-xs mb-2" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>{artist.art_movement}</span>}
+                        {artist.art_movement && <span className="inline-block px-3 py-1 rounded-full text-xs mb-2" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>{convert(artist.art_movement)}</span>}
                         <div className="text-xs font-medium mt-1" style={{ color: '#B45309' }}>🎨 {artist.works_count} 件作品</div>
                       </button>
                     ))}
@@ -501,15 +503,15 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                       <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>👤</div>}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>{selectedArtistData.name}</h2>
+                    <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>{convert(selectedArtistData.name)}</h2>
                     {selectedArtistData.name_en && <p className="text-sm" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>{selectedArtistData.name_en}</p>}
                     <div className="flex items-center gap-3 text-sm mt-1" style={{ color: '#6B7280' }}>
-                      {selectedArtistData.nationality && <span>{selectedArtistData.nationality}</span>}
+                      {selectedArtistData.nationality && <span>{convert(selectedArtistData.nationality)}</span>}
                       {selectedArtistData.birth_year && <span>{selectedArtistData.birth_year}–{selectedArtistData.death_year || '至今'}</span>}
-                      {selectedArtistData.art_movement && <span className="px-2.5 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>{selectedArtistData.art_movement}</span>}
+                      {selectedArtistData.art_movement && <span className="px-2.5 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#F5F3FF', color: '#7C3AED' }}>{convert(selectedArtistData.art_movement)}</span>}
                       <span>· {artistWorks.length} 件作品</span>
                     </div>
-                    {selectedArtistData.notable_works && <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>代表作：{selectedArtistData.notable_works}</p>}
+                    {selectedArtistData.notable_works && <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>代表作：{convert(selectedArtistData.notable_works)}</p>}
                   </div>
                 </div>)}
               <WorkGrid works={artistWorks} />
@@ -546,6 +548,7 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
 }
 
 function WorkGrid({ works }) {
+  const convert = useConvert()
   const [page, setPage] = useState(1)
   const perPage = 12
   const totalPages = Math.ceil(works.length / perPage)
@@ -573,17 +576,17 @@ function WorkGrid({ works }) {
                   (<div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center"><span className="text-6xl">🖼️</span></div>)}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-amber-700">⭐ {work.total_points} 积分</div>
-                {work.museums?.name && <div className="absolute top-3 left-3 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">🏛️ {work.museums.name}</div>}
+                {work.museums?.name && <div className="absolute top-3 left-3 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">🏛️ {convert(work.museums.name)}</div>}
                 <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🧩</span>
                   <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">📖</span>
                   <span className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center text-sm">🎐</span>
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1 leading-snug group-hover:text-gray-600 transition-colors line-clamp-2">{work.title}</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-1 leading-snug group-hover:text-gray-600 transition-colors line-clamp-2">{convert(work.title)}</h3>
               {work.title_en && <p className="text-sm text-gray-400 italic mb-2">{work.title_en}</p>}
               <div className="flex items-center gap-3 text-sm text-gray-500 mt-auto pt-2">
-                {work.artist_name && <span>{work.artist_name}</span>}
+                {work.artist_name && <span>{convert(work.artist_name)}</span>}
                 {work.year && <span className="text-gray-300">|</span>}
                 {work.year && <span>{work.year}</span>}
               </div>
