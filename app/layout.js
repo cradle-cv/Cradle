@@ -39,6 +39,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
       <head>
+        {/* ★ 首屏语言标记:在 React 之前同步读取 localStorage,尽早把 <html lang> 设好,缩短简→繁可见延迟 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var l=localStorage.getItem('cradle_lang');if(!l){var n=(navigator.language||'').toLowerCase();l=(n.indexOf('tw')>-1||n.indexOf('hk')>-1||n.indexOf('hant')>-1)?'t':'s';}document.documentElement.lang=l==='t'?'zh-Hant':'zh-Hans';document.documentElement.setAttribute('data-lang',l);}catch(e){}})();`,
+          }}
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Liu+Jian+Mao+Cao&family=Lora:ital,wght@0,400;0,700;1,400&family=Ma+Shan+Zheng&family=Montserrat:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Poppins:wght@300;400;500;600&family=Raleway:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&display=swap"
           rel="stylesheet"
