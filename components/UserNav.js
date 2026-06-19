@@ -124,12 +124,14 @@ const SERIES_DESCRIPTIONS = {
 export default function UserNav() {
   const router = useRouter()
   const pathname = usePathname()
+  const [authChecked, setAuthChecked] = useState(false)
   const [user, setUser] = useState(null)
   const [userData, setUserData] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [signedToday, setSignedToday] = useState(null)
   const [hasPendingApp, setHasPendingApp] = useState(false)
   const [myIdentities, setMyIdentities] = useState([])
+  const [identityLoaded, setIdentityLoaded] = useState(false)
   const [unreadMsgs, setUnreadMsgs] = useState(0)
   const [partnerPageMissing, setPartnerPageMissing] = useState(false)
   const [artistPageMissing, setArtistPageMissing] = useState(false)
@@ -148,6 +150,7 @@ export default function UserNav() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setUser(session.user)
+        setAuthChecked(true)
         loadUserData(session.user.id)
         checkSigninStatus()
         loadIdentityState()
@@ -156,6 +159,8 @@ export default function UserNav() {
         setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
         setPartnerPageMissing(false)
         setArtistPageMissing(false)
+        setIdentityLoaded(false)
+        setAuthChecked(true)
       }
     })
     return () => subscription.unsubscribe()
@@ -175,6 +180,7 @@ export default function UserNav() {
       setUser(session.user); loadUserData(session.user.id); checkSigninStatus()
       loadIdentityState()
     }
+    setAuthChecked(true)
   }
 
   async function loadUserData(authId) {
@@ -218,6 +224,7 @@ export default function UserNav() {
         setArtistPageMissing(false)
       }
     } catch (e) { console.warn('identity state:', e) }
+    finally { setIdentityLoaded(true) }
   }
 
   async function handleLogout() {
@@ -226,6 +233,7 @@ export default function UserNav() {
     setHasPendingApp(false); setMyIdentities([]); setUnreadMsgs(0)
     setPartnerPageMissing(false)
     setArtistPageMissing(false)
+    setIdentityLoaded(false)
     router.push('/')
   }
 
@@ -304,6 +312,16 @@ export default function UserNav() {
     }
   }
 
+  // ── 加载态:auth 还没确认时,显示骨架(语言切换照常可用),避免"登录按钮闪一下又变头像" ──
+  if (!authChecked) {
+    return (
+      <div className="flex items-center gap-2">
+        <LangToggle />
+        <div className="w-9 h-9 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: '#E5E7EB' }} />
+      </div>
+    )
+  }
+
   if (!user) {
     return (
       <div className="flex items-center gap-3">
@@ -329,10 +347,11 @@ export default function UserNav() {
   const isResident = myIdentities.some(i => i.identity_type === 'resident')
 
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
-  const hasRedDot = signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing
+  // 红点只在身份数据加载完后才判断,避免一进来就闪红点
+  const hasRedDot = identityLoaded && (signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing)
 
   // 新用户判断:总积分 < 50 + 没身份 + 没待审申请
-  const isNewbie = (userData?.total_points || 0) < 50 && myIdentities.length === 0 && !hasPendingApp
+  const isNewbie = identityLoaded && (userData?.total_points || 0) < 50 && myIdentities.length === 0 && !hasPendingApp
 
   const primaryIdentityLabel = isArtist ? '艺术家' 
     : isCurator ? '策展人' 
