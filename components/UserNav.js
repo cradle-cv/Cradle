@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
+import LangToggle from '@/components/i18n/LangToggle'
 
 // ═══ SVG 图标 ═══
 const iconProps = { width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -306,6 +307,7 @@ export default function UserNav() {
   if (!user) {
     return (
       <div className="flex items-center gap-3">
+        <LangToggle />
         <a href={`/login?redirect=${encodeURIComponent(pathname)}`}
           className="text-sm font-medium hover:opacity-80 transition-opacity" style={{ color: '#374151' }}>
           登录
@@ -346,7 +348,10 @@ export default function UserNav() {
   return (
     <>
       <div className="flex items-center gap-2">
-        
+
+        {/* ★ 简/繁切换 */}
+        <LangToggle />
+
         {/* ★ 通知铃铛 */}
         <NotificationBell />
         
