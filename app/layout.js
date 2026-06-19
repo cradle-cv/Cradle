@@ -4,7 +4,7 @@ import AutoCheckIn from "@/components/AutoCheckIn";
 import PetWrapper from "@/components/PetWrapper";
 import PWARegister from "@/components/PWARegister";
 import InAppBrowserHint from "@/components/InAppBrowserHint";
-
+import { LanguageProvider } from "@/components/i18n/LanguageContext";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -13,7 +13,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
 export const metadata = {
   title: "Cradle 摇篮",
   description: "一个慢的、克制的艺术社区。",
@@ -33,11 +32,9 @@ export const metadata = {
     ],
   },
 };
-
 export const viewport = {
   themeColor: "#C0A57C",
 };
-
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
@@ -51,15 +48,15 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}
       >
-        {/* ★ 内置浏览器提示(微信/小红书等) */}
-        <InAppBrowserHint />
-
-        <AutoCheckIn />
-        {children}
-        <PetWrapper />
-
-        {/* ★ Service Worker 注册(无 UI) */}
-        <PWARegister />
+        <LanguageProvider>
+          {/* ★ 内置浏览器提示(微信/小红书等) */}
+          <InAppBrowserHint />
+          <AutoCheckIn />
+          {children}
+          <PetWrapper />
+          {/* ★ Service Worker 注册(无 UI) */}
+          <PWARegister />
+        </LanguageProvider>
       </body>
     </html>
   );
