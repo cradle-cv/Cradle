@@ -488,11 +488,11 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
   }
 
   if (mySubmission) {
-    const submittedAt = new Date(mySubmission.created_at).toLocaleDateString('zh-CN', {
+    const submittedAt = new Date(mySubmission.submitted_at).toLocaleDateString('zh-CN', {
       year: 'numeric', month: 'long', day: 'numeric'
     })
     const count = mySubmission.artwork_ids?.length || 0
-    const editable = mySubmission.status === 'submitted'
+    const editable = mySubmission.review_status === 'pending'
     return (
       <div className="rounded-xl p-8" style={{ backgroundColor: '#ECFDF5', border: '0.5px solid #A7F3D0' }}>
         <div className="flex items-center gap-3 mb-3">
