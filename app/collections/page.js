@@ -4,6 +4,7 @@ export const revalidate = 0
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import T from '@/components/i18n/T'
 
 async function getData() {
   const { data: collections } = await supabase
@@ -118,7 +119,7 @@ export default async function CollectionsPage() {
                               </p>
                               {collection.theme_zh && (
                                 <p style={{ fontSize: '13px', color: '#6B7280', letterSpacing: '3px', marginTop: '4px' }}>
-                                  {collection.theme_zh}
+                                  <T>{collection.theme_zh}</T>
                                 </p>
                               )}
                             </div>
@@ -126,7 +127,7 @@ export default async function CollectionsPage() {
 
                           {/* 作品集标题 */}
                           <h2 className="text-xl font-bold mb-1 group-hover:text-gray-600 transition-colors" style={{ color: '#111827' }}>
-                            {collection.title}
+                            <T>{collection.title}</T>
                           </h2>
                           {collection.title_en && !hasTheme && (
                             <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '14px', color: '#9CA3AF', marginBottom: '8px' }}>
@@ -144,14 +145,14 @@ export default async function CollectionsPage() {
                                   <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#9CA3AF' }}>👤</div>
                                 )}
                               </div>
-                              <span className="text-sm" style={{ color: '#6B7280' }}>{collection.artists.display_name}</span>
+                              <span className="text-sm" style={{ color: '#6B7280' }}><T>{collection.artists.display_name}</T></span>
                             </div>
                           )}
 
                           {/* 描述 */}
                           {collection.description && (
                             <p className="text-sm leading-relaxed line-clamp-3" style={{ color: '#6B7280' }}>
-                              {collection.description}
+                              <T>{collection.description}</T>
                             </p>
                           )}
 
@@ -159,10 +160,10 @@ export default async function CollectionsPage() {
                           {collection.quote && (
                             <div style={{ borderLeft: '2px solid #D1D5DB', paddingLeft: '12px', marginTop: '16px' }}>
                               <p className="text-xs leading-relaxed italic" style={{ color: '#9CA3AF' }}>
-                                "{collection.quote}"
+                                "<T>{collection.quote}</T>"
                               </p>
                               {collection.quote_author && (
-                                <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>——{collection.quote_author}</p>
+                                <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>——<T>{collection.quote_author}</T></p>
                               )}
                             </div>
                           )}
