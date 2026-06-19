@@ -2,7 +2,6 @@
 import { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import * as OpenCC from 'opencc-js'
 
-// 语言:'s'(简体,原文存储语言) / 't'(繁体·台湾正体)
 const LanguageContext = createContext({
   lang: 's',
   setLang: () => {},
@@ -11,10 +10,11 @@ const LanguageContext = createContext({
 
 const STORAGE_KEY = 'cradle_lang'
 
-// 不进行文本转换的标签(转了会出问题)
 const SKIP_TAGS = new Set([
   'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CODE', 'PRE', 'NOSCRIPT', 'SVG'
 ])
+
+const HAS_CJK = /[\u4e00-\u9fff]/
 
 function detectDefault() {
   if (typeof window === 'undefined') return 's'
@@ -27,27 +27,30 @@ function detectDefault() {
   return 's'
 }
 
-// 判断一个文本节点是否应该被转换
 function shouldConvertNode(node) {
-  if (!node.nodeValue || !node.nodeValue.trim()) return false
-  // 没有中文字符就跳过(纯英文/数字/符号)
-  if (!/[\u4e00-\u9fff]/.test(node.nodeValue)) return false
+  const v = node.nodeValue
+  if (!v || !v.trim()) return false
+  if (!HAS_CJK.test(v)) return false
   let el = node.parentElement
   while (el) {
     if (SKIP_TAGS.has(el.tagName)) return false
     if (el.isContentEditable) return false
-    // 标记了 data-no-convert 的子树跳过
     if (el.dataset && el.dataset.noConvert !== undefined) return false
     el = el.parentElement
   }
   return true
 }
 
-// 遍历某个根节点下所有文本节点并转换
-function convertTreeText(root, converter) {
+// 转换一棵子树。targetLang 决定方向。
+// 优化:已标记为当前目标语言的元素子树整体跳过(去重,避免重复遍历)
+function convertTree(root, converter, targetLang) {
   if (!root || typeof document === 'undefined') return
+  // 元素节点:若已标记为目标语言,整棵跳过
+  if (root.nodeType === Node.ELEMENT_NODE && root.dataset && root.dataset.tc === targetLang) return
+
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
+      // 父链上若已有标记为目标语言的祖先,跳过(TreeWalker 无法整支剪,这里按节点判断)
       return shouldConvertNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
     },
   })
@@ -57,6 +60,14 @@ function convertTreeText(root, converter) {
   for (const node of nodes) {
     const converted = converter(node.nodeValue)
     if (converted !== node.nodeValue) node.nodeValue = converted
+    // 给父元素打标记,表示这段已是目标语言
+    if (node.parentElement && node.parentElement.dataset) {
+      node.parentElement.dataset.tc = targetLang
+    }
+  }
+  // 根元素整体打标记
+  if (root.nodeType === Node.ELEMENT_NODE && root.dataset) {
+    root.dataset.tc = targetLang
   }
 }
 
@@ -65,8 +76,9 @@ export function LanguageProvider({ children }) {
   const [ready, setReady] = useState(false)
   const observerRef = useRef(null)
   const langRef = useRef('s')
+  const pendingRef = useRef([])      // 待处理的新增节点队列
+  const rafRef = useRef(null)
 
-  // 两个方向的转换器,只建一次
   const converters = useMemo(() => {
     try {
       return {
@@ -79,7 +91,6 @@ export function LanguageProvider({ children }) {
     }
   }, [])
 
-  // 当前方向的转换函数(给 convert() 用)
   const convert = useCallback((text) => {
     if (!text || typeof text !== 'string') return text
     if (!converters) return text
@@ -87,45 +98,60 @@ export function LanguageProvider({ children }) {
     return converters.t2s(text)
   }, [converters])
 
-  // 全站 DOM 转换:把 body 内所有中文文本按当前语言转换
+  // 整页转换:清掉旧标记(因为方向变了),重新转
   const convertWholePage = useCallback((targetLang) => {
     if (!converters || typeof document === 'undefined') return
+    // 方向切换时,旧的 data-tc 标记失效,先清除
+    document.querySelectorAll('[data-tc]').forEach(el => { delete el.dataset.tc })
     const conv = targetLang === 't' ? converters.s2t : converters.t2s
-    convertTreeText(document.body, conv)
+    convertTree(document.body, conv, targetLang)
   }, [converters])
 
-  // 启动 MutationObserver:动态新增的 DOM 也转
+  // 批处理:把 observer 收集的新增节点在下一帧统一转
+  const flushPending = useCallback(() => {
+    rafRef.current = null
+    if (!converters) return
+    const target = langRef.current
+    if (target !== 't') { pendingRef.current = []; return }  // 简体模式无需转新增(原文即简体)
+    const conv = converters.s2t
+    const queue = pendingRef.current
+    pendingRef.current = []
+    for (const node of queue) {
+      if (!node || !node.isConnected) continue
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (shouldConvertNode(node)) {
+          const c = conv(node.nodeValue)
+          if (c !== node.nodeValue) node.nodeValue = c
+          if (node.parentElement && node.parentElement.dataset) node.parentElement.dataset.tc = 't'
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        convertTree(node, conv, 't')
+      }
+    }
+  }, [converters])
+
+  const scheduleFlush = useCallback(() => {
+    if (rafRef.current != null) return
+    rafRef.current = requestAnimationFrame(flushPending)
+  }, [flushPending])
+
   const startObserver = useCallback(() => {
     if (typeof document === 'undefined' || observerRef.current) return
     observerRef.current = new MutationObserver((mutations) => {
-      if (!converters) return
-      const conv = langRef.current === 't' ? converters.s2t : converters.t2s
-      // 简体模式下不需要观察(原文即简体),只在繁体模式转新增节点
-      if (langRef.current !== 't') return
+      if (langRef.current !== 't') return  // 简体模式不处理
       for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            if (shouldConvertNode(node)) {
-              const c = conv(node.nodeValue)
-              if (c !== node.nodeValue) node.nodeValue = c
-            }
-          } else if (node.nodeType === Node.ELEMENT_NODE) {
-            convertTreeText(node, conv)
-          }
-        }
-        // 文本内容直接变化(characterData)
-        if (m.type === 'characterData' && m.target.nodeType === Node.TEXT_NODE) {
-          if (shouldConvertNode(m.target)) {
-            const c = conv(m.target.nodeValue)
-            if (c !== m.target.nodeValue) m.target.nodeValue = c
-          }
+        if (m.type === 'childList') {
+          for (const node of m.addedNodes) pendingRef.current.push(node)
+        } else if (m.type === 'characterData') {
+          pendingRef.current.push(m.target)
         }
       }
+      if (pendingRef.current.length) scheduleFlush()
     })
     observerRef.current.observe(document.body, {
       childList: true, subtree: true, characterData: true,
     })
-  }, [converters])
+  }, [scheduleFlush])
 
   const setLang = useCallback((next) => {
     const prev = langRef.current
@@ -136,28 +162,22 @@ export function LanguageProvider({ children }) {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = next === 't' ? 'zh-Hant' : 'zh-Hans'
     }
-    // 切到繁体:整页转繁
-    if (next === 't') {
-      convertWholePage('t')
-    } else {
-      // 切回简体:整页转简(把之前转成繁的还原)
-      convertWholePage('s')
-    }
+    convertWholePage(next)
   }, [convertWholePage])
 
-  // 初次挂载:确定默认语言,若为繁体则转一次整页,并启动 observer
   useEffect(() => {
     const def = detectDefault()
     langRef.current = def
     setLangState(def)
     setReady(true)
     if (def === 't') {
-      // 等首屏渲染完成后转(确保 DOM 已就位)
-      requestAnimationFrame(() => convertWholePage('t'))
+      // 尽早转首屏:用 microtask 而非等下一帧
+      Promise.resolve().then(() => convertWholePage('t'))
     }
     startObserver()
     return () => {
       if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null }
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
