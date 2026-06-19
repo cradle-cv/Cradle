@@ -27,6 +27,13 @@ function detectDefault() {
   return 's'
 }
 
+// 标记首屏转换已完成,让 body 显示出来(配合 globals.css 的隐藏规则)
+function markReady() {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-tc-ready', '1')
+  }
+}
+
 function shouldConvertNode(node) {
   const v = node.nodeValue
   if (!v || !v.trim()) return false
@@ -41,16 +48,12 @@ function shouldConvertNode(node) {
   return true
 }
 
-// 转换一棵子树。targetLang 决定方向。
-// 优化:已标记为当前目标语言的元素子树整体跳过(去重,避免重复遍历)
 function convertTree(root, converter, targetLang) {
   if (!root || typeof document === 'undefined') return
-  // 元素节点:若已标记为目标语言,整棵跳过
   if (root.nodeType === Node.ELEMENT_NODE && root.dataset && root.dataset.tc === targetLang) return
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      // 父链上若已有标记为目标语言的祖先,跳过(TreeWalker 无法整支剪,这里按节点判断)
       return shouldConvertNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
     },
   })
@@ -60,12 +63,10 @@ function convertTree(root, converter, targetLang) {
   for (const node of nodes) {
     const converted = converter(node.nodeValue)
     if (converted !== node.nodeValue) node.nodeValue = converted
-    // 给父元素打标记,表示这段已是目标语言
     if (node.parentElement && node.parentElement.dataset) {
       node.parentElement.dataset.tc = targetLang
     }
   }
-  // 根元素整体打标记
   if (root.nodeType === Node.ELEMENT_NODE && root.dataset) {
     root.dataset.tc = targetLang
   }
@@ -76,7 +77,7 @@ export function LanguageProvider({ children }) {
   const [ready, setReady] = useState(false)
   const observerRef = useRef(null)
   const langRef = useRef('s')
-  const pendingRef = useRef([])      // 待处理的新增节点队列
+  const pendingRef = useRef([])
   const rafRef = useRef(null)
 
   const converters = useMemo(() => {
@@ -98,21 +99,18 @@ export function LanguageProvider({ children }) {
     return converters.t2s(text)
   }, [converters])
 
-  // 整页转换:清掉旧标记(因为方向变了),重新转
   const convertWholePage = useCallback((targetLang) => {
     if (!converters || typeof document === 'undefined') return
-    // 方向切换时,旧的 data-tc 标记失效,先清除
     document.querySelectorAll('[data-tc]').forEach(el => { delete el.dataset.tc })
     const conv = targetLang === 't' ? converters.s2t : converters.t2s
     convertTree(document.body, conv, targetLang)
   }, [converters])
 
-  // 批处理:把 observer 收集的新增节点在下一帧统一转
   const flushPending = useCallback(() => {
     rafRef.current = null
     if (!converters) return
     const target = langRef.current
-    if (target !== 't') { pendingRef.current = []; return }  // 简体模式无需转新增(原文即简体)
+    if (target !== 't') { pendingRef.current = []; return }
     const conv = converters.s2t
     const queue = pendingRef.current
     pendingRef.current = []
@@ -138,7 +136,7 @@ export function LanguageProvider({ children }) {
   const startObserver = useCallback(() => {
     if (typeof document === 'undefined' || observerRef.current) return
     observerRef.current = new MutationObserver((mutations) => {
-      if (langRef.current !== 't') return  // 简体模式不处理
+      if (langRef.current !== 't') return
       for (const m of mutations) {
         if (m.type === 'childList') {
           for (const node of m.addedNodes) pendingRef.current.push(node)
@@ -170,12 +168,24 @@ export function LanguageProvider({ children }) {
     langRef.current = def
     setLangState(def)
     setReady(true)
+
     if (def === 't') {
-      // 尽早转首屏:用 microtask 而非等下一帧
-      Promise.resolve().then(() => convertWholePage('t'))
+      // 繁体:先转换首屏,转完再显示页面(避免简→繁闪烁)
+      Promise.resolve().then(() => {
+        try { convertWholePage('t') } catch (e) { console.warn(e) }
+        markReady()
+      })
+    } else {
+      // 简体:原文即简体,无需转换,直接显示
+      markReady()
     }
+
+    // 保险:无论如何 1.2 秒后强制显示,避免转换异常导致页面一直空白
+    const failsafe = setTimeout(markReady, 1200)
+
     startObserver()
     return () => {
+      clearTimeout(failsafe)
       if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null }
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     }
