@@ -1,4 +1,3 @@
-
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -16,7 +15,7 @@ export default function InvitationSubmitPage() {
   const [artist, setArtist] = useState(null)
   const [artworks, setArtworks] = useState([])
   const [mySubmission, setMySubmission] = useState(null)
-  
+
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [statement, setStatement] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -79,12 +78,16 @@ export default function InvitationSubmitPage() {
       }
     } catch (e) { /* silent */ }
 
-    // 我的已发布作品
-    const { data: works } = await supabase.from('artworks')
-      .select('id, title, cover_image, image_url, year, medium')
+    // 我的已发布作品(artworks 表没有 cover_image 字段,只用 image_url)
+    const { data: works, error: worksErr } = await supabase.from('artworks')
+      .select('id, title, image_url, year, medium')
       .eq('artist_id', a.id)
       .eq('status', 'published')
       .order('created_at', { ascending: false })
+    if (worksErr) {
+      console.error('加载作品出错:', worksErr)
+      setError('加载作品失败：' + worksErr.message)
+    }
     setArtworks(works || [])
 
     setLoading(false)
@@ -265,8 +268,8 @@ export default function InvitationSubmitPage() {
                     }}
                   >
                     <div className="relative aspect-square bg-gray-100">
-                      {(w.cover_image || w.image_url) ? (
-                        <img src={w.cover_image || w.image_url} alt={w.title}
+                      {w.image_url ? (
+                        <img src={w.image_url} alt={w.title}
                           className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>🎨</div>
