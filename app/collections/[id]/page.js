@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import T from '@/components/i18n/T'
 
 async function getCollection(id) {
   const { data: collection } = await supabase
@@ -112,14 +113,14 @@ export default async function CollectionDetailPage({ params }) {
               </p>
               {collection.theme_zh && (
                 <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '6px' }}>
-                  {collection.theme_zh}
+                  <T>{collection.theme_zh}</T>
                 </p>
               )}
             </div>
           )}
 
           <h1 className="text-2xl font-bold" style={{ color: '#111827', marginBottom: '4px' }}>
-            {collection.title}
+            <T>{collection.title}</T>
           </h1>
           {collection.title_en && !hasTheme && (
             <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', color: '#9CA3AF', marginBottom: '8px' }}>
@@ -137,7 +138,7 @@ export default async function CollectionDetailPage({ params }) {
                   <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: '#9CA3AF' }}>👤</div>
                 )}
               </div>
-              <span className="text-sm" style={{ color: '#6B7280' }}>{collection.artists.display_name}</span>
+              <span className="text-sm" style={{ color: '#6B7280' }}><T>{collection.artists.display_name}</T></span>
             </div>
           )}
         </div>
@@ -148,7 +149,7 @@ export default async function CollectionDetailPage({ params }) {
         {collection.description && (
           <div style={{ padding: '24px 0', maxWidth: '640px', margin: '0 auto' }}>
             <p style={{ color: '#374151', fontSize: '15px', lineHeight: 2, textAlign: 'center' }}>
-              {collection.description}
+              <T>{collection.description}</T>
             </p>
           </div>
         )}
@@ -159,11 +160,11 @@ export default async function CollectionDetailPage({ params }) {
             <div style={{ borderBottom: '0.5px solid #E5E7EB', marginBottom: '16px' }}></div>
             <div style={{ borderLeft: '2px solid #111827', paddingLeft: '20px', margin: '0 40px' }}>
               <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                "{collection.quote}"
+                "<T>{collection.quote}</T>"
               </p>
               {collection.quote_author && (
                 <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-                  —— {collection.quote_author}
+                  —— <T>{collection.quote_author}</T>
                 </p>
               )}
             </div>
@@ -195,19 +196,19 @@ export default async function CollectionDetailPage({ params }) {
                     </span>
                     <div className="flex-1">
                       <h3 className="text-lg font-bold" style={{ color: '#111827', marginBottom: '2px' }}>
-                        {artwork.title}
+                        <T>{artwork.title}</T>
                       </h3>
                       <div className="flex items-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
-                        {artwork.artists?.display_name && <span>{artwork.artists.display_name}</span>}
+                        {artwork.artists?.display_name && <span><T>{artwork.artists.display_name}</T></span>}
                         {artwork.year && <span>· {artwork.year}</span>}
-                        {artwork.medium && <span>· {artwork.medium}</span>}
+                        {artwork.medium && <span>· <T>{artwork.medium}</T></span>}
                       </div>
 
                       {/* 策展解读 */}
                       {artwork.curator_note && (
                         <div style={{ borderLeft: '2px solid #E5E7EB', paddingLeft: '12px', marginTop: '12px' }}>
                           <p style={{ fontSize: '13px', lineHeight: 1.8, color: '#6B7280', fontStyle: 'italic' }}>
-                            {artwork.curator_note}
+                            <T>{artwork.curator_note}</T>
                           </p>
                         </div>
                       )}
@@ -215,7 +216,7 @@ export default async function CollectionDetailPage({ params }) {
                       {/* 作品描述（如果没有策展解读就显示原始描述） */}
                       {!artwork.curator_note && artwork.description && (
                         <p className="mt-2 text-sm leading-relaxed" style={{ color: '#6B7280' }}>
-                          {artwork.description}
+                          <T>{artwork.description}</T>
                         </p>
                       )}
                     </div>
@@ -243,13 +244,13 @@ export default async function CollectionDetailPage({ params }) {
               {prevCollection ? (
                 <Link href={`/collections/${prevCollection.id}`}
                   className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>
-                  ← {prevCollection.theme_en || prevCollection.title}
+                  ← <T>{prevCollection.theme_en || prevCollection.title}</T>
                 </Link>
               ) : <div></div>}
               {nextCollection ? (
                 <Link href={`/collections/${nextCollection.id}`}
                   className="text-sm hover:opacity-70 transition" style={{ color: '#6B7280' }}>
-                  {nextCollection.theme_en || nextCollection.title} →
+                  <T>{nextCollection.theme_en || nextCollection.title}</T> →
                 </Link>
               ) : <div></div>}
             </div>
