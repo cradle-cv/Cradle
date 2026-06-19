@@ -7,6 +7,7 @@ import InspirationToast from '@/components/InspirationToast'
 import LevelBadge from '@/components/LevelBadge'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
 import ImageGallery from '@/components/ImageGallery'
+import { useConvert } from '@/components/i18n/LanguageContext'
 
 // ══ 关键词提取工具 ═══════════════════════════════════════════════
 function extractKeywords(openTexts) {
@@ -44,6 +45,7 @@ function extractKeywords(openTexts) {
 
 // ══ 关键词墙组件 ════════════════════════════════════════════════
 function KeywordWall({ keywords }) {
+  const convert = useConvert()
   if (!keywords || keywords.length === 0) return null
 
   // 预定义不同大小和透明度来制造层次感
@@ -78,7 +80,7 @@ function KeywordWall({ keywords }) {
               lineHeight: 1.8,
               letterSpacing: '1px',
             }}>
-              {kw}
+              {convert(kw)}
             </span>
           )
         })}
@@ -113,6 +115,7 @@ async function silentlyCheckBadges(userId, onNewBadge) {
 export default function GalleryDetailPage() {
   const { id } = useParams()
   const router = useRouter()
+  const convert = useConvert()
 
   const [work, setWork] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -594,7 +597,7 @@ export default function GalleryDetailPage() {
       <div className="md:sticky md:top-28 md:self-start">
         <ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} />
         <div className="mb-5">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">{work.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">{convert(work.title)}</h1>
           {work.title_en && (
             <p style={{ color: '#9CA3AF', fontSize: '14px', fontStyle: 'italic', marginBottom: '8px' }}>{work.title_en}</p>
           )}
@@ -606,13 +609,13 @@ export default function GalleryDetailPage() {
                   style={{ width: '90px', height: '90px', border: '3px solid #E5E7EB' }} />
               )}
               <div>
-                <p style={{ color: '#111827', fontSize: '18px', fontWeight: '600', marginBottom: '2px' }}>{work.artist_name}</p>
+                <p style={{ color: '#111827', fontSize: '18px', fontWeight: '600', marginBottom: '2px' }}>{convert(work.artist_name)}</p>
                 {work.artist_name_en && (
                   <p style={{ color: '#9CA3AF', fontSize: '13px', fontStyle: 'italic', marginBottom: '6px' }}>{work.artist_name_en}</p>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
                   {work.year && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>}
-                  {work.collection_location && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {work.collection_location}</span>}
+                  {work.collection_location && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {convert(work.collection_location)}</span>}
                 </div>
               </div>
             </div>
@@ -647,7 +650,7 @@ export default function GalleryDetailPage() {
           <div className="flex items-center gap-4">
             <Link href="/gallery" className="text-gray-500 hover:text-gray-900 text-sm">← 返回阅览室</Link>
             <span className="text-gray-300">|</span>
-            <span className="font-bold text-gray-900">{work.title}</span>
+            <span className="font-bold text-gray-900">{convert(work.title)}</span>
           </div>
           {currentUser && (
             <div className="flex items-center gap-2">
@@ -705,10 +708,10 @@ export default function GalleryDetailPage() {
         {tab === 'puzzle' && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
-              {puzzleArticle?.intro && <p className="mb-3" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{puzzleArticle.intro}</p>}
+              {puzzleArticle?.intro && <p className="mb-3" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{convert(puzzleArticle.intro)}</p>}
               {puzzleArticle?.content && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }}
-                  dangerouslySetInnerHTML={{ __html: formatContent(puzzleArticle.content) }} />
+                  dangerouslySetInnerHTML={{ __html: formatContent(convert(puzzleArticle.content)) }} />
               )}
             </LeftPanel>
             <div>
@@ -820,8 +823,8 @@ export default function GalleryDetailPage() {
               )}
               {rikePages.length > 0 ? (
                 <div>
-                  {rikeArticle?.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>{rikeArticle.intro}</p>}
-                  {rikeArticle?.content && <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }} dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />}
+                  {rikeArticle?.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.8' }}>{convert(rikeArticle.intro)}</p>}
+                  {rikeArticle?.content && <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }} dangerouslySetInnerHTML={{ __html: formatContent(convert(rikeArticle.content)) }} />}
                   <button onClick={() => setShowRikeMagazine(true)} className="w-full flex items-center gap-4 rounded-2xl p-5 hover:opacity-90 transition text-left" style={{ backgroundColor: '#7C3AED' }}>
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}><span className="text-2xl">📖</span></div>
                     <div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-white">打开杂志阅读</span><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{rikePages.length} 页</span></div><p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p></div>
@@ -832,8 +835,8 @@ export default function GalleryDetailPage() {
                 </div>
               ) : rikeArticle ? (
                 <div>
-                  {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{rikeArticle.intro}</p>}
-                  {rikeArticle.content && <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }} dangerouslySetInnerHTML={{ __html: formatContent(rikeArticle.content) }} />}
+                  {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{convert(rikeArticle.intro)}</p>}
+                  {rikeArticle.content && <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }} dangerouslySetInnerHTML={{ __html: formatContent(convert(rikeArticle.content)) }} />}
                   {!rikeDone && <button onClick={completeRike} disabled={rikeSeconds < 15} className={`px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>{rikeSeconds >= 15 ? '✓ 完成日课 (+20✨)' : `继续阅读 (${15 - rikeSeconds}s)`}</button>}
                   {rikeDone && !fengshangDone && <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>}
                 </div>
@@ -870,8 +873,8 @@ export default function GalleryDetailPage() {
                 <div className="space-y-3 mb-6">
                   {curatorComments.map(c => (
                     <div key={c.id} className="px-5 py-4 rounded-xl" style={{ backgroundColor: '#FAFAF9', borderLeft: '3px solid #D1D5DB' }}>
-                      <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.8', fontStyle: 'italic' }}>"{c.content}"</p>
-                      <p className="mt-2 text-xs" style={{ color: '#9CA3AF' }}>——{c.author_name}{c.author_title ? ` · ${c.author_title}` : ''}</p>
+                      <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.8', fontStyle: 'italic' }}>"{convert(c.content)}"</p>
+                      <p className="mt-2 text-xs" style={{ color: '#9CA3AF' }}>——{convert(c.author_name)}{c.author_title ? ` · ${convert(c.author_title)}` : ''}</p>
                     </div>
                   ))}
                 </div>
@@ -896,14 +899,14 @@ export default function GalleryDetailPage() {
                             style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}>
                             {(c.author_name || '匿')[0]}
                           </div>
-                          <span className="text-xs" style={{ color: '#9CA3AF' }}>{c.author_name}</span>
+                          <span className="text-xs" style={{ color: '#9CA3AF' }}>{convert(c.author_name)}</span>
                           {c.rating && (
                             <span className="text-xs ml-auto" style={{ color: '#F59E0B' }}>
                               {'★'.repeat(c.rating)}
                             </span>
                           )}
                         </div>
-                        <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.7' }}>{c.content}</p>
+                        <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.7' }}>{convert(c.content)}</p>
                       </div>
                     ))}
                   </div>
@@ -982,6 +985,7 @@ export default function GalleryDetailPage() {
 
 // ══ QuestionCard ══════════════════════════════════════════════════
 function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer, onToggleMulti, onSubmitMulti, openText, onOpenTextChange, onSubmitOpen, perceptionResponse }) {
+  const convert = useConvert()
   const correctCount = (question.options || []).filter(o => o.is_correct).length
   const qTypeLegacy = question.question_type === 'matching' ? 'matching' : question.question_type === 'truefalse' ? 'truefalse' : (correctCount > 1 ? 'multiple' : 'single')
   const qType = (question.question_type_v2 && question.question_type_v2 !== 'knowledge') ? question.question_type_v2 : qTypeLegacy
@@ -999,7 +1003,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
     <div className="bg-white rounded-2xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
         <span className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">{index + 1}</span>
-        <h3 className="flex-1 font-bold" style={{ color: '#111827' }}>{question.question_text}</h3>
+        <h3 className="flex-1 font-bold" style={{ color: '#111827' }}>{convert(question.question_text)}</h3>
         <span className="px-2 py-0.5 text-xs font-medium flex-shrink-0" style={{ color: '#B45309' }}>{pointsDisplay}</span>
         <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" style={{ backgroundColor: tag.bg, color: tag.color }}>{tag.label}</span>
       </div>
@@ -1016,7 +1020,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
           </div>
         ) : (
           <div>
-            <div className="px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed" style={{ backgroundColor: '#FFF7ED', borderColor: '#F97316', color: '#374151' }}>{answer.open_text}</div>
+            <div className="px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed" style={{ backgroundColor: '#FFF7ED', borderColor: '#F97316', color: '#374151' }}>{convert(answer.open_text)}</div>
             <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>✓ 已记录 +10✨</p>
           </div>
         )}</div>
@@ -1027,7 +1031,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
             let bg = '#F9FAFB', border = '#E5E7EB', color = '#374151'
             if (answer) { if (opt.is_correct) { bg = '#ECFDF5'; border = '#10B981'; color = '#059669' } else if (opt.label === answer.selected && !answer.is_correct) { bg = '#FEF2F2'; border = '#EF4444'; color = '#DC2626' } else { color = '#9CA3AF' } }
             return <button key={opt.label} disabled={!!answer} onClick={() => onSingleAnswer(opt.label)} className="py-6 rounded-xl text-center font-bold text-lg border-2 transition-all hover:shadow-md disabled:hover:shadow-none" style={{ backgroundColor: bg, borderColor: border, color }}>
-              {answer && opt.is_correct && <span className="block text-2xl mb-1">✓</span>}{answer && opt.label === answer.selected && !answer.is_correct && <span className="block text-2xl mb-1">✗</span>}{opt.text}</button>
+              {answer && opt.is_correct && <span className="block text-2xl mb-1">✓</span>}{answer && opt.label === answer.selected && !answer.is_correct && <span className="block text-2xl mb-1">✗</span>}{convert(opt.text)}</button>
           })}
         </div>
       )}
@@ -1041,7 +1045,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
             return <button key={opt.label} disabled={!!answer} onClick={() => onSingleAnswer(opt.label)} className={`w-full text-left px-4 py-3.5 border-2 rounded-xl flex items-center gap-3 transition-all ${cls}`}>
               <span className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ borderColor: dotActive ? dotColor : '#D1D5DB', backgroundColor: dotActive ? dotColor : 'transparent', color: dotActive ? '#fff' : '#374151' }}>
                 {answer && !isPerception && opt.is_correct ? '✓' : answer && !isPerception && opt.label === answer.selected && !answer.is_correct ? '✗' : answer && isPerception && opt.label === answer.selected ? '✓' : opt.label}</span>
-              <span style={{ color: '#374151' }}>{opt.text}</span></button>
+              <span style={{ color: '#374151' }}>{convert(opt.text)}</span></button>
           })}
         </div>
       )}
@@ -1056,23 +1060,23 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
               return <button key={opt.label} disabled={!!answer} onClick={() => onToggleMulti(opt.label)} className={`w-full text-left px-4 py-3.5 border-2 rounded-xl flex items-center gap-3 transition-all ${cls}`}>
                 <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold flex-shrink-0 border-2" style={{ borderColor: answer && opt.is_correct ? '#10B981' : answer && !opt.is_correct && answer.selected.split(',').includes(opt.label) ? '#EF4444' : selected ? '#3B82F6' : '#D1D5DB', backgroundColor: answer && opt.is_correct ? '#10B981' : answer && !opt.is_correct && answer.selected.split(',').includes(opt.label) ? '#EF4444' : selected ? '#3B82F6' : 'transparent', color: (answer && (opt.is_correct || answer.selected.split(',').includes(opt.label))) || selected ? '#fff' : '#374151' }}>
                   {answer && opt.is_correct ? '✓' : answer && answer.selected.split(',').includes(opt.label) && !opt.is_correct ? '✗' : selected ? '✓' : opt.label}</span>
-                <span style={{ color: '#374151' }}>{opt.text}</span></button>
+                <span style={{ color: '#374151' }}>{convert(opt.text)}</span></button>
             })}
           </div>
           {!answer && <button onClick={onSubmitMulti} disabled={multiSelections.length === 0} className="mt-4 px-6 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40" style={{ backgroundColor: '#111827' }}>确认答案</button>}
         </div>
       )}
       {qType === 'matching' && <MatchingQuestion question={question} answer={answer} onSubmit={(result) => onSingleAnswer(result)} />}
-      {isPerception && answer && perceptionResponse && <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed italic" style={{ backgroundColor: '#F0FDF4', borderColor: '#4ADE80', color: '#166534' }}>{perceptionResponse}</div>}
+      {isPerception && answer && perceptionResponse && <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed italic" style={{ backgroundColor: '#F0FDF4', borderColor: '#4ADE80', color: '#166534' }}>{convert(perceptionResponse)}</div>}
       {isPerception && answer && !perceptionResponse && <div className="mt-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#F0FDF4', color: '#166534' }}>✓ 已记录 +10✨</div>}
       {!isPerception && !isOpen && answer?.is_correct && question.unlock_quote && (
         <div className="mt-4 px-4 py-4 rounded-xl border-l-4 text-sm leading-relaxed" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B', color: '#78350F' }}>
-          <span className="italic">"{question.unlock_quote}"</span>
-          {question.unlock_quote_author && <span className="block mt-1 text-xs not-italic" style={{ color: '#B45309' }}>—— {question.unlock_quote_author}</span>}
+          <span className="italic">"{convert(question.unlock_quote)}"</span>
+          {question.unlock_quote_author && <span className="block mt-1 text-xs not-italic" style={{ color: '#B45309' }}>—— {convert(question.unlock_quote_author)}</span>}
         </div>
       )}
       {!isPerception && !isOpen && answer && question.explanation && (
-        <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>💡 {question.explanation}</div>
+        <div className={`mt-4 p-4 rounded-xl text-sm ${answer.is_correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>💡 {convert(question.explanation)}</div>
       )}
     </div>
   )
@@ -1080,6 +1084,7 @@ function QuestionCard({ question, index, answer, multiSelections, onSingleAnswer
 
 // ══ MatchingQuestion ══════════════════════════════════════════════
 function MatchingQuestion({ question, answer, onSubmit }) {
+  const convert = useConvert()
   const [selectedImage, setSelectedImage] = useState(null)
   const [connections, setConnections] = useState({})
   const [submitted, setSubmitted] = useState(false)
@@ -1113,7 +1118,7 @@ function MatchingQuestion({ question, answer, onSubmit }) {
           {shuffledTexts.map((txt) => { const connIdx = getTextConnectionIndex(txt.match_id); const paired = connIdx >= 0; const pairedLabel = Object.entries(connections).find(([, mid]) => mid === txt.match_id)?.[0]; const correct = isAnswered && pairedLabel && isPairCorrect(pairedLabel); const wrong = isAnswered && pairedLabel && !isPairCorrect(pairedLabel); const correctOpt = opts.find(o => o.match_id === txt.match_id); return (
             <div key={txt.match_id} onClick={() => handleTextClick(txt.match_id)} className="px-4 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-3" style={{ border: correct ? '2px solid #10B981' : wrong ? '2px solid #EF4444' : paired ? `2px solid ${PAIR_COLORS[connIdx % PAIR_COLORS.length]}` : '2px solid #E5E7EB', backgroundColor: correct ? '#ECFDF5' : wrong ? '#FEF2F2' : paired ? `${PAIR_COLORS[connIdx % PAIR_COLORS.length]}10` : '#F9FAFB', opacity: isAnswered && !paired ? 0.4 : 1 }}>
               {paired && <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: isAnswered ? (correct ? '#10B981' : '#EF4444') : PAIR_COLORS[connIdx % PAIR_COLORS.length] }}>{isAnswered ? (correct ? '✓' : '✗') : connIdx + 1}</div>}
-              <span className="text-sm" style={{ color: '#374151' }}>{txt.text}</span>
+              <span className="text-sm" style={{ color: '#374151' }}>{convert(txt.text)}</span>
               {wrong && isAnswered && <span className="text-xs ml-auto" style={{ color: '#059669' }}>应配 {correctOpt?.label}</span>}
             </div>) })}
         </div>
