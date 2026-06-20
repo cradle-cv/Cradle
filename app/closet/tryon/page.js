@@ -150,6 +150,23 @@ export default function TryonPage() {
   }
 
   // 单件试穿：照片 + 一件衣服
+  async function deleteModel(id, e) {
+    e.stopPropagation(); // 不触发选中
+    if (!confirm('刪除這張照片？')) return;
+    try {
+      const res = await fetch('/api/closet/model', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id }),
+      });
+      const out = await res.json();
+      if (out.ok) {
+        setModels((m) => m.filter((x) => x.id !== id));
+        if (selModel === id) setSelModel(null);
+      } else alert('刪除失敗：' + (out.error || ''));
+    } catch (err) { alert('刪除失敗：' + err.message); }
+  }
+
   async function handleUploadFace(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -376,10 +393,19 @@ export default function TryonPage() {
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
                       {models.map((m) => (
                         <div key={m.id} onClick={() => setSelModel(m.id)} style={{
-                          width: '90px', height: '120px', cursor: 'pointer', overflow: 'hidden',
+                          position: 'relative', width: '90px', height: '120px', cursor: 'pointer', overflow: 'hidden',
                           border: selModel === m.id ? '2px solid #111827' : '0.5px solid #E5E7EB', background: '#F9FAFB',
-                        }}>
+                        }}
+                          onMouseEnter={(e) => { const b = e.currentTarget.querySelector('.del-btn'); if (b) b.style.opacity = '1'; }}
+                          onMouseLeave={(e) => { const b = e.currentTarget.querySelector('.del-btn'); if (b) b.style.opacity = '0'; }}
+                        >
                           <img src={m.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button className="del-btn" onClick={(e) => deleteModel(m.id, e)} style={{
+                            position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px',
+                            borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff',
+                            fontSize: '13px', lineHeight: '20px', textAlign: 'center', cursor: 'pointer',
+                            opacity: 0, transition: 'opacity 0.15s', padding: 0,
+                          }}>×</button>
                         </div>
                       ))}
                       <div onClick={() => fileRef.current?.click()} style={{
