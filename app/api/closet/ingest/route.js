@@ -15,7 +15,9 @@ import { createClient } from '@supabase/supabase-js';
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 
-const DEEPSEEK_VISION_MODEL = 'deepseek-v4-flash';
+// DeepSeek API 实际接受的模型名。标准多模态用 'deepseek-chat'（指向当前主力模型）。
+// 若仍失败，去 platform.deepseek.com 接口文档确认确切字符串。
+const DEEPSEEK_VISION_MODEL = process.env.DEEPSEEK_VISION_MODEL || 'deepseek-chat';
 
 const REMBG_VERSION =
   'a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc';
@@ -126,6 +128,10 @@ export async function POST(req) {
     const cutout_url =
       cutoutRes.status === 'fulfilled' ? cutoutRes.value : null;
     const attr = attrRes.status === 'fulfilled' ? attrRes.value : {};
+    const recognize_error =
+      attrRes.status === 'rejected'
+        ? String(attrRes.reason?.message || attrRes.reason)
+        : null;
 
     // ── 3. 用 service role 写库（绕过 RLS，auth_id 用已验证的 user.id）──
     const db = createClient(
@@ -157,6 +163,7 @@ export async function POST(req) {
       garment: data,
       cutout_ok: cutoutRes.status === 'fulfilled',
       recognize_ok: attrRes.status === 'fulfilled',
+      recognize_error, // 识别失败时的原因，便于排查
     });
   } catch (e) {
     return NextResponse.json(
