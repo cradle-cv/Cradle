@@ -13,7 +13,7 @@ const bodyFont = '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif'
 // 预设模特：把模特全身图上传到 R2 后，把 URL 填到这里。
 // 之后加女模特/更多体型，往数组里加对象即可。
 const PRESET_MODELS = [
-  { id: 'm1', name: '男模 · 標準', url: 'https://cdn.cradle.art/PASTE_MODEL_URL_HERE.png' },
+  { id: 'm1', name: '男模 · 標準', url: 'https://cdn.cradle.art/closet/1781973964959-kxint2.png' },
   // { id: 'm2', name: '女模 · 標準', url: 'https://cdn.cradle.art/...' },
 ];
 
@@ -402,8 +402,14 @@ export default function TryonPage() {
                           <div style={{
                             height: '120px', overflow: 'hidden', background: '#F9FAFB',
                             border: presetModel === m.id ? '2px solid #111827' : '0.5px solid #E5E7EB',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
-                            <img src={m.url} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={m.url} alt={m.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentNode.innerHTML = '<span style="font-size:11px;color:#C0C0C0;letter-spacing:1px;padding:0 8px;text-align:center;">模特圖待設置</span>';
+                              }} />
                           </div>
                           <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>{m.name}</div>
                         </div>
