@@ -78,6 +78,8 @@ export default function ClosetPage() {
         const out = await res.json();
         if (out.garment) {
           setGarments((g) => [out.garment, ...g]);
+          if (out.recognize_error)
+            console.warn('识别失败（已入库，可点卡片手动补标）:', out.recognize_error);
         } else {
           alert('錄入失敗：' + (out.error || '未知錯誤'));
         }
