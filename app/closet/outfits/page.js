@@ -23,6 +23,13 @@ export default function OutfitsPage() {
   const [occasion, setOccasion] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // AI 推荐的状态
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOccasion, setAiOccasion] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResults, setAiResults] = useState([]); // 候选搭配
+  const [aiError, setAiError] = useState('');
+
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,6 +45,44 @@ export default function OutfitsPage() {
       setLoading(false);
     })();
   }, []);
+
+  async function runRecommend() {
+    if (!aiOccasion.trim()) { setAiError('請描述場合'); return; }
+    setAiLoading(true); setAiError(''); setAiResults([]);
+    try {
+      const res = await fetch('/api/closet/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ occasion: aiOccasion }),
+      });
+      const out = await res.json();
+      if (out.outfits) setAiResults(out.outfits);
+      else setAiError(out.error || '推薦失敗');
+    } catch (e) {
+      setAiError(e.message);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function saveRecommended(rec) {
+    try {
+      const res = await fetch('/api/closet/outfits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: rec.name, garment_ids: rec.garment_ids, occasion: aiOccasion }),
+      });
+      const out = await res.json();
+      if (out.outfit) {
+        setOutfits((o) => [out.outfit, ...o]);
+        setAiResults((rs) => rs.filter((r) => r !== rec)); // 存过的从候选移除
+      } else {
+        alert('儲存失敗：' + (out.error || '未知錯誤'));
+      }
+    } catch (e) {
+      alert('儲存失敗：' + e.message);
+    }
+  }
 
   function toggle(id) {
     setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -124,11 +169,64 @@ export default function OutfitsPage() {
           ) : (
             <>
               {!creating && (
-                <div style={{ marginBottom: '36px' }}>
+                <div style={{ marginBottom: '36px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                   <button onClick={() => setCreating(true)} style={{
                     padding: '11px 26px', border: '1px solid #111827', background: 'transparent',
                     color: '#111827', fontSize: '14px', letterSpacing: '2px', cursor: 'pointer',
                   }}>＋ 新建搭配</button>
+                  <button onClick={() => { setAiOpen(true); setAiResults([]); setAiError(''); }} style={{
+                    padding: '11px 26px', border: 'none', background: '#111827',
+                    color: '#fff', fontSize: '14px', letterSpacing: '2px', cursor: 'pointer',
+                  }}>✦ AI 推薦搭配</button>
+                </div>
+              )}
+
+              {/* AI 推荐面板 */}
+              {aiOpen && (
+                <div style={{ marginBottom: '48px', padding: '24px', border: '0.5px solid #E5E7EB', background: '#FAFAFA' }}>
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <input value={aiOccasion} onChange={(e) => setAiOccasion(e.target.value)}
+                      placeholder="描述場合，如：明天有個正式飯局 / 週末約會 / 出差通勤"
+                      onKeyDown={(e) => { if (e.key === 'Enter') runRecommend(); }}
+                      style={{ flex: '1 1 280px', padding: '10px 14px', border: '0.5px solid #D1D5DB', fontSize: '14px', fontFamily: bodyFont }} />
+                    <button onClick={runRecommend} disabled={aiLoading} style={{
+                      padding: '10px 26px', border: 'none', background: '#111827', color: '#fff',
+                      fontSize: '14px', letterSpacing: '2px', cursor: aiLoading ? 'default' : 'pointer', opacity: aiLoading ? 0.6 : 1,
+                    }}>{aiLoading ? '思考中…' : '生成搭配'}</button>
+                    <button onClick={() => setAiOpen(false)} style={{
+                      padding: '10px 20px', border: '0.5px solid #D1D5DB', background: 'transparent',
+                      color: '#6B7280', fontSize: '14px', letterSpacing: '2px', cursor: 'pointer',
+                    }}>關閉</button>
+                  </div>
+                  {aiError && <p style={{ fontSize: '13px', color: '#DC2626', margin: '8px 0 0' }}>{aiError}</p>}
+                  {aiLoading && <p style={{ fontSize: '13px', color: '#9CA3AF', margin: '12px 0 0', letterSpacing: '1px' }}>正在從你的衣櫥裡挑選搭配…</p>}
+
+                  {/* 候选搭配 */}
+                  {aiResults.length > 0 && (
+                    <div style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
+                      {aiResults.map((rec, i) => (
+                        <div key={i} style={{ border: '0.5px solid #E5E7EB', background: '#fff', padding: '16px' }}>
+                          <div style={{ fontSize: '15px', color: '#111827', marginBottom: '6px' }}>{rec.name}</div>
+                          <p style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.6, margin: '0 0 12px' }}>{rec.reason}</p>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                            {rec.garment_ids.map((gid) => {
+                              const g = garmentMap[gid];
+                              if (!g) return null;
+                              return (
+                                <div key={gid} style={{ width: '60px', height: '80px', background: '#F9FAFB', border: '0.5px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                  <img src={g.cutout_url || g.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button onClick={() => saveRecommended(rec)} style={{
+                            padding: '8px 20px', border: '1px solid #111827', background: 'transparent',
+                            color: '#111827', fontSize: '13px', letterSpacing: '1px', cursor: 'pointer',
+                          }}>採用這套</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
