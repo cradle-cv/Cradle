@@ -1,23 +1,28 @@
 // app/api/closet/ingest/route.js
-// 录入流程：接收已上传到 R2 的原图 URL → Replicate 抠图 → Kimi 识别属性 → 入库
+// 录入流程：验证 token → Replicate 抠图 + DeepSeek 识别 → 用 service role 写库
 //
-// 环境变量需配置：
-//   REPLICATE_API_TOKEN
-//   KIMI_API_KEY               (沿用 gustock)
-// 抠图/识别失败不阻断入库，garment 仍写入，cutout_url / 属性留空，前端可手动补。
+// 环境变量需配置（Vercel）：
+//   REPLICATE_API_TOKEN            抠图用，后面 VTON 也复用
+//   DEEPSEEK_API_KEY               复用 gustock 那把 key
+//   NEXT_PUBLIC_SUPABASE_URL       已有
+//   NEXT_PUBLIC_SUPABASE_ANON_KEY  已有（用于验证用户 token）
+//   SUPABASE_SERVICE_ROLE_KEY      Supabase 后台 → Settings → API → service_role key
+//                                  （服务端专用，切勿暴露到前端）
 
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN;
-const KIMI_KEY = process.env.KIMI_API_KEY;
+const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 
-// 851-labs/background-remover：稳定、便宜的抠图模型
+const DEEPSEEK_VISION_MODEL = 'deepseek-v4-flash';
+
 const REMBG_VERSION =
   'a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc';
 
 // ---- Replicate 抠图（提交 + 轮询）----
 async function removeBackground(imageUrl) {
+  if (!REPLICATE_TOKEN) throw new Error('未配置 REPLICATE_API_TOKEN');
   const create = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
     headers: {
@@ -32,7 +37,6 @@ async function removeBackground(imageUrl) {
   let pred = await create.json();
   if (pred.error) throw new Error(pred.error);
 
-  // 轮询直到完成（抠图通常几秒）
   for (let i = 0; i < 40; i++) {
     if (pred.status === 'succeeded') return pred.output;
     if (pred.status === 'failed' || pred.status === 'canceled')
@@ -46,8 +50,9 @@ async function removeBackground(imageUrl) {
   throw new Error('抠图超时');
 }
 
-// ---- Kimi 视觉识别属性，强制返回 JSON ----
+// ---- DeepSeek 视觉识别属性，强制返回 JSON ----
 async function recognizeAttributes(imageUrl) {
+  if (!DEEPSEEK_KEY) throw new Error('未配置 DEEPSEEK_API_KEY');
   const prompt = `你是服装属性标注助手。看图后只返回一个 JSON 对象，不要任何额外文字或 Markdown 代码块。字段如下：
 {
   "category": "上衣/下装/外套/鞋/配饰 中选一个",
@@ -60,15 +65,16 @@ async function recognizeAttributes(imageUrl) {
   "warmth": 保暖度整数 1-5
 }`;
 
-  const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${KIMI_KEY}`,
+      Authorization: `Bearer ${DEEPSEEK_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'moonshot-v1-8k-vision-preview',
+      model: DEEPSEEK_VISION_MODEL,
       temperature: 0.2,
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'user',
@@ -81,6 +87,7 @@ async function recognizeAttributes(imageUrl) {
     }),
   });
   const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'DeepSeek 识别失败');
   const raw = data?.choices?.[0]?.message?.content || '{}';
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
@@ -88,28 +95,47 @@ async function recognizeAttributes(imageUrl) {
 
 export async function POST(req) {
   try {
-    const { auth_id, image_url } = await req.json();
-    if (!auth_id || !image_url) {
-      return NextResponse.json(
-        { error: '缺少 auth_id 或 image_url' },
-        { status: 400 }
-      );
+    // ── 1. 验证登录 token，拿到可信的 user.id ──
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) {
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
+    }
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: '登录已过期' }, { status: 401 });
     }
 
-    // 抠图与识别并行，任一失败都降级，不阻断入库
+    const { image_url } = await req.json();
+    if (!image_url) {
+      return NextResponse.json({ error: '缺少 image_url' }, { status: 400 });
+    }
+
+    // ── 2. 抠图与识别并行，任一失败降级，不阻断入库 ──
     const [cutoutRes, attrRes] = await Promise.allSettled([
       removeBackground(image_url),
       recognizeAttributes(image_url),
     ]);
-
     const cutout_url =
       cutoutRes.status === 'fulfilled' ? cutoutRes.value : null;
     const attr = attrRes.status === 'fulfilled' ? attrRes.value : {};
 
-    const { data, error } = await supabase
+    // ── 3. 用 service role 写库（绕过 RLS，auth_id 用已验证的 user.id）──
+    const db = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+    const { data, error } = await db
       .from('garments')
       .insert({
-        auth_id,
+        auth_id: user.id,
         image_url,
         cutout_url,
         category: attr.category || null,
