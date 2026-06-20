@@ -4,20 +4,19 @@
 //
 // 依赖你已有的：
 //   - @/lib/supabase（getSession 取 auth_id）
-//   - 一个把文件传到 R2 的接口 /api/upload，返回 { url }
-//     （沿用 Cradle 现有上传逻辑；若签名方式不同，替换 uploadToR2 即可）
+//   - /api/upload（Cradle 现有 R2 上传接口，字段 file + folder，返回 { url }）
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const CAT_ORDER = ['上衣', '下装', '外套', '鞋', '配饰'];
+const CAT_ORDER = ['上衣', '下装', '外套', '鞋', '配飾'];
 
 async function uploadToR2(file, authId) {
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('prefix', `closet/${authId}`);
+  fd.append('folder', `closet/${authId}`); // Cradle 上传接口用 folder 字段
   const res = await fetch('/api/upload', { method: 'POST', body: fd });
-  if (!res.ok) throw new Error('上传失败');
+  if (!res.ok) throw new Error('上傳失敗');
   const { url } = await res.json();
   return url;
 }
@@ -78,8 +77,7 @@ export default function ClosetPage() {
   })).filter((grp) => grp.items.length > 0);
   const uncat = garments.filter((g) => !CAT_ORDER.includes(g.category));
 
-  if (loading)
-    return <div className="closet-state">正在打開衣櫥…</div>;
+  if (loading) return <div className="closet-state">正在打開衣櫥…</div>;
   if (!authId)
     return <div className="closet-state">請先登入後管理你的衣櫥。</div>;
 
