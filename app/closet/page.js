@@ -3,28 +3,36 @@
 // 衣橱录入页：选图 → 上传 R2 → 调 /api/closet/ingest → 卡片展示
 //
 // 依赖你已有的：
-//   - @/lib/supabase（getSession 取 auth_id）
-//   - /api/upload（Cradle 现有 R2 上传接口，字段 file + folder，返回 { url }）
+//   - @/lib/supabase（getSession 取 token 与 auth_id）
+//   - /api/upload（需 Authorization: Bearer <access_token>，字段 file + folder，返回 { url }）
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const CAT_ORDER = ['上衣', '下装', '外套', '鞋', '配飾'];
 
-async function uploadToR2(file, authId) {
+async function uploadToR2(file, token, authId) {
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('folder', `closet/${authId}`); // Cradle 上传接口用 folder 字段
-  const res = await fetch('/api/upload', { method: 'POST', body: fd });
-  if (!res.ok) throw new Error('上傳失敗');
+  fd.append('folder', `closet`); // upload 接口会清洗 folder 为安全字符；用户隔离靠 auth_id 入库
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }, // 关键：带上登录 token
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '上傳失敗');
+  }
   const { url } = await res.json();
   return url;
 }
 
 export default function ClosetPage() {
   const [authId, setAuthId] = useState(null);
+  const [token, setToken] = useState(null);
   const [garments, setGarments] = useState([]);
-  const [queue, setQueue] = useState([]); // 正在处理的占位
+  const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,6 +45,7 @@ export default function ClosetPage() {
         return;
       }
       setAuthId(session.user.id);
+      setToken(session.access_token);
       const { data } = await supabase
         .from('garments')
         .select('*')
@@ -49,22 +58,27 @@ export default function ClosetPage() {
   async function handleFiles(e) {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!authId || files.length === 0) return;
+    if (!authId || !token || files.length === 0) return;
 
     for (const file of files) {
       const tempId = crypto.randomUUID();
       setQueue((q) => [...q, { tempId, name: file.name }]);
       try {
-        const image_url = await uploadToR2(file, authId);
+        const image_url = await uploadToR2(file, token, authId);
         const res = await fetch('/api/closet/ingest', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`, // 录入也带 token，便于服务端按用户写库
+          },
           body: JSON.stringify({ auth_id: authId, image_url }),
         });
         const out = await res.json();
         if (out.garment) setGarments((g) => [out.garment, ...g]);
+        else console.error('录入失败:', out.error);
       } catch (err) {
         console.error(err);
+        alert('上傳失敗：' + err.message);
       } finally {
         setQueue((q) => q.filter((x) => x.tempId !== tempId));
       }
@@ -145,7 +159,7 @@ export default function ClosetPage() {
           max-width: 1080px;
           margin: 96px auto;
           text-align: center;
-          color: #9a9488;
+          color: var(--closet-dim, #9a9488);
           font-size: 15px;
         }
         .closet-head {
@@ -156,35 +170,35 @@ export default function ClosetPage() {
           letter-spacing: 0.08em;
           font-weight: 500;
           margin: 0 0 8px;
-          color: #2c2a26;
+          color: var(--closet-fg, #ededed);
         }
         .closet-sub {
-          color: #9a9488;
+          color: var(--closet-dim, #9a9488);
           font-size: 14px;
           margin: 0 0 20px;
         }
         .closet-add {
           display: inline-block;
           padding: 10px 22px;
-          border: 1px solid #2c2a26;
+          border: 1px solid var(--closet-fg, #ededed);
           border-radius: 2px;
           font-size: 14px;
           letter-spacing: 0.05em;
           cursor: pointer;
           transition: background 0.2s, color 0.2s;
-          color: #2c2a26;
+          color: var(--closet-fg, #ededed);
         }
         .closet-add:hover {
-          background: #2c2a26;
-          color: #f6f3ec;
+          background: var(--closet-fg, #ededed);
+          color: var(--closet-bg, #0a0a0a);
         }
         .closet-queue {
           margin-bottom: 28px;
           padding: 12px 16px;
-          background: #f0ece2;
+          background: var(--closet-panel, #1a1a1a);
           border-radius: 2px;
           font-size: 13px;
-          color: #6f685c;
+          color: var(--closet-dim, #9a9488);
         }
         .closet-group {
           margin-bottom: 44px;
@@ -192,11 +206,11 @@ export default function ClosetPage() {
         .closet-cat {
           font-size: 14px;
           letter-spacing: 0.12em;
-          color: #6f685c;
+          color: var(--closet-dim, #9a9488);
           font-weight: 500;
           margin: 0 0 18px;
           padding-bottom: 8px;
-          border-bottom: 1px solid #e6e0d4;
+          border-bottom: 1px solid var(--closet-border, #2a2a2a);
         }
         .closet-grid {
           display: grid;
@@ -230,18 +244,18 @@ function GarmentCard({ g }) {
       </div>
       <style jsx>{`
         .card {
-          background: #fbfaf6;
-          border: 1px solid #ece6da;
+          background: var(--closet-panel, #1a1a1a);
+          border: 1px solid var(--closet-border, #2a2a2a);
           border-radius: 2px;
           overflow: hidden;
-          transition: box-shadow 0.2s;
+          transition: box-shadow 0.2s, border-color 0.2s;
         }
         .card:hover {
-          box-shadow: 0 4px 18px rgba(44, 42, 38, 0.08);
+          border-color: var(--closet-dim, #555);
         }
         .thumb {
           aspect-ratio: 3 / 4;
-          background: #f2eee4;
+          background: var(--closet-thumb, #111);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -256,12 +270,12 @@ function GarmentCard({ g }) {
         }
         .name {
           font-size: 13px;
-          color: #2c2a26;
+          color: var(--closet-fg, #ededed);
           margin-bottom: 3px;
         }
         .tags {
           font-size: 11px;
-          color: #a8a195;
+          color: var(--closet-dim, #888);
           letter-spacing: 0.03em;
         }
       `}</style>
