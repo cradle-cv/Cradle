@@ -9,6 +9,9 @@ const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN;
 // IDM-VTON 版本
 const IDM_VTON_VERSION =
   '3b032a70c29aef7b9c3222f2e40b71660201d8c288336475ba326f3ca278a3e1';
+// codeplugtech/face-swap 换脸
+const FACESWAP_VERSION =
+  '278a81e7ebb22db98bcba54de985d22cc1abeead2754eb1f2af717247be69b34';
 
 async function getUser(req) {
   const authHeader = req.headers.get('authorization') || '';
@@ -29,11 +32,34 @@ export async function POST(req) {
     if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
     if (!REPLICATE_TOKEN) return NextResponse.json({ error: '未配置 REPLICATE_API_TOKEN' }, { status: 500 });
 
-    // human_img: 人像（首件用模特照，第二件用上一步结果图）
-    // garm_img: 衣服图  category: upper_body / lower_body / dresses  garment_des: 文字描述
-    const { human_img, garm_img, category, garment_des } = await req.json();
-    if (!human_img || !garm_img || !category) {
-      return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+    const body = await req.json();
+    const type = body.type || 'vton';
+
+    let payload;
+    if (type === 'faceswap') {
+      // 换脸：input_image=穿好衣服的目标图，swap_image=用户的脸
+      const { input_image, swap_image } = body;
+      if (!input_image || !swap_image) {
+        return NextResponse.json({ error: '缺少换脸参数' }, { status: 400 });
+      }
+      payload = {
+        version: FACESWAP_VERSION,
+        input: { input_image, swap_image },
+      };
+    } else {
+      // VTON 穿衣
+      const { human_img, garm_img, category, garment_des } = body;
+      if (!human_img || !garm_img || !category) {
+        return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+      }
+      payload = {
+        version: IDM_VTON_VERSION,
+        input: {
+          human_img, garm_img, category,
+          garment_des: garment_des || '',
+          crop: false, steps: 30, seed: 42,
+        },
+      };
     }
 
     const res = await fetch('https://api.replicate.com/v1/predictions', {
@@ -42,18 +68,7 @@ export async function POST(req) {
         Authorization: `Bearer ${REPLICATE_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        version: IDM_VTON_VERSION,
-        input: {
-          human_img,
-          garm_img,
-          category, // upper_body / lower_body / dresses
-          garment_des: garment_des || '',
-          crop: false,
-          steps: 30,
-          seed: 42,
-        },
-      }),
+      body: JSON.stringify(payload),
     });
     const pred = await res.json();
     if (pred.error) throw new Error(pred.error);
