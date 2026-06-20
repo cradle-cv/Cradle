@@ -62,8 +62,12 @@ export async function POST(req) {
     const pred = await poll.json();
 
     if (pred.status === 'succeeded') {
-      // IDM-VTON 输出是单张图 URL（有时是数组）
-      const out = Array.isArray(pred.output) ? pred.output[0] : pred.output;
+      // IDM-VTON 输出格式可能是：字符串 / 字符串数组 / 嵌套。统一提取出第一个有效 URL。
+      let out = pred.output;
+      while (Array.isArray(out)) out = out[0];
+      if (!out || typeof out !== 'string') {
+        return NextResponse.json({ status: 'failed', error: '未取到结果图（输出格式异常）' });
+      }
       const permanentUrl = await saveToR2(out, user.id);
 
       // 最终图写入 outfit.tryon_url
