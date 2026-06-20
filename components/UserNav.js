@@ -53,6 +53,13 @@ const IconEnvelope = () => (
     <path d="M1.5 4.5l6.5 4.5 6.5-4.5" />
   </svg>
 )
+// ★ 衣橱 — 衣架图标，风格与现有图标一致
+const IconHanger = () => (
+  <svg viewBox="0 0 16 16" {...iconProps}>
+    <path d="M8 4.2a1.3 1.3 0 1 1 1.3 1.3c-.7 0-1.3.4-1.3 1.1" />
+    <path d="M8 6.6 2.5 10.5c-.6.4-.3 1.3.4 1.3h10.2c.7 0 1-.9.4-1.3L8 6.6Z" />
+  </svg>
+)
 const IconStar = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" stroke="none">
     <path d="M8 1.5l1.9 4.2 4.6.5-3.4 3.1 1 4.5L8 11.5l-4.1 2.3 1-4.5L1.5 6.2l4.6-.5L8 1.5z" />
@@ -454,6 +461,14 @@ export default function UserNav() {
                     <span className="text-xs" style={{ color: '#9CA3AF' }}>已收</span>
                   )}
                 </button>
+              </div>
+
+              {/* ★ 我的衣橱 — 放在今日笺语下面 */}
+              <div className="py-1 border-b" style={{ borderColor: '#F3F4F6' }}>
+                <a href="/closet" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span style={{ color: '#6B7280' }}><IconHanger /></span> 我的衣橱
+                </a>
               </div>
 
               <div className="py-1">
