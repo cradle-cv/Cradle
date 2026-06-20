@@ -74,8 +74,14 @@ export default function ClosetPage() {
           body: JSON.stringify({ auth_id: authId, image_url }),
         });
         const out = await res.json();
-        if (out.garment) setGarments((g) => [out.garment, ...g]);
-        else console.error('录入失败:', out.error);
+        if (out.garment) {
+          setGarments((g) => [out.garment, ...g]);
+          if (out.recognize_error)
+            console.warn('识别失败（已入库，可手动补标）:', out.recognize_error);
+        } else {
+          console.error('录入失败:', out.error);
+          alert('錄入失敗：' + (out.error || '未知錯誤'));
+        }
       } catch (err) {
         console.error(err);
         alert('上傳失敗：' + err.message);
