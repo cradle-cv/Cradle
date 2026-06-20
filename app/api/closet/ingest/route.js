@@ -120,18 +120,13 @@ export async function POST(req) {
       return NextResponse.json({ error: '缺少 image_url' }, { status: 400 });
     }
 
-    // ── 2. 抠图与识别并行，任一失败降级，不阻断入库 ──
-    const [cutoutRes, attrRes] = await Promise.allSettled([
-      removeBackground(image_url),
-      recognizeAttributes(image_url),
-    ]);
-    const cutout_url =
-      cutoutRes.status === 'fulfilled' ? cutoutRes.value : null;
-    const attr = attrRes.status === 'fulfilled' ? attrRes.value : {};
-    const recognize_error =
-      attrRes.status === 'rejected'
-        ? String(attrRes.reason?.message || attrRes.reason)
-        : null;
+    // ── 2. 仅抠图（自动识别暂停用，改为手动补标）──
+    let cutout_url = null;
+    try {
+      cutout_url = await removeBackground(image_url);
+    } catch (e) {
+      console.warn('抠图失败（已入库，显示原图）:', e.message);
+    }
 
     // ── 3. 用 service role 写库（绕过 RLS，auth_id 用已验证的 user.id）──
     const db = createClient(
@@ -144,14 +139,14 @@ export async function POST(req) {
         auth_id: user.id,
         image_url,
         cutout_url,
-        category: attr.category || null,
-        subcategory: attr.subcategory || null,
-        colors: attr.colors || [],
-        pattern: attr.pattern || null,
-        style: attr.style || [],
-        seasons: attr.seasons || [],
-        occasions: attr.occasions || [],
-        warmth: Number.isInteger(attr.warmth) ? attr.warmth : null,
+        category: null,
+        subcategory: null,
+        colors: [],
+        pattern: null,
+        style: [],
+        seasons: [],
+        occasions: [],
+        warmth: null,
         status: 'ready',
       })
       .select()
@@ -161,9 +156,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       garment: data,
-      cutout_ok: cutoutRes.status === 'fulfilled',
-      recognize_ok: attrRes.status === 'fulfilled',
-      recognize_error, // 识别失败时的原因，便于排查
+      cutout_ok: !!cutout_url,
     });
   } catch (e) {
     return NextResponse.json(
