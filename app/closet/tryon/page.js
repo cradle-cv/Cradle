@@ -14,7 +14,7 @@ const bodyFont = '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif'
 // 之后加女模特/更多体型，往数组里加对象即可。
 const PRESET_MODELS = [
   { id: 'm1', name: '男模 · 標準', url: 'https://cdn.cradle.art/closet/1781973964959-kxint2.png' },
-  // { id: 'm2', name: '女模 · 標準', url: 'https://cdn.cradle.art/...' },
+  { id: 'm2', name: '女模 · 標準', url: 'https://cdn.cradle.art/closet/1781975045254-jxi7sy.jpg' },
 ];
 
 // 把衣物 category 映射到 IDM-VTON 的 category
