@@ -13,11 +13,10 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN;
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
+const ZHIPU_KEY = process.env.ZHIPU_API_KEY;
 
-// DeepSeek API 实际接受的模型名。标准多模态用 'deepseek-chat'（指向当前主力模型）。
-// 若仍失败，去 platform.deepseek.com 接口文档确认确切字符串。
-const DEEPSEEK_VISION_MODEL = process.env.DEEPSEEK_VISION_MODEL || 'deepseek-chat';
+// 智谱 GLM-4V-Flash：免费视觉模型，OpenAI 兼容格式
+const ZHIPU_VISION_MODEL = process.env.ZHIPU_VISION_MODEL || 'glm-4v-flash';
 
 const REMBG_VERSION =
   'a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc';
@@ -52,9 +51,9 @@ async function removeBackground(imageUrl) {
   throw new Error('抠图超时');
 }
 
-// ---- DeepSeek 视觉识别属性，强制返回 JSON ----
+// ---- 智谱 GLM-4V-Flash 视觉识别属性，强制返回 JSON ----
 async function recognizeAttributes(imageUrl) {
-  if (!DEEPSEEK_KEY) throw new Error('未配置 DEEPSEEK_API_KEY');
+  if (!ZHIPU_KEY) throw new Error('未配置 ZHIPU_API_KEY');
   const prompt = `你是服装属性标注助手。看图后只返回一个 JSON 对象，不要任何额外文字或 Markdown 代码块。字段如下：
 {
   "category": "上衣/下装/外套/鞋/配饰 中选一个",
@@ -67,16 +66,15 @@ async function recognizeAttributes(imageUrl) {
   "warmth": 保暖度整数 1-5
 }`;
 
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+  const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${DEEPSEEK_KEY}`,
+      Authorization: `Bearer ${ZHIPU_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: DEEPSEEK_VISION_MODEL,
+      model: ZHIPU_VISION_MODEL,
       temperature: 0.2,
-      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'user',
@@ -89,9 +87,9 @@ async function recognizeAttributes(imageUrl) {
     }),
   });
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'DeepSeek 识别失败');
+  if (data.error) throw new Error(data.error.message || '智谱识别失败');
   const raw = data?.choices?.[0]?.message?.content || '{}';
-  const clean = raw.replace(/```json|```/g, '').trim();
+  const clean = raw.replace(/```json|```/g, '').replace(/```/g, '').trim();
   return JSON.parse(clean);
 }
 
@@ -120,13 +118,16 @@ export async function POST(req) {
       return NextResponse.json({ error: '缺少 image_url' }, { status: 400 });
     }
 
-    // ── 2. 仅抠图（自动识别暂停用，改为手动补标）──
-    let cutout_url = null;
-    try {
-      cutout_url = await removeBackground(image_url);
-    } catch (e) {
-      console.warn('抠图失败（已入库，显示原图）:', e.message);
-    }
+    // ── 2. 抠图与识别并行，任一失败降级，不阻断入库 ──
+    const [cutoutRes, attrRes] = await Promise.allSettled([
+      removeBackground(image_url),
+      recognizeAttributes(image_url),
+    ]);
+    const cutout_url = cutoutRes.status === 'fulfilled' ? cutoutRes.value : null;
+    const attr = attrRes.status === 'fulfilled' ? attrRes.value : {};
+    const recognize_error = attrRes.status === 'rejected'
+      ? String(attrRes.reason?.message || attrRes.reason) : null;
+    if (recognize_error) console.warn('识别失败（已入库，可手动补标）:', recognize_error);
 
     // ── 3. 用 service role 写库（绕过 RLS，auth_id 用已验证的 user.id）──
     const db = createClient(
@@ -139,14 +140,14 @@ export async function POST(req) {
         auth_id: user.id,
         image_url,
         cutout_url,
-        category: null,
-        subcategory: null,
-        colors: [],
-        pattern: null,
-        style: [],
-        seasons: [],
-        occasions: [],
-        warmth: null,
+        category: attr.category || null,
+        subcategory: attr.subcategory || null,
+        colors: attr.colors || [],
+        pattern: attr.pattern || null,
+        style: attr.style || [],
+        seasons: attr.seasons || [],
+        occasions: attr.occasions || [],
+        warmth: Number.isInteger(attr.warmth) ? attr.warmth : null,
         status: 'ready',
       })
       .select()
@@ -157,6 +158,8 @@ export async function POST(req) {
     return NextResponse.json({
       garment: data,
       cutout_ok: !!cutout_url,
+      recognize_ok: attrRes.status === 'fulfilled',
+      recognize_error,
     });
   } catch (e) {
     return NextResponse.json(
