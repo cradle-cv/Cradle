@@ -97,6 +97,9 @@ export default function TryonPage() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState('');
   const [result, setResult] = useState(null);
+  const [resultMeta, setResultMeta] = useState(null); // 当前结果对应的搭配信息
+  const [savedResults, setSavedResults] = useState([]); // 已保存的试穿历史
+  const [savedThisOne, setSavedThisOne] = useState(false);
   const fileRef = useRef(null);
 
   const today = new Date();
@@ -117,6 +120,10 @@ export default function TryonPage() {
       setModels(mRes.models || []);
       setGarments(gs || []);
       setOutfits(os || []);
+      try {
+        const rr = await fetch('/api/closet/tryon/result', { headers: { Authorization: `Bearer ${session.access_token}` } }).then((r) => r.json());
+        setSavedResults(rr.results || []);
+      } catch {}
       const def = (mRes.models || []).find((m) => m.is_default) || (mRes.models || [])[0];
       if (def) setSelModel(def.id);
       setLoading(false);
@@ -186,6 +193,8 @@ export default function TryonPage() {
         if (!r) throw new Error('換臉未返回結果，請重試');
       }
       setResult(r);
+      setResultMeta({ outfit_id: null, outfit_name: g.subcategory || '單件試穿', body_source: bodySource });
+      setSavedThisOne(false);
       setProgress('');
     } catch (e) {
       alert('試穿失敗：' + e.message);
@@ -239,8 +248,9 @@ export default function TryonPage() {
         humanImg = rf;
       }
       setResult(humanImg);
+      setResultMeta({ outfit_id: outfit.id, outfit_name: outfit.name, body_source: bodySource });
+      setSavedThisOne(false);
       setProgress('');
-      // 同步更新本地 outfit 的 tryon_url
       setOutfits((os) => os.map((o) => o.id === outfit.id ? { ...o, tryon_url: humanImg } : o));
     } catch (e) {
       alert('試穿失敗：' + e.message);
@@ -248,6 +258,48 @@ export default function TryonPage() {
     } finally {
       setRunning(false);
     }
+  }
+
+  async function saveResult() {
+    if (!result || savedThisOne) return;
+    try {
+      const res = await fetch('/api/closet/tryon/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          image_url: result,
+          outfit_id: resultMeta?.outfit_id || null,
+          outfit_name: resultMeta?.outfit_name || null,
+          body_source: resultMeta?.body_source || null,
+        }),
+      });
+      const out = await res.json();
+      if (out.result) {
+        setSavedResults((rs) => [out.result, ...rs]);
+        setSavedThisOne(true);
+      } else alert('儲存失敗：' + (out.error || ''));
+    } catch (e) { alert('儲存失敗：' + e.message); }
+  }
+
+  function tryAnother() {
+    setResult(null);
+    setResultMeta(null);
+    setSavedThisOne(false);
+    setSelOutfit(null);
+    setSelGarment(null);
+  }
+
+  async function deleteSaved(id) {
+    if (!confirm('刪除這張試穿記錄？')) return;
+    try {
+      const res = await fetch('/api/closet/tryon/result', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id }),
+      });
+      const out = await res.json();
+      if (out.ok) setSavedResults((rs) => rs.filter((r) => r.id !== id));
+    } catch (e) { alert('刪除失敗：' + e.message); }
   }
 
   return (
@@ -459,16 +511,51 @@ export default function TryonPage() {
                   )}
                 </div>
                 {result && (
-                  <a href={result} download target="_blank" rel="noreferrer" style={{
-                    display: 'inline-block', marginTop: '14px', padding: '8px 20px',
-                    border: '0.5px solid #D1D5DB', color: '#6B7280', fontSize: '13px', letterSpacing: '1px', textDecoration: 'none',
-                  }}>保存效果圖</a>
+                  <div style={{ marginTop: '14px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button onClick={saveResult} disabled={savedThisOne} style={{
+                      padding: '8px 22px', border: 'none', background: savedThisOne ? '#9CA3AF' : '#111827',
+                      color: '#fff', fontSize: '13px', letterSpacing: '1px', cursor: savedThisOne ? 'default' : 'pointer',
+                    }}>{savedThisOne ? '已儲存 ✓' : '儲存這張'}</button>
+                    <button onClick={tryAnother} style={{
+                      padding: '8px 22px', border: '1px solid #111827', background: 'transparent',
+                      color: '#111827', fontSize: '13px', letterSpacing: '1px', cursor: 'pointer',
+                    }}>再試一套</button>
+                    <a href={result} download target="_blank" rel="noreferrer" style={{
+                      padding: '8px 18px', border: '0.5px solid #D1D5DB', color: '#6B7280',
+                      fontSize: '13px', letterSpacing: '1px', textDecoration: 'none',
+                    }}>下載</a>
+                  </div>
                 )}
               </div>
             </div>
           )}
         </div>
       </section>
+
+      {/* 我的试穿历史 */}
+      {authId && savedResults.length > 0 && (
+        <section className="px-6 pb-12">
+          <div className="max-w-6xl mx-auto">
+            <h2 style={{ fontSize: '13px', letterSpacing: '4px', color: '#6B7280', fontWeight: 400, margin: '0 0 18px', paddingBottom: '8px', borderBottom: '0.5px solid #E5E7EB' }}>我的試穿 · 共 {savedResults.length} 張</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
+              {savedResults.map((r) => (
+                <div key={r.id} style={{ border: '0.5px solid #E5E7EB', background: '#fff', overflow: 'hidden' }}>
+                  <div style={{ aspectRatio: '3/4', background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img src={r.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                  <div style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#374151' }}>{r.outfit_name || '試穿'}</span>
+                    <span style={{ display: 'flex', gap: '8px' }}>
+                      <a href={r.image_url} download target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#6B7280', textDecoration: 'none' }}>下載</a>
+                      <button onClick={() => deleteSaved(r.id)} style={{ fontSize: '11px', color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>刪除</button>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <footer className="bg-[#1F2937] text-white py-12 px-6">
         <div className="max-w-6xl mx-auto">
