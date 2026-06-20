@@ -178,6 +178,10 @@ export default function OutfitsPage() {
                     padding: '11px 26px', border: 'none', background: '#111827',
                     color: '#fff', fontSize: '14px', letterSpacing: '2px', cursor: 'pointer',
                   }}>✦ AI 推薦搭配</button>
+                  <a href="/closet/tryon" style={{
+                    padding: '11px 26px', border: '0.5px solid #D1D5DB', color: '#6B7280',
+                    fontSize: '14px', letterSpacing: '2px', textDecoration: 'none',
+                  }}>虛擬試穿 →</a>
                 </div>
               )}
 
