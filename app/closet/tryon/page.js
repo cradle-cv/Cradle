@@ -136,13 +136,17 @@ export default function TryonPage() {
       if (top) {
         setProgress('正在穿上 ' + (top.subcategory || '上衣') + '…');
         const id1 = await startOne(token, humanImg, top);
-        humanImg = await pollUntilDone(token, id1, !bottom, outfit.id); // 没下装则这步即最终
+        const r1 = await pollUntilDone(token, id1, !bottom, outfit.id); // 没下装则这步即最终
+        if (!r1) throw new Error('上衣試穿未返回結果，請重試');
+        humanImg = r1;
       }
       // 第二步：下装（以上一步结果为底）
       if (bottom) {
         setProgress('正在穿上 ' + (bottom.subcategory || '下裝') + '…');
         const id2 = await startOne(token, humanImg, bottom);
-        humanImg = await pollUntilDone(token, id2, true, outfit.id);
+        const r2 = await pollUntilDone(token, id2, true, outfit.id);
+        if (!r2) throw new Error('下裝試穿未返回結果，請重試');
+        humanImg = r2;
       }
       setResult(humanImg);
       setProgress('');
