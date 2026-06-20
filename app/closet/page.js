@@ -1,23 +1,22 @@
 'use client';
 // app/closet/page.js
-// 衣橱录入页：选图 → 上传 R2 → 调 /api/closet/ingest → 卡片展示
-//
-// 依赖你已有的：
-//   - @/lib/supabase（getSession 取 token 与 auth_id）
-//   - /api/upload（需 Authorization: Bearer <access_token>，字段 file + folder，返回 { url }）
+// 衣橱录入页 —— 套用 Cradle 站点框架（白底宋体 + 导航 + 报刊式刊头）
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import UserNav from '@/components/UserNav';
 
 const CAT_ORDER = ['上衣', '下装', '外套', '鞋', '配飾'];
+const serif = '"Playfair Display", Georgia, "Times New Roman", serif';
+const bodyFont = '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif';
 
-async function uploadToR2(file, token, authId) {
+async function uploadToR2(file, token) {
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('folder', `closet`); // upload 接口会清洗 folder 为安全字符；用户隔离靠 auth_id 入库
+  fd.append('folder', 'closet');
   const res = await fetch('/api/upload', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` }, // 关键：带上登录 token
+    headers: { Authorization: `Bearer ${token}` },
     body: fd,
   });
   if (!res.ok) {
@@ -34,6 +33,10 @@ export default function ClosetPage() {
   const [garments, setGarments] = useState([]);
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const today = new Date();
+  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`;
 
   useEffect(() => {
     (async () => {
@@ -64,14 +67,14 @@ export default function ClosetPage() {
       const tempId = crypto.randomUUID();
       setQueue((q) => [...q, { tempId, name: file.name }]);
       try {
-        const image_url = await uploadToR2(file, token, authId);
+        const image_url = await uploadToR2(file, token);
         const res = await fetch('/api/closet/ingest', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`, // 录入也带 token，便于服务端按用户写库
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ auth_id: authId, image_url }),
+          body: JSON.stringify({ image_url }),
         });
         const out = await res.json();
         if (out.garment) {
@@ -97,138 +100,153 @@ export default function ClosetPage() {
   })).filter((grp) => grp.items.length > 0);
   const uncat = garments.filter((g) => !CAT_ORDER.includes(g.category));
 
-  if (loading) return <div className="closet-state">正在打開衣櫥…</div>;
-  if (!authId)
-    return <div className="closet-state">請先登入後管理你的衣櫥。</div>;
-
   return (
-    <div className="closet">
-      <header className="closet-head">
-        <h1>衣櫥</h1>
-        <p className="closet-sub">
-          拍照或上傳電商圖，自動去背與識別。共 {garments.length} 件。
-        </p>
-        <label className="closet-add">
-          + 加入衣物
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={handleFiles}
-          />
-        </label>
-      </header>
-
-      {queue.length > 0 && (
-        <div className="closet-queue">
-          正在處理 {queue.length} 件：去背與識別中…
-        </div>
-      )}
-
-      {garments.length === 0 && queue.length === 0 && (
-        <div className="closet-empty">
-          衣櫥還是空的。加入第一件衣物，開始建立你的搭配庫。
-        </div>
-      )}
-
-      {grouped.map((grp) => (
-        <section key={grp.cat} className="closet-group">
-          <h2 className="closet-cat">{grp.cat}</h2>
-          <div className="closet-grid">
-            {grp.items.map((g) => (
-              <GarmentCard key={g.id} g={g} />
-            ))}
+    <div className="min-h-screen bg-white" style={{ fontFamily: bodyFont }}>
+      {/* 导航栏 —— 与站点其他页一致 */}
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-1 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-0 h-10 flex-shrink-0"></div>
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
+            </a>
+            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
+              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
+              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
+              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
+              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
+              <li><a href="/artists" className="hover:text-gray-900">艺术家</a></li>
+              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
+              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
+            </ul>
           </div>
-        </section>
-      ))}
+          <div className="flex items-center gap-4"><UserNav /></div>
+        </div>
+      </nav>
 
-      {uncat.length > 0 && (
-        <section className="closet-group">
-          <h2 className="closet-cat">未分類</h2>
-          <div className="closet-grid">
-            {uncat.map((g) => (
-              <GarmentCard key={g.id} g={g} />
-            ))}
+      {/* 刊头 —— 报刊式三线分隔 */}
+      <section className="px-6 pt-8 pb-2">
+        <div className="max-w-6xl mx-auto">
+          <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 衣櫥</span>
+              <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
+            </div>
           </div>
-        </section>
-      )}
+          <div style={{ padding: '24px 0 16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', marginBottom: '10px', textTransform: 'uppercase' }}>Wardrobe</p>
+            <h1 style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '42px', fontWeight: 400, color: '#111827', lineHeight: 1.1, margin: 0 }}>
+              Closet
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', letterSpacing: '4px', marginTop: '8px' }}>
+              衣 櫥
+            </p>
+            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '12px', letterSpacing: '2px' }}>
+              拍照或上傳電商圖，自動去背與識別 · 共 {garments.length} 件
+            </p>
+          </div>
+          <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
+        </div>
+      </section>
 
-      <style jsx>{`
-        .closet {
-          max-width: 1080px;
-          margin: 0 auto;
-          padding: 48px 24px 96px;
-        }
-        .closet-state,
-        .closet-empty {
-          max-width: 1080px;
-          margin: 96px auto;
-          text-align: center;
-          color: var(--closet-dim, #9a9488);
-          font-size: 15px;
-        }
-        .closet-head {
-          margin-bottom: 40px;
-        }
-        .closet-head h1 {
-          font-size: 30px;
-          letter-spacing: 0.08em;
-          font-weight: 500;
-          margin: 0 0 8px;
-          color: var(--closet-fg, #ededed);
-        }
-        .closet-sub {
-          color: var(--closet-dim, #9a9488);
-          font-size: 14px;
-          margin: 0 0 20px;
-        }
-        .closet-add {
-          display: inline-block;
-          padding: 10px 22px;
-          border: 1px solid var(--closet-fg, #ededed);
-          border-radius: 2px;
-          font-size: 14px;
-          letter-spacing: 0.05em;
-          cursor: pointer;
-          transition: background 0.2s, color 0.2s;
-          color: var(--closet-fg, #ededed);
-        }
-        .closet-add:hover {
-          background: var(--closet-fg, #ededed);
-          color: var(--closet-bg, #0a0a0a);
-        }
-        .closet-queue {
-          margin-bottom: 28px;
-          padding: 12px 16px;
-          background: var(--closet-panel, #1a1a1a);
-          border-radius: 2px;
-          font-size: 13px;
-          color: var(--closet-dim, #9a9488);
-        }
-        .closet-group {
-          margin-bottom: 44px;
-        }
-        .closet-cat {
-          font-size: 14px;
-          letter-spacing: 0.12em;
-          color: var(--closet-dim, #9a9488);
-          font-weight: 500;
-          margin: 0 0 18px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid var(--closet-border, #2a2a2a);
-        }
-        .closet-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 18px;
-        }
-        @media (max-width: 520px) {
-          .closet-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-      `}</style>
+      {/* 主体 */}
+      <section className="px-6 py-8">
+        <div className="max-w-6xl mx-auto">
+          {loading ? (
+            <p style={{ textAlign: 'center', color: '#9CA3AF', padding: '80px 0' }}>正在打開衣櫥…</p>
+          ) : !authId ? (
+            <div style={{ textAlign: 'center', padding: '72px 0' }}>
+              <p style={{ fontSize: '15px', color: '#374151', letterSpacing: '2px', marginBottom: '8px' }}>
+                登入後開啟你的專屬衣櫥
+              </p>
+              <p style={{ fontSize: '13px', color: '#9CA3AF', letterSpacing: '1px', marginBottom: '28px' }}>
+                錄入你的每一件衣物，建立只屬於你的搭配庫
+              </p>
+              <a href="/login" style={{
+                display: 'inline-block', padding: '11px 32px',
+                border: '1px solid #111827', color: '#111827',
+                fontSize: '14px', letterSpacing: '3px', textDecoration: 'none',
+              }}>登 入</a>
+            </div>
+          ) : (
+            <>
+              {/* 加入按钮 + 搭配入口 */}
+              <div style={{ marginBottom: '36px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <label style={{
+                  display: 'inline-block', padding: '11px 26px',
+                  border: '1px solid #111827', color: '#111827',
+                  fontSize: '14px', letterSpacing: '2px', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#111827'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#111827'; }}
+                >
+                  ＋ 加入衣物
+                  <input type="file" accept="image/*" multiple hidden onChange={handleFiles} />
+                </label>
+                <a href="/closet/outfits" style={{
+                  display: 'inline-block', padding: '11px 26px',
+                  border: '0.5px solid #D1D5DB', color: '#6B7280',
+                  fontSize: '14px', letterSpacing: '2px', textDecoration: 'none',
+                }}>我的搭配 →</a>
+              </div>
+
+              {queue.length > 0 && (
+                <div style={{
+                  marginBottom: '28px', padding: '12px 16px',
+                  background: '#F9FAFB', border: '0.5px solid #E5E7EB',
+                  fontSize: '13px', color: '#6B7280', letterSpacing: '1px',
+                }}>
+                  正在處理 {queue.length} 件：去背與識別中…
+                </div>
+              )}
+
+              {garments.length === 0 && queue.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#9CA3AF', padding: '60px 0', letterSpacing: '2px' }}>
+                  衣櫥還是空的。加入第一件衣物，開始建立你的搭配庫。
+                </p>
+              )}
+
+              {grouped.map((grp) => (
+                <Group key={grp.cat} title={grp.cat} items={grp.items} />
+              ))}
+              {uncat.length > 0 && <Group title="未分類" items={uncat} />}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* 页脚 —— 与站点一致 */}
+      <footer className="bg-[#1F2937] text-white py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
+            <div className="text-xl font-bold">Cradle摇篮</div>
+          </div>
+          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Group({ title, items }) {
+  return (
+    <div style={{ marginBottom: '48px' }}>
+      <h2 style={{
+        fontSize: '13px', letterSpacing: '4px', color: '#6B7280',
+        fontWeight: 400, margin: '0 0 18px',
+        paddingBottom: '8px', borderBottom: '0.5px solid #E5E7EB',
+      }}>{title}</h2>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+        gap: '20px',
+      }}>
+        {items.map((g) => <GarmentCard key={g.id} g={g} />)}
+      </div>
     </div>
   );
 }
@@ -236,55 +254,29 @@ export default function ClosetPage() {
 function GarmentCard({ g }) {
   const img = g.cutout_url || g.image_url;
   return (
-    <div className="card">
-      <div className="thumb">
-        <img src={img} alt={g.subcategory || '衣物'} />
+    <div style={{
+      background: '#fff', border: '0.5px solid #E5E7EB',
+      overflow: 'hidden', transition: 'box-shadow 0.2s',
+    }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(17,24,39,0.08)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      <div style={{
+        aspectRatio: '3 / 4', background: '#F9FAFB',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <img src={img} alt={g.subcategory || '衣物'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       </div>
-      <div className="meta">
-        <div className="name">{g.subcategory || '未識別'}</div>
-        <div className="tags">
+      <div style={{ padding: '12px 14px 14px' }}>
+        <div style={{ fontSize: '14px', color: '#111827', marginBottom: '4px' }}>
+          {g.subcategory || '未識別'}
+        </div>
+        <div style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '1px' }}>
           {(g.colors || []).slice(0, 2).join(' · ')}
           {g.colors?.length && g.occasions?.length ? '　' : ''}
           {(g.occasions || []).slice(0, 1).join('')}
         </div>
       </div>
-      <style jsx>{`
-        .card {
-          background: var(--closet-panel, #1a1a1a);
-          border: 1px solid var(--closet-border, #2a2a2a);
-          border-radius: 2px;
-          overflow: hidden;
-          transition: box-shadow 0.2s, border-color 0.2s;
-        }
-        .card:hover {
-          border-color: var(--closet-dim, #555);
-        }
-        .thumb {
-          aspect-ratio: 3 / 4;
-          background: var(--closet-thumb, #111);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-        .meta {
-          padding: 10px 12px 12px;
-        }
-        .name {
-          font-size: 13px;
-          color: var(--closet-fg, #ededed);
-          margin-bottom: 3px;
-        }
-        .tags {
-          font-size: 11px;
-          color: var(--closet-dim, #888);
-          letter-spacing: 0.03em;
-        }
-      `}</style>
     </div>
   );
 }
