@@ -975,6 +975,13 @@ function CuratorInvitationsTab({ myInvitations, myCuratedExhibitions, onRefresh 
                     style={{ color: '#374151', borderColor: '#D1D5DB' }}>
                     查看
                   </Link>
+                  {!isCancelled && (
+                    <Link href={`/curator/invitations/${inv.id}/submissions`}
+                      className="px-3 py-1.5 text-xs rounded-lg text-white"
+                      style={{ backgroundColor: '#7C3AED' }}>
+                      🎨 评选投稿
+                    </Link>
+                  )}
                   {!isCancelled && Number(inv.pending_count) > 0 && (
                     <Link href={`/curator/invitations/${inv.id}/applications`}
                       className="px-3 py-1.5 text-xs rounded-lg text-white"
