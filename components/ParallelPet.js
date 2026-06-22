@@ -362,7 +362,7 @@ function DreamCardPopup({ card, onClose }) {
               {SOURCE_ICONS[card.source_type] || '🖼️'}
             </div>
           )}
-          {/* BAO 出现在画面中 */}
+          {/* BAO 出现在画面中——半透明的梦的叠影 */}
           {card.kind === 'sighting' && card.bao_x != null && (
             <img src={BAO_IMG} alt="BAO"
               style={{
@@ -370,25 +370,30 @@ function DreamCardPopup({ card, onClose }) {
                 left: `${card.bao_x}%`, top: `${card.bao_y}%`,
                 width: `${28 * (card.bao_scale || 1)}%`,
                 transform: `translate(-50%,-50%) scaleX(${card.bao_flip ? -1 : 1})`,
+                opacity: 0.72,
+                filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
+                mixBlendMode: 'luminosity',
                 pointerEvents: 'none',
               }} />
           )}
-          {card.kind === 'dream' && (
-            <img src={BAO_IMG} alt="BAO"
-              style={{ position: 'absolute', right: '6%', bottom: '4%', width: '22%', pointerEvents: 'none' }} />
-          )}
         </div>
-        <div className="p-5">
+        <div className="p-5 relative">
           <div className="flex items-center gap-2 mb-2">
             <span>{SOURCE_ICONS[card.source_type] || '🖼️'}</span>
             <span className="text-sm font-bold" style={{ color: '#111827' }}>{card.title}</span>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{card.content}</p>
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-3 pr-14">
             <span className="text-xs" style={{ color: '#9CA3AF' }}>
               {card.kind === 'sighting' ? 'BAO 寄自你看见的地方' : card.source_work}
             </span>
             <span className="text-xs" style={{ color: '#D1D5DB' }}>{new Date(card.created_at).toLocaleDateString('zh-CN')}</span>
+          </div>
+          {/* BAO 落款水印(像徕卡水印):小图 + BAO 字样 */}
+          <div className="absolute flex items-center gap-1"
+            style={{ right: '16px', bottom: '14px', opacity: 0.85 }}>
+            <img src={BAO_IMG} alt="" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: '#7C3AED' }}>BAO</span>
           </div>
         </div>
       </div>
@@ -540,6 +545,9 @@ function SettleSighting({ card, userId, onDone }) {
               position: 'absolute', left: `${bao.x}%`, top: `${bao.y}%`,
               width: `${28 * bao.scale}%`,
               transform: `translate(-50%,-50%) scaleX(${bao.flip ? -1 : 1})`,
+              opacity: 0.72,
+              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
+              mixBlendMode: 'luminosity',
               cursor: 'grab',
             }} />
         </div>
