@@ -1,643 +1,247 @@
-'use client'
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { uploadImage } from '@/lib/upload'
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
-// BAO 固定形象(放 public/image/bao.png,或替换为你的 R2 url)
-const BAO_IMG = '/image/bao.png'
+const DREAM_INTERVAL_HOURS = 12  // BAO 带回新梦图的最小间隔(半天一张)
 
-// 5 种滤镜(所见+名画通用):复古/黑白/浓烈/奶油/柔雾
-const FILTERS = [
-  { key: 'retro', label: '复古', css: 'sepia(0.4) saturate(1.2) contrast(1.05) brightness(1.02) hue-rotate(-8deg)' },
-  { key: 'mono',  label: '黑白', css: 'grayscale(1) contrast(1.08) brightness(1.02)' },
-  { key: 'vivid', label: '浓烈', css: 'saturate(1.7) contrast(1.15) brightness(1.02)' },
-  { key: 'cream', label: '奶油', css: 'sepia(0.3) saturate(1.1) brightness(1.08) contrast(0.93)' },
-  { key: 'haze',  label: '柔雾', css: 'saturate(0.85) brightness(1.12) contrast(0.88) blur(0.4px)' },
-]
-function filterCss(key) {
-  return (FILTERS.find(f => f.key === key) || {}).css || 'none'
-}
-// BAO 透明度三档
-const OPACITY_LEVELS = [
-  { key: 'hidden', label: '隐形', value: 0 },
-  { key: 'half',   label: '半透', value: 0.5 },
-  { key: 'solid',  label: '清晰', value: 1 },
-]
+// ═══════════════════════════════════════════════
+// GET - 点开 BAO 时调用:结算是否带回新梦图 + 返回状态/梦图列表
+// ═══════════════════════════════════════════════
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
+    const action = searchParams.get('action')
+    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
 
-const SOURCE_ICONS = {
-  painting: '🎨', literature: '📚', film: '🎬',
-  architecture: '🏛️', music: '🎵', mythology: '🐉', sighting: '👁️',
-}
-
-export default function ParallelPet({ userId, userLevel }) {
-  const [pet, setPet] = useState(null)
-  const [expanded, setExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState('home')
-  const [cards, setCards] = useState([])
-  const [sightings, setSightings] = useState([])
-  const [loadingCards, setLoadingCards] = useState(false)
-  const [sleeping, setSleeping] = useState(true)
-  const [hoursUntilNext, setHoursUntilNext] = useState(0)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [mood, setMood] = useState('sleeping')
-  const [newCard, setNewCard] = useState(null)        // 本次结算带回的新梦图
-  const [pendingSettle, setPendingSettle] = useState(null) // 待定格的所见梦图
-  const [openCard, setOpenCard] = useState(null)      // 点开查看的梦图
-  const [settleTarget, setSettleTarget] = useState(null) // 正在定格的所见梦图
-  const [recording, setRecording] = useState(false)   // 所见录入弹窗
-  const panelRef = useRef(null)
-
-  // 初次加载只取 pet 基本信息(不结算)
-  useEffect(() => {
-    if (!userId) return
-    fetch(`/api/parallel?userId=${userId}&action=cards`)
-      .then(r => r.json()).then(d => { setCards(d.cards || []); setSightings(d.sightings || []) }).catch(() => {})
-    // 取未读/睡眠状态但不触发结算:用一个轻量 GET(这里直接结算也行,但我们要点开才结算)
-  }, [userId])
-
-  // 点击外部关闭
-  useEffect(() => {
-    function onClick(e) {
-      if (expanded && panelRef.current && !panelRef.current.contains(e.target)) {
-        setExpanded(false); setMood('sleeping')
-      }
+    // 获取或创建 BAO
+    let { data: pet } = await supabase
+      .from('user_parallel').select('*').eq('user_id', userId).maybeSingle()
+    if (!pet) {
+      const { data: newPet } = await supabase
+        .from('user_parallel').insert({ user_id: userId }).select().single()
+      pet = newPet
     }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [expanded])
 
-  // 点开 BAO —— 这里才结算(满12小时则带回新梦图)
-  const handleOpen = useCallback(async () => {
-    if (expanded) return
-    setExpanded(true)
-    setMood('awake')
-    setActiveTab('home')
-    setLoadingCards(true)
-    try {
-      const resp = await fetch(`/api/parallel?userId=${userId}`)
-      const d = await resp.json()
-      setPet(d.pet)
-      setSleeping(d.sleeping)
-      setHoursUntilNext(d.hoursUntilNext || 0)
-      setUnreadCount(d.unreadCount || 0)
-      setPendingSettle(d.pendingSettle || null)
-      if (d.newCard) {
-        setNewCard(d.newCard)
-        setMood('happy')
-        // 新梦图未定格(所见/名画都一样),进入定格流程
-        if (!d.newCard.settled) {
-          setSettleTarget(d.newCard)
-        }
-      }
-      // 刷新梦图列表
-      const cardsResp = await fetch(`/api/parallel?userId=${userId}&action=cards`)
-      const cardsData = await cardsResp.json()
-      setCards(cardsData.cards || [])
-      setSightings(cardsData.sightings || [])
-    } catch (e) { console.error(e) }
-    finally { setLoadingCards(false) }
-  }, [expanded, userId])
+    // 后台仍按等级更新 stage(前端不显示进化,但数据保留,以后可启用成长线)
+    const { data: user } = await supabase
+      .from('users').select('level').eq('id', userId).single()
+    const level = user?.level || 1
+    const stage = levelToStage(level)
+    if (pet && pet.stage !== stage) {
+      await supabase.from('user_parallel').update({ stage, updated_at: new Date().toISOString() }).eq('id', pet.id)
+      pet.stage = stage
+    }
 
-  async function reloadCards() {
-    const r = await fetch(`/api/parallel?userId=${userId}&action=cards`)
-    const d = await r.json()
-    setCards(d.cards || [])
-    setSightings(d.sightings || [])
-  }
+    // 只取梦图列表 + 所见日记(明细 tab)
+    if (action === 'cards') {
+      const { data: all } = await supabase
+        .from('dream_postcards').select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }).limit(50)
+      // 所见日记:原始所见记录(含未梦见/失效的,用于黑白/彩色区分)
+      const { data: sightingDiary } = await supabase
+        .from('parallel_sightings').select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }).limit(50)
+      return NextResponse.json({ cards: all || [], sightings: sightingDiary || [] })
+    }
 
-  async function readCard(id) {
-    await fetch('/api/parallel', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, action: 'read_card', cardId: id })
+    // 待定格的梦图(所见或名画,贴BAO+选滤镜还没完成的)——任何未定格的都要能重新浮出
+    const { data: pendingSettle } = await supabase
+      .from('dream_postcards').select('*')
+      .eq('user_id', userId).eq('settled', false)
+      .order('created_at', { ascending: false }).limit(1)
+
+    // ─── 结算:距上次带回梦图是否已满 12 小时 ───
+    const lastDream = pet.last_dream_at ? new Date(pet.last_dream_at) : new Date(0)
+    const hoursSince = (Date.now() - lastDream.getTime()) / (1000 * 60 * 60)
+    const canDream = hoursSince >= DREAM_INTERVAL_HOURS
+
+    // 结算:所见优先(无视冷却,因为是用户主动喂的);名画兜底受 12h 冷却限制
+    const newCard = await settleDream(userId, pet, canDream)
+    // 若刚带回了所见梦图,sleeping 体感应为"醒着"
+    const dreamedNow = !!newCard
+
+    // 未读数
+    const { data: unread } = await supabase
+      .from('dream_postcards').select('id')
+      .eq('user_id', userId).eq('is_read', false)
+
+    return NextResponse.json({
+      pet,
+      sleeping: !dreamedNow && !canDream,   // 没带回新梦图且还在冷却=睡觉
+      hoursUntilNext: canDream ? 0 : Math.ceil(DREAM_INTERVAL_HOURS - hoursSince),
+      newCard,                              // 本次结算带回的新梦图(可能为 null)
+      pendingSettle: pendingSettle?.[0] || null,  // 有未定格的所见梦图待用户贴BAO+选滤镜
+      unreadCount: unread?.length || 0,
     })
-    setUnreadCount(c => Math.max(0, c - 1))
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-
-  if (!userId || (userLevel && userLevel < 3)) return null
-
-  return (
-    <>
-      {/* ===== 右侧边缘的 BAO(缩在墙里睡觉) ===== */}
-      <div className="fixed z-40 cursor-pointer"
-        style={{ right: 0, top: '50%', transform: 'translateY(-50%)' }}
-        onClick={handleOpen}
-        onMouseEnter={() => { if (!expanded) setMood('awake') }}
-        onMouseLeave={() => { if (!expanded) setMood('sleeping') }}>
-        <div className="relative" style={{ width: '52px', height: '64px' }}>
-          <div style={{
-            animation: mood === 'sleeping' ? 'baoBreathe 3.5s ease-in-out infinite'
-              : mood === 'happy' ? 'baoBounce 0.5s ease-in-out 3' : 'none',
-            transition: 'transform 0.3s ease',
-            transform: mood === 'awake' ? 'translateX(-10px)' : 'translateX(6px)',
-          }}>
-            <img src={BAO_IMG} alt="BAO" draggable={false}
-              className="w-full h-full object-contain"
-              style={{ filter: mood === 'sleeping' ? 'brightness(0.8)' : 'none' }} />
-            {mood === 'sleeping' && (
-              <div className="absolute -top-3 -left-1 text-xs"
-                style={{ color: '#8B5CF6', animation: 'baoZzz 2.5s ease-in-out infinite' }}>z</div>
-            )}
-          </div>
-          {unreadCount > 0 && !expanded && (
-            <div className="absolute -top-1 -left-2 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ backgroundColor: '#EF4444', color: '#fff', animation: 'baoPulse 1.5s ease-in-out infinite' }}>
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ===== 展开面板 ===== */}
-      {expanded && (
-        <div ref={panelRef} className="fixed z-50 bg-white shadow-2xl overflow-hidden flex flex-col"
-          style={{ right: 0, top: '8%', bottom: '8%', width: '380px',
-            borderRadius: '16px 0 0 16px', animation: 'baoPanelIn 0.3s ease-out' }}>
-
-          {/* 头部 */}
-          <div className="px-5 py-4 flex items-center justify-between" style={{ backgroundColor: '#F5F3FF' }}>
-            <div className="flex items-center gap-3">
-              <img src={BAO_IMG} alt="BAO" className="w-10 h-10 object-contain" />
-              <div>
-                <h3 className="font-bold text-sm" style={{ color: '#111827' }}>{pet?.name || 'BAO'}</h3>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>你的平行体</p>
-              </div>
-            </div>
-            <button onClick={() => { setExpanded(false); setMood('sleeping') }}
-              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/60"
-              style={{ color: '#9CA3AF' }}>✕</button>
-          </div>
-
-          {/* Tab */}
-          <div className="flex border-b" style={{ borderColor: '#F3F4F6' }}>
-            {[
-              { key: 'home', label: '🏠 BAO' },
-              { key: 'cards', label: `🖼️ 梦图${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
-              { key: 'sightings', label: '👁️ 所见' },
-            ].map(t => (
-              <button key={t.key} onClick={() => { setActiveTab(t.key); if (t.key === 'cards') reloadCards() }}
-                className="flex-1 py-2.5 text-xs font-medium transition"
-                style={{ color: activeTab === t.key ? '#7C3AED' : '#9CA3AF',
-                  borderBottom: activeTab === t.key ? '2px solid #7C3AED' : '2px solid transparent' }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5">
-            {/* ===== 主页 ===== */}
-            {activeTab === 'home' && (
-              <div className="space-y-4">
-                {loadingCards ? (
-                  <p className="text-center py-8 text-sm" style={{ color: '#9CA3AF' }}>BAO 正在回来的路上…</p>
-                ) : sleeping ? (
-                  <div className="text-center py-10">
-                    <img src={BAO_IMG} alt="BAO" className="w-24 h-24 object-contain mx-auto mb-3"
-                      style={{ filter: 'brightness(0.85)' }} />
-                    <p className="text-sm" style={{ color: '#6B7280' }}>BAO 还在睡觉，别打扰它</p>
-                    <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>
-                      它出门做梦了，大约 {hoursUntilNext} 小时后带回新梦图
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <img src={BAO_IMG} alt="BAO" className="w-24 h-24 object-contain mx-auto mb-3" />
-                    <p className="text-sm" style={{ color: '#6B7280' }}>BAO 旅行回来了，带回一张梦图</p>
-                  </div>
-                )}
-
-                <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#F5F3FF' }}>
-                  <div className="text-lg font-bold" style={{ color: '#7C3AED' }}>{pet?.total_dreams || 0}</div>
-                  <div className="text-xs" style={{ color: '#9CA3AF' }}>BAO 做过的梦</div>
-                </div>
-
-                <button onClick={() => setRecording(true)}
-                  className="w-full py-3 rounded-xl text-sm font-medium text-white"
-                  style={{ backgroundColor: '#7C3AED' }}>
-                  👁️ 记录一个所见
-                </button>
-                <p className="text-xs text-center" style={{ color: '#D1D5DB', lineHeight: 1.7 }}>
-                  拍下生活里打动你的画面，写下你看见的。<br/>
-                  BAO 会在下一次梦里，梦见你看见的东西。
-                </p>
-              </div>
-            )}
-
-            {/* ===== 梦图列表 ===== */}
-            {activeTab === 'cards' && (
-              <DreamCardList cards={cards} onOpen={(c) => {
-                if (!c.settled) { setSettleTarget(c); setOpenCard(null); return }
-                setOpenCard(c)
-                if (!c.is_read) readCard(c.id)
-              }} />
-            )}
-
-            {/* ===== 所见日记 ===== */}
-            {activeTab === 'sightings' && (
-              <SightingDiary sightings={sightings} cards={cards} onOpen={setOpenCard} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 查看某张梦图 */}
-      {openCard && (
-        <DreamCardPopup card={openCard} onClose={() => setOpenCard(null)} />
-      )}
-
-      {/* 定格所见梦图(贴BAO+选滤镜) */}
-      {settleTarget && (
-        <SettleSighting
-          card={settleTarget} userId={userId}
-          onDone={async () => { setSettleTarget(null); setNewCard(null); await reloadCards() }}
-        />
-      )}
-
-      {/* 记录所见 */}
-      {recording && (
-        <RecordSighting userId={userId}
-          onClose={() => setRecording(false)}
-          onDone={() => { setRecording(false) }} />
-      )}
-
-      <style jsx global>{`
-        @keyframes baoBreathe { 0%,100%{transform:scaleY(1) translateX(6px);} 50%{transform:scaleY(1.04) translateX(2px);} }
-        @keyframes baoBounce { 0%,100%{transform:translateY(0) translateX(-10px);} 50%{transform:translateY(-8px) translateX(-10px);} }
-        @keyframes baoZzz { 0%{opacity:0;transform:translate(0,0) scale(0.5);} 50%{opacity:1;transform:translate(-5px,-8px) scale(1);} 100%{opacity:0;transform:translate(-10px,-16px) scale(0.5);} }
-        @keyframes baoPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
-        @keyframes baoPanelIn { from{transform:translateX(100%);} to{transform:translateX(0);} }
-        @keyframes cardPop { from{opacity:0;transform:scale(0.92);} to{opacity:1;transform:scale(1);} }
-      `}</style>
-    </>
-  )
 }
 
-// ───── 梦图列表 ─────
-function DreamCardList({ cards, onOpen }) {
-  if (cards.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <div className="text-3xl mb-2">🖼️</div>
-        <p className="text-sm" style={{ color: '#9CA3AF' }}>还没有梦图</p>
-        <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>BAO 旅行回来会带给你</p>
-      </div>
-    )
+// 结算一次梦境:所见优先(取最新,旧的失效,无视冷却);否则冷却允许时从当期阅览室抽一幅名画
+async function settleDream(userId, pet, canDream) {
+  // 1. 最新一条未被梦见、未失效的所见(所见优先,不受冷却限制)
+  const { data: sightings } = await supabase
+    .from('parallel_sightings').select('*')
+    .eq('user_id', userId).eq('dreamed', false).eq('expired', false)
+    .order('created_at', { ascending: false }).limit(1)
+
+  if (sightings && sightings.length > 0) {
+    const s = sightings[0]
+
+    // 把比这条更早的、仍未梦见的所见标记为失效(只梦最新的)
+    await supabase.from('parallel_sightings').update({ expired: true })
+      .eq('user_id', userId).eq('dreamed', false).eq('expired', false)
+      .neq('id', s.id)
+
+    // 生成所见梦图(单面卡,待用户贴BAO+选滤镜定格)
+    const { data: card } = await supabase.from('dream_postcards').insert({
+      user_id: userId,
+      kind: 'sighting',
+      content_id: `sighting_${s.id}`,
+      title: '你看见的',
+      content: s.note,
+      user_note: s.note,
+      image_url: s.image_url,
+      sighting_source_id: s.id,
+      source_type: 'sighting',
+      reward_type: 'inspiration',
+      reward_amount: 0,
+      settled: false,
+    }).select().single()
+
+    await supabase.from('parallel_sightings').update({
+      dreamed: true, dreamed_at: new Date().toISOString(), postcard_id: card.id,
+    }).eq('id', s.id)
+
+    await supabase.from('user_parallel').update({
+      total_dreams: (pet.total_dreams || 0) + 1,
+      last_dream_at: new Date().toISOString(),
+      mood: 'happy', updated_at: new Date().toISOString(),
+    }).eq('id', pet.id)
+
+    return card
   }
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {cards.map(c => (
-        <div key={c.id} onClick={() => onOpen(c)}
-          className="rounded-xl overflow-hidden cursor-pointer transition hover:shadow-md relative"
-          style={{ border: !c.is_read ? '1.5px solid #FCD34D' : '0.5px solid #F3F4F6' }}>
-          <div className="aspect-square bg-gray-100 relative">
-            {c.image_url ? (
-              <img src={c.image_url} className="w-full h-full object-cover"
-                style={{ filter: filterCss(c.filter) }} alt="" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl">
-                {SOURCE_ICONS[c.source_type] || '🖼️'}
-              </div>
-            )}
-            {!c.settled && (
-              <div className="absolute inset-0 flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(124,58,237,0.55)' }}>
-                <span className="text-xs text-white font-medium px-2 py-1 rounded-full"
-                  style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>待定格</span>
-              </div>
-            )}
-            {!c.is_read && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />
-            )}
-          </div>
-          <div className="p-2">
-            <p className="text-xs font-medium truncate" style={{ color: '#111827' }}>{c.title}</p>
-            <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>
-              {c.kind === 'sighting' ? '你的所见' : c.source_work}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+
+  // 2. 没有所见 → 名画兜底,受 12h 冷却限制;冷却没过就不做梦(BAO睡觉)
+  if (!canDream) return null
+
+  // 取当期阅览室(最近 published 的一期),从它的画作里随机一幅
+  const { data: issues } = await supabase
+    .from('gallery_curations').select('issue_number, theme_zh, work_ids')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('issue_number', { ascending: false })
+    .limit(1)
+
+  const issue = issues?.[0]
+  if (!issue || !issue.work_ids || issue.work_ids.length === 0) return null
+
+  // 这一期的画作里随机一幅
+  const workId = issue.work_ids[Math.floor(Math.random() * issue.work_ids.length)]
+  const { data: work } = await supabase
+    .from('gallery_works').select('id, title, artist_name, cover_image, description')
+    .eq('id', workId).maybeSingle()
+  if (!work) return null
+
+  // 描述截断成一段梦呓长度
+  let vignette = work.description || ''
+  if (vignette.length > 140) vignette = vignette.slice(0, 140) + '…'
+
+  const { data: card } = await supabase.from('dream_postcards').insert({
+    user_id: userId,
+    kind: 'dream',
+    content_id: `gallery_${work.id}`,
+    title: work.title || '一幅画',
+    content: vignette,
+    source_work: [work.artist_name, `阅览室 No.${issue.issue_number}《${issue.theme_zh}》`].filter(Boolean).join(' · '),
+    source_type: 'painting',
+    image_url: work.cover_image,   // ★ 真画作图,解决"没图"问题
+    reward_type: 'inspiration',
+    reward_amount: 0,
+    settled: false,   // 名画梦图也走定格:贴BAO+调透明度+选滤镜
+  }).select().single()
+
+  await supabase.from('user_parallel').update({
+    total_dreams: (pet.total_dreams || 0) + 1,
+    last_dream_at: new Date().toISOString(),
+    mood: 'happy', updated_at: new Date().toISOString(),
+  }).eq('id', pet.id)
+
+  return card
 }
 
-// ───── 所见日记(原始所见记录:已梦见=彩色,未梦见/失效=黑白) ─────
-function SightingDiary({ sightings, cards, onOpen }) {
-  if (!sightings || sightings.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <div className="text-3xl mb-2">👁️</div>
-        <p className="text-sm" style={{ color: '#9CA3AF' }}>还没有所见</p>
-        <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>在「BAO」页记录你看见的画面</p>
-      </div>
-    )
+// ═══════════════════════════════════════════════
+// POST - 记录所见 / 定格梦图 / 标记已读 / 命名
+// ═══════════════════════════════════════════════
+export async function POST(request) {
+  try {
+    const { userId, action, ...params } = await request.json()
+    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+
+    // ─── 记录所见:存图(前端已上传R2拿到url) + 描述(≥15字) ───
+    if (action === 'record_sighting') {
+      const { imageUrl, note } = params
+      if (!imageUrl) return NextResponse.json({ error: '缺少图片' }, { status: 400 })
+      const trimmed = (note || '').trim()
+      if (trimmed.length < 15) {
+        return NextResponse.json({ error: '描述至少 15 个字' }, { status: 400 })
+      }
+      const { data: sighting } = await supabase.from('parallel_sightings').insert({
+        user_id: userId, image_url: imageUrl, note: trimmed,
+      }).select().single()
+      return NextResponse.json({ success: true, sighting })
+    }
+
+    // ─── 定格梦图:保存 BAO 放置 + 透明度 + 滤镜 ───
+    if (action === 'settle_card') {
+      const { cardId, baoX, baoY, baoScale, baoFlip, baoOpacity, filter } = params
+      if (!cardId) return NextResponse.json({ error: '缺少 cardId' }, { status: 400 })
+      await supabase.from('dream_postcards').update({
+        bao_x: baoX, bao_y: baoY,
+        bao_scale: baoScale ?? 1, bao_flip: !!baoFlip,
+        bao_opacity: baoOpacity ?? 0.72,
+        filter: filter || null,
+        settled: true,
+      }).eq('id', cardId).eq('user_id', userId)
+      return NextResponse.json({ success: true })
+    }
+
+    // ─── 标记已读 ───
+    if (action === 'read_card') {
+      const { cardId } = params
+      await supabase.from('dream_postcards').update({ is_read: true })
+        .eq('id', cardId).eq('user_id', userId)
+      return NextResponse.json({ success: true })
+    }
+
+    // ─── 命名 BAO ───
+    if (action === 'rename') {
+      const { name } = params
+      if (!name || name.length > 20) return NextResponse.json({ error: '名字需在1-20字之间' }, { status: 400 })
+      await supabase.from('user_parallel').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('user_id', userId)
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({ error: '未知操作' }, { status: 400 })
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-  // 已梦见的所见 → 找到它生成的梦图,点击可打开
-  function cardFor(sighting) {
-    return cards.find(c => c.sighting_source_id === sighting.id) || null
-  }
-  return (
-    <div className="space-y-3">
-      <p className="text-xs mb-1" style={{ color: '#D1D5DB', lineHeight: 1.7 }}>
-        被 BAO 梦见的所见会显色；还没被梦见的，静静等待着。
-      </p>
-      {sightings.map(s => {
-        const dreamt = s.dreamed
-        const card = dreamt ? cardFor(s) : null
-        return (
-          <div key={s.id}
-            onClick={() => { if (card) onOpen(card) }}
-            className="flex gap-3 p-2 rounded-xl hover:bg-gray-50"
-            style={{ border: '0.5px solid #F3F4F6', cursor: card ? 'pointer' : 'default' }}>
-            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-              {s.image_url && (
-                <img src={s.image_url} className="w-full h-full object-cover" alt=""
-                  style={{ filter: dreamt ? 'none' : 'grayscale(1) brightness(1.02)' }} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs leading-relaxed line-clamp-3"
-                style={{ color: dreamt ? '#374151' : '#9CA3AF' }}>{s.note}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs" style={{ color: '#D1D5DB' }}>
-                  {new Date(s.created_at).toLocaleDateString('zh-CN')}
-                </span>
-                {dreamt
-                  ? <span className="text-xs" style={{ color: '#7C3AED' }}>· BAO 梦见了</span>
-                  : <span className="text-xs" style={{ color: '#D1D5DB' }}>· 等待被梦见</span>}
-              </div>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
-// ───── 梦图弹出查看(单面卡) ─────
-function DreamCardPopup({ card, onClose }) {
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6"
-      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
-        className="bg-white rounded-2xl overflow-hidden shadow-2xl"
-        style={{ maxWidth: '380px', width: '100%', animation: 'cardPop 0.3s ease-out' }}>
-        <div className="relative" style={{ backgroundColor: '#F3F4F6' }}>
-          {card.image_url ? (
-            <img src={card.image_url} className="w-full"
-              style={{ display: 'block', filter: filterCss(card.filter) }} alt="" />
-          ) : (
-            <div className="w-full flex items-center justify-center text-5xl" style={{ aspectRatio: '4/3' }}>
-              {SOURCE_ICONS[card.source_type] || '🖼️'}
-            </div>
-          )}
-          {/* BAO 出现在画面中——梦的叠影,透明度由定格时决定 */}
-          {card.bao_x != null && (card.bao_opacity == null || card.bao_opacity > 0) && (
-            <img src={BAO_IMG} alt="BAO"
-              style={{
-                position: 'absolute',
-                left: `${card.bao_x}%`, top: `${card.bao_y}%`,
-                width: `${28 * (card.bao_scale || 1)}%`,
-                transform: `translate(-50%,-50%) scaleX(${card.bao_flip ? -1 : 1})`,
-                opacity: card.bao_opacity == null ? 0.72 : card.bao_opacity,
-                filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.28))',
-                pointerEvents: 'none',
-              }} />
-          )}
-        </div>
-        <div className="p-5 relative">
-          <div className="flex items-center gap-2 mb-2">
-            <span>{SOURCE_ICONS[card.source_type] || '🖼️'}</span>
-            <span className="text-sm font-bold" style={{ color: '#111827' }}>{card.title}</span>
-          </div>
-          <div className="flex items-center justify-between gap-3" style={{ flexWrap: 'nowrap' }}>
-            <p className="text-sm leading-relaxed" style={{ color: '#374151', maxWidth: '60%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{card.content}</p>
-            {/* BAO 落款:右半边,与正文同一水平线 */}
-            <div className="flex items-center gap-2 flex-shrink-0" style={{ opacity: 0.9 }}>
-              <img src={BAO_IMG} alt="" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
-              <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.1em', color: '#7C3AED' }}>BAO</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ───── 记录所见(上传图 + 写≥15字) ─────
-function RecordSighting({ userId, onClose, onDone }) {
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-  const fileRef = useRef(null)
-
-  function pickFile(e) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setFile(f)
-    setPreview(URL.createObjectURL(f))
-  }
-
-  async function submit() {
-    if (!file) { alert('请先选择一张照片'); return }
-    const trimmed = note.trim()
-    if (trimmed.length < 15) { alert(`描述还差 ${15 - trimmed.length} 个字（至少 15 字）`); return }
-    setBusy(true)
-    try {
-      // 上传到 R2(走现有 uploadImage,自动压缩+鉴权)
-      const { url } = await uploadImage(file, 'sightings')
-      const resp = await fetch('/api/parallel', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, action: 'record_sighting', imageUrl: url, note: trimmed })
-      })
-      const d = await resp.json()
-      if (!resp.ok || d.error) throw new Error(d.error || '记录失败')
-      alert('记下了。BAO 会在下一次梦里，梦见你看见的东西。')
-      onDone()
-    } catch (e) { alert('记录失败：' + (e.message || e)); setBusy(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-6"
-      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => !busy && onClose()}>
-      <div onClick={e => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden"
-        style={{ maxWidth: '380px', animation: 'cardPop 0.3s ease-out' }}>
-        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F3F4F6' }}>
-          <h3 className="font-bold text-sm" style={{ color: '#111827' }}>记录一个所见</h3>
-          <button onClick={onClose} className="text-sm" style={{ color: '#9CA3AF' }}>关闭</button>
-        </div>
-        <div className="p-5 space-y-4">
-          <input ref={fileRef} type="file" accept="image/*" capture="environment"
-            onChange={pickFile} className="hidden" />
-          <div onClick={() => fileRef.current?.click()}
-            className="rounded-xl overflow-hidden cursor-pointer flex items-center justify-center"
-            style={{ aspectRatio: '4/3', backgroundColor: '#F9FAFB', border: '1px dashed #D1D5DB' }}>
-            {preview ? (
-              <img src={preview} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <div className="text-center">
-                <div className="text-3xl mb-1">📷</div>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>拍下 / 选一张打动你的画面</p>
-              </div>
-            )}
-          </div>
-          <div>
-            <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 40))} rows={3} maxLength={40}
-              placeholder="写下你看见的——这一刻为什么打动你？（15-40 字）"
-              className="w-full px-3 py-2 rounded-lg text-sm" style={{ border: '0.5px solid #D1D5DB', lineHeight: 1.7 }} />
-            <p className="text-xs text-right mt-1" style={{ color: note.trim().length >= 15 ? '#10B981' : '#D1D5DB' }}>
-              {note.trim().length} / 40{note.trim().length < 15 ? `（还差 ${15 - note.trim().length} 字）` : ''}
-            </p>
-          </div>
-          <button onClick={submit} disabled={busy}
-            className="w-full py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: '#7C3AED' }}>
-            {busy ? '记录中…' : '记下这个所见'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ───── 定格梦图:拖 BAO(位置/缩放/翻转/透明度) + 选滤镜。所见+名画通用 ─────
-function SettleSighting({ card, userId, onDone }) {
-  const isSighting = card.kind === 'sighting'
-  const [bao, setBao] = useState({ x: 50, y: 60, scale: 1, flip: false, opacity: 0.5 })
-  const [filter, setFilter] = useState(isSighting ? 'cream' : 'retro')
-  const [busy, setBusy] = useState(false)
-  const stageRef = useRef(null)
-  const dragging = useRef(false)
-
-  function clientToPct(clientX, clientY) {
-    const r = stageRef.current.getBoundingClientRect()
-    let x = ((clientX - r.left) / r.width) * 100
-    let y = ((clientY - r.top) / r.height) * 100
-    x = Math.max(0, Math.min(100, x))
-    y = Math.max(0, Math.min(100, y))
-    return { x, y }
-  }
-  function onDown(e) { if (bao.opacity === 0) return; dragging.current = true; move(e) }
-  function onUp() { dragging.current = false }
-  function move(e) {
-    if (!dragging.current) return
-    const pt = e.touches?.[0] || e
-    const { x, y } = clientToPct(pt.clientX, pt.clientY)
-    setBao(b => ({ ...b, x, y }))
-  }
-
-  async function save() {
-    setBusy(true)
-    try {
-      const resp = await fetch('/api/parallel', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId, action: 'settle_card', cardId: card.id,
-          baoX: bao.x, baoY: bao.y, baoScale: bao.scale, baoFlip: bao.flip,
-          baoOpacity: bao.opacity, filter,
-        })
-      })
-      const d = await resp.json()
-      if (!resp.ok || d.error) throw new Error(d.error || '保存失败')
-      onDone()
-    } catch (e) { alert('保存失败：' + (e.message || e)); setBusy(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-6"
-      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col"
-        style={{ maxWidth: '400px', maxHeight: '90vh', animation: 'cardPop 0.3s ease-out' }}>
-        <div className="px-5 py-4 text-center flex-shrink-0">
-          <h3 className="font-bold text-sm" style={{ color: '#111827' }}>
-            {isSighting ? 'BAO 梦见了你看见的' : `BAO 梦见了一幅画 · ${card.title}`}
-          </h3>
-          <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>把 BAO 放进画面里，挑一种光</p>
-        </div>
-
-        <div className="overflow-y-auto px-5" style={{ flex: 1 }}>
-          {/* 画布:拖 BAO(完整显示不裁切,高度随图) */}
-          <div ref={stageRef}
-            className="relative rounded-xl overflow-hidden select-none"
-            style={{ backgroundColor: '#F3F4F6', touchAction: 'none' }}
-            onMouseDown={onDown} onMouseMove={move} onMouseUp={onUp} onMouseLeave={onUp}
-            onTouchStart={onDown} onTouchMove={move} onTouchEnd={onUp}>
-            {card.image_url && (
-              <img src={card.image_url} className="w-full pointer-events-none"
-                style={{ display: 'block', filter: filterCss(filter) }} alt="" draggable={false} />
-            )}
-            {bao.opacity > 0 && (
-              <img src={BAO_IMG} alt="BAO" draggable={false}
-                style={{
-                  position: 'absolute', left: `${bao.x}%`, top: `${bao.y}%`,
-                  width: `${28 * bao.scale}%`,
-                  transform: `translate(-50%,-50%) scaleX(${bao.flip ? -1 : 1})`,
-                  opacity: bao.opacity,
-                  filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.28))',
-                  cursor: 'grab',
-                }} />
-            )}
-          </div>
-
-          {/* BAO 透明度三档 */}
-          <div className="pt-4 flex items-center gap-3">
-            <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>BAO</span>
-            <div className="flex gap-2 flex-1">
-              {OPACITY_LEVELS.map(o => (
-                <button key={o.key} onClick={() => setBao(b => ({ ...b, opacity: o.value }))}
-                  className="flex-1 text-xs py-1.5 rounded-lg"
-                  style={{
-                    border: bao.opacity === o.value ? '2px solid #7C3AED' : '0.5px solid #D1D5DB',
-                    color: bao.opacity === o.value ? '#7C3AED' : '#9CA3AF',
-                  }}>{o.label}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* BAO 大小 + 翻转(隐形时禁用) */}
-          <div className="pt-3 flex items-center gap-3" style={{ opacity: bao.opacity === 0 ? 0.4 : 1 }}>
-            <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>大小</span>
-            <input type="range" min="0.4" max="1.8" step="0.05" value={bao.scale} disabled={bao.opacity === 0}
-              onChange={e => setBao(b => ({ ...b, scale: parseFloat(e.target.value) }))}
-              className="flex-1" />
-            <button onClick={() => setBao(b => ({ ...b, flip: !b.flip }))} disabled={bao.opacity === 0}
-              className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
-              style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
-              ↔ 翻转
-            </button>
-          </div>
-
-          {/* 滤镜(5种) */}
-          <div className="pt-4 pb-2">
-            <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>选一种光</p>
-            <div className="grid grid-cols-5 gap-1.5">
-              {FILTERS.map(f => (
-                <button key={f.key} onClick={() => setFilter(f.key)}
-                  className="rounded-lg overflow-hidden text-center"
-                  style={{ border: filter === f.key ? '2px solid #7C3AED' : '2px solid transparent' }}>
-                  <div className="aspect-square bg-gray-100">
-                    {card.image_url && (
-                      <img src={card.image_url} className="w-full h-full object-cover"
-                        style={{ filter: f.css }} alt="" />
-                    )}
-                  </div>
-                  <span className="block py-1" style={{ fontSize: '10px', color: filter === f.key ? '#7C3AED' : '#9CA3AF' }}>{f.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="p-5 flex-shrink-0">
-          <button onClick={save} disabled={busy}
-            className="w-full py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: '#7C3AED' }}>
-            {busy ? '收好中…' : '收好这张梦图'}
-          </button>
-          <p className="text-xs text-center mt-2" style={{ color: '#D1D5DB' }}>收好后不能再改，就像梦醒了不能重做</p>
-        </div>
-      </div>
-    </div>
-  )
+function levelToStage(level) {
+  if (level >= 9) return 7
+  if (level >= 8) return 6
+  if (level >= 7) return 5
+  if (level >= 6) return 4
+  if (level >= 5) return 3
+  if (level >= 4) return 2
+  return 1
 }
