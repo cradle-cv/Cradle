@@ -27,6 +27,7 @@ export default function ParallelPet({ userId, userLevel }) {
   const [expanded, setExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [cards, setCards] = useState([])
+  const [sightings, setSightings] = useState([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [sleeping, setSleeping] = useState(true)
   const [hoursUntilNext, setHoursUntilNext] = useState(0)
@@ -43,7 +44,7 @@ export default function ParallelPet({ userId, userLevel }) {
   useEffect(() => {
     if (!userId) return
     fetch(`/api/parallel?userId=${userId}&action=cards`)
-      .then(r => r.json()).then(d => { setCards(d.cards || []) }).catch(() => {})
+      .then(r => r.json()).then(d => { setCards(d.cards || []); setSightings(d.sightings || []) }).catch(() => {})
     // 取未读/睡眠状态但不触发结算:用一个轻量 GET(这里直接结算也行,但我们要点开才结算)
   }, [userId])
 
@@ -85,6 +86,7 @@ export default function ParallelPet({ userId, userLevel }) {
       const cardsResp = await fetch(`/api/parallel?userId=${userId}&action=cards`)
       const cardsData = await cardsResp.json()
       setCards(cardsData.cards || [])
+      setSightings(cardsData.sightings || [])
     } catch (e) { console.error(e) }
     finally { setLoadingCards(false) }
   }, [expanded, userId])
@@ -93,6 +95,7 @@ export default function ParallelPet({ userId, userLevel }) {
     const r = await fetch(`/api/parallel?userId=${userId}&action=cards`)
     const d = await r.json()
     setCards(d.cards || [])
+    setSightings(d.sightings || [])
   }
 
   async function readCard(id) {
@@ -223,7 +226,7 @@ export default function ParallelPet({ userId, userLevel }) {
 
             {/* ===== 所见日记 ===== */}
             {activeTab === 'sightings' && (
-              <SightingDiary cards={cards.filter(c => c.kind === 'sighting')} onOpen={setOpenCard} />
+              <SightingDiary sightings={sightings} cards={cards} onOpen={setOpenCard} />
             )}
           </div>
         </div>
@@ -315,9 +318,9 @@ function DreamCardList({ cards, onOpen }) {
   )
 }
 
-// ───── 所见日记 ─────
-function SightingDiary({ cards, onOpen }) {
-  if (cards.length === 0) {
+// ───── 所见日记(原始所见记录:已梦见=彩色,未梦见/失效=黑白) ─────
+function SightingDiary({ sightings, cards, onOpen }) {
+  if (!sightings || sightings.length === 0) {
     return (
       <div className="text-center py-10">
         <div className="text-3xl mb-2">👁️</div>
@@ -326,21 +329,44 @@ function SightingDiary({ cards, onOpen }) {
       </div>
     )
   }
+  // 已梦见的所见 → 找到它生成的梦图,点击可打开
+  function cardFor(sighting) {
+    return cards.find(c => c.sighting_source_id === sighting.id) || null
+  }
   return (
     <div className="space-y-3">
-      {cards.map(c => (
-        <div key={c.id} onClick={() => onOpen(c)}
-          className="flex gap-3 p-2 rounded-xl cursor-pointer hover:bg-gray-50"
-          style={{ border: '0.5px solid #F3F4F6' }}>
-          <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-            {c.image_url && <img src={c.image_url} className="w-full h-full object-cover" style={{ filter: filterCss(c.filter) }} alt="" />}
+      <p className="text-xs mb-1" style={{ color: '#D1D5DB', lineHeight: 1.7 }}>
+        被 BAO 梦见的所见会显色；还没被梦见的，静静等待着。
+      </p>
+      {sightings.map(s => {
+        const dreamt = s.dreamed
+        const card = dreamt ? cardFor(s) : null
+        return (
+          <div key={s.id}
+            onClick={() => { if (card) onOpen(card) }}
+            className="flex gap-3 p-2 rounded-xl hover:bg-gray-50"
+            style={{ border: '0.5px solid #F3F4F6', cursor: card ? 'pointer' : 'default' }}>
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+              {s.image_url && (
+                <img src={s.image_url} className="w-full h-full object-cover" alt=""
+                  style={{ filter: dreamt ? 'none' : 'grayscale(1) brightness(1.02)' }} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs leading-relaxed line-clamp-3"
+                style={{ color: dreamt ? '#374151' : '#9CA3AF' }}>{s.note}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs" style={{ color: '#D1D5DB' }}>
+                  {new Date(s.created_at).toLocaleDateString('zh-CN')}
+                </span>
+                {dreamt
+                  ? <span className="text-xs" style={{ color: '#7C3AED' }}>· BAO 梦见了</span>
+                  : <span className="text-xs" style={{ color: '#D1D5DB' }}>· 等待被梦见</span>}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs leading-relaxed line-clamp-3" style={{ color: '#374151' }}>{c.user_note || c.content}</p>
-            <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>{new Date(c.created_at).toLocaleDateString('zh-CN')}</p>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
