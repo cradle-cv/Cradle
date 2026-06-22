@@ -21,7 +21,7 @@ function filterCss(key) {
 const OPACITY_LEVELS = [
   { key: 'hidden', label: '隐形', value: 0 },
   { key: 'half',   label: '半透', value: 0.5 },
-  { key: 'solid',  label: '清晰', value: 0.85 },
+  { key: 'solid',  label: '清晰', value: 1 },
 ]
 
 const SOURCE_ICONS = {
@@ -88,6 +88,9 @@ export default function ParallelPet({ userId, userLevel }) {
         if (!d.newCard.settled) {
           setSettleTarget(d.newCard)
         }
+      } else if (d.pendingSettle) {
+        // 没有新梦图,但有上次没定格完的卡,重新浮出让用户定格
+        setSettleTarget(d.pendingSettle)
       }
       // 刷新梦图列表
       const cardsResp = await fetch(`/api/parallel?userId=${userId}&action=cards`)
@@ -399,8 +402,7 @@ function DreamCardPopup({ card, onClose }) {
                 width: `${28 * (card.bao_scale || 1)}%`,
                 transform: `translate(-50%,-50%) scaleX(${card.bao_flip ? -1 : 1})`,
                 opacity: card.bao_opacity == null ? 0.72 : card.bao_opacity,
-                filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
-                mixBlendMode: 'luminosity',
+                filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.28))',
                 pointerEvents: 'none',
               }} />
           )}
@@ -575,8 +577,7 @@ function SettleSighting({ card, userId, onDone }) {
                   width: `${28 * bao.scale}%`,
                   transform: `translate(-50%,-50%) scaleX(${bao.flip ? -1 : 1})`,
                   opacity: bao.opacity,
-                  filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
-                  mixBlendMode: 'luminosity',
+                  filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.28))',
                   cursor: 'grab',
                 }} />
             )}
