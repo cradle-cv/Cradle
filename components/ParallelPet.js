@@ -409,7 +409,7 @@ function DreamCardPopup({ card, onClose }) {
             <span className="text-sm font-bold" style={{ color: '#111827' }}>{card.title}</span>
           </div>
           <div className="flex items-center justify-between gap-3" style={{ flexWrap: 'nowrap' }}>
-            <p className="text-sm leading-relaxed" style={{ color: '#374151', maxWidth: '60%' }}>{card.content}</p>
+            <p className="text-sm leading-relaxed" style={{ color: '#374151', maxWidth: '60%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{card.content}</p>
             {/* BAO 落款:右半边,与正文同一水平线 */}
             <div className="flex items-center gap-2 flex-shrink-0" style={{ opacity: 0.9 }}>
               <img src={BAO_IMG} alt="" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
@@ -482,11 +482,11 @@ function RecordSighting({ userId, onClose, onDone }) {
             )}
           </div>
           <div>
-            <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
-              placeholder="写下你看见的——这一刻为什么打动你？（至少 15 字）"
+            <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 40))} rows={3} maxLength={40}
+              placeholder="写下你看见的——这一刻为什么打动你？（15-40 字）"
               className="w-full px-3 py-2 rounded-lg text-sm" style={{ border: '0.5px solid #D1D5DB', lineHeight: 1.7 }} />
             <p className="text-xs text-right mt-1" style={{ color: note.trim().length >= 15 ? '#10B981' : '#D1D5DB' }}>
-              {note.trim().length} / 15
+              {note.trim().length} / 40{note.trim().length < 15 ? `（还差 ${15 - note.trim().length} 字）` : ''}
             </p>
           </div>
           <button onClick={submit} disabled={busy}
