@@ -42,11 +42,11 @@ const SECTIONS = [
     icon: '🖼️',
     label: '每日一展',
     sub: '旅行者 · 经典与当代的对话',
-    prefixes: ['/admin/exhibitions', '/admin/dialogue', '/admin/exhibition-reviews'],
+    prefixes: ['/admin/exhibitions', '/admin/dialogue'],
     links: [
-      { href: '/admin/exhibitions', icon: '🎪', label: '展览管理' },
+      { href: '/admin/exhibitions', icon: '🎪', label: '展览管理', matchExact: (p) => p === '/admin/exhibitions' || (p.startsWith('/admin/exhibitions/') && !p.startsWith('/admin/exhibitions/daily')) },
+      { href: '/admin/exhibitions/daily', icon: '⭐', label: '每日一展管理' },
       { href: '/admin/dialogue', icon: '🎐', label: '本期对话排期' },
-      { href: '/admin/exhibition-reviews', icon: '📮', label: '展览上架审核' },
     ],
   },
   {
