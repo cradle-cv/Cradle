@@ -6,16 +6,23 @@ import { uploadImage } from '@/lib/upload'
 // BAO 固定形象(放 public/image/bao.png,或替换为你的 R2 url)
 const BAO_IMG = '/image/bao.png'
 
-// 4 种复古暖调滤镜(CSS filter)
+// 5 种滤镜(所见+名画通用):复古/黑白/浓烈/奶油/柔雾
 const FILTERS = [
-  { key: 'cream',  label: '奶油',   css: 'sepia(0.35) saturate(1.1) brightness(1.06) contrast(0.94)' },
-  { key: 'film',   label: '胶片',   css: 'sepia(0.25) saturate(1.25) contrast(1.08) brightness(1.02)' },
-  { key: 'faded',  label: '褪色',   css: 'sepia(0.2) saturate(0.8) brightness(1.08) contrast(0.9)' },
-  { key: 'retro',  label: '旧动画', css: 'sepia(0.45) saturate(1.35) contrast(1.05) brightness(1.03) hue-rotate(-8deg)' },
+  { key: 'retro', label: '复古', css: 'sepia(0.4) saturate(1.2) contrast(1.05) brightness(1.02) hue-rotate(-8deg)' },
+  { key: 'mono',  label: '黑白', css: 'grayscale(1) contrast(1.08) brightness(1.02)' },
+  { key: 'vivid', label: '浓烈', css: 'saturate(1.7) contrast(1.15) brightness(1.02)' },
+  { key: 'cream', label: '奶油', css: 'sepia(0.3) saturate(1.1) brightness(1.08) contrast(0.93)' },
+  { key: 'haze',  label: '柔雾', css: 'saturate(0.85) brightness(1.12) contrast(0.88) blur(0.4px)' },
 ]
 function filterCss(key) {
   return (FILTERS.find(f => f.key === key) || {}).css || 'none'
 }
+// BAO 透明度三档
+const OPACITY_LEVELS = [
+  { key: 'hidden', label: '隐形', value: 0 },
+  { key: 'half',   label: '半透', value: 0.5 },
+  { key: 'solid',  label: '清晰', value: 0.85 },
+]
 
 const SOURCE_ICONS = {
   painting: '🎨', literature: '📚', film: '🎬',
@@ -77,8 +84,8 @@ export default function ParallelPet({ userId, userLevel }) {
       if (d.newCard) {
         setNewCard(d.newCard)
         setMood('happy')
-        // 新梦图若是所见类型且未定格,直接进入定格流程
-        if (d.newCard.kind === 'sighting' && !d.newCard.settled) {
+        // 新梦图未定格(所见/名画都一样),进入定格流程
+        if (!d.newCard.settled) {
           setSettleTarget(d.newCard)
         }
       }
@@ -218,9 +225,9 @@ export default function ParallelPet({ userId, userLevel }) {
             {/* ===== 梦图列表 ===== */}
             {activeTab === 'cards' && (
               <DreamCardList cards={cards} onOpen={(c) => {
+                if (!c.settled) { setSettleTarget(c); setOpenCard(null); return }
                 setOpenCard(c)
                 if (!c.is_read) readCard(c.id)
-                if (c.kind === 'sighting' && !c.settled) { setSettleTarget(c); setOpenCard(null) }
               }} />
             )}
 
@@ -230,11 +237,6 @@ export default function ParallelPet({ userId, userLevel }) {
             )}
           </div>
         </div>
-      )}
-
-      {/* 新梦图到达提示(名画类,直接看) */}
-      {newCard && newCard.kind === 'dream' && (
-        <DreamCardPopup card={newCard} onClose={() => setNewCard(null)} />
       )}
 
       {/* 查看某张梦图 */}
@@ -295,7 +297,7 @@ function DreamCardList({ cards, onOpen }) {
                 {SOURCE_ICONS[c.source_type] || '🖼️'}
               </div>
             )}
-            {c.kind === 'sighting' && !c.settled && (
+            {!c.settled && (
               <div className="absolute inset-0 flex items-center justify-center"
                 style={{ backgroundColor: 'rgba(124,58,237,0.55)' }}>
                 <span className="text-xs text-white font-medium px-2 py-1 rounded-full"
@@ -379,24 +381,24 @@ function DreamCardPopup({ card, onClose }) {
       <div onClick={e => e.stopPropagation()}
         className="bg-white rounded-2xl overflow-hidden shadow-2xl"
         style={{ maxWidth: '380px', width: '100%', animation: 'cardPop 0.3s ease-out' }}>
-        <div className="relative" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
+        <div className="relative" style={{ backgroundColor: '#F3F4F6' }}>
           {card.image_url ? (
-            <img src={card.image_url} className="w-full h-full object-cover"
-              style={{ filter: filterCss(card.filter) }} alt="" />
+            <img src={card.image_url} className="w-full"
+              style={{ display: 'block', filter: filterCss(card.filter) }} alt="" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-5xl">
+            <div className="w-full flex items-center justify-center text-5xl" style={{ aspectRatio: '4/3' }}>
               {SOURCE_ICONS[card.source_type] || '🖼️'}
             </div>
           )}
-          {/* BAO 出现在画面中——半透明的梦的叠影 */}
-          {card.kind === 'sighting' && card.bao_x != null && (
+          {/* BAO 出现在画面中——梦的叠影,透明度由定格时决定 */}
+          {card.bao_x != null && (card.bao_opacity == null || card.bao_opacity > 0) && (
             <img src={BAO_IMG} alt="BAO"
               style={{
                 position: 'absolute',
                 left: `${card.bao_x}%`, top: `${card.bao_y}%`,
                 width: `${28 * (card.bao_scale || 1)}%`,
                 transform: `translate(-50%,-50%) scaleX(${card.bao_flip ? -1 : 1})`,
-                opacity: 0.72,
+                opacity: card.bao_opacity == null ? 0.72 : card.bao_opacity,
                 filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
                 mixBlendMode: 'luminosity',
                 pointerEvents: 'none',
@@ -500,10 +502,11 @@ function RecordSighting({ userId, onClose, onDone }) {
   )
 }
 
-// ───── 定格所见梦图:拖 BAO(位置/缩放/翻转) + 选滤镜 ─────
+// ───── 定格梦图:拖 BAO(位置/缩放/翻转/透明度) + 选滤镜。所见+名画通用 ─────
 function SettleSighting({ card, userId, onDone }) {
-  const [bao, setBao] = useState({ x: 50, y: 60, scale: 1, flip: false })
-  const [filter, setFilter] = useState('cream')
+  const isSighting = card.kind === 'sighting'
+  const [bao, setBao] = useState({ x: 50, y: 60, scale: 1, flip: false, opacity: 0.5 })
+  const [filter, setFilter] = useState(isSighting ? 'cream' : 'retro')
   const [busy, setBusy] = useState(false)
   const stageRef = useRef(null)
   const dragging = useRef(false)
@@ -516,7 +519,7 @@ function SettleSighting({ card, userId, onDone }) {
     y = Math.max(0, Math.min(100, y))
     return { x, y }
   }
-  function onDown(e) { dragging.current = true; move(e) }
+  function onDown(e) { if (bao.opacity === 0) return; dragging.current = true; move(e) }
   function onUp() { dragging.current = false }
   function move(e) {
     if (!dragging.current) return
@@ -532,7 +535,8 @@ function SettleSighting({ card, userId, onDone }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId, action: 'settle_card', cardId: card.id,
-          baoX: bao.x, baoY: bao.y, baoScale: bao.scale, baoFlip: bao.flip, filter,
+          baoX: bao.x, baoY: bao.y, baoScale: bao.scale, baoFlip: bao.flip,
+          baoOpacity: bao.opacity, filter,
         })
       })
       const d = await resp.json()
@@ -544,69 +548,90 @@ function SettleSighting({ card, userId, onDone }) {
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-6"
       style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden"
-        style={{ maxWidth: '400px', animation: 'cardPop 0.3s ease-out' }}>
-        <div className="px-5 py-4 text-center">
-          <h3 className="font-bold text-sm" style={{ color: '#111827' }}>BAO 梦见了你看见的</h3>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col"
+        style={{ maxWidth: '400px', maxHeight: '90vh', animation: 'cardPop 0.3s ease-out' }}>
+        <div className="px-5 py-4 text-center flex-shrink-0">
+          <h3 className="font-bold text-sm" style={{ color: '#111827' }}>
+            {isSighting ? 'BAO 梦见了你看见的' : `BAO 梦见了一幅画 · ${card.title}`}
+          </h3>
           <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>把 BAO 放进画面里，挑一种光</p>
         </div>
 
-        {/* 画布:拖 BAO */}
-        <div ref={stageRef}
-          className="relative mx-5 rounded-xl overflow-hidden select-none"
-          style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6', touchAction: 'none' }}
-          onMouseDown={onDown} onMouseMove={move} onMouseUp={onUp} onMouseLeave={onUp}
-          onTouchStart={onDown} onTouchMove={move} onTouchEnd={onUp}>
-          {card.image_url && (
-            <img src={card.image_url} className="w-full h-full object-cover pointer-events-none"
-              style={{ filter: filterCss(filter) }} alt="" draggable={false} />
-          )}
-          <img src={BAO_IMG} alt="BAO" draggable={false}
-            style={{
-              position: 'absolute', left: `${bao.x}%`, top: `${bao.y}%`,
-              width: `${28 * bao.scale}%`,
-              transform: `translate(-50%,-50%) scaleX(${bao.flip ? -1 : 1})`,
-              opacity: 0.72,
-              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
-              mixBlendMode: 'luminosity',
-              cursor: 'grab',
-            }} />
-        </div>
+        <div className="overflow-y-auto px-5" style={{ flex: 1 }}>
+          {/* 画布:拖 BAO(完整显示不裁切,高度随图) */}
+          <div ref={stageRef}
+            className="relative rounded-xl overflow-hidden select-none"
+            style={{ backgroundColor: '#F3F4F6', touchAction: 'none' }}
+            onMouseDown={onDown} onMouseMove={move} onMouseUp={onUp} onMouseLeave={onUp}
+            onTouchStart={onDown} onTouchMove={move} onTouchEnd={onUp}>
+            {card.image_url && (
+              <img src={card.image_url} className="w-full pointer-events-none"
+                style={{ display: 'block', filter: filterCss(filter) }} alt="" draggable={false} />
+            )}
+            {bao.opacity > 0 && (
+              <img src={BAO_IMG} alt="BAO" draggable={false}
+                style={{
+                  position: 'absolute', left: `${bao.x}%`, top: `${bao.y}%`,
+                  width: `${28 * bao.scale}%`,
+                  transform: `translate(-50%,-50%) scaleX(${bao.flip ? -1 : 1})`,
+                  opacity: bao.opacity,
+                  filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))',
+                  mixBlendMode: 'luminosity',
+                  cursor: 'grab',
+                }} />
+            )}
+          </div>
 
-        {/* BAO 控制:缩放 + 翻转 */}
-        <div className="px-5 pt-4 flex items-center gap-3">
-          <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>大小</span>
-          <input type="range" min="0.4" max="1.8" step="0.05" value={bao.scale}
-            onChange={e => setBao(b => ({ ...b, scale: parseFloat(e.target.value) }))}
-            className="flex-1" />
-          <button onClick={() => setBao(b => ({ ...b, flip: !b.flip }))}
-            className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
-            style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
-            ↔ 翻转
-          </button>
-        </div>
+          {/* BAO 透明度三档 */}
+          <div className="pt-4 flex items-center gap-3">
+            <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>BAO</span>
+            <div className="flex gap-2 flex-1">
+              {OPACITY_LEVELS.map(o => (
+                <button key={o.key} onClick={() => setBao(b => ({ ...b, opacity: o.value }))}
+                  className="flex-1 text-xs py-1.5 rounded-lg"
+                  style={{
+                    border: bao.opacity === o.value ? '2px solid #7C3AED' : '0.5px solid #D1D5DB',
+                    color: bao.opacity === o.value ? '#7C3AED' : '#9CA3AF',
+                  }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
 
-        {/* 滤镜 */}
-        <div className="px-5 pt-4">
-          <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>选一种光</p>
-          <div className="grid grid-cols-4 gap-2">
-            {FILTERS.map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
-                className="rounded-lg overflow-hidden text-center"
-                style={{ border: filter === f.key ? '2px solid #7C3AED' : '2px solid transparent' }}>
-                <div className="aspect-square bg-gray-100">
-                  {card.image_url && (
-                    <img src={card.image_url} className="w-full h-full object-cover"
-                      style={{ filter: f.css }} alt="" />
-                  )}
-                </div>
-                <span className="text-xs block py-1" style={{ color: filter === f.key ? '#7C3AED' : '#9CA3AF' }}>{f.label}</span>
-              </button>
-            ))}
+          {/* BAO 大小 + 翻转(隐形时禁用) */}
+          <div className="pt-3 flex items-center gap-3" style={{ opacity: bao.opacity === 0 ? 0.4 : 1 }}>
+            <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>大小</span>
+            <input type="range" min="0.4" max="1.8" step="0.05" value={bao.scale} disabled={bao.opacity === 0}
+              onChange={e => setBao(b => ({ ...b, scale: parseFloat(e.target.value) }))}
+              className="flex-1" />
+            <button onClick={() => setBao(b => ({ ...b, flip: !b.flip }))} disabled={bao.opacity === 0}
+              className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
+              style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
+              ↔ 翻转
+            </button>
+          </div>
+
+          {/* 滤镜(5种) */}
+          <div className="pt-4 pb-2">
+            <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>选一种光</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {FILTERS.map(f => (
+                <button key={f.key} onClick={() => setFilter(f.key)}
+                  className="rounded-lg overflow-hidden text-center"
+                  style={{ border: filter === f.key ? '2px solid #7C3AED' : '2px solid transparent' }}>
+                  <div className="aspect-square bg-gray-100">
+                    {card.image_url && (
+                      <img src={card.image_url} className="w-full h-full object-cover"
+                        style={{ filter: f.css }} alt="" />
+                    )}
+                  </div>
+                  <span className="block py-1" style={{ fontSize: '10px', color: filter === f.key ? '#7C3AED' : '#9CA3AF' }}>{f.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="p-5 flex-shrink-0">
           <button onClick={save} disabled={busy}
             className="w-full py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: '#7C3AED' }}>
