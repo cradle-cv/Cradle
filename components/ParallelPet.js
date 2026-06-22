@@ -551,7 +551,7 @@ function SettleSighting({ card, userId, onDone }) {
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-6"
       style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col"
-        style={{ maxWidth: '400px', maxHeight: '90vh', animation: 'cardPop 0.3s ease-out' }}>
+        style={{ maxWidth: '600px', maxHeight: '90vh', animation: 'cardPop 0.3s ease-out' }}>
         <div className="px-5 py-4 text-center flex-shrink-0">
           <h3 className="font-bold text-sm" style={{ color: '#111827' }}>
             {isSighting ? 'BAO 梦见了你看见的' : `BAO 梦见了一幅画 · ${card.title}`}
