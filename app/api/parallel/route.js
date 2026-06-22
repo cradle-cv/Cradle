@@ -166,7 +166,7 @@ async function settleDream(userId, pet, canDream) {
     image_url: work.cover_image,   // ★ 真画作图,解决"没图"问题
     reward_type: 'inspiration',
     reward_amount: 0,
-    settled: true,   // 名画梦图无需定格
+    settled: false,   // 名画梦图也走定格:贴BAO+调透明度+选滤镜
   }).select().single()
 
   await supabase.from('user_parallel').update({
@@ -200,13 +200,14 @@ export async function POST(request) {
       return NextResponse.json({ success: true, sighting })
     }
 
-    // ─── 定格所见梦图:保存 BAO 放置 + 滤镜 ───
+    // ─── 定格梦图:保存 BAO 放置 + 透明度 + 滤镜 ───
     if (action === 'settle_card') {
-      const { cardId, baoX, baoY, baoScale, baoFlip, filter } = params
+      const { cardId, baoX, baoY, baoScale, baoFlip, baoOpacity, filter } = params
       if (!cardId) return NextResponse.json({ error: '缺少 cardId' }, { status: 400 })
       await supabase.from('dream_postcards').update({
         bao_x: baoX, bao_y: baoY,
         bao_scale: baoScale ?? 1, bao_flip: !!baoFlip,
+        bao_opacity: baoOpacity ?? 0.72,
         filter: filter || null,
         settled: true,
       }).eq('id', cardId).eq('user_id', userId)
