@@ -409,16 +409,15 @@ function DreamCardPopup({ card, onClose }) {
             <span className="text-sm font-bold" style={{ color: '#111827' }}>{card.title}</span>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{card.content}</p>
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-xs" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-end justify-between mt-3 gap-3">
+            <span className="text-xs flex-1" style={{ color: '#9CA3AF', lineHeight: 1.6 }}>
               {card.kind === 'sighting' ? 'BAO 寄自你看见的地方' : card.source_work}
             </span>
-            <span className="text-xs" style={{ color: '#D1D5DB' }}>{new Date(card.created_at).toLocaleDateString('zh-CN')}</span>
-          </div>
-          {/* BAO 落款水印(像徕卡水印):放大版,独立一行靠右 */}
-          <div className="flex items-center justify-end gap-2 mt-3" style={{ opacity: 0.9 }}>
-            <img src={BAO_IMG} alt="" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
-            <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.1em', color: '#7C3AED' }}>BAO</span>
+            {/* BAO 落款水印 */}
+            <div className="flex items-center gap-2 flex-shrink-0" style={{ opacity: 0.9 }}>
+              <img src={BAO_IMG} alt="" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
+              <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.1em', color: '#7C3AED' }}>BAO</span>
+            </div>
           </div>
         </div>
       </div>
