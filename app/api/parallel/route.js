@@ -37,13 +37,18 @@ export async function GET(request) {
       pet.stage = stage
     }
 
-    // 只取梦图列表(明细 tab)
+    // 只取梦图列表 + 所见日记(明细 tab)
     if (action === 'cards') {
       const { data: all } = await supabase
         .from('dream_postcards').select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }).limit(50)
-      return NextResponse.json({ cards: all || [] })
+      // 所见日记:原始所见记录(含未梦见/失效的,用于黑白/彩色区分)
+      const { data: sightingDiary } = await supabase
+        .from('parallel_sightings').select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }).limit(50)
+      return NextResponse.json({ cards: all || [], sightings: sightingDiary || [] })
     }
 
     // 待定格的所见梦图(贴BAO+选滤镜还没完成的)
@@ -57,10 +62,10 @@ export async function GET(request) {
     const hoursSince = (Date.now() - lastDream.getTime()) / (1000 * 60 * 60)
     const canDream = hoursSince >= DREAM_INTERVAL_HOURS
 
-    let newCard = null
-    if (canDream) {
-      newCard = await settleDream(userId, pet)
-    }
+    // 结算:所见优先(无视冷却,因为是用户主动喂的);名画兜底受 12h 冷却限制
+    const newCard = await settleDream(userId, pet, canDream)
+    // 若刚带回了所见梦图,sleeping 体感应为"醒着"
+    const dreamedNow = !!newCard
 
     // 未读数
     const { data: unread } = await supabase
@@ -69,7 +74,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       pet,
-      sleeping: !canDream,                  // true=BAO还在睡觉
+      sleeping: !dreamedNow && !canDream,   // 没带回新梦图且还在冷却=睡觉
       hoursUntilNext: canDream ? 0 : Math.ceil(DREAM_INTERVAL_HOURS - hoursSince),
       newCard,                              // 本次结算带回的新梦图(可能为 null)
       pendingSettle: pendingSettle?.[0] || null,  // 有未定格的所见梦图待用户贴BAO+选滤镜
@@ -80,16 +85,22 @@ export async function GET(request) {
   }
 }
 
-// 结算一次梦境:优先用未梦见的所见,否则从内容库抽名画
-async function settleDream(userId, pet) {
-  // 1. 看有没有未被梦见的所见(最早一条)
+// 结算一次梦境:所见优先(取最新,旧的失效,无视冷却);否则冷却允许时从当期阅览室抽一幅名画
+async function settleDream(userId, pet, canDream) {
+  // 1. 最新一条未被梦见、未失效的所见(所见优先,不受冷却限制)
   const { data: sightings } = await supabase
     .from('parallel_sightings').select('*')
-    .eq('user_id', userId).eq('dreamed', false)
-    .order('created_at', { ascending: true }).limit(1)
+    .eq('user_id', userId).eq('dreamed', false).eq('expired', false)
+    .order('created_at', { ascending: false }).limit(1)
 
   if (sightings && sightings.length > 0) {
     const s = sightings[0]
+
+    // 把比这条更早的、仍未梦见的所见标记为失效(只梦最新的)
+    await supabase.from('parallel_sightings').update({ expired: true })
+      .eq('user_id', userId).eq('dreamed', false).eq('expired', false)
+      .neq('id', s.id)
+
     // 生成所见梦图(单面卡,待用户贴BAO+选滤镜定格)
     const { data: card } = await supabase.from('dream_postcards').insert({
       user_id: userId,
@@ -106,12 +117,10 @@ async function settleDream(userId, pet) {
       settled: false,
     }).select().single()
 
-    // 标记该所见已被梦见
     await supabase.from('parallel_sightings').update({
       dreamed: true, dreamed_at: new Date().toISOString(), postcard_id: card.id,
     }).eq('id', s.id)
 
-    // 更新 BAO 状态
     await supabase.from('user_parallel').update({
       total_dreams: (pet.total_dreams || 0) + 1,
       last_dream_at: new Date().toISOString(),
@@ -121,38 +130,42 @@ async function settleDream(userId, pet) {
     return card
   }
 
-  // 2. 没有所见 → 从内容库抽一张名画梦图(沿用原有加权随机+防重复)
-  const { data: recent } = await supabase
-    .from('dream_postcards').select('content_id')
-    .eq('user_id', userId).eq('kind', 'dream')
-    .order('created_at', { ascending: false }).limit(10)
-  const recentCodes = new Set((recent || []).map(p => p.content_id))
+  // 2. 没有所见 → 名画兜底,受 12h 冷却限制;冷却没过就不做梦(BAO睡觉)
+  if (!canDream) return null
 
-  const { data: library } = await supabase
-    .from('dream_content_library').select('*').eq('status', 'active')
-  if (!library || library.length === 0) return null
+  // 取当期阅览室(最近 published 的一期),从它的画作里随机一幅
+  const { data: issues } = await supabase
+    .from('gallery_curations').select('issue_number, theme_zh, work_ids')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('issue_number', { ascending: false })
+    .limit(1)
 
-  let candidates = library.filter(d => !recentCodes.has(d.code))
-  if (candidates.length === 0) candidates = library
+  const issue = issues?.[0]
+  if (!issue || !issue.work_ids || issue.work_ids.length === 0) return null
 
-  const weighted = []
-  candidates.forEach(c => {
-    const w = c.rarity === 'legendary' ? 1 : c.rarity === 'rare' ? 3 : 8
-    for (let i = 0; i < w; i++) weighted.push(c)
-  })
-  const chosen = weighted[Math.floor(Math.random() * weighted.length)]
-  const reward = Math.floor(Math.random() * (chosen.reward_max - chosen.reward_min + 1)) + chosen.reward_min
+  // 这一期的画作里随机一幅
+  const workId = issue.work_ids[Math.floor(Math.random() * issue.work_ids.length)]
+  const { data: work } = await supabase
+    .from('gallery_works').select('id, title, artist_name, cover_image, description')
+    .eq('id', workId).maybeSingle()
+  if (!work) return null
+
+  // 描述截断成一段梦呓长度
+  let vignette = work.description || ''
+  if (vignette.length > 140) vignette = vignette.slice(0, 140) + '…'
 
   const { data: card } = await supabase.from('dream_postcards').insert({
     user_id: userId,
     kind: 'dream',
-    content_id: chosen.code,
-    title: chosen.title,
-    content: chosen.content,
-    source_work: chosen.source_work,
-    source_type: chosen.source_type,
-    reward_type: chosen.reward_type,
-    reward_amount: reward,
+    content_id: `gallery_${work.id}`,
+    title: work.title || '一幅画',
+    content: vignette,
+    source_work: [work.artist_name, `阅览室 No.${issue.issue_number}《${issue.theme_zh}》`].filter(Boolean).join(' · '),
+    source_type: 'painting',
+    image_url: work.cover_image,   // ★ 真画作图,解决"没图"问题
+    reward_type: 'inspiration',
+    reward_amount: 0,
     settled: true,   // 名画梦图无需定格
   }).select().single()
 
@@ -161,11 +174,6 @@ async function settleDream(userId, pet) {
     last_dream_at: new Date().toISOString(),
     mood: 'happy', updated_at: new Date().toISOString(),
   }).eq('id', pet.id)
-
-  if (reward > 0 && chosen.reward_type === 'inspiration') {
-    const { data: u } = await supabase.from('users').select('total_points').eq('id', userId).single()
-    await supabase.from('users').update({ total_points: (u?.total_points || 0) + reward }).eq('id', userId)
-  }
 
   return card
 }
