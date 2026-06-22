@@ -408,12 +408,9 @@ function DreamCardPopup({ card, onClose }) {
             <span>{SOURCE_ICONS[card.source_type] || '🖼️'}</span>
             <span className="text-sm font-bold" style={{ color: '#111827' }}>{card.title}</span>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{card.content}</p>
-          <div className="flex items-center justify-between mt-4 gap-2" style={{ flexWrap: 'nowrap' }}>
-            <span className="text-xs" style={{ color: '#9CA3AF', lineHeight: 1.6, maxWidth: '55%' }}>
-              {card.kind === 'sighting' ? 'BAO 寄自你看见的地方' : card.source_work}
-            </span>
-            {/* BAO 落款水印:右半边,与文字同一水平线 */}
+          <div className="flex items-center justify-between gap-3" style={{ flexWrap: 'nowrap' }}>
+            <p className="text-sm leading-relaxed" style={{ color: '#374151', maxWidth: '60%' }}>{card.content}</p>
+            {/* BAO 落款:右半边,与正文同一水平线 */}
             <div className="flex items-center gap-2 flex-shrink-0" style={{ opacity: 0.9 }}>
               <img src={BAO_IMG} alt="" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
               <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.1em', color: '#7C3AED' }}>BAO</span>
