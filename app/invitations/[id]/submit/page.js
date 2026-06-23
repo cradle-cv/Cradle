@@ -225,14 +225,19 @@ export default function InvitationSubmitPage() {
 
         {/* 步骤 1:选作品 */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold" style={{ color: '#111827', letterSpacing: '2px' }}>
-              选择作品 <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '8px' }}>
+              选择作品 <span style={{ color: selectedIds.size > 0 ? themeColor : '#9CA3AF', fontWeight: 600, marginLeft: '8px' }}>
                 已选 {selectedIds.size} 件
               </span>
             </h2>
-
           </div>
+          {!locked && artworks.length > 0 && (
+            <p className="text-xs mb-5 flex items-center gap-1.5" style={{ color: themeColor }}>
+              <span style={{ fontSize: '14px' }}>👆</span>
+              点击下方作品进行选择{maxCount > 1 ? `(最多 ${maxCount} 件)` : ''}
+            </p>
+          )}
 
           {artworks.length === 0 ? (
             <div className="rounded-xl p-8 text-center" style={{ backgroundColor: '#FAFAFA', border: '0.5px dashed #E5E7EB' }}>
@@ -259,28 +264,55 @@ export default function InvitationSubmitPage() {
                     disabled={locked}
                     className="group relative text-left rounded-lg overflow-hidden transition"
                     style={{
-                      border: selected ? `2px solid ${themeColor}` : '1px solid #E5E7EB',
+                      border: selected ? `3px solid ${themeColor}` : '1px solid #E5E7EB',
+                      boxShadow: selected ? `0 4px 16px ${themeColor}40` : 'none',
                       backgroundColor: '#FFFFFF',
                       cursor: locked ? 'default' : 'pointer',
                       opacity: locked && !selected ? 0.4 : 1,
+                      transform: selected ? 'translateY(-2px)' : 'none',
                     }}
                   >
                     <div className="relative aspect-square bg-gray-100">
                       {w.image_url ? (
                         <img src={w.image_url} alt={w.title}
-                          className="w-full h-full object-cover" />
+                          className="w-full h-full object-cover transition" 
+                          style={{ filter: selected ? 'none' : 'saturate(0.95)' }} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: '#D1D5DB' }}>🎨</div>
                       )}
+
+                      {/* 选中:整图主题色遮罩 + 大对勾 + 序号 */}
                       {selected && (
-                        <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                          style={{ backgroundColor: themeColor }}>
-                          {idx}
+                        <div className="absolute inset-0 flex items-center justify-center"
+                          style={{ backgroundColor: `${themeColor}38` }}>
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg"
+                            style={{ backgroundColor: themeColor }}>
+                            ✓
+                          </div>
+                          <div className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shadow"
+                            style={{ backgroundColor: themeColor }}>
+                            {idx}
+                          </div>
                         </div>
+                      )}
+
+                      {/* 未选中:右上角空心圈 + 悬停提示"点击选择" */}
+                      {!selected && !locked && (
+                        <>
+                          <div className="absolute top-2 right-2 w-7 h-7 rounded-full border-2 bg-white/70 backdrop-blur-sm transition group-hover:border-[3px]"
+                            style={{ borderColor: themeColor }} />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                            style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}>
+                            <span className="px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                              style={{ backgroundColor: themeColor }}>
+                              点击选择
+                            </span>
+                          </div>
+                        </>
                       )}
                     </div>
                     <div className="p-2.5">
-                      <p className="text-xs font-medium line-clamp-1" style={{ color: '#111827' }}>{w.title}</p>
+                      <p className="text-xs font-medium line-clamp-1" style={{ color: selected ? themeColor : '#111827' }}>{w.title}</p>
                       {w.year && <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{w.year}</p>}
                     </div>
                   </button>
@@ -348,6 +380,12 @@ export default function InvitationSubmitPage() {
             >
               {submitting ? '提交中…' : mySubmission ? '更新投稿' : '提交投稿'}
             </button>
+            {/* 未选作品时,给出明确原因 */}
+            {selectedIds.size === 0 && (
+              <p className="text-xs" style={{ color: '#DC2626' }}>
+                请先在上方点击选择至少一件作品
+              </p>
+            )}
             <p className="text-xs" style={{ color: '#9CA3AF' }}>
               投稿提交后,评选开始前你可以随时修改
             </p>
