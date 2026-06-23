@@ -43,16 +43,33 @@ export default function StudioChecklists({ isMember = true }) {
     if (MEMBER_ONLY_DECOMPOSE && !isMember) { alert('AI 整理是摇篮会员功能'); return }
     setProcessing(true)
     try {
+      // 1. 提交:秒返回 jobId(任务在智谱侧异步跑,不超时)
       const resp = await fetch('/api/studio-checklist/decompose', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, text }),
       })
       const d = await resp.json()
-      if (!resp.ok || d.error) throw new Error(d.error || '拆解失败')
-      setPasteText('')
-      await loadLists()
-      setActiveId(d.checklist_id)
-      setView('detail')
+      if (!resp.ok || d.error) throw new Error(d.error || '提交失败')
+      const jobId = d.jobId
+
+      // 2. 轮询:每 3 秒查一次,最多 ~3 分钟
+      let done = false
+      for (let i = 0; i < 60 && !done; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        const sResp = await fetch(`/api/studio-checklist/status?jobId=${jobId}&userId=${userId}`)
+        const sData = await sResp.json()
+        if (sData.status === 'done') {
+          done = true
+          setPasteText('')
+          await loadLists()
+          setActiveId(sData.checklistId)
+          setView('detail')
+        } else if (sData.status === 'failed') {
+          throw new Error(sData.error || 'AI 拆解失败')
+        }
+        // processing → 继续等
+      }
+      if (!done) throw new Error('拆解超时,请稍后在清单列表查看,或重试')
     } catch (e) {
       alert('AI 整理失败：' + (e.message || e))
     } finally { setProcessing(false) }
@@ -96,7 +113,7 @@ export default function StudioChecklists({ isMember = true }) {
             <button onClick={decompose} disabled={processing || pasteText.trim().length < 10}
               className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
               style={{ backgroundColor: '#7C3AED' }}>
-              {processing ? 'AI 整理中…(约几秒)' : '开始整理'}
+              {processing ? 'AI 整理中…(可能需要 1-2 分钟,请勿关闭)' : '开始整理'}
             </button>
             <button onClick={() => { setView('list'); setPasteText('') }}
               className="px-4 py-2 rounded-lg text-sm" style={{ color: '#6B7280' }}>取消</button>
