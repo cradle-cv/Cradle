@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
+import StudioTodos from '@/components/StudioTodos'
+import StudioChecklists from '@/components/StudioChecklists'
 
 // ★ 公开页路由,如与你站点的实际路由不符,只需修改这两行
 const publicCollectionPath = (id) => `/collections/${id}`
@@ -262,6 +264,9 @@ export default function StudioPage() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* 我的待办:所有身份(含无身份/驻地者)都可见的常驻工具 */}
+        <MyToolsSection />
+
         {!hasAnyIdentity && !isResident && <NoIdentityView />}
         {!hasAnyIdentity && isResident && <ResidentOnlyView />}
 
@@ -327,6 +332,44 @@ export default function StudioPage() {
           onClose={() => setShowQuickCreate(null)}
         />
       )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 我的待办(所有身份可见的常驻工具:待办清单 + AI 清单整理)
+// ═══════════════════════════════════════════════════════════════
+function MyToolsSection() {
+  const [tool, setTool] = useState('todos') // todos | checklists
+  return (
+    <div className="bg-white rounded-2xl shadow-sm mb-6 overflow-hidden">
+      <div className="px-6 pt-5 pb-3 flex items-center gap-3" style={{ borderBottom: '0.5px solid #F3F4F6' }}>
+        <span className="text-xl">📋</span>
+        <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的待办</h2>
+        <div className="ml-auto inline-flex rounded-full p-1" style={{ backgroundColor: '#F3F4F6' }}>
+          <button onClick={() => setTool('todos')}
+            className="px-4 py-1.5 rounded-full text-xs font-medium transition"
+            style={{
+              backgroundColor: tool === 'todos' ? '#fff' : 'transparent',
+              color: tool === 'todos' ? '#111827' : '#9CA3AF',
+              boxShadow: tool === 'todos' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}>
+            待办清单
+          </button>
+          <button onClick={() => setTool('checklists')}
+            className="px-4 py-1.5 rounded-full text-xs font-medium transition"
+            style={{
+              backgroundColor: tool === 'checklists' ? '#fff' : 'transparent',
+              color: tool === 'checklists' ? '#7C3AED' : '#9CA3AF',
+              boxShadow: tool === 'checklists' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}>
+            ✨ 清单整理
+          </button>
+        </div>
+      </div>
+      <div className="p-6">
+        {tool === 'todos' ? <StudioTodos /> : <StudioChecklists />}
+      </div>
     </div>
   )
 }
