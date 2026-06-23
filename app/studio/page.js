@@ -264,9 +264,6 @@ export default function StudioPage() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* 我的待办:所有身份(含无身份/驻地者)都可见的常驻工具 */}
-        <MyToolsSection />
-
         {!hasAnyIdentity && !isResident && <NoIdentityView />}
         {!hasAnyIdentity && isResident && <ResidentOnlyView />}
 
@@ -577,6 +574,7 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
           { key: 'collections', label: '📚 我的作品集', count: stats.collections },
           { key: 'exhibitions', label: '🏛️ 观展邀请' },
           { key: 'magazines', label: '📖 自制杂志', count: magazines.length },
+          { key: 'mytools', label: '📋 我的待办' },
         ]}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -593,6 +591,9 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
       )}
       {activeTab === 'magazines' && (
         <MagazinesTab magazines={magazines} statusColors={statusColors} />
+      )}
+      {activeTab === 'mytools' && (
+        <MyToolsSection />
       )}
     </>
   )
