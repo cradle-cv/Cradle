@@ -240,7 +240,7 @@ export default function InvitationSubmitPage() {
               <p className="text-sm mb-5" style={{ color: '#9CA3AF' }}>
                 投稿需要从已发布的作品中选择。请先上传作品并发布。
               </p>
-              <Link href="/profile/my-artist/edit"
+              <Link href="/studio"
                 className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium text-white"
                 style={{ backgroundColor: '#111827' }}>
                 去管理我的作品
