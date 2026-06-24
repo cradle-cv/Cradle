@@ -178,15 +178,15 @@ export default async function CollectionDetailPage({ params }) {
             <div className="grid md:grid-cols-2 gap-10">
               {artworks.map((artwork, idx) => (
                 <div key={artwork.id} className="group">
-                  {/* 作品图 */}
-                  <div className="overflow-hidden rounded-sm mb-4" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
+                  {/* 作品图(点击进入作品详情页) */}
+                  <Link href={`/artworks/${artwork.id}`} className="block overflow-hidden rounded-sm mb-4 cursor-pointer" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
                     {artwork.image_url ? (
                       <img src={artwork.image_url} alt={artwork.title} loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: '#D1D5DB' }}>🎨</div>
                     )}
-                  </div>
+                  </Link>
 
                   {/* 作品信息 */}
                   <div className="flex items-start gap-3">
@@ -195,9 +195,11 @@ export default async function CollectionDetailPage({ params }) {
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold" style={{ color: '#111827', marginBottom: '2px' }}>
-                        <T>{artwork.title}</T>
-                      </h3>
+                      <Link href={`/artworks/${artwork.id}`}>
+                        <h3 className="text-lg font-bold hover:opacity-70 transition" style={{ color: '#111827', marginBottom: '2px', cursor: 'pointer' }}>
+                          <T>{artwork.title}</T>
+                        </h3>
+                      </Link>
                       <div className="flex items-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
                         {artwork.artists?.display_name && <span><T>{artwork.artists.display_name}</T></span>}
                         {artwork.year && <span>· {artwork.year}</span>}
@@ -219,6 +221,13 @@ export default async function CollectionDetailPage({ params }) {
                           <T>{artwork.description}</T>
                         </p>
                       )}
+
+                      {/* 查看详情 */}
+                      <Link href={`/artworks/${artwork.id}`}
+                        className="inline-flex items-center gap-1 mt-3 text-sm hover:opacity-70 transition"
+                        style={{ color: '#111827' }}>
+                        查看作品 <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                      </Link>
                     </div>
                   </div>
 
