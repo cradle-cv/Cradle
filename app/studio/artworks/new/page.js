@@ -142,7 +142,7 @@ export default function StudioNewArtworkPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.title) { alert('请填写标题'); return }
-    if (!formData.collection_id) { alert('请选择所属作品集'); return }
+    // ★ 存储自由:作品集不再必填,可"暂不归类"
     if (!artistRecord) { alert('艺术家信息未加载'); return }
 
     setSaving(true)
@@ -150,7 +150,7 @@ export default function StudioNewArtworkPage() {
       const { data: artwork, error } = await supabase.from('artworks').insert({
         title: formData.title,
         artist_id: artistRecord.id,
-        collection_id: formData.collection_id,
+        collection_id: formData.collection_id || null,  // ★ 可为空
         category: formData.category,
         medium: formData.medium || null,
         size: formData.dimensions || null,
@@ -188,7 +188,7 @@ export default function StudioNewArtworkPage() {
     setSelectedTags(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId])
   }
 
-  // ★ 内联创建弹窗(引导页和主表单共用)
+  // ★ 内联创建弹窗
   const colModal = showColModal && (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center px-6"
@@ -225,7 +225,7 @@ export default function StudioNewArtworkPage() {
             disabled={creatingCol}
             className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-300 transition-colors text-sm"
           >
-            {creatingCol ? '创建中...' : '创建并继续上传'}
+            {creatingCol ? '创建中...' : '创建并选用'}
           </button>
           <button
             type="button"
@@ -242,66 +242,6 @@ export default function StudioNewArtworkPage() {
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="text-2xl text-gray-600">加载中...</div></div>
-  }
-
-  // 没有作品集 - 引导页(★ 改为直接在本页弹窗创建,不再跳走)
-  if (collections.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
-        <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center gap-3">
-                <div style={{ height: '69px', overflow: 'hidden' }}>
-                  <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-                </div>
-              </Link>
-              <span style={{ color: '#D1D5DB' }}>/</span>
-              <Link href="/studio" className="text-sm" style={{ color: '#6B7280' }}>工作台</Link>
-              <span style={{ color: '#D1D5DB' }}>/</span>
-              <span className="text-sm font-medium" style={{ color: '#111827' }}>新作品</span>
-            </div>
-            <UserNav />
-          </div>
-        </nav>
-
-        <div className="max-w-2xl mx-auto px-6 py-16">
-          <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-            <div className="text-5xl mb-6">📚</div>
-            <h1 className="text-2xl font-bold mb-3" style={{ color: '#111827' }}>先给作品安一个家</h1>
-            <p className="mb-2" style={{ color: '#374151', lineHeight: 1.9 }}>
-              每件作品都需要归属于一个作品集(系列)。
-            </p>
-            <p className="text-sm mb-8 max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.9 }}>
-              作品集像一个文件夹,比如"城市光影"、"日常速写"、"2026 新作"。
-              现在只需要起一个名字,马上就能继续上传你的作品。
-            </p>
-            <div className="flex items-center gap-3 justify-center">
-              <button
-                type="button"
-                onClick={() => setShowColModal(true)}
-                className="px-6 py-3 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: '#111827' }}>
-                起个名字,继续上传 →
-              </button>
-              <Link href="/studio"
-                className="px-6 py-3 rounded-lg text-sm font-medium"
-                style={{ border: '0.5px solid #D1D5DB', color: '#6B7280' }}>
-                返回工作台
-              </Link>
-            </div>
-            <p className="text-xs mt-6" style={{ color: '#9CA3AF' }}>
-              想先完整地建一个作品集(含封面、介绍)?
-              <Link href="/studio/collections/new?next=artwork" className="underline ml-1" style={{ color: '#6B7280' }}>
-                去完整创建页
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {colModal}
-      </div>
-    )
   }
 
   return (
@@ -337,21 +277,21 @@ export default function StudioNewArtworkPage() {
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-3 gap-8">
             <div className="col-span-2 space-y-6">
-              {/* 归属(先选) */}
+              {/* 归属(可选) */}
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">📚 归属作品集</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">📚 归属作品集 <span className="text-sm font-normal" style={{ color: '#9CA3AF' }}>(可选)</span></h2>
                 <p className="text-sm mb-4" style={{ color: '#6B7280' }}>
-                  把这件作品归到一个作品集里,让它有脉络可循
+                  可以把这件作品归到一个作品集里;也可以暂不归类,以后随时再整理。
                 </p>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    所属作品集 <span className="text-red-500">*</span>
+                    所属作品集
                   </label>
                   <div className="flex gap-2">
-                    <select name="collection_id" value={formData.collection_id} onChange={handleChange} required
+                    <select name="collection_id" value={formData.collection_id} onChange={handleChange}
                       className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option value="">-- 选择作品集 --</option>
+                      <option value="">暂不归类</option>
                       {collections.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
                     {/* ★ 内联创建按钮:不离开本页 */}
@@ -365,7 +305,7 @@ export default function StudioNewArtworkPage() {
                     </button>
                   </div>
                   <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>
-                    还没想好归属?点"+ 新建" 随手起个名字就行,以后可以改
+                    想成组展示?选一个作品集,或点"+ 新建"随手起个名字
                   </p>
                 </div>
               </div>
@@ -462,18 +402,21 @@ export default function StudioNewArtworkPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ 设置</h2>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm" style={{ color: '#6B7280', lineHeight: 1.8 }}>
-                      发布后,这件作品对所有人可见。
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>
-                      之后可以在作品编辑页随时撤回为草稿或归档。
+                    <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
+                    <select name="status" value={formData.status} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="published">直接发布</option>
+                      <option value="draft">存为草稿</option>
+                    </select>
+                    <p className="text-xs mt-2" style={{ color: '#9CA3AF', lineHeight: 1.7 }}>
+                      发布后对所有人可见;草稿只有你自己能看到,以后随时可发布。
                     </p>
                   </div>
 
                   <div className="pt-4 border-t border-gray-200">
                     <button type="submit" disabled={saving}
                       className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
-                      {saving ? '创建中...' : '✅ 发布这件作品'}
+                      {saving ? '保存中...' : (formData.status === 'draft' ? '💾 存为草稿' : '✅ 发布这件作品')}
                     </button>
                     <button type="button" onClick={() => router.back()}
                       className="w-full mt-2 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
