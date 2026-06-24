@@ -556,12 +556,12 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
             <div className="flex-1">
               <h3 className="font-bold mb-1" style={{ color: '#1E3A8A' }}>欢迎来到工作台</h3>
               <p className="text-sm mb-3" style={{ color: '#3730A3', lineHeight: 1.8 }}>
-                建议先<strong>创建一个作品集</strong>,再把作品添加进去。
+                直接<strong>上传你的作品</strong>就好。作品可以独立存在，也可以归入作品集来成组展示。
               </p>
-              <Link href="/studio/collections/new"
+              <Link href="/studio/artworks/new"
                 className="inline-block px-5 py-2 rounded-lg text-sm font-medium text-white"
                 style={{ backgroundColor: '#111827' }}>
-                创建第一个作品集 →
+                上传第一件作品 →
               </Link>
             </div>
           </div>
@@ -600,38 +600,93 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
 }
 
 function ArtworksTab({ artworks, hasNoCollections, statusColors }) {
+  const [filter, setFilter] = useState('all') // all | uncategorized | draft
+
+  const shown = artworks.filter(w => {
+    if (filter === 'uncategorized') return !w.collection_id
+    if (filter === 'draft') return w.status === 'draft'
+    return true
+  })
+  const uncategorizedCount = artworks.filter(w => !w.collection_id).length
+  const draftCount = artworks.filter(w => w.status === 'draft').length
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold" style={{ color: '#111827' }}>我的作品</h2>
-        {!hasNoCollections && (
-          <Link href="/studio/artworks/new" className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+        {/* 拆掉"必须先有作品集"的门槛:上传按钮始终可用 */}
+        <Link href="/studio/artworks/new" className="px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#111827' }}>
+          + 上传作品
+        </Link>
+      </div>
+
+      {/* 筛选 */}
+      {artworks.length > 0 && (
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          {[
+            { key: 'all', label: '全部', count: artworks.length },
+            { key: 'uncategorized', label: '未归类', count: uncategorizedCount },
+            { key: 'draft', label: '草稿', count: draftCount },
+          ].map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className="px-4 py-1.5 rounded-full text-xs font-medium transition"
+              style={{
+                backgroundColor: filter === f.key ? '#111827' : '#fff',
+                color: filter === f.key ? '#fff' : '#6B7280',
+                border: filter === f.key ? 'none' : '0.5px solid #E5E7EB',
+              }}>
+              {f.label}{f.count > 0 ? ` (${f.count})` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {artworks.length === 0 ? (
+        <EmptyState icon="🎨" text="还没有作品，开始上传吧">
+          <p className="text-xs mb-4 mt-1" style={{ color: '#9CA3AF' }}>作品可以独立存在，也可以归入作品集</p>
+          <Link href="/studio/artworks/new"
+            className="inline-block px-5 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: '#111827' }}>
             + 上传作品
           </Link>
-        )}
-      </div>
-      {artworks.length > 0 ? (
+        </EmptyState>
+      ) : shown.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+          <p className="text-sm" style={{ color: '#9CA3AF' }}>
+            {filter === 'uncategorized' ? '没有未归类的作品' : filter === 'draft' ? '没有草稿' : '没有作品'}
+          </p>
+        </div>
+      ) : (
         <div className="grid md:grid-cols-3 gap-6">
-          {artworks.map(work => {
+          {shown.map(work => {
             const sc = statusColors[work.status] || statusColors.draft
+            const isDraft = work.status === 'draft'
+            const uncategorized = !work.collection_id
             return (
               <div key={work.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
-                {/* 点击图片 = 查看公开详情页 */}
                 <Link href={publicArtworkPath(work.id)} className="block">
-                  <div className="aspect-square bg-gray-100 overflow-hidden">
+                  <div className="aspect-square bg-gray-100 overflow-hidden relative">
                     {work.image_url ? (
-                      <img src={work.image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={work.image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        style={{ filter: isDraft ? 'grayscale(0.4) opacity(0.85)' : 'none' }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
                     )}
                   </div>
                 </Link>
                 <div className="p-4">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1 gap-2">
                     <Link href={publicArtworkPath(work.id)} className="min-w-0">
                       <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{work.title}</h3>
                     </Link>
-                    <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isDraft && (
+                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: statusColors.draft.bg, color: statusColors.draft.color }}>草稿</span>
+                      )}
+                      {uncategorized && (
+                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>未归类</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
@@ -648,27 +703,6 @@ function ArtworksTab({ artworks, hasNoCollections, statusColors }) {
             )
           })}
         </div>
-      ) : hasNoCollections ? (
-        <div className="text-center py-16 bg-white rounded-xl shadow-sm">
-          <div className="text-5xl mb-4">📚</div>
-          <h3 className="text-lg font-bold mb-2" style={{ color: '#111827' }}>先从作品集开始</h3>
-          <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.9 }}>
-            作品需要归属于某个作品集。<br/>你还没有任何作品集,请先创建一个。
-          </p>
-          <Link href="/studio/collections/new"
-            className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
-            style={{ backgroundColor: '#111827' }}>
-            创建第一个作品集 →
-          </Link>
-        </div>
-      ) : (
-        <EmptyState icon="🎨" text="还没有作品，开始上传吧">
-          <Link href="/studio/artworks/new"
-            className="inline-block mt-4 px-5 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ backgroundColor: '#111827' }}>
-            + 上传作品
-          </Link>
-        </EmptyState>
       )}
     </div>
   )
@@ -684,43 +718,43 @@ function CollectionsTab({ collections, statusColors }) {
         </Link>
       </div>
       {collections.length > 0 ? (
-        <div className="grid md:grid-cols-3 gap-6">
-          {collections.map(col => {
-            const sc = statusColors[col.status] || statusColors.draft
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {collections.map((col, i) => {
+            const isDraft = col.status === 'draft'
+            const isArchived = col.status === 'archived'
             return (
-              <div key={col.id} className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition">
-                {/* 点击封面 = 进入作品集内容页(看到里面的作品) */}
-                <Link href={`/studio/collections/${col.id}`} className="block">
-                  <div className="aspect-video bg-gray-100 overflow-hidden">
-                    {col.cover_image ? (
-                      <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
-                    )}
-                  </div>
-                </Link>
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <Link href={`/studio/collections/${col.id}`} className="min-w-0">
-                      <h3 className="font-bold text-sm truncate hover:underline" style={{ color: '#111827' }}>{col.title}</h3>
-                    </Link>
-                    <span className="px-2 py-0.5 rounded-full text-xs flex-shrink-0" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.text}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
-                    <Link href={`/studio/collections/${col.id}`}
-                      className="text-xs hover:underline" style={{ color: '#6B7280' }}>
-                      管理 →
-                    </Link>
-                  </div>
+              <Link key={col.id} href={`/studio/collections/${col.id}`}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition group"
+                style={{ borderTop: i === 0 ? 'none' : '0.5px solid #F3F4F6' }}>
+                {/* 小封面缩略图 */}
+                <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                  {col.cover_image ? (
+                    <img src={col.cover_image} alt={col.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xl">📚</div>
+                  )}
                 </div>
-              </div>
+                {/* 标题 + 作品数 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-sm truncate" style={{ color: '#111827' }}>{col.title}</h3>
+                    {/* 只标非发布状态,已发布不标(减少噪音) */}
+                    {isDraft && <span className="text-xs flex-shrink-0" style={{ color: '#B45309' }}>· 草稿</span>}
+                    {isArchived && <span className="text-xs flex-shrink-0" style={{ color: '#9CA3AF' }}>· 已归档</span>}
+                  </div>
+                  <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{col.artworks_count || 0} 件作品</p>
+                </div>
+                {/* 进入箭头 */}
+                <span className="text-sm flex-shrink-0 opacity-0 group-hover:opacity-100 transition" style={{ color: '#6B7280' }}>
+                  管理 →
+                </span>
+              </Link>
             )
           })}
         </div>
       ) : (
         <EmptyState icon="📚" text="还没有作品集">
-          <p className="text-xs mb-6" style={{ color: '#9CA3AF' }}>作品集是你创作的主题归属</p>
+          <p className="text-xs mb-6" style={{ color: '#9CA3AF' }}>作品集用来把作品成组、按主题展示</p>
           <Link href="/studio/collections/new"
             className="inline-block px-6 py-3 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: '#111827' }}>
