@@ -54,6 +54,12 @@ export default function ArtworkDetailPage() {
 
   useEffect(() => { loadData() }, [id])
 
+  // 返回:有历史就回上一页,没有(直链进入)就兜底回作品集
+  function handleBack() {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/collections')
+  }
+
   async function loadData() {
     try {
       // 主查询:只取 artworks 本表,join 失败不会拖垮整体
@@ -344,7 +350,7 @@ export default function ArtworkDetailPage() {
       <nav className="sticky top-0 bg-white border-b border-gray-200 z-50">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-900 text-sm">← 返回</Link>
+            <button onClick={handleBack} className="text-gray-500 hover:text-gray-900 text-sm">← 返回</button>
             <span className="text-gray-300">|</span>
             <span className="font-bold text-gray-900">{artwork.title}</span>
           </div>
