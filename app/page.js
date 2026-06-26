@@ -18,9 +18,9 @@ async function getData() {
     exhibition = dailyExhibitions[Math.abs(hash) % dailyExhibitions.length]
   }
 
-  const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').order('created_at', { ascending: false }).limit(8)
+  const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(8)
   const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
-  const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('created_at', { ascending: false }).limit(4)
+  const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('display_order', { ascending: true }).limit(4)
   const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
 
   let homepageInvitations = []
