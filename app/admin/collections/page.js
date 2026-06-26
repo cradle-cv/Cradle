@@ -13,7 +13,7 @@ export default function AdminCollectionsPage() {
 
   async function loadCollections() {
     const { data: { session } } = await supabase.auth.getSession()
-    
+
     if (!session) {
       setLoading(false)
       return
@@ -33,6 +33,7 @@ export default function AdminCollectionsPage() {
     let query = supabase
       .from('collections')
       .select('*, artists(*)')
+      .order('display_order', { ascending: true })
       .order('created_at', { ascending: false })
 
     if (userData.role === 'artist') {
@@ -94,17 +95,22 @@ export default function AdminCollectionsPage() {
           color="green"
         />
         <StatCard
+          label="首页展示"
+          value={collections.filter(c => c.show_on_homepage).length}
+          icon="🏠"
+          color="purple"
+        />
+        <StatCard
           label="草稿"
           value={collections.filter(c => c.status === 'draft').length}
           icon="📝"
           color="yellow"
         />
-        <StatCard
-          label="已归档"
-          value={collections.filter(c => c.status === 'archived').length}
-          icon="📦"
-          color="gray"
-        />
+      </div>
+
+      {/* 提示 */}
+      <div className="mb-6 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}>
+        勾选「首页」后，该作品集才会出现在网站首页的作品集区。默认不展示，由你手动挑选。排序数字越小越靠前。
       </div>
 
       {/* 作品集列表 */}
@@ -117,7 +123,7 @@ export default function AdminCollectionsPage() {
                 className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
               >
                 {/* 封面图 */}
-                <div className="aspect-video bg-gray-100">
+                <div className="aspect-video bg-gray-100 relative">
                   {collection.cover_image ? (
                     <img
                       src={collection.cover_image}
@@ -128,6 +134,16 @@ export default function AdminCollectionsPage() {
                     <div className="w-full h-full flex items-center justify-center text-6xl">
                       📚
                     </div>
+                  )}
+                  {collection.show_on_homepage && (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'rgba(5,150,105,0.95)', color: '#FFFFFF' }}>
+                      🏠 首页
+                    </span>
+                  )}
+                  {!collection.cover_image && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'rgba(220,38,38,0.9)', color: '#FFFFFF' }}>
+                      无封面
+                    </span>
                   )}
                 </div>
 
@@ -159,7 +175,27 @@ export default function AdminCollectionsPage() {
                     </p>
                   )}
 
-                  <div className="flex gap-2">
+                  {/* 首页展示开关 + 排序 + 编辑 */}
+                  <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked={collection.show_on_homepage || false}
+                        onChange={async (e) => {
+                          const checked = e.target.checked
+                          await supabase.from('collections').update({ show_on_homepage: checked }).eq('id', collection.id)
+                          setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, show_on_homepage: checked } : c))
+                        }}
+                        className="w-4 h-4 rounded" />
+                      <span className="text-xs" style={{ color: collection.show_on_homepage ? '#059669' : '#9CA3AF' }}>首页</span>
+                    </label>
+                    <input type="number" value={collection.display_order || 0}
+                      onChange={async (e) => {
+                        const val = parseInt(e.target.value) || 0
+                        await supabase.from('collections').update({ display_order: val }).eq('id', collection.id)
+                        setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, display_order: val } : c))
+                      }}
+                      className="w-14 px-2 py-1.5 border rounded-lg text-xs text-center text-gray-900"
+                      style={{ borderColor: '#D1D5DB' }}
+                      title="排序权重（数字越小越靠前）" />
                     <Link
                       href={`/admin/collections/${collection.id}`}
                       className="flex-1 px-4 py-2 text-sm text-center bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -196,6 +232,7 @@ function StatCard({ label, value, icon, color }) {
     blue: 'bg-blue-50 text-blue-600',
     green: 'bg-green-50 text-green-600',
     yellow: 'bg-yellow-50 text-yellow-600',
+    purple: 'bg-purple-50 text-purple-600',
     gray: 'bg-gray-50 text-gray-600',
   }
 
