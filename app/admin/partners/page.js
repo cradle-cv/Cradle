@@ -16,7 +16,7 @@ export default function AdminPartnersPage() {
     const { data } = await supabase
       .from('partners')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('display_order', { ascending: true })
 
     setPartners(data || [])
     setLoading(false)
@@ -56,8 +56,13 @@ export default function AdminPartnersPage() {
       <div className="grid grid-cols-4 gap-6 mb-8">
         <StatCard label="总合作伙伴" value={partners.length} icon="🤝" color="blue" />
         <StatCard label="活跃中" value={partners.filter(p => p.status === 'active').length} icon="✅" color="green" />
-        <StatCard label="后台建" value={adminCount} icon="🏛️" color="purple" />
+        <StatCard label="首页展示" value={partners.filter(p => p.featured_on_homepage).length} icon="🏠" color="purple" />
         <StatCard label="用户自建" value={userCount} icon="👤" color="yellow" />
+      </div>
+
+      {/* 提示 */}
+      <div className="mb-4 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}>
+        勾选「首页」后，该合作伙伴才会出现在网站首页的合作伙伴区。默认不展示，由你手动挑选。排序数字越小越靠前。
       </div>
 
       {/* 筛选 tabs */}
@@ -115,6 +120,11 @@ export default function AdminPartnersPage() {
                         未激活
                       </span>
                     )}
+                    {partner.featured_on_homepage && (
+                      <span className="px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
+                        🏠 首页
+                      </span>
+                    )}
                     {/* 来源 tag */}
                     {partner.managed_by === 'user' ? (
                       <span className="px-2 py-0.5 text-xs rounded-full font-medium"
@@ -150,7 +160,28 @@ export default function AdminPartnersPage() {
                 </div>
 
                 {/* 操作 */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* 首页展示开关 */}
+                  <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                    <input type="checkbox" checked={partner.featured_on_homepage || false}
+                      onChange={async (e) => {
+                        const checked = e.target.checked
+                        await supabase.from('partners').update({ featured_on_homepage: checked }).eq('id', partner.id)
+                        setPartners(prev => prev.map(p => p.id === partner.id ? { ...p, featured_on_homepage: checked } : p))
+                      }}
+                      className="w-4 h-4 rounded" />
+                    <span className="text-xs" style={{ color: partner.featured_on_homepage ? '#059669' : '#9CA3AF' }}>首页</span>
+                  </label>
+                  {/* 排序 */}
+                  <input type="number" value={partner.display_order || 0}
+                    onChange={async (e) => {
+                      const val = parseInt(e.target.value) || 0
+                      await supabase.from('partners').update({ display_order: val }).eq('id', partner.id)
+                      setPartners(prev => prev.map(p => p.id === partner.id ? { ...p, display_order: val } : p))
+                    }}
+                    className="w-14 px-2 py-1.5 border rounded-lg text-xs text-center text-gray-900"
+                    style={{ borderColor: '#D1D5DB' }}
+                    title="排序权重（数字越小越靠前）" />
                   <Link href={`/partners/${partner.id}`} target="_blank"
                     className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
                     预览
