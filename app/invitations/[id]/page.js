@@ -492,7 +492,7 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
       year: 'numeric', month: 'long', day: 'numeric'
     })
     const count = mySubmission.artwork_ids?.length || 0
-    const editable = mySubmission.review_status === 'pending'
+    const editable = !invitation.deadline || new Date(invitation.deadline) >= new Date()
     return (
       <div className="rounded-xl p-8" style={{ backgroundColor: '#ECFDF5', border: '0.5px solid #A7F3D0' }}>
         <div className="flex items-center gap-3 mb-3">
@@ -507,8 +507,8 @@ function ActionArea({ invitation, isCollecting, currentUser, isArtist, mySubmiss
         </div>
         <p className="text-sm mb-5" style={{ color: '#065F46', lineHeight: 1.8 }}>
           {editable
-            ? '你的投稿已进入待评选。在评选开始前,你还可以修改选定的作品。'
-            : '评选已开始,你的投稿已锁定,感谢参与。'}
+            ? '你已成功投稿。在投稿截止日期前,你都可以修改选定的作品。'
+            : '投稿已截止,你的投稿已锁定,感谢参与。'}
         </p>
         <div className="flex gap-3 flex-wrap">
           <Link
