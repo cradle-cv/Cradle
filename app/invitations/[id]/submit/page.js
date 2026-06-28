@@ -94,8 +94,8 @@ export default function InvitationSubmitPage() {
   }
 
   function toggleArtwork(artworkId) {
-    if (mySubmission && mySubmission.review_status && mySubmission.review_status !== 'pending') {
-      alert('评选已开始,投稿已锁定,无法修改')
+    if (invitation && invitation.deadline && new Date(invitation.deadline) < new Date()) {
+      alert('投稿已截止,无法修改')
       return
     }
     setSelectedIds(prev => {
@@ -185,7 +185,7 @@ export default function InvitationSubmitPage() {
 
   const themeColor = invitation.theme_color || '#8a7a5c'
   const maxCount = invitation.submission_limit_per_artist || 5
-  const locked = mySubmission && mySubmission.review_status && mySubmission.review_status !== 'pending'
+  const locked = invitation.deadline && new Date(invitation.deadline) < new Date()
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", serif' }}>
@@ -213,12 +213,12 @@ export default function InvitationSubmitPage() {
           </h1>
           {mySubmission && !locked && (
             <p className="text-sm" style={{ color: '#6B7280' }}>
-              你在 {new Date(mySubmission.created_at).toLocaleDateString('zh-CN')} 提交过投稿。以下是你当前的选择,可以修改。
+              你在 {new Date(mySubmission.submitted_at).toLocaleDateString('zh-CN')} 提交过投稿。以下是你当前的选择,可以修改。
             </p>
           )}
           {locked && (
             <p className="text-sm" style={{ color: '#DC2626' }}>
-              评选已开始,投稿已锁定,以下为你之前提交的内容,仅供查看。
+              投稿已截止,以下为你提交的内容,仅供查看。
             </p>
           )}
         </div>
@@ -387,7 +387,7 @@ export default function InvitationSubmitPage() {
               </p>
             )}
             <p className="text-xs" style={{ color: '#9CA3AF' }}>
-              投稿提交后,评选开始前你可以随时修改
+              投稿提交后,截止日期前你可以随时修改
             </p>
           </div>
         )}
