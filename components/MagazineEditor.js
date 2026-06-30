@@ -75,18 +75,17 @@ function TextElement({ el, isSel, isEditing, scale, onUpdate, onStartEdit, borde
 
   function handleBlur() {
     if (!ref.current) return
-    const html = ref.current.innerHTML
-    const text = html
-      .replace(/<div><br\s*\/?><\/div>/gi, '\n')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/div><div>/gi, '\n')
-      .replace(/<\/?div>/gi, '')
-      .replace(/<\/?span[^>]*>/gi, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&quot;/gi, '"')
+    // 用 innerText 直接读取浏览器渲染出的纯文字,自动保留换行、忽略任何
+    // 由翻译插件等注入的包裹标签(如 <div data-tc>),从根上避免脏标记混入。
+    // innerText 在不同浏览器对尾部换行处理略有差异,这里统一清理一下首尾多余空行。
+    const raw = ref.current.innerText || ''
+    const text = raw
+      .replace(/\u00a0/g, ' ')   // 不间断空格转普通空格
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n') // 最多保留一个空行
+      .replace(/[ \t]+\n/g, '\n') // 去掉行尾空白
+      .replace(/^\n+/, '')        // 去掉开头空行
+      .replace(/\n+$/, '')        // 去掉结尾空行
     onUpdate(text)
   }
 
