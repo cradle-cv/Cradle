@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import UserNav from '@/components/UserNav'
+import SiteNav from '@/components/SiteNav'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -258,28 +258,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-1 flex justify-between items-center">
-          <div className="flex items-center gap-6 md:gap-12">
-            <a href="/" className="flex items-center gap-3 flex-shrink-0">
-              <div className="w-0 h-10 flex-shrink-0"></div>
-              <div style={{ height: '69px', overflow: 'hidden' }}>
-                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-              </div>
-            </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="#gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="#daily" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="#magazine" className="hover:text-gray-900">杂志社</a></li>
-              <li><a href="#collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="#artists" className="hover:text-gray-900">艺术家</a></li>
-              <li><a href="#partners" className="hover:text-gray-900">合作伙伴</a></li>
-              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
-            </ul>
-          </div>
-          <div className="flex items-center gap-4"><UserNav /></div>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* Hero区 */}
       <section className="py-10 md:py-20 px-4 md:px-6">
@@ -327,7 +306,7 @@ export default async function Home() {
                 </a>
               ) : (
                 <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                  <img src="/image/hero.jpg" alt="静谧时光" className="w-full h-full object-cover" />
+                  <img loading="lazy" src="/image/hero.jpg" alt="静谧时光" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                   <div className="absolute bottom-8 left-8 z-10">
                     <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
@@ -354,7 +333,7 @@ export default async function Home() {
                     <div className="relative">
                       <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
                       <div className="aspect-[4/3]">
-                        <img src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
+                        <img loading="lazy" src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
                       </div>
                     </div>
                     <div className="p-6 md:p-10 flex flex-col justify-between">
@@ -444,7 +423,7 @@ export default async function Home() {
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
                     <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageDaily.cover_image ? (<img src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
+                      {homepageDaily.cover_image ? (<img loading="lazy" src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>📖 摇篮 Daily</div>
                       <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
@@ -463,7 +442,7 @@ export default async function Home() {
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
                     <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageSelect.cover_image ? (<img src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>)}
+                      {homepageSelect.cover_image ? (<img loading="lazy" src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>)}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>⭐ 摇篮 Select</div>
                       <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
@@ -473,7 +452,7 @@ export default async function Home() {
                     </div>
                     <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {homepageSelect.users?.avatar_url ? (<img src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>)}
+                        {homepageSelect.users?.avatar_url ? (<img loading="lazy" src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>)}
                         <span className="text-xs" style={{ color: '#6B7280' }}>{homepageSelect.users?.username || '用户原创'}</span>
                         {homepageSelect.pages_count > 0 && <span className="text-xs" style={{ color: '#9CA3AF' }}>· {homepageSelect.pages_count} 页</span>}
                       </div>
@@ -503,7 +482,7 @@ export default async function Home() {
             {collections.map((collection) => (
               <a key={collection.id} href={`/collections/${collection.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group">
                 <div className="aspect-square bg-gray-100">
-                  {collection.cover_image ? (<img src={collection.cover_image} alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
+                  {collection.cover_image ? (<img loading="lazy" src={collection.cover_image} alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
                 </div>
                 <div className="p-3 md:p-4">
                   <h3 className="font-bold text-gray-900 mb-1 line-clamp-1 text-sm md:text-base">{collection.title}</h3>
@@ -531,7 +510,7 @@ export default async function Home() {
               <div key={artist.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mb-3 md:mb-4 overflow-hidden" style={{ flexShrink: 0 }}>
                   {(artist.avatar_url || artist.users?.avatar_url) ? (
-                    <img src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
+                    <img loading="lazy" src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl md:text-4xl">👤</div>
                   )}
@@ -561,7 +540,7 @@ export default async function Home() {
             {partners.map((partner) => (
               <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <div className="w-14 h-14 md:w-20 md:h-20 mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center" style={{ flexShrink: 0 }}>
-                  {partner.logo_url ? <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
+                  {partner.logo_url ? <img loading="lazy" src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
                 </div>
                 <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
                 {partner.name_en && <p className="text-xs text-gray-500 mb-2 md:mb-3 hidden md:block">{partner.name_en}</p>}
@@ -593,7 +572,7 @@ export default async function Home() {
                     <a href={`/exhibitions/${ex.id}`} className="block">
                       <div className="flex gap-3 md:gap-4 p-4 md:p-5">
                         <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                          {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
+                          {ex.cover_image ? (<img loading="lazy" src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
@@ -609,7 +588,7 @@ export default async function Home() {
                     <>
                       <div className="flex gap-3 md:gap-4 p-4 md:p-5" style={{ opacity: 0.6 }}>
                         <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                          {ex.cover_image ? (<img src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
+                          {ex.cover_image ? (<img loading="lazy" src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
