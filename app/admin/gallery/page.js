@@ -134,8 +134,8 @@ export default function AdminGalleryListPage() {
             </Link>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="w-full">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <table className="w-full" style={{ minWidth: '760px' }}>
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase w-16">排序</th>
@@ -144,7 +144,7 @@ export default function AdminGalleryListPage() {
                   <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">文章关联</th>
                   <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">积分</th>
                   <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase">状态</th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">操作</th>
+                  <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 shadow-[-8px_0_8px_-6px_rgba(0,0,0,0.08)]">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -220,23 +220,23 @@ export default function AdminGalleryListPage() {
                         </button>
                       </td>
                       {/* 操作 */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                      <td className="px-6 py-4 text-right sticky right-0 shadow-[-8px_0_8px_-6px_rgba(0,0,0,0.08)]" style={{ backgroundColor: isFirst ? '#FFFBEB' : '#FFFFFF' }}>
+                        <div className="flex flex-col items-end gap-1.5">
                           {index !== 0 && (
                             <button onClick={() => moveToTop(index)}
-                              className="text-amber-600 hover:text-amber-800 text-sm" title="置顶推荐到首页">
+                              className="text-amber-600 hover:text-amber-800 text-sm whitespace-nowrap" title="置顶推荐到首页">
                               📌 置顶
                             </button>
                           )}
                           <Link
                             href={`/admin/gallery/${work.id}`}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="text-blue-600 hover:text-blue-800 text-sm whitespace-nowrap"
                           >
                             编辑
                           </Link>
                           <button
                             onClick={() => handleDelete(work.id, work.title)}
-                            className="text-red-500 hover:text-red-700 text-sm"
+                            className="text-red-500 hover:text-red-700 text-sm whitespace-nowrap"
                           >
                             删除
                           </button>
