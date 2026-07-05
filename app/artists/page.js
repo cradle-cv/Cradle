@@ -14,16 +14,36 @@ async function getArtists() {
   return artists || []
 }
 
-// 艺术家专栏:关联了艺术家(平台艺术家或自由填写的大师名)的杂志
+// 艺术家专栏:两种形式合流 — 杂志专栏 + 网页图文专栏,按时间混排
 async function getColumns() {
-  const { data } = await supabase
-    .from('magazines')
-    .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
-    .or('featured_artist_id.not.is.null,column_artist_name.not.is.null')
-    .in('status', ['published', 'featured'])
-    .order('created_at', { ascending: false })
-    .limit(6)
-  return data || []
+  const [{ data: mags }, { data: posts }] = await Promise.all([
+    supabase
+      .from('magazines')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
+      .or('featured_artist_id.not.is.null,column_artist_name.not.is.null')
+      .in('status', ['published', 'featured'])
+      .order('created_at', { ascending: false })
+      .limit(6),
+    supabase
+      .from('column_posts')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(6),
+  ])
+  const unify = (rows, hrefBase) => (rows || []).map(r => ({
+    id: r.id,
+    href: `${hrefBase}/${r.id}`,
+    title: r.title,
+    subtitle: r.subtitle,
+    cover_image: r.cover_image,
+    column_quote: r.column_quote,
+    artistName: r.artists?.display_name || r.column_artist_name || '',
+    created_at: r.created_at,
+  }))
+  return [...unify(mags, '/magazine/view'), ...unify(posts, '/columns')]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 6)
 }
 
 // ═══ SVG 图标组件 ═══
@@ -133,7 +153,7 @@ export default async function ArtistsPage() {
               const rest = columns.slice(1, 4)
               return (
                 <>
-                  <a href={`/magazine/view/${lead.id}`} className="group block">
+                  <a href={lead.href} className="group block">
                     <div className="grid grid-cols-1 md:grid-cols-[1fr,300px] gap-8 md:gap-12 items-center py-6 md:py-10">
                       {/* 左:大引语 */}
                       <div className="relative">
@@ -150,9 +170,9 @@ export default async function ArtistsPage() {
                           {quote}
                         </blockquote>
                         <div className="mt-5 flex items-center gap-3">
-                          {(lead.artists?.display_name || lead.column_artist_name) && (
+                          {lead.artistName && (
                             <span style={{ fontSize: '12px', letterSpacing: '3px', color: '#B45309' }}>
-                              关于 {lead.artists?.display_name || lead.column_artist_name}
+                              关于 {lead.artistName}
                             </span>
                           )}
                           <span style={{ color: '#D1D5DB' }}>·</span>
@@ -177,7 +197,7 @@ export default async function ArtistsPage() {
                   {rest.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
                       {rest.map((col) => (
-                        <a key={col.id} href={`/magazine/view/${col.id}`} className="group block">
+                        <a key={col.href} href={col.href} className="group block">
                           <div className="overflow-hidden rounded-lg" style={{ aspectRatio: '16 / 10', backgroundColor: '#F3F4F6' }}>
                             {col.cover_image ? (
                               <img loading="lazy" src={col.cover_image} alt={col.title}
@@ -187,9 +207,9 @@ export default async function ArtistsPage() {
                             )}
                           </div>
                           <div className="pt-3">
-                            {(col.artists?.display_name || col.column_artist_name) && (
+                            {col.artistName && (
                               <p style={{ fontSize: '11px', letterSpacing: '2px', color: '#B45309', marginBottom: '4px' }}>
-                                关于 {col.artists?.display_name || col.column_artist_name}
+                                关于 {col.artistName}
                               </p>
                             )}
                             <h3 className="text-base md:text-lg font-bold leading-snug group-hover:underline"
