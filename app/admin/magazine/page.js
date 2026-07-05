@@ -12,7 +12,7 @@ export default function AdminMagazinesPage() {
   // ── 艺术家专栏设置 ──
   const [artistOptions, setArtistOptions] = useState([])
   const [columnEditId, setColumnEditId] = useState(null)   // 正在展开设置专栏的杂志id
-  const [colForm, setColForm] = useState({ featured_artist_id: '', column_artist_name: '', column_quote: '' })
+  const [colForm, setColForm] = useState({ featured_artist_id: '', column_artist_name: '', column_quote: '', column_pinned: false })
   const [colSaving, setColSaving] = useState(false)
 
   useEffect(() => { loadMagazines(); loadArtistOptions() }, [])
@@ -26,12 +26,13 @@ export default function AdminMagazinesPage() {
     if (columnEditId === magId) { setColumnEditId(null); return }
     // 直接查这本杂志的专栏字段(不依赖列表API是否带出新列)
     const { data } = await supabase.from('magazines')
-      .select('featured_artist_id, column_artist_name, column_quote')
+      .select('featured_artist_id, column_artist_name, column_quote, column_pinned')
       .eq('id', magId).single()
     setColForm({
       featured_artist_id: data?.featured_artist_id || '',
       column_artist_name: data?.column_artist_name || '',
       column_quote: data?.column_quote || '',
+      column_pinned: !!data?.column_pinned,
     })
     setColumnEditId(magId)
   }
@@ -43,6 +44,7 @@ export default function AdminMagazinesPage() {
         featured_artist_id: colForm.featured_artist_id || null,
         column_artist_name: colForm.column_artist_name.trim() || null,
         column_quote: colForm.column_quote.trim() || null,
+        column_pinned: !!colForm.column_pinned,
       }).eq('id', magId)
       if (error) throw error
       setColumnEditId(null)
@@ -56,7 +58,7 @@ export default function AdminMagazinesPage() {
     setColSaving(true)
     try {
       const { error } = await supabase.from('magazines').update({
-        featured_artist_id: null, column_artist_name: null, column_quote: null,
+        featured_artist_id: null, column_artist_name: null, column_quote: null, column_pinned: false,
       }).eq('id', magId)
       if (error) throw error
       setColumnEditId(null)
@@ -338,6 +340,11 @@ export default function AdminMagazinesPage() {
                               placeholder="从专栏里挑一句最有分量的话"
                               className="w-full text-sm px-2 py-1.5 rounded border" style={{ borderColor: '#FCD34D' }} />
                           </div>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer pb-2" style={{ color: colForm.column_pinned ? '#B45309' : '#9CA3AF' }}>
+                            <input type="checkbox" checked={colForm.column_pinned}
+                              onChange={e => setColForm(f => ({ ...f, column_pinned: e.target.checked }))} className="w-3.5 h-3.5" />
+                            📌 置顶头条
+                          </label>
                           <div className="flex items-center gap-2">
                             <button onClick={() => saveColumn(m.id)} disabled={colSaving}
                               className="px-4 py-1.5 text-xs rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: '#B45309' }}>
