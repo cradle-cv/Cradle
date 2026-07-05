@@ -10,9 +10,19 @@ async function getArtists() {
   const { data: artists } = await supabase
     .from('artists')
     .select('*, users:owner_user_id(id, username, avatar_url)')
-    .order('created_at', { ascending: false })
 
-  return artists || []
+  // 排序:未认证的知名艺术家(verified_at为空,后台引入的大师)在前,
+  // 认证艺术家(verified_at有值,后加入的平台创作者)在后;
+  // 组内按 display_order 升序,再按加入时间倒序
+  return (artists || []).sort((a, b) => {
+    const av = a.verified_at ? 1 : 0
+    const bv = b.verified_at ? 1 : 0
+    if (av !== bv) return av - bv
+    const ao = a.display_order ?? 0
+    const bo = b.display_order ?? 0
+    if (ao !== bo) return ao - bo
+    return new Date(b.created_at) - new Date(a.created_at)
+  })
 }
 
 // 艺术家专栏:两种形式合流 — 杂志专栏 + 网页图文专栏,按时间混排
