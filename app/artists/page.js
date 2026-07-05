@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import UserNav from '@/components/UserNav'
+import ArtistColumnBand from '@/components/ArtistColumnBand'
 
 async function getArtists() {
   // 明确通过 owner_user_id 外键 join users(整合后 artists 有两个外键指向 users)
@@ -148,102 +149,7 @@ export default async function ArtistsPage() {
               <div style={{ flex: 1, borderTop: '0.5px solid #D1D5DB' }}></div>
             </div>
 
-            {/* ── 头条:引语式大排版(白纸版) ── */}
-            {(() => {
-              const lead = columns[0]
-              const quote = lead.column_quote || lead.subtitle || lead.title
-              const rest = columns.slice(1, 4)
-              return (
-                <>
-                  <a href={lead.href} className="group block">
-                    <div className="flex flex-wrap items-center py-5 md:py-8" style={{ gap: '24px' }}>
-                      {/* 艺术家头像 */}
-                      <div className="rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                        style={{ width: '72px', height: '72px', backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
-                        {lead.artistAvatar ? (
-                          <img loading="lazy" src={lead.artistAvatar} alt={lead.artistName} className="w-full h-full object-cover" />
-                        ) : (
-                          <span style={{ color: '#D1D5DB', fontSize: '22px' }}>✦</span>
-                        )}
-                      </div>
-
-                      {/* 引语 + 题签 */}
-                      <div className="relative flex-1" style={{ minWidth: '260px' }}>
-                        <span aria-hidden="true" style={{
-                          position: 'absolute', top: '-20px', left: '-6px',
-                          fontFamily: serif, fontSize: '72px', lineHeight: 1,
-                          color: '#F3F4F6', userSelect: 'none',
-                        }}>“</span>
-                        <blockquote style={{
-                          position: 'relative', margin: 0,
-                          fontSize: 'clamp(18px, 2.2vw, 24px)',
-                          lineHeight: 1.7, color: '#111827', fontWeight: 500,
-                        }}>
-                          {quote}
-                        </blockquote>
-                        <div className="mt-3 flex items-center gap-3 flex-wrap">
-                          {lead.artistName && (
-                            <span style={{ fontSize: '12px', letterSpacing: '3px', color: '#B45309' }}>
-                              关于 {lead.artistName}
-                            </span>
-                          )}
-                          <span style={{ color: '#D1D5DB' }}>·</span>
-                          <span className="group-hover:underline" style={{ fontSize: '13px', color: '#6B7280', textUnderlineOffset: '4px' }}>
-                            {lead.title} →
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 一小块封面 */}
-                      <div className="overflow-hidden rounded-lg flex-shrink-0"
-                        style={{ width: '180px', aspectRatio: '4 / 3', backgroundColor: '#F3F4F6' }}>
-                        {lead.cover_image ? (
-                          <img loading="lazy" src={lead.cover_image} alt={lead.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '24px' }}>✦</div>
-                        )}
-                      </div>
-                    </div>
-                  </a>
-
-                  {/* ── 次条:卡片列 ── */}
-                  {rest.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
-                      {rest.map((col) => (
-                        <a key={col.href} href={col.href} className="group block">
-                          <div className="overflow-hidden rounded-lg" style={{ aspectRatio: '16 / 10', backgroundColor: '#F3F4F6' }}>
-                            {col.cover_image ? (
-                              <img loading="lazy" src={col.cover_image} alt={col.title}
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '32px' }}>✦</div>
-                            )}
-                          </div>
-                          <div className="pt-3">
-                            {col.artistName && (
-                              <p style={{ fontSize: '11px', letterSpacing: '2px', color: '#B45309', marginBottom: '4px' }}>
-                                关于 {col.artistName}
-                              </p>
-                            )}
-                            <h3 className="text-base md:text-lg font-bold leading-snug group-hover:underline"
-                              style={{ color: '#111827', textUnderlineOffset: '4px' }}>
-                              {col.title}
-                            </h3>
-                            {col.subtitle && (
-                              <p className="text-sm mt-1" style={{ color: '#6B7280' }}>{col.subtitle}</p>
-                            )}
-                            <p className="text-xs mt-2 inline-flex items-center gap-1" style={{ color: '#9CA3AF' }}>
-                              阅读专栏 <span className="group-hover:translate-x-0.5 transition-transform">→</span>
-                            </p>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )
-            })()}
+            <ArtistColumnBand columns={columns} />
 
             {/* 查看全部 + 底部细线 */}
             <div className="text-center" style={{ marginTop: '24px' }}>
