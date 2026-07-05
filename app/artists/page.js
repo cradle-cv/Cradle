@@ -19,14 +19,14 @@ async function getColumns() {
   const [{ data: mags }, { data: posts }] = await Promise.all([
     supabase
       .from('magazines')
-      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name)')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name, avatar_url)')
       .or('featured_artist_id.not.is.null,column_artist_name.not.is.null')
       .in('status', ['published', 'featured'])
       .order('created_at', { ascending: false })
       .limit(6),
     supabase
       .from('column_posts')
-      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name)')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name, avatar_url)')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .limit(6),
@@ -39,6 +39,7 @@ async function getColumns() {
     cover_image: r.cover_image,
     column_quote: r.column_quote,
     artistName: r.artists?.display_name || r.column_artist_name || '',
+    artistAvatar: r.artists?.avatar_url || '',
     pinned: !!r.column_pinned,
     created_at: r.created_at,
   }))
@@ -155,22 +156,32 @@ export default async function ArtistsPage() {
               return (
                 <>
                   <a href={lead.href} className="group block">
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr,300px] gap-8 md:gap-12 items-center py-6 md:py-10">
-                      {/* 左:大引语 */}
-                      <div className="relative">
+                    <div className="flex flex-wrap items-center py-5 md:py-8" style={{ gap: '24px' }}>
+                      {/* 艺术家头像 */}
+                      <div className="rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                        style={{ width: '72px', height: '72px', backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
+                        {lead.artistAvatar ? (
+                          <img loading="lazy" src={lead.artistAvatar} alt={lead.artistName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span style={{ color: '#D1D5DB', fontSize: '22px' }}>✦</span>
+                        )}
+                      </div>
+
+                      {/* 引语 + 题签 */}
+                      <div className="relative flex-1" style={{ minWidth: '260px' }}>
                         <span aria-hidden="true" style={{
-                          position: 'absolute', top: '-28px', left: '-8px',
-                          fontFamily: serif, fontSize: '110px', lineHeight: 1,
-                          color: '#E5E7EB', userSelect: 'none',
+                          position: 'absolute', top: '-20px', left: '-6px',
+                          fontFamily: serif, fontSize: '72px', lineHeight: 1,
+                          color: '#F3F4F6', userSelect: 'none',
                         }}>“</span>
                         <blockquote style={{
                           position: 'relative', margin: 0,
-                          fontSize: 'clamp(22px, 3.2vw, 34px)',
-                          lineHeight: 1.6, color: '#111827', fontWeight: 500,
+                          fontSize: 'clamp(18px, 2.2vw, 24px)',
+                          lineHeight: 1.7, color: '#111827', fontWeight: 500,
                         }}>
                           {quote}
                         </blockquote>
-                        <div className="mt-5 flex items-center gap-3">
+                        <div className="mt-3 flex items-center gap-3 flex-wrap">
                           {lead.artistName && (
                             <span style={{ fontSize: '12px', letterSpacing: '3px', color: '#B45309' }}>
                               关于 {lead.artistName}
@@ -182,13 +193,15 @@ export default async function ArtistsPage() {
                           </span>
                         </div>
                       </div>
-                      {/* 右:小幅封面 */}
-                      <div className="overflow-hidden rounded-lg order-first md:order-none" style={{ aspectRatio: '4 / 3', backgroundColor: '#F3F4F6' }}>
+
+                      {/* 一小块封面 */}
+                      <div className="overflow-hidden rounded-lg flex-shrink-0"
+                        style={{ width: '180px', aspectRatio: '4 / 3', backgroundColor: '#F3F4F6' }}>
                         {lead.cover_image ? (
                           <img loading="lazy" src={lead.cover_image} alt={lead.title}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '32px' }}>✦</div>
+                          <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '24px' }}>✦</div>
                         )}
                       </div>
                     </div>
