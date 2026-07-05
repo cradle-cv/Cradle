@@ -156,6 +156,17 @@ export default function AdminArtistsPage() {
 
                 {/* 操作按钮 */}
                 <div className="flex items-center gap-3">
+                  {/* 名家开关 */}
+                  <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                    <input type="checkbox" checked={artist.is_master || false}
+                      onChange={async (e) => {
+                        const checked = e.target.checked
+                        await supabase.from('artists').update({ is_master: checked }).eq('id', artist.id)
+                        setArtists(prev => prev.map(a => a.id === artist.id ? { ...a, is_master: checked } : a))
+                      }}
+                      className="w-4 h-4 rounded" />
+                    <span className="text-xs" style={{ color: artist.is_master ? '#111827' : '#9CA3AF' }}>名家</span>
+                  </label>
                   {/* 首页展示开关 */}
                   <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
                     <input type="checkbox" checked={artist.show_on_homepage || false}
