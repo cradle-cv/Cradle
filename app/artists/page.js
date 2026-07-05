@@ -14,6 +14,18 @@ async function getArtists() {
   return artists || []
 }
 
+// 艺术家专栏:关联了艺术家的杂志(总编辑撰写的图文专栏)
+async function getColumns() {
+  const { data } = await supabase
+    .from('magazines')
+    .select('id, title, subtitle, cover_image, column_quote, created_at, artists:featured_artist_id(id, display_name)')
+    .not('featured_artist_id', 'is', null)
+    .in('status', ['published', 'featured'])
+    .order('created_at', { ascending: false })
+    .limit(6)
+  return data || []
+}
+
 // ═══ SVG 图标组件 ═══
 const IconUser = ({ size = 48, stroke = 1.5, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
@@ -39,6 +51,7 @@ const IconHeart = ({ size = 14, stroke = 1.3, className = '' }) => (
 
 export default async function ArtistsPage() {
   const artists = await getArtists()
+  const columns = await getColumns()
 
   const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
 
@@ -98,6 +111,111 @@ export default async function ArtistsPage() {
           <div style={{ borderTop: '0.5px solid #111827', borderBottom: '3px double #111827', height: '6px' }}></div>
         </div>
       </section>
+
+      {/* 艺术家专栏(总编辑撰写的图文专栏,报纸头版栏目风格) */}
+      {columns.length > 0 && (
+        <section className="px-6 pt-6 pb-2">
+          <div className="max-w-6xl mx-auto">
+            {/* 栏目题签 */}
+            <div className="flex items-center gap-4 mb-6">
+              <div style={{ flex: 1, borderTop: '0.5px solid #D1D5DB' }}></div>
+              <div className="text-center">
+                <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', margin: 0 }}>THE COLUMN</p>
+                <p style={{ fontSize: '15px', letterSpacing: '6px', color: '#111827', marginTop: '2px', fontWeight: 600 }}>艺 术 家 专 栏</p>
+              </div>
+              <div style={{ flex: 1, borderTop: '0.5px solid #D1D5DB' }}></div>
+            </div>
+
+            {/* ── 头条:引语式大排版(白纸版) ── */}
+            {(() => {
+              const lead = columns[0]
+              const quote = lead.column_quote || lead.subtitle || lead.title
+              const rest = columns.slice(1, 4)
+              return (
+                <>
+                  <a href={`/magazine/view/${lead.id}`} className="group block">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr,300px] gap-8 md:gap-12 items-center py-6 md:py-10">
+                      {/* 左:大引语 */}
+                      <div className="relative">
+                        <span aria-hidden="true" style={{
+                          position: 'absolute', top: '-28px', left: '-8px',
+                          fontFamily: serif, fontSize: '110px', lineHeight: 1,
+                          color: '#E5E7EB', userSelect: 'none',
+                        }}>“</span>
+                        <blockquote style={{
+                          position: 'relative', margin: 0,
+                          fontSize: 'clamp(22px, 3.2vw, 34px)',
+                          lineHeight: 1.6, color: '#111827', fontWeight: 500,
+                        }}>
+                          {quote}
+                        </blockquote>
+                        <div className="mt-5 flex items-center gap-3">
+                          {lead.artists?.display_name && (
+                            <span style={{ fontSize: '12px', letterSpacing: '3px', color: '#B45309' }}>
+                              关于 {lead.artists.display_name}
+                            </span>
+                          )}
+                          <span style={{ color: '#D1D5DB' }}>·</span>
+                          <span className="group-hover:underline" style={{ fontSize: '13px', color: '#6B7280', textUnderlineOffset: '4px' }}>
+                            {lead.title} →
+                          </span>
+                        </div>
+                      </div>
+                      {/* 右:小幅封面 */}
+                      <div className="overflow-hidden rounded-lg order-first md:order-none" style={{ aspectRatio: '4 / 3', backgroundColor: '#F3F4F6' }}>
+                        {lead.cover_image ? (
+                          <img loading="lazy" src={lead.cover_image} alt={lead.title}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '32px' }}>✦</div>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+
+                  {/* ── 次条:卡片列 ── */}
+                  {rest.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
+                      {rest.map((col) => (
+                        <a key={col.id} href={`/magazine/view/${col.id}`} className="group block">
+                          <div className="overflow-hidden rounded-lg" style={{ aspectRatio: '16 / 10', backgroundColor: '#F3F4F6' }}>
+                            {col.cover_image ? (
+                              <img loading="lazy" src={col.cover_image} alt={col.title}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center" style={{ color: '#D1D5DB', fontSize: '32px' }}>✦</div>
+                            )}
+                          </div>
+                          <div className="pt-3">
+                            {col.artists?.display_name && (
+                              <p style={{ fontSize: '11px', letterSpacing: '2px', color: '#B45309', marginBottom: '4px' }}>
+                                关于 {col.artists.display_name}
+                              </p>
+                            )}
+                            <h3 className="text-base md:text-lg font-bold leading-snug group-hover:underline"
+                              style={{ color: '#111827', textUnderlineOffset: '4px' }}>
+                              {col.title}
+                            </h3>
+                            {col.subtitle && (
+                              <p className="text-sm mt-1" style={{ color: '#6B7280' }}>{col.subtitle}</p>
+                            )}
+                            <p className="text-xs mt-2 inline-flex items-center gap-1" style={{ color: '#9CA3AF' }}>
+                              阅读专栏 <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                            </p>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+
+            {/* 底部细线,和下方名录分隔 */}
+            <div style={{ borderBottom: '0.5px solid #E5E7EB', marginTop: '28px' }}></div>
+          </div>
+        </section>
+      )}
 
       {/* 艺术家列表 */}
       <section className="px-6 py-8">
