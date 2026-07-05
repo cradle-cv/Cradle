@@ -21,7 +21,8 @@ function isImageLine(line) {
 }
 
 export default async function ColumnPostPage({ params }) {
-  const post = await getPost(params.id)
+  const { id } = await params
+  const post = await getPost(id)
   if (!post || post.status !== 'published') notFound()
 
   const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
