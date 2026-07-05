@@ -5,7 +5,7 @@ import { uploadImage } from '@/lib/upload'
 
 // 图文专栏管理:列表 + 行内编辑器
 // 正文格式约定:一行一段;单独占一行的图片URL(cdn.cradle.art或常见图片后缀)会渲染成插图
-const EMPTY = { id: null, title: '', subtitle: '', cover_image: '', column_quote: '', featured_artist_id: '', column_artist_name: '', content: '', status: 'draft' }
+const EMPTY = { id: null, title: '', subtitle: '', cover_image: '', column_quote: '', featured_artist_id: '', column_artist_name: '', content: '', status: 'draft', column_pinned: false }
 
 export default function AdminColumnsPage() {
   const [posts, setPosts] = useState([])
@@ -47,6 +47,7 @@ export default function AdminColumnsPage() {
         featured_artist_id: form.featured_artist_id || null,
         column_artist_name: form.column_artist_name?.trim() || null,
         content: form.content || '',
+        column_pinned: !!form.column_pinned,
         status,
         published_at: status === 'published' ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
@@ -149,6 +150,13 @@ export default function AdminColumnsPage() {
                 className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: '#E5E7EB' }} />
             </div>
             <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: form.column_pinned ? '#B45309' : '#9CA3AF' }}>
+                <input type="checkbox" checked={!!form.column_pinned}
+                  onChange={e => setForm(f => ({ ...f, column_pinned: e.target.checked }))} className="w-3.5 h-3.5" />
+                📌 置顶头条(钉在艺术家页专栏带的头条位)
+              </label>
+            </div>
+            <div className="md:col-span-2">
               <label className="block text-xs mb-1" style={{ color: '#92400E' }}>封面图</label>
               <div className="flex items-center gap-3">
                 {form.cover_image ? (
@@ -228,6 +236,7 @@ export default function AdminColumnsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-medium text-sm truncate" style={{ color: '#111827' }}>{p.title}</p>
                   {statusBadge(p.status)}
+                  {p.column_pinned && <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>📌 头条</span>}
                 </div>
                 <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>
                   {(p.artists?.display_name || p.column_artist_name) ? `关于 ${p.artists?.display_name || p.column_artist_name} · ` : ''}
