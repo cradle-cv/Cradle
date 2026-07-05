@@ -19,14 +19,14 @@ async function getColumns() {
   const [{ data: mags }, { data: posts }] = await Promise.all([
     supabase
       .from('magazines')
-      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name)')
       .or('featured_artist_id.not.is.null,column_artist_name.not.is.null')
       .in('status', ['published', 'featured'])
       .order('created_at', { ascending: false })
       .limit(6),
     supabase
       .from('column_posts')
-      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
+      .select('id, title, subtitle, cover_image, column_quote, column_artist_name, column_pinned, created_at, artists:featured_artist_id(id, display_name)')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .limit(6),
@@ -39,10 +39,11 @@ async function getColumns() {
     cover_image: r.cover_image,
     column_quote: r.column_quote,
     artistName: r.artists?.display_name || r.column_artist_name || '',
+    pinned: !!r.column_pinned,
     created_at: r.created_at,
   }))
   return [...unify(mags, '/magazine/view'), ...unify(posts, '/columns')]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)))
     .slice(0, 6)
 }
 
@@ -231,8 +232,13 @@ export default async function ArtistsPage() {
               )
             })()}
 
-            {/* 底部细线,和下方名录分隔 */}
-            <div style={{ borderBottom: '0.5px solid #E5E7EB', marginTop: '28px' }}></div>
+            {/* 查看全部 + 底部细线 */}
+            <div className="text-center" style={{ marginTop: '24px' }}>
+              <a href="/columns" className="text-sm hover:underline" style={{ color: '#6B7280', textUnderlineOffset: '4px', letterSpacing: '1px' }}>
+                查看全部专栏 →
+              </a>
+            </div>
+            <div style={{ borderBottom: '0.5px solid #E5E7EB', marginTop: '20px' }}></div>
           </div>
         </section>
       )}
