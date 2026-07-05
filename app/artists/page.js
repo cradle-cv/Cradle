@@ -14,12 +14,12 @@ async function getArtists() {
   return artists || []
 }
 
-// 艺术家专栏:关联了艺术家的杂志(总编辑撰写的图文专栏)
+// 艺术家专栏:关联了艺术家(平台艺术家或自由填写的大师名)的杂志
 async function getColumns() {
   const { data } = await supabase
     .from('magazines')
-    .select('id, title, subtitle, cover_image, column_quote, created_at, artists:featured_artist_id(id, display_name)')
-    .not('featured_artist_id', 'is', null)
+    .select('id, title, subtitle, cover_image, column_quote, column_artist_name, created_at, artists:featured_artist_id(id, display_name)')
+    .or('featured_artist_id.not.is.null,column_artist_name.not.is.null')
     .in('status', ['published', 'featured'])
     .order('created_at', { ascending: false })
     .limit(6)
@@ -150,9 +150,9 @@ export default async function ArtistsPage() {
                           {quote}
                         </blockquote>
                         <div className="mt-5 flex items-center gap-3">
-                          {lead.artists?.display_name && (
+                          {(lead.artists?.display_name || lead.column_artist_name) && (
                             <span style={{ fontSize: '12px', letterSpacing: '3px', color: '#B45309' }}>
-                              关于 {lead.artists.display_name}
+                              关于 {lead.artists?.display_name || lead.column_artist_name}
                             </span>
                           )}
                           <span style={{ color: '#D1D5DB' }}>·</span>
@@ -187,9 +187,9 @@ export default async function ArtistsPage() {
                             )}
                           </div>
                           <div className="pt-3">
-                            {col.artists?.display_name && (
+                            {(col.artists?.display_name || col.column_artist_name) && (
                               <p style={{ fontSize: '11px', letterSpacing: '2px', color: '#B45309', marginBottom: '4px' }}>
-                                关于 {col.artists.display_name}
+                                关于 {col.artists?.display_name || col.column_artist_name}
                               </p>
                             )}
                             <h3 className="text-base md:text-lg font-bold leading-snug group-hover:underline"
