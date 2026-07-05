@@ -9,8 +9,61 @@ export default function AdminMagazinesPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [creating, setCreating] = useState(false)
+  // ── 艺术家专栏设置 ──
+  const [artistOptions, setArtistOptions] = useState([])
+  const [columnEditId, setColumnEditId] = useState(null)   // 正在展开设置专栏的杂志id
+  const [colForm, setColForm] = useState({ featured_artist_id: '', column_artist_name: '', column_quote: '' })
+  const [colSaving, setColSaving] = useState(false)
 
-  useEffect(() => { loadMagazines() }, [])
+  useEffect(() => { loadMagazines(); loadArtistOptions() }, [])
+
+  async function loadArtistOptions() {
+    const { data } = await supabase.from('artists').select('id, display_name').order('display_name')
+    setArtistOptions(data || [])
+  }
+
+  async function openColumnEdit(magId) {
+    if (columnEditId === magId) { setColumnEditId(null); return }
+    // 直接查这本杂志的专栏字段(不依赖列表API是否带出新列)
+    const { data } = await supabase.from('magazines')
+      .select('featured_artist_id, column_artist_name, column_quote')
+      .eq('id', magId).single()
+    setColForm({
+      featured_artist_id: data?.featured_artist_id || '',
+      column_artist_name: data?.column_artist_name || '',
+      column_quote: data?.column_quote || '',
+    })
+    setColumnEditId(magId)
+  }
+
+  async function saveColumn(magId) {
+    setColSaving(true)
+    try {
+      const { error } = await supabase.from('magazines').update({
+        featured_artist_id: colForm.featured_artist_id || null,
+        column_artist_name: colForm.column_artist_name.trim() || null,
+        column_quote: colForm.column_quote.trim() || null,
+      }).eq('id', magId)
+      if (error) throw error
+      setColumnEditId(null)
+      loadMagazines()
+    } catch (err) { alert('保存失败: ' + err.message) }
+    finally { setColSaving(false) }
+  }
+
+  async function clearColumn(magId) {
+    if (!confirm('取消这本杂志的专栏身份？(不影响杂志本身)')) return
+    setColSaving(true)
+    try {
+      const { error } = await supabase.from('magazines').update({
+        featured_artist_id: null, column_artist_name: null, column_quote: null,
+      }).eq('id', magId)
+      if (error) throw error
+      setColumnEditId(null)
+      loadMagazines()
+    } catch (err) { alert('操作失败: ' + err.message) }
+    finally { setColSaving(false) }
+  }
 
   async function loadMagazines() {
     const resp = await fetch('/api/magazine?status=all')
@@ -211,6 +264,7 @@ export default function AdminMagazinesPage() {
                 const sc = statusColors[m.status] || statusColors.draft
                 const tc = tierConfig[m.tier] || tierConfig.daily
                 return (
+                  <>
                   <tr key={m.id} className="border-t hover:bg-gray-50" style={{ borderColor: '#F3F4F6' }}>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -222,6 +276,11 @@ export default function AdminMagazinesPage() {
                         <div>
                           <p className="font-medium text-sm" style={{ color: '#111827' }}>{m.title}</p>
                           {m.subtitle && <p className="text-xs" style={{ color: '#9CA3AF' }}>{m.subtitle}</p>}
+                          {(m.featured_artist_id || m.column_artist_name) && (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                              ✦ 艺术家专栏{m.column_artist_name ? ` · ${m.column_artist_name}` : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -245,12 +304,62 @@ export default function AdminMagazinesPage() {
                           <input type="checkbox" checked={m.is_featured || false} onChange={() => toggleFeatured(m.id, m.is_featured)} className="w-3 h-3" />
                           精选
                         </label>
+                        <button onClick={() => openColumnEdit(m.id)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-amber-50" style={{ color: '#B45309', borderColor: '#FCD34D' }}>专栏</button>
                         <Link href={`/admin/magazine/${m.id}`} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-gray-50" style={{ color: '#374151', borderColor: '#D1D5DB' }}>编辑</Link>
                         <button onClick={() => copyMagazine(m)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-blue-50" style={{ color: '#2563EB', borderColor: '#93C5FD' }}>复制</button>
                         <button onClick={() => deleteMagazine(m.id)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-red-50" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>删除</button>
                       </div>
                     </td>
                   </tr>
+                  {columnEditId === m.id && (
+                    <tr key={`${m.id}-column`} style={{ backgroundColor: '#FFFBEB' }}>
+                      <td colSpan={6} className="px-5 py-4">
+                        <div className="flex flex-wrap items-end gap-4">
+                          <div>
+                            <label className="block text-xs mb-1" style={{ color: '#92400E' }}>关联平台艺术家</label>
+                            <select value={colForm.featured_artist_id}
+                              onChange={e => setColForm(f => ({ ...f, featured_artist_id: e.target.value }))}
+                              className="text-sm px-2 py-1.5 rounded border" style={{ borderColor: '#FCD34D', minWidth: '180px' }}>
+                              <option value="">(不关联)</option>
+                              {artistOptions.map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs mb-1" style={{ color: '#92400E' }}>或 大师名(库外艺术家,自由填写)</label>
+                            <input type="text" value={colForm.column_artist_name}
+                              onChange={e => setColForm(f => ({ ...f, column_artist_name: e.target.value }))}
+                              placeholder="如: Kim Dorland"
+                              className="text-sm px-2 py-1.5 rounded border" style={{ borderColor: '#FCD34D', minWidth: '200px' }} />
+                          </div>
+                          <div className="flex-1" style={{ minWidth: '260px' }}>
+                            <label className="block text-xs mb-1" style={{ color: '#92400E' }}>头条引语(专栏带大字,留空则用副标题)</label>
+                            <input type="text" value={colForm.column_quote}
+                              onChange={e => setColForm(f => ({ ...f, column_quote: e.target.value }))}
+                              placeholder="从专栏里挑一句最有分量的话"
+                              className="w-full text-sm px-2 py-1.5 rounded border" style={{ borderColor: '#FCD34D' }} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => saveColumn(m.id)} disabled={colSaving}
+                              className="px-4 py-1.5 text-xs rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: '#B45309' }}>
+                              {colSaving ? '保存中…' : '保存'}
+                            </button>
+                            <button onClick={() => clearColumn(m.id)} disabled={colSaving}
+                              className="px-3 py-1.5 text-xs rounded-lg border" style={{ color: '#DC2626', borderColor: '#FCA5A5' }}>
+                              取消专栏
+                            </button>
+                            <button onClick={() => setColumnEditId(null)}
+                              className="px-3 py-1.5 text-xs rounded-lg border" style={{ color: '#6B7280', borderColor: '#D1D5DB' }}>
+                              收起
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs mt-2" style={{ color: '#B45309', opacity: 0.8 }}>
+                          关联平台艺术家 或 填写大师名，其一即可让这本杂志出现在「艺术家页 · 艺术家专栏」；两者都填时优先显示平台艺术家名。
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 )
               })}
             </tbody>
