@@ -11,12 +11,10 @@ async function getArtists() {
     .from('artists')
     .select('*, users:owner_user_id(id, username, avatar_url)')
 
-  // 排序:未认证的知名艺术家(verified_at为空,后台引入的大师)在前,
-  // 认证艺术家(verified_at有值,后加入的平台创作者)在后;
-  // 组内按 display_order 升序,再按加入时间倒序
+  // 排序:名家(is_master)在前,其余在后;组内按 display_order 升序,再按加入时间倒序
   return (artists || []).sort((a, b) => {
-    const av = a.verified_at ? 1 : 0
-    const bv = b.verified_at ? 1 : 0
+    const av = a.is_master ? 0 : 1
+    const bv = b.is_master ? 0 : 1
     if (av !== bv) return av - bv
     const ao = a.display_order ?? 0
     const bo = b.display_order ?? 0
@@ -201,8 +199,8 @@ export default async function ArtistsPage() {
                     {artist.display_name}
                   </h3>
 
-                  {/* 认证标签 */}
-                  {artist.verified_at && (
+                  {/* 认证标签(名家仅作内部排序标记,前台不显示) */}
+                  {!artist.is_master && artist.verified_at && (
                     <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full mb-2">
                       ✓ 认证艺术家
                     </span>
