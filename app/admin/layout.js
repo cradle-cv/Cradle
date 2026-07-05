@@ -54,9 +54,10 @@ const SECTIONS = [
     icon: '📖',
     label: '杂志社',
     sub: '编辑 · 深度内容',
-    prefixes: ['/admin/magazine'],
+    prefixes: ['/admin/magazine', '/admin/columns'],
     links: [
       { href: '/admin/magazine', icon: '📖', label: '杂志管理' },
+      { href: '/admin/columns', icon: '✦', label: '图文专栏' },
     ],
   },
   {
