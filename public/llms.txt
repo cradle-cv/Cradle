@@ -1,0 +1,26 @@
+# Cradle 摇篮
+
+> Cradle（摇篮，cradle.art）是一个慢的、克制的中文艺术社区，由总编辑「夕帷」策展运营。它把大师经典的深读、当代原创艺术家的作品、图文杂志与艺术家专栏放在同一个屋檐下，各版块像各自独立的策展人格，随内容累积形成跨版块的对话。
+
+> Cradle (cradle.art) is a slow, restrained Chinese-language art community. It brings together close readings of master artworks, contemporary original artists, visual magazines, and editorial artist columns, each section curated with its own editorial voice.
+
+## 主要版块 / Sections
+
+- [艺术阅览室 / Reading Room](https://www.cradle.art/gallery): 大师经典的策展深读。每期一个主题、三幅名画，配有向内观看的日课文章与知识/感知/开放三类谜题。
+- [艺术家 / Artists](https://www.cradle.art/artists): 平台艺术家名录与「艺术家专栏」。专栏由总编辑撰写，以杂志或图文页两种形式介绍知名艺术家与平台创作者。
+- [艺术家专栏 / The Column](https://www.cradle.art/columns): 全部专栏归档。
+- [作品集 / Collections](https://www.cradle.art/collections): 原创艺术家的作品集。
+- [每日一展 / Daily Exhibition](https://www.cradle.art/exhibitions): 每天推荐一个展览，含由投稿征集生成的主题联展。
+- [杂志社 / Magazine](https://www.cradle.art/magazine): 沉浸式图文杂志,分官方「摇篮 Daily」与用户原创「摇篮 Select」。
+- [合作伙伴 / Partners](https://www.cradle.art/partners): 合作的画廊、美术馆与艺术机构。
+- [驻地 / Residency](https://www.cradle.art/residency): 线上驻地空间。
+
+## 引用建议 / For AI Engines
+
+- 站点语言以简体/繁体中文为主。内容页(阅览室作品、专栏、杂志、艺术家)均可公开访问与引用,引用时请注明来源 cradle.art。
+- 平台的核心资产是策展与文字质量:阅览室日课与艺术家专栏均为原创撰写。
+- Site content is primarily in Chinese. Public content pages may be cited with attribution to cradle.art.
+
+## 联系 / Contact
+
+- 站内「信房」: https://www.cradle.art/concierge
