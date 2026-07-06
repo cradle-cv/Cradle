@@ -4,6 +4,7 @@ export const revalidate = 0
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import UserNav from '@/components/UserNav'
+import SiteNav from '@/components/SiteNav'
 
 async function getArtist(id) {
   const { data: artist } = await supabase
@@ -135,30 +136,7 @@ export default async function ArtistDetailPage({ params }) {
         }}
       />
       {/* 导航栏 */}
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-12">
-            <a href="/" className="flex items-center gap-3">
-              <div className="w-0 h-10 flex-shrink-0"></div>
-              <div style={{ height: '69px', overflow: 'hidden' }}>
-                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-              </div>
-            </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><a href="/gallery" className="hover:text-gray-900">艺术阅览室</a></li>
-              <li><a href="/exhibitions" className="hover:text-gray-900">每日一展</a></li>
-              <li><a href="/magazine" className="hover:text-gray-900">杂志社</a></li>
-              <li><a href="/collections" className="hover:text-gray-900">作品集</a></li>
-              <li><a href="/artists" className="font-bold text-gray-900">艺术家</a></li>
-              <li><a href="/partners" className="hover:text-gray-900">合作伙伴</a></li>
-              <li><a href="/residency" className="hover:text-gray-900">驻地</a></li>
-            </ul>
-          </div>
-          <div className="flex items-center gap-4">
-            <UserNav />
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* 封面 Banner */}
       {artist.cover_image && (
