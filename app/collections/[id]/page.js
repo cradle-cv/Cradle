@@ -50,6 +50,30 @@ async function getCollection(id) {
   }
 }
 
+// 页面级 SEO
+export async function generateMetadata({ params }) {
+  const { id } = await params
+  const { data: c } = await supabase
+    .from('collections')
+    .select('title, title_en, description, cover_image, artists(display_name)')
+    .eq('id', id)
+    .maybeSingle()
+  if (!c) return { title: '作品集' }
+  const artist = c.artists?.display_name || ''
+  const desc = (c.description || '').slice(0, 140) || `${artist ? artist + ' 的' : ''}作品集《${c.title}》,收录于 Cradle 摇篮。`
+  return {
+    title: `${c.title}${artist ? ` · ${artist}` : ''}`,
+    description: desc,
+    alternates: { canonical: `/collections/${id}` },
+    openGraph: {
+      title: `${c.title} · Cradle 摇篮`,
+      description: desc,
+      url: `https://www.cradle.art/collections/${id}`,
+      images: c.cover_image ? [{ url: c.cover_image }] : undefined,
+    },
+  }
+}
+
 export default async function CollectionDetailPage({ params }) {
   const { id } = await params
   const data = await getCollection(id)
