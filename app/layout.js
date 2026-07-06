@@ -14,8 +14,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 export const metadata = {
-  title: "Cradle 摇篮",
-  description: "一个慢的、克制的艺术社区。",
+  metadataBase: new URL("https://www.cradle.art"),
+  title: {
+    default: "Cradle 摇篮 · 慢的、克制的艺术社区",
+    template: "%s · Cradle 摇篮",
+  },
+  description: "Cradle 摇篮是一个慢的、克制的艺术社区：艺术阅览室带你读懂大师经典，每日一展呈现当代创作，杂志社与艺术家专栏深入创作者的世界，汇聚原创艺术家的作品集与展览。",
+  keywords: ["艺术社区", "艺术阅览室", "艺术家", "当代艺术", "艺术展览", "艺术杂志", "原创艺术", "Cradle", "摇篮"],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "https://www.cradle.art",
+    siteName: "Cradle 摇篮",
+    title: "Cradle 摇篮 · 慢的、克制的艺术社区",
+    description: "艺术阅览室 · 每日一展 · 杂志社 · 艺术家专栏。一个慢的、克制的艺术社区。",
+    locale: "zh_CN",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Cradle 摇篮" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Cradle 摇篮 · 慢的、克制的艺术社区",
+    description: "艺术阅览室 · 每日一展 · 杂志社 · 艺术家专栏。",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -43,6 +63,34 @@ export default function RootLayout({ children }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var l=localStorage.getItem('cradle_lang');if(!l){var n=(navigator.language||'').toLowerCase();l=(n.indexOf('tw')>-1||n.indexOf('hk')>-1||n.indexOf('hant')>-1)?'t':'s';}document.documentElement.lang=l==='t'?'zh-Hant':'zh-Hans';document.documentElement.setAttribute('data-lang',l);}catch(e){}})();`,
+          }}
+        />
+        {/* ★ 结构化数据(SEO/GEO):告诉搜索引擎与AI引擎这是什么站点 */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": "https://www.cradle.art/#organization",
+                  name: "Cradle 摇篮",
+                  alternateName: "Cradle",
+                  url: "https://www.cradle.art",
+                  logo: "https://www.cradle.art/icons/icon-512.png",
+                  description: "一个慢的、克制的艺术社区，汇聚艺术阅览室、每日一展、杂志社、艺术家专栏与原创艺术家的作品。",
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": "https://www.cradle.art/#website",
+                  name: "Cradle 摇篮",
+                  url: "https://www.cradle.art",
+                  inLanguage: "zh",
+                  publisher: { "@id": "https://www.cradle.art/#organization" },
+                },
+              ],
+            }),
           }}
         />
         <link
