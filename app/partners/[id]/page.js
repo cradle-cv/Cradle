@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import UserNav from '@/components/UserNav'
 import PartnerDetailClient from '@/components/PartnerDetailClient'
 import PartnerHostedExhibitions from '@/components/PartnerHostedExhibitions'
+import SiteNav from '@/components/SiteNav'
 
 async function getPartner(id) {
   const { data: partner } = await supabase
@@ -51,26 +52,7 @@ export default async function PartnerDetailPage({ params }) {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", serif' }}>
-      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-12">
-            <a href="/" className="flex items-center gap-3">
-              <div style={{ height: '69px', overflow: 'hidden' }}>
-                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
-              </div>
-            </a>
-            <ul className="hidden md:flex gap-8 text-sm text-gray-700">
-              <li><Link href="/gallery" className="hover:text-gray-900">艺术阅览室</Link></li>
-              <li><Link href="/exhibitions" className="hover:text-gray-900">每日一展</Link></li>
-              <li><Link href="/magazine" className="hover:text-gray-900">杂志社</Link></li>
-              <li><Link href="/collections" className="hover:text-gray-900">作品集</Link></li>
-              <li><Link href="/artists" className="hover:text-gray-900">艺术家</Link></li>
-              <li><Link href="/partners" className="font-bold text-gray-900">合作伙伴</Link></li>
-            </ul>
-          </div>
-          <UserNav />
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* 封面 */}
       <section className="relative">
