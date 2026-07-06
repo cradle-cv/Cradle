@@ -84,6 +84,30 @@ function getExhibitionStatusLabel(status) {
   return { text: status, bg: '#F3F4F6', color: '#6B7280' }
 }
 
+// 页面级 SEO
+export async function generateMetadata({ params }) {
+  const { id } = await params
+  const { data: a } = await supabase
+    .from('artists')
+    .select('display_name, specialty, intro, avatar_url')
+    .eq('id', id)
+    .maybeSingle()
+  if (!a) return { title: '艺术家' }
+  const desc = (a.intro || '').slice(0, 140) || `${a.display_name}${a.specialty ? ` · ${a.specialty}` : ''},Cradle 摇篮艺术家。`
+  return {
+    title: a.display_name,
+    description: desc,
+    alternates: { canonical: `/artists/${id}` },
+    openGraph: {
+      type: 'profile',
+      title: `${a.display_name} · Cradle 摇篮`,
+      description: desc,
+      url: `https://www.cradle.art/artists/${id}`,
+      images: a.avatar_url ? [{ url: a.avatar_url }] : undefined,
+    },
+  }
+}
+
 export default async function ArtistDetailPage({ params }) {
   const { id } = await params
   const data = await getArtist(id)
@@ -94,6 +118,22 @@ export default async function ArtistDetailPage({ params }) {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+      {/* 结构化数据:Person(SEO/GEO) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Person',
+            name: artist.display_name,
+            description: artist.intro || undefined,
+            image: artist.avatar_url || artist.users?.avatar_url || undefined,
+            jobTitle: artist.specialty || '艺术家',
+            url: `https://www.cradle.art/artists/${artist.id}`,
+            memberOf: { '@type': 'Organization', name: 'Cradle 摇篮', url: 'https://www.cradle.art' },
+          }),
+        }}
+      />
       {/* 导航栏 */}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
