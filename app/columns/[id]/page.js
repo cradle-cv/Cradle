@@ -20,6 +20,28 @@ function isImageLine(line) {
   return /\.(png|jpe?g|webp|gif|avif)(\?\S*)?$/i.test(line) || line.includes('cdn.cradle.art')
 }
 
+// 文章级 SEO:标题/描述/OG
+export async function generateMetadata({ params }) {
+  const { id } = await params
+  const post = await getPost(id)
+  if (!post || post.status !== 'published') return { title: '专栏' }
+  const artistName = post.artists?.display_name || post.column_artist_name || ''
+  const desc = (post.column_quote || post.subtitle || '').slice(0, 120) ||
+    `Cradle 摇篮艺术家专栏${artistName ? `,关于 ${artistName}` : ''}。`
+  return {
+    title: post.title,
+    description: desc,
+    alternates: { canonical: `/columns/${id}` },
+    openGraph: {
+      type: 'article',
+      title: `${post.title} · Cradle 摇篮`,
+      description: desc,
+      url: `https://www.cradle.art/columns/${id}`,
+      images: post.cover_image ? [{ url: post.cover_image }] : undefined,
+    },
+  }
+}
+
 export default async function ColumnPostPage({ params }) {
   const { id } = await params
   const post = await getPost(id)
@@ -36,6 +58,25 @@ export default async function ColumnPostPage({ params }) {
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <SiteNav />
 
+      {/* 结构化数据:Article(SEO/GEO) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Article',
+            headline: post.title,
+            description: post.column_quote || post.subtitle || undefined,
+            image: post.cover_image || undefined,
+            datePublished: post.published_at || undefined,
+            inLanguage: 'zh',
+            about: artistName ? { '@type': 'Person', name: artistName } : undefined,
+            author: { '@type': 'Organization', name: 'Cradle 摇篮', url: 'https://www.cradle.art' },
+            publisher: { '@type': 'Organization', name: 'Cradle 摇篮', url: 'https://www.cradle.art' },
+            mainEntityOfPage: `https://www.cradle.art/columns/${post.id}`,
+          }),
+        }}
+      />
       <article className="px-6 py-10">
         <div className="mx-auto" style={{ maxWidth: '720px' }}>
           {/* 题签 */}
