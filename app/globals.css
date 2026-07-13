@@ -1,37 +1,684 @@
-@import "tailwindcss";
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 海角 Cove · 全局设计 token 与基础样式
+   调性：海港文艺。基调为海——低饱和淡蓝纸底（与摇篮暖纸同饱和度，
+   相位从黄移到蓝），深海蓝刊头带 + 海玻璃绿 + 赭石印章（红章在蓝底上更亮）。 */
+
+/* 马善政毛笔楷（手写点睛体）：只用于 logo 与每期大标题，不用于正文。
+   从 Google Fonts 引入，含完整简中，遇生僻字不掉字。 */
+@import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
+
+:root{
+  --paper:#E1EAF0;          /* 淡蓝纸底：晨雾里的海 */
+  --paper-deep:#D3E0E9;     /* 略深一档，用于卡片/表单底 */
+  --ink:#1A2229;            /* 蓝黑墨色 */
+  --ink-soft:#54636E;       /* 雾灰蓝 */
+  --band:#173A47; --band-deep:#0E2A34; --seaglass:#5D9A8F;
+  --amber:#CE8B4C; --gold:#B39A66; --seal:#A6503A;
+  --envelope:#EDE4D2;      /* 牛皮信封米色 */
+  --hair:rgba(26,34,41,.2);
+  --font-serif:"Noto Serif SC",serif;
+  --font-display:"Cormorant Garamond",serif;
+  --font-utility:"Jost",sans-serif;
+  --font-hand:"Ma Shan Zheng",cursive;
 }
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-serif);color:var(--ink);background:var(--paper);
+  -webkit-font-smoothing:antialiased}
+
+/* ---------- 纸纹海雾背景 ---------- */
+.cove-bg{position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(140% 80% at 50% 8%,rgba(93,154,143,.14),transparent 55%),
+    radial-gradient(120% 70% at 50% 112%,rgba(23,58,71,.16),transparent 62%),
+    radial-gradient(60% 30% at 50% 100%,rgba(206,139,76,.08),transparent 70%),
+    var(--paper)}
+.cove-bg::after{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:radial-gradient(rgba(26,34,41,.05) 1px,transparent 1px);
+  background-size:4px 4px;mix-blend-mode:multiply}
+
+/* ---------- 刊头带（全站共用） ---------- */
+.band{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--band);
+  color:#F6EFE0;padding:14px clamp(20px,4vw,46px);display:flex;align-items:center;
+  justify-content:space-between;overflow:hidden}
+.band .band-avatar{display:flex;align-items:center;text-decoration:none;flex:0 0 auto}
+.band .band-avatar .avatar-dot{width:34px;height:34px;border-radius:50%;
+  border:1.5px solid rgba(246,239,224,.55);background:rgba(246,239,224,.08);
+  display:block;transition:border-color .2s,background .2s}
+.band .band-avatar:hover .avatar-dot{border-color:#F6EFE0;background:rgba(246,239,224,.16)}
+.band .band-nav{display:flex;gap:clamp(16px,2.4vw,32px);align-items:center;flex:1 1 auto;
+  justify-content:center;padding:0 clamp(16px,3vw,44px)}
+.band .band-nav a{color:rgba(246,239,224,.82);text-decoration:none;font-size:14px;letter-spacing:.14em;white-space:nowrap;transition:color .2s}
+.band .band-nav a:hover{color:#F6EFE0}
+.band .brand-right{display:flex;align-items:center;gap:13px;text-decoration:none;color:inherit;flex:0 0 auto}
+.band .brand-right .brand-mark{height:52px;width:auto;display:block}
+.band .brand-right .brand-cove{width:95px;height:29px;display:block}
+.band .eyebrow{font-weight:500;font-size:13px;letter-spacing:.42em;color:rgba(246,239,224,.82)}
+.band .logo{display:flex;flex-direction:column;align-items:center;gap:5px;
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-decoration:none;color:inherit}
+.band .logo .main{font-family:var(--font-display);font-weight:600;font-size:28px;
+  letter-spacing:.04em;line-height:1;display:flex;align-items:baseline;gap:8px}
+.band .logo .main .cn{font-family:var(--font-serif);font-weight:600;letter-spacing:.1em}
+.band .logo .sub{font-family:var(--font-utility);font-size:10px;letter-spacing:.5em;
+  background:var(--seaglass);color:var(--band-deep);padding:2px 12px;border-radius:2px;font-weight:500}
+.band .corner{position:absolute;top:0;right:0;height:100%;aspect-ratio:1.55;
+  background:var(--band-deep);border-bottom-left-radius:100% 220%;overflow:hidden;
+  display:flex;align-items:center;justify-content:flex-end;padding-right:clamp(16px,2.4vw,30px)}
+.band .corner .num{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(30px,4vw,44px);color:rgba(246,239,224,.9);line-height:1}
+
+/* ---------- 主导航（刊头下方细带） ---------- */
+.cove-nav{position:fixed;top:66px;left:0;right:0;z-index:19;
+  display:flex;justify-content:center;gap:clamp(14px,3vw,34px);
+  padding:10px 16px;background:linear-gradient(180deg,var(--paper) 65%,rgba(225,234,240,0));
+  font-size:13px;letter-spacing:.18em}
+.cove-nav a{color:var(--ink-soft);text-decoration:none;padding:2px 0;
+  border-bottom:1px solid transparent;transition:all .25s}
+.cove-nav a:hover,.cove-nav a.on{color:var(--ink);border-bottom-color:var(--seaglass)}
+
+/* ---------- 通用版心与报头 ---------- */
+.sheet{position:relative;z-index:2;max-width:1080px;margin:0 auto;
+  padding:150px clamp(20px,4vw,48px) 80px}
+.sheet-head{text-align:center;margin-bottom:clamp(28px,5vh,48px)}
+.sheet-head .no{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:13px;letter-spacing:.3em;color:var(--gold);text-transform:uppercase}
+.sheet-head .th{font-family:var(--font-hand);font-weight:400;font-size:clamp(30px,4.2vw,44px);letter-spacing:.14em;margin-top:8px}
+.sheet-head .sub{font-size:13px;color:var(--ink-soft);font-weight:300;margin-top:10px;line-height:1.9}
+.hairline{width:54px;height:0;border-top:1px solid var(--hair);margin:16px auto 0;position:relative}
+.hairline::after{content:"";position:absolute;left:50%;top:-2px;width:4px;height:4px;
+  border-radius:50%;background:var(--seaglass);transform:translateX(-50%)}
+
+/* ---------- 过刊架（音乐房列表） ---------- */
+.shelf{display:flex;flex-direction:column}
+.shelf a{display:flex;align-items:baseline;gap:clamp(14px,2.5vw,26px);
+  padding:clamp(16px,2.6vh,26px) 8px;border-top:1px solid var(--hair);
+  text-decoration:none;color:inherit;transition:background .3s}
+.shelf a:last-child{border-bottom:1px solid var(--hair)}
+.shelf a:hover{background:rgba(109,162,152,.06)}
+.shelf .no{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(22px,3vw,30px);color:var(--hair);min-width:64px}
+.shelf a:hover .no{color:var(--seaglass)}
+.shelf .th{font-weight:600;font-size:clamp(17px,2.2vw,21px);letter-spacing:.12em}
+.shelf .en{font-family:var(--font-display);font-style:italic;color:var(--ink-soft);
+  font-size:14px;margin-left:10px}
+.shelf .date{margin-left:auto;font-family:var(--font-utility);font-size:11px;
+  letter-spacing:.14em;color:var(--ink-soft)}
+.shelf .special{font-size:10px;letter-spacing:.2em;color:var(--seal);
+  border:1px solid var(--seal);border-radius:3px;padding:1px 7px;margin-left:10px}
+
+/* 打捞中留白 */
+.dredging{text-align:center;padding:60px 0 10px;font-size:13px;color:var(--ink-soft);
+  font-weight:300;letter-spacing:.2em}
+
+/* ---------- 印章 ---------- */
+.seal-mark{width:54px;height:54px;border:1.5px solid var(--seal);border-radius:7px;
+  display:grid;place-items:center;color:var(--seal);font-size:27px;font-weight:600;
+  transform:rotate(-6deg);background:rgba(166,80,58,.07)}
+
+/* ---------- 沉浸页（音乐房单期，自原型 v4 迁移） ---------- */
+.reel{position:relative;z-index:2;height:100vh;overflow-y:scroll;
+  scroll-snap-type:y mandatory;scroll-behavior:smooth;scrollbar-width:none}
+.reel::-webkit-scrollbar{display:none}
+.track-screen{height:100vh;scroll-snap-align:start;scroll-snap-stop:always;
+  display:flex;align-items:center;justify-content:center;
+  padding:120px clamp(20px,4vw,56px) 96px}
+.composition{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,auto) minmax(0,1fr);
+  align-items:center;gap:clamp(16px,3vw,48px);width:100%;max-width:1180px}
+.col-left{justify-self:end;display:flex;align-items:center;gap:22px;height:340px;max-height:60vh}
+.col-left .vline{width:1px;align-self:stretch;
+  background:linear-gradient(180deg,transparent,var(--hair) 18%,var(--hair) 82%,transparent)}
+.col-left .stack{display:flex;flex-direction:column;align-items:flex-end;gap:20px}
+.vtitle{writing-mode:vertical-rl;font-family:var(--font-hand);font-weight:400;font-size:clamp(30px,3.8vw,44px);
+  letter-spacing:.32em;color:var(--ink)}
+.col-left .meta{font-family:var(--font-utility);font-size:11px;letter-spacing:.24em;
+  color:var(--ink-soft);writing-mode:vertical-rl;text-transform:uppercase}
+.col-center{display:flex;flex-direction:column;align-items:center;gap:18px}
+.cover{position:relative;width:clamp(220px,26vw,300px);aspect-ratio:1;border-radius:20px;
+  overflow:hidden;box-shadow:0 26px 60px -20px rgba(23,58,71,.55),0 0 0 1px rgba(26,34,41,.07);
+  cursor:pointer}
+.cover .art{position:absolute;inset:0;background-size:cover;background-position:center}
+.cover .csun{position:absolute;left:50%;top:60%;width:62%;aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(255,240,210,.95),rgba(243,200,140,0) 62%)}
+.cover.live .csun{animation:cb 8s ease-in-out infinite}
+@keyframes cb{0%,100%{opacity:.85;transform:translate(-50%,-50%) scale(1)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.07)}}
+.cover .csea{position:absolute;left:0;right:0;bottom:0;height:32%;overflow:hidden}
+.cover .grain{position:absolute;inset:0;mix-blend-mode:overlay;opacity:.18;
+  background-image:radial-gradient(rgba(0,0,0,.4) 1px,transparent 1px);background-size:3px 3px}
+.cover .playbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:62px;height:62px;border-radius:50%;background:rgba(255,250,240,.82);
+  display:grid;place-items:center;transition:transform .25s,opacity .4s;
+  box-shadow:0 6px 20px rgba(0,0,0,.25);border:none;cursor:pointer}
+.cover:hover .playbtn{transform:translate(-50%,-50%) scale(1.07)}
+.cover .playbtn svg{width:22px;height:22px;fill:var(--band);margin-left:2px}
+.cover.playing .playbtn{opacity:0}
+.cover.playing:hover .playbtn{opacity:1}
+.titles{text-align:center}
+.titles .en{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(30px,4vw,42px);line-height:1}
+.titles .cn{font-size:14px;letter-spacing:.4em;color:var(--ink-soft);margin-top:9px}
+.titles .artist{font-family:var(--font-utility);font-size:11px;letter-spacing:.2em;
+  color:var(--ink-soft);margin-top:11px}
+.titles .artist::before,.titles .artist::after{content:"—";margin:0 .6em;color:var(--gold)}
+.col-right{justify-self:start;position:relative;display:flex;align-items:center;
+  height:100%;width:100%;max-width:340px;min-width:0}
+.col-right .ghost{position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+  font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(120px,16vw,190px);color:rgba(23,58,71,.05);line-height:.7;
+  pointer-events:none;z-index:0}
+
+/* Narration 组件样式 */
+.narration{position:relative;z-index:1;width:100%}
+.narration-lead{font-family:var(--font-utility);font-size:10px;letter-spacing:.32em;
+  color:var(--gold);text-transform:uppercase;margin-bottom:18px}
+.beat-wrap{display:grid;align-items:center;width:100%;min-height:120px}
+.beat{grid-area:1/1;font-size:clamp(16px,1.5vw,19px);line-height:2;font-weight:300;
+  color:var(--ink);letter-spacing:.03em;opacity:0;transform:translateY(16px);filter:blur(5px);
+  transition:opacity 1.2s ease,transform 1.2s ease,filter 1.2s ease;pointer-events:none}
+.beat.on{opacity:1;transform:translateY(0);filter:blur(0)}
+/* 悬停浮标时：探头看一眼，来得快些 */
+.narration.peeking .beat{transition:opacity .42s cubic-bezier(.22,.61,.36,1),
+  transform .42s cubic-bezier(.22,.61,.36,1),filter .42s ease}
+.beat-em{font-family:var(--font-display);font-style:italic;font-size:1.15em;
+  color:var(--amber);font-weight:400}
+.swave{margin-top:22px;opacity:.5}
+.swave svg{width:80px;height:12px}
+
+/* 模式切换 */
+.modebar{position:fixed;top:112px;left:50%;transform:translateX(-50%);z-index:19;
+  display:flex;background:var(--paper);border:1px solid var(--hair);border-radius:30px;
+  padding:4px;box-shadow:0 8px 24px -10px rgba(23,58,71,.4)}
+.modebar button{font-family:var(--font-serif);font-size:13px;font-weight:500;
+  letter-spacing:.16em;color:var(--ink-soft);background:none;border:none;cursor:pointer;
+  padding:8px 20px;border-radius:24px;display:flex;align-items:center;gap:7px;transition:all .3s}
+.modebar button.on{background:var(--band);color:#F6EFE0}
+
+/* 总览 */
+.overview{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;
+  padding:172px clamp(20px,5vw,56px) 110px;max-width:860px;margin:0 auto}
+.orow{display:flex;align-items:center;gap:clamp(16px,2.5vw,28px);
+  padding:clamp(14px,2.4vh,24px) 8px;border-top:1px solid var(--hair);cursor:pointer;
+  transition:background .3s}
+.orow:last-child{border-bottom:1px solid var(--hair)}
+.orow:hover{background:rgba(109,162,152,.06)}
+.orow .idx{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(28px,3.6vw,40px);color:var(--hair);width:38px;text-align:center;flex:0 0 auto}
+.orow.on .idx{color:var(--seaglass)}
+.othumb{position:relative;width:clamp(64px,8vw,86px);aspect-ratio:1;border-radius:12px;
+  overflow:hidden;flex:0 0 auto;box-shadow:0 8px 20px -8px rgba(23,58,71,.5)}
+.othumb>div{position:absolute;inset:0;background-size:cover;background-position:center}
+.oinfo{flex:1;min-width:0}
+.oinfo .en{font-family:var(--font-display);font-style:italic;font-weight:600;
+  font-size:clamp(20px,2.4vw,26px);line-height:1.1}
+.oinfo .cn{font-size:12px;letter-spacing:.3em;color:var(--ink-soft);margin-top:3px}
+.ometa{flex:0 0 auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.ometa .who{font-family:var(--font-utility);font-size:10px;letter-spacing:.16em;
+  color:var(--ink-soft);text-transform:uppercase}
+.oplay{width:40px;height:40px;border-radius:50%;border:1px solid var(--hair);
+  background:rgba(23,58,71,.04);cursor:pointer;display:grid;place-items:center;transition:all .25s}
+.orow.on .oplay,.oplay:hover{background:var(--band)}
+.orow.on .oplay svg,.oplay:hover svg{fill:#F6EFE0}
+.oplay svg{width:15px;height:15px;fill:var(--band);transition:fill .25s}
+
+/* 播放器坞 */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:18;
+  padding:14px clamp(20px,5vw,56px) 18px;
+  background:linear-gradient(180deg,rgba(225,234,240,0),var(--paper) 55%);
+  border-top:1px solid var(--hair)}
+.tidebar{position:relative;height:16px;cursor:pointer;display:flex;align-items:center}
+.tidebar .trackline{position:absolute;left:0;right:0;height:2px;background:var(--hair);
+  top:50%;transform:translateY(-50%)}
+.tidebar .fill{position:absolute;left:0;height:2px;background:var(--seaglass);
+  top:50%;transform:translateY(-50%)}
+.tidebar .knob{position:absolute;width:11px;height:11px;border-radius:50%;
+  background:var(--seaglass);top:50%;transform:translate(-50%,-50%);
+  box-shadow:0 0 10px rgba(109,162,152,.7)}
+.dockrow{display:flex;align-items:center;gap:16px;margin-top:10px}
+.pbtn{width:42px;height:42px;border-radius:50%;border:1px solid var(--hair);
+  background:rgba(23,58,71,.04);cursor:pointer;flex:0 0 auto;display:grid;place-items:center;
+  transition:background .3s}
+.pbtn:hover{background:rgba(23,58,71,.1)}
+.pbtn svg{width:17px;height:17px;fill:var(--band)}
+.dmeta{flex:1;min-width:0}
+.dmeta .t{font-family:var(--font-display);font-style:italic;font-size:19px;line-height:1}
+.dmeta .s{font-family:var(--font-utility);font-size:10px;letter-spacing:.2em;
+  color:var(--ink-soft);margin-top:4px;text-transform:uppercase}
+.dtime{font-family:var(--font-utility);font-size:11px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums;flex:0 0 auto}
+
+/* 翻页圆点 */
+.pager{position:fixed;right:clamp(14px,2vw,26px);top:50%;transform:translateY(-50%);
+  z-index:15;display:flex;flex-direction:column;gap:12px;align-items:center}
+.pager .dot{width:8px;height:8px;border-radius:50%;background:var(--hair);cursor:pointer;
+  transition:all .35s;border:none;padding:0}
+.pager .dot.on{background:var(--seaglass);height:22px;border-radius:5px}
+
+@media(max-width:980px){
+  .composition{grid-template-columns:1fr;gap:20px;justify-items:center}
+  .col-left{order:3;flex-direction:row;height:auto;gap:14px}
+  .col-left .vtitle{display:none}
+  .col-left .vline{display:none}
+  .col-left .meta{writing-mode:horizontal-tb}
+  .col-left .stack{flex-direction:row;gap:14px}
+  .col-right{order:2;max-width:520px;justify-self:center}
+  .col-right .ghost{display:none}
+  .narration{text-align:center}
+  .swave{margin-inline:auto}
+  .band .eyebrow{display:none}
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-/* 修复所有后台输入框文字颜色 */
-input, textarea, select {
-  color: #111827 !important; /* text-gray-900 */
+@media(prefers-reduced-motion:reduce){.csun{animation:none!important}}
+
+/* ---------- 表单与管理端 ---------- */
+.cove-form{display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto}
+.cove-form label{font-size:12px;letter-spacing:.14em;color:var(--ink-soft)}
+.cove-form input,.cove-form textarea,.cove-form select{
+  font-family:var(--font-serif);font-size:14px;color:var(--ink);
+  background:rgba(255,255,255,.55);border:1px solid var(--hair);border-radius:8px;
+  padding:10px 12px;outline:none;width:100%}
+.cove-form input:focus,.cove-form textarea:focus,.cove-form select:focus{
+  border-color:var(--seaglass)}
+.cove-form textarea{min-height:120px;line-height:1.9}
+.btn{font-family:var(--font-serif);font-size:13px;letter-spacing:.16em;
+  color:#F6EFE0;background:var(--band);border:none;border-radius:24px;
+  padding:10px 26px;cursor:pointer;transition:opacity .25s}
+.btn:hover{opacity:.88}
+.btn.ghost{background:none;color:var(--ink-soft);border:1px solid var(--hair)}
+.btn.small{padding:5px 14px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.form-msg{font-size:12px;color:var(--seal);text-align:center;min-height:18px}
+
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th{font-weight:500;font-size:11px;letter-spacing:.14em;color:var(--ink-soft);
+  text-align:left;padding:10px 8px;border-bottom:1px solid var(--hair)}
+.admin-table td{padding:12px 8px;border-bottom:1px solid var(--hair);vertical-align:top}
+.admin-table tr:hover td{background:rgba(109,162,152,.05)}
+.status-pill{font-size:10px;letter-spacing:.14em;border-radius:3px;padding:2px 8px;
+  border:1px solid var(--hair);color:var(--ink-soft)}
+.status-pill.pub{border-color:var(--seaglass);color:var(--seaglass)}
+.status-pill.open{border-color:var(--seal);color:var(--seal)}
+
+/* ---------- 漂流瓶 ---------- */
+.echoes{max-width:560px;margin:28px auto 0;text-align:center}
+.echoes .lead{font-family:var(--font-utility);font-size:10px;letter-spacing:.32em;
+  color:var(--gold);text-transform:uppercase;margin-bottom:14px}
+.echoes .bottles{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center;margin-top:16px}
+.echoes .bottle{font-size:12.5px;color:var(--ink-soft);font-weight:300;font-style:italic}
+.echoes .bottle::before{content:"\201C"}
+.echoes .bottle::after{content:"\201D"}
+.echoes .field{display:flex;align-items:flex-end;gap:8px;justify-content:center;
+  border-bottom:1px solid var(--hair);max-width:400px;margin:14px auto 0;padding-bottom:6px}
+.echoes input{flex:1;background:none;border:none;outline:none;
+  font-family:var(--font-serif);font-size:14px;color:var(--ink);text-align:center;font-weight:300}
+.echoes input::placeholder{color:rgba(26,34,41,.32)}
+.echoes .submit{font-family:var(--font-utility);font-size:11px;letter-spacing:.18em;
+  color:var(--amber);background:none;border:none;cursor:pointer;text-transform:uppercase}
+
+/* ============================================
+   首页 · 海角邮局（浅蓝底 + 信封 / 邮戳 / 蜡封）
+   ============================================ */
+.home{max-width:820px;margin:0 auto;padding:calc(var(--band-h,74px) + 26px) 24px 90px}
+
+/* 主视觉 */
+.home-hero{text-align:center;position:relative;padding:34px 0 6px}
+.home-hero::before{content:"";position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);
+  width:min(520px,88vw);height:min(400px,70vw);
+  background:radial-gradient(ellipse 60% 58% at 50% 50%, rgba(216,168,102,.16), transparent 70%);
+  pointer-events:none;z-index:0}
+.hero-eyebrow{position:relative;z-index:1;font-family:var(--font-display);font-style:italic;
+  font-size:14px;letter-spacing:.2em;color:var(--ink-soft);margin-bottom:20px}
+.hero-logo{position:relative;z-index:1;display:inline-block}
+.hero-tri{width:min(190px,44vw);display:block;margin:0 auto;
+  filter:drop-shadow(0 12px 26px rgba(23,58,71,.22))}
+.hero-word{width:min(150px,34vw);display:block;margin:10px auto 0}
+.hero-tagline{position:relative;z-index:1;margin:24px auto 0;max-width:420px;
+  font-size:15px;line-height:2;color:var(--ink-soft);font-weight:300}
+
+/* ---- 信封 ---- */
+.mailbox{margin:52px auto 46px}
+.mail-label{text-align:center;font-family:var(--font-display);font-style:italic;
+  font-size:12.5px;letter-spacing:.24em;color:var(--ink-soft);margin-bottom:22px}
+
+.envelope{position:relative;background:var(--envelope,#EDE4D2);border-radius:3px;
+  padding:44px 46px 40px;overflow:hidden;
+  box-shadow:0 18px 40px -20px rgba(23,58,71,.5), inset 0 0 0 1px rgba(201,187,160,.6)}
+/* 封盖折线 */
+.envelope::before{content:"";position:absolute;top:0;left:0;right:0;height:70px;pointer-events:none;
+  background:linear-gradient(135deg,transparent 49%,rgba(201,187,160,.4) 50%,transparent 51%),
+             linear-gradient(-135deg,transparent 49%,rgba(201,187,160,.4) 50%,transparent 51%);
+  background-size:50% 100%;background-repeat:no-repeat;background-position:left top,right top;opacity:.75}
+/* 航空信斜纹边 */
+.envelope::after{content:"";position:absolute;inset:0;border:3px solid transparent;border-radius:3px;
+  pointer-events:none;opacity:.26;
+  background:repeating-linear-gradient(45deg,var(--seal) 0 8px,transparent 8px 16px,var(--band) 16px 24px,transparent 24px 32px) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+
+/* 邮票 */
+.envelope .stamp{position:absolute;top:26px;right:34px;width:76px;height:90px;
+  background:var(--band);border:1px solid rgba(93,154,143,.5);padding:5px;transform:rotate(3deg);
+  box-shadow:0 3px 8px rgba(0,0,0,.16);z-index:1}
+.envelope .stamp-inner{height:100%;border:1px dashed rgba(246,239,224,.45);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.envelope .stamp-inner img{width:38px;height:auto;opacity:.95}
+.envelope .stamp-txt{font-family:var(--font-utility);font-size:6.5px;letter-spacing:.12em;
+  color:rgba(246,239,224,.8)}
+
+/* 邮戳 */
+.envelope .postmark{position:absolute;top:14px;right:14px;width:96px;height:96px;border-radius:50%;
+  border:2px solid var(--seal);opacity:.5;transform:rotate(-12deg);z-index:2;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--seal);font-family:var(--font-utility)}
+.envelope .postmark::before{content:"";position:absolute;inset:6px;border:1px dashed var(--seal);border-radius:50%}
+.envelope .pm-top{font-size:7.5px;letter-spacing:.14em}
+.envelope .pm-date{font-size:13px;font-weight:500;letter-spacing:.04em;margin:1px 0}
+.envelope .pm-bot{font-size:6.5px;letter-spacing:.1em}
+
+/* 收信内容 */
+.envelope .letter-to{position:relative;z-index:2;max-width:62%}
+.envelope .letter-to .no{font-family:var(--font-display);font-style:italic;font-size:12px;
+  letter-spacing:.26em;color:var(--seal);text-transform:uppercase}
+.envelope .letter-to .th{font-family:var(--font-hand);font-weight:400;font-size:clamp(32px,5vw,42px);
+  letter-spacing:.08em;color:var(--ink);margin:8px 0 2px;line-height:1.15}
+.envelope .letter-to .en{font-family:var(--font-display);font-style:italic;font-size:15px;color:var(--ink-soft)}
+.envelope .letter-to .intro{font-size:13.5px;line-height:1.9;color:var(--ink-soft);
+  font-weight:300;margin-top:14px;max-width:340px}
+.envelope .open-letter{display:inline-block;margin-top:22px;font-size:13px;letter-spacing:.18em;
+  color:var(--band);border-bottom:1px solid var(--band);padding-bottom:2px;text-decoration:none;
+  transition:opacity .2s}
+.envelope .open-letter:hover{opacity:.7}
+
+/* 蜡封 */
+.envelope .wax-seal{position:absolute;bottom:28px;right:42px;width:54px;height:54px;border-radius:50%;
+  z-index:2;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-hand);font-size:25px;color:rgba(255,240,230,.92);
+  background:radial-gradient(circle at 38% 34%, #C05F44, var(--seal) 60%, #8A3E2C);
+  box-shadow:0 4px 10px rgba(138,62,44,.45), inset 0 2px 4px rgba(255,255,255,.22);
+  transform:rotate(-6deg)}
+
+.dredging{text-align:center;color:var(--ink-soft);font-weight:300;padding:40px 0}
+
+/* 三处去向 */
+.home-links{display:flex;justify-content:center;gap:clamp(20px,4vw,54px);flex-wrap:wrap;
+  border-top:1px solid var(--hair);padding-top:34px}
+.home-links a{text-decoration:none;text-align:center;display:flex;flex-direction:column;gap:5px}
+.home-links .hl-cn{font-size:15px;letter-spacing:.14em;color:var(--ink);
+  border-bottom:1px solid transparent;padding-bottom:2px;transition:border-color .2s}
+.home-links a:hover .hl-cn{border-bottom-color:var(--seaglass)}
+.home-links .hl-desc{font-size:12px;color:var(--ink-soft);font-weight:300;letter-spacing:.04em}
+
+@media (max-width:640px){
+  .envelope{padding:36px 24px 34px}
+  .envelope .letter-to{max-width:100%}
+  .envelope .stamp{width:60px;height:72px;top:18px;right:18px}
+  .envelope .stamp-inner img{width:28px}
+  .envelope .postmark{width:74px;height:74px;top:10px;right:8px}
+  .envelope .wax-seal{width:44px;height:44px;font-size:20px;bottom:20px;right:20px}
 }
 
-/* ── 简繁转换:繁体首屏防闪烁 ──
-   繁体模式(data-lang="t")下,在转换完成(data-tc-ready)前隐藏 body,
-   转换完成后淡入。简体模式不受影响(始终可见)。 */
-html[data-lang="t"]:not([data-tc-ready]) body {
-  opacity: 0 !important;
+/* ============ 打捞碎月 · 三维视图 ============ */
+.view-tabs{display:flex;justify-content:center;gap:26px;margin:6px 0 30px}
+.view-tabs a{font-size:13.5px;letter-spacing:.16em;color:var(--ink-soft);text-decoration:none;
+  padding-bottom:4px;border-bottom:1.5px solid transparent;transition:color .2s,border-color .2s}
+.view-tabs a:hover{color:var(--ink)}
+.view-tabs a.on{color:var(--ink);border-bottom-color:var(--seaglass)}
+
+.grouped{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+.group .group-name{font-family:var(--font-hand);font-weight:400;font-size:26px;letter-spacing:.1em;
+  color:var(--ink);display:flex;align-items:baseline;gap:12px}
+.group .group-sub{font-family:var(--font-serif);font-size:12px;font-weight:300;color:var(--ink-soft);letter-spacing:.08em}
+.group-list{list-style:none;margin-top:10px}
+.group-list li{border-top:1px solid var(--hair)}
+.group-list li:last-child{border-bottom:1px solid var(--hair)}
+.group-list a,.group-list .t-plain{display:flex;align-items:baseline;gap:12px;padding:13px 4px;text-decoration:none}
+.group-list .t-title{font-size:16px;letter-spacing:.06em;color:var(--ink)}
+.group-list .t-en{font-family:var(--font-display);font-style:italic;font-size:13px;color:var(--ink-soft)}
+.group-list .t-meta{margin-left:auto;font-size:12px;color:var(--ink-soft);font-weight:300;letter-spacing:.04em}
+.group-list a:hover .t-title{color:var(--seaglass)}
+
+/* ============ 每日演出 · 三类邀请函 ============ */
+.invite-block{max-width:680px;margin:0 auto 38px}
+.invite-head{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.invite-type{font-family:var(--font-hand);font-weight:400;font-size:24px;letter-spacing:.12em;color:var(--ink)}
+.invite-desc{font-size:12.5px;color:var(--ink-soft);font-weight:300;letter-spacing:.04em}
+.invite-empty{font-size:13px;color:var(--ink-soft);font-weight:300;padding:10px 4px 0;opacity:.7}
+
+/* ============ 海角电台 · 调频盘 ============ */
+.tuner{max-width:640px;margin:0 auto}
+.tuner-band{position:relative;padding:26px 8px 8px}
+.tuner-scale{position:relative;height:58px;border-bottom:1.5px solid var(--band);margin:0 6px}
+.tuner-scale .tick{position:absolute;bottom:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center}
+.tuner-scale .tick i{display:block;width:1px;height:10px;background:var(--ink-soft);opacity:.6}
+.tuner-scale .tick em{font-family:var(--font-utility);font-style:normal;font-size:9px;letter-spacing:.06em;
+  color:var(--ink-soft);margin-bottom:3px;opacity:.75}
+.tuner-scale .station{position:absolute;bottom:-5px;transform:translateX(-50%);width:10px;height:10px;
+  border-radius:50%;border:none;cursor:pointer;background:var(--seal);opacity:.55;transition:all .25s;padding:0}
+.tuner-scale .station.lit{opacity:1;box-shadow:0 0 0 5px rgba(166,80,58,.18), 0 0 14px rgba(166,80,58,.5)}
+.tuner-scale .needle{position:absolute;bottom:-2px;transform:translateX(-50%);width:2px;height:46px;
+  background:var(--band);pointer-events:none;transition:left .12s ease-out}
+.tuner-scale .needle::after{content:"";position:absolute;top:-5px;left:50%;transform:translateX(-50%);
+  width:8px;height:8px;border-radius:50%;background:var(--band)}
+.tuner-slider{width:calc(100% - 12px);margin:14px 6px 0;appearance:none;height:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(23,58,71,.25),rgba(23,58,71,.25));outline:none;cursor:pointer}
+.tuner-slider::-webkit-slider-thumb{appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--band);border:3px solid var(--paper);box-shadow:0 2px 8px rgba(23,58,71,.4);cursor:grab}
+.tuner-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--band);
+  border:3px solid var(--paper);box-shadow:0 2px 8px rgba(23,58,71,.4);cursor:grab}
+.tuner-readout{display:flex;align-items:baseline;gap:10px;justify-content:center;margin-top:18px}
+.tuner-readout .freq{font-family:var(--font-display);font-weight:600;font-size:34px;letter-spacing:.04em;color:var(--ink)}
+.tuner-readout .unit{font-family:var(--font-utility);font-size:11px;letter-spacing:.3em;color:var(--ink-soft)}
+.tuner-readout .signal{font-size:12px;font-weight:300;color:var(--ink-soft);letter-spacing:.08em;transition:color .3s}
+.tuner-readout .signal.on{color:var(--seaglass)}
+
+.program{display:block;max-width:520px;margin:26px auto 0;padding:26px 30px;text-align:center;
+  border:1px solid var(--hair);border-radius:6px;text-decoration:none;background:rgba(255,255,255,.35);
+  transition:border-color .3s, box-shadow .3s}
+.program:hover{border-color:var(--seaglass);box-shadow:0 10px 30px -18px rgba(23,58,71,.4)}
+.program .p-ep{font-family:var(--font-display);font-style:italic;font-size:12px;letter-spacing:.24em;color:var(--seal)}
+.program .p-title{display:block;font-family:var(--font-hand);font-weight:400;font-size:30px;
+  letter-spacing:.08em;color:var(--ink);margin:8px 0 2px}
+.program .p-guest{font-size:13px;color:var(--ink-soft);letter-spacing:.1em}
+.program .p-sum{font-size:13px;line-height:1.9;color:var(--ink-soft);font-weight:300;margin-top:12px}
+.program .p-enter{display:inline-block;margin-top:16px;font-size:12.5px;letter-spacing:.18em;color:var(--band);
+  border-bottom:1px solid var(--band);padding-bottom:2px}
+.program.static{border-style:dashed;background:transparent}
+.program .p-hint{font-size:13px;color:var(--ink-soft);font-weight:300;letter-spacing:.06em}
+.program .noise{display:block;height:34px;margin:0 auto 8px;max-width:220px;opacity:.35;
+  background:repeating-linear-gradient(90deg,var(--ink-soft) 0 1px,transparent 1px 3px);
+  mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
+
+/* ============ 灯塔 · 七层 ============ */
+.tower{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.floor{position:relative;border:1px solid var(--hair);border-radius:12px;padding:20px 24px;
+  background:rgba(255,255,255,.28);opacity:.45;transition:opacity .4s}
+.floor.lit{opacity:1;background:rgba(255,255,255,.5);border-color:rgba(93,154,143,.4)}
+.floor.lit::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;
+  background:linear-gradient(180deg,var(--gold),var(--seaglass))}
+.floor-no{font-family:var(--font-utility);font-size:9.5px;letter-spacing:.3em;color:var(--ink-soft);opacity:.8}
+.floor-name{font-family:var(--font-hand);font-weight:400;font-size:24px;letter-spacing:.12em;color:var(--ink);margin-top:5px}
+.floor-fn{font-size:13.5px;line-height:1.9;color:var(--ink);font-weight:300;margin-top:8px}
+.floor-air{font-size:12px;color:var(--ink-soft);font-weight:300;letter-spacing:.05em;margin-top:6px;font-style:italic}
+.floor-locked{font-size:12.5px;color:var(--ink-soft);font-weight:300;margin-top:8px;letter-spacing:.06em}
+.floor-extra{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12.5px}
+.floor-extra a{color:var(--band);text-decoration:none;letter-spacing:.1em;border-bottom:1px solid var(--hair);
+  padding-bottom:2px;transition:border-color .2s}
+.floor-extra a:hover{border-bottom-color:var(--seaglass)}
+
+/* ============ 歌词 · 侧栏的低语 ============ */
+.lyrics{position:relative;margin-top:18px;display:flex;align-items:flex-start;gap:0}
+.lyrics-panel{width:0;overflow:hidden;transition:width .64s cubic-bezier(.22,.61,.36,1)}
+.lyrics.open .lyrics-panel{width:172px;border-right:1px solid var(--hair)}
+.lyrics-panel > *{opacity:0;transition:opacity .5s ease .16s}
+.lyrics.open .lyrics-panel > *{opacity:1}
+.lyrics-cap{font-size:10.5px;letter-spacing:.26em;color:var(--ink-soft);opacity:.75;
+  padding:0 14px 12px 2px;white-space:nowrap}
+.lyrics-body{padding:0 14px 4px 2px}
+.lyrics-body p{font-size:12.5px;line-height:2.25;color:var(--ink-soft);opacity:.42;
+  font-weight:300;transition:opacity .6s,color .6s;margin:0}
+.lyrics-body p.on{opacity:.78;color:var(--ink)}
+.lyrics-tab{background:none;border:none;cursor:pointer;padding:10px 8px 10px 12px;
+  font-family:inherit;font-size:11px;letter-spacing:.26em;color:var(--ink-soft);
+  white-space:nowrap;transition:color .3s;align-self:flex-start}
+.lyrics-tab:hover{color:var(--ink)}
+@media (max-width:900px){
+  .lyrics.open .lyrics-panel{width:140px}
+  .lyrics-body p{font-size:12px}
 }
-html[data-lang="t"][data-tc-ready] body {
-  opacity: 1;
-  transition: opacity 0.18s ease;
+
+/* ============ 音频上传器 ============ */
+.uploader{margin:6px 0 4px}
+.up-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.up-btn{padding:8px 18px;border-radius:20px;border:1px solid var(--band);background:transparent;
+  color:var(--band);font-family:inherit;font-size:13px;letter-spacing:.1em;cursor:pointer;
+  transition:background .2s,color .2s}
+.up-btn:hover:not(:disabled){background:var(--band);color:var(--paper)}
+.up-btn:disabled{opacity:.5;cursor:default}
+.up-limit{font-size:11.5px;color:var(--ink-soft);font-weight:300;letter-spacing:.04em}
+.up-bar{height:3px;border-radius:2px;background:var(--hair);margin-top:12px;overflow:hidden}
+.up-bar i{display:block;height:100%;background:var(--seaglass);transition:width .2s}
+.up-msg{font-size:12px;color:var(--ink-soft);margin-top:8px;letter-spacing:.04em}
+.up-wave{margin-top:14px;height:56px;background:rgba(255,255,255,.4);border:1px solid var(--hair);
+  border-radius:4px;padding:6px 8px}
+.up-wave canvas{width:100%;height:100%;display:block}
+.up-url{font-size:11px;color:var(--ink-soft);margin-top:8px;word-break:break-all;opacity:.7;font-weight:300}
+
+/* ============ 沉浸页改版 · 左栏歌词 / 波形海面 ============ */
+/* 左栏：逐行歌词常驻，替代原来的竖排标题与印章 */
+.col-left{display:flex;flex-direction:column;justify-content:center;gap:16px;
+  padding-right:clamp(14px,2vw,28px)}
+.col-left .lyrics{border-right:1px solid var(--hair);padding-right:clamp(14px,1.8vw,24px)}
+.col-left .lyrics-cap{font-size:10.5px;letter-spacing:.26em;color:var(--ink-soft);
+  opacity:.7;margin-bottom:14px}
+.col-left .lyrics-body{min-height:150px;display:flex;flex-direction:column;justify-content:center}
+.col-left .lyrics-body p{font-size:12.5px;line-height:2.25;color:var(--ink-soft);opacity:.34;
+  font-weight:300;margin:0;transition:opacity .65s,color .65s}
+.col-left .lyrics-body p.on{opacity:.85;color:var(--ink)}
+.col-left .place-mark{font-size:11px;letter-spacing:.2em;color:var(--ink-soft);opacity:.6;
+  font-weight:300;padding-right:clamp(14px,1.8vw,24px)}
+
+/* 波形海面：取代 dock 里的进度条 */
+.dock .tidewave{padding:2px 0 8px}
+.waveform{width:100%;height:64px;display:block;touch-action:pan-y}
+
+/* 字幕未展开时的提示 */
+.beat-hint{font-size:12.5px;color:var(--ink-soft);font-weight:300;letter-spacing:.06em;
+  opacity:.72;line-height:1.9}
+
+@media (max-width:900px){
+  .col-left .lyrics-body p{font-size:12px}
+  .waveform{height:54px}
 }
+
+/* ============ 信封三色 ============ */
+/* 每种底色都要重新配一遍邮戳、蜡封、文字的对比，不然会脏。 */
+
+/* 牛皮黄（默认）：旧纸、暖、日常 */
+.envelope.env-kraft{background:#EDE4D2}
+.envelope.env-kraft::before{
+  background:linear-gradient(135deg,transparent 49%,rgba(201,187,160,.4) 50%,transparent 51%),
+             linear-gradient(-135deg,transparent 49%,rgba(201,187,160,.4) 50%,transparent 51%);
+  background-size:50% 100%;background-repeat:no-repeat;background-position:left top,right top}
+
+/* 海蓝：夜航、冷、远 */
+.envelope.env-blue{background:#D3DFE6;box-shadow:0 18px 40px -20px rgba(23,58,71,.55),
+  inset 0 0 0 1px rgba(120,150,168,.5)}
+.envelope.env-blue::before{
+  background:linear-gradient(135deg,transparent 49%,rgba(120,150,168,.42) 50%,transparent 51%),
+             linear-gradient(-135deg,transparent 49%,rgba(120,150,168,.42) 50%,transparent 51%);
+  background-size:50% 100%;background-repeat:no-repeat;background-position:left top,right top}
+.envelope.env-blue .postmark{border-color:#2F5468;color:#2F5468}
+.envelope.env-blue .postmark::before{border-color:#2F5468}
+.envelope.env-blue .letter-to .no{color:#2F5468}
+.envelope.env-blue .wax-seal{background:radial-gradient(circle at 38% 34%,#3E7080,#2F5468 60%,#1E3B49)}
+.envelope.env-blue::after{
+  background:repeating-linear-gradient(45deg,#2F5468 0 8px,transparent 8px 16px,#A6503A 16px 24px,transparent 24px 32px) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+
+/* 赭红：特刊、重、正式 */
+.envelope.env-red{background:#E8DCD4;box-shadow:0 18px 40px -20px rgba(90,40,28,.5),
+  inset 0 0 0 1px rgba(180,140,124,.55)}
+.envelope.env-red::before{
+  background:linear-gradient(135deg,transparent 49%,rgba(180,140,124,.45) 50%,transparent 51%),
+             linear-gradient(-135deg,transparent 49%,rgba(180,140,124,.45) 50%,transparent 51%);
+  background-size:50% 100%;background-repeat:no-repeat;background-position:left top,right top}
+.envelope.env-red .postmark{border-color:#7C3B2C;color:#7C3B2C}
+.envelope.env-red .postmark::before{border-color:#7C3B2C}
+.envelope.env-red .letter-to .no{color:#7C3B2C}
+.envelope.env-red .wax-seal{background:radial-gradient(circle at 38% 34%,#8E4436,#6B2F24 60%,#4A1E17)}
+.envelope.env-red::after{
+  background:repeating-linear-gradient(45deg,#7C3B2C 0 8px,transparent 8px 16px,#173A47 16px 24px,transparent 24px 32px) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+
+/* 信封下的一行：往期的信 */
+.past-letters{text-align:center;margin-top:22px;font-size:12.5px;letter-spacing:.08em;
+  color:var(--ink-soft);font-weight:300;opacity:.78}
+.past-letters a{color:var(--band);text-decoration:none;
+  border-bottom:1px solid var(--hair);padding-bottom:2px;margin-left:2px;
+  transition:border-color .25s}
+.past-letters a:hover{border-bottom-color:var(--seaglass)}
+
+/* 海声开关 · 在播放键旁边 */
+.seabtn{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;cursor:pointer;padding:0;border-radius:50%;
+  color:var(--ink-soft);opacity:.5;transition:opacity .3s,color .3s,background .3s}
+.seabtn:hover{opacity:.85}
+.seabtn.on{opacity:1;color:var(--seaglass);background:rgba(93,154,143,.1)}
+.seabtn svg{width:20px;height:20px}
+.seabtn.on svg{animation:seaBreathe 5.5s ease-in-out infinite}
+@keyframes seaBreathe{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-1.5px)}
+}
+
+/* ============ 海玻璃 ============ */
+/* 卡片用海玻璃真实的色谱：绿、瓶底蓝、琥珀、乳白、稀有的赭红。
+   不规则圆角、微微透光、各自歪一点，像退潮后散在滩上。 */
+.beach{max-width:760px;margin:0 auto;display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
+.glass{position:relative;width:200px;min-height:150px;padding:22px 20px 18px;
+  display:flex;flex-direction:column;gap:8px;text-decoration:none;
+  backdrop-filter:blur(2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -6px 14px rgba(255,255,255,.18),
+             0 10px 24px -14px rgba(23,58,71,.4);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1), box-shadow .35s}
+.glass:hover{transform:translateY(-4px) rotate(0deg) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6), 0 16px 30px -14px rgba(23,58,71,.5)}
+/* 每一枚形状都不太一样 */
+.tilt-0{border-radius:46% 54% 52% 48% / 55% 46% 54% 45%;transform:rotate(-2.2deg)}
+.tilt-1{border-radius:54% 46% 44% 56% / 46% 55% 45% 54%;transform:rotate(1.6deg)}
+.tilt-2{border-radius:48% 52% 56% 44% / 52% 48% 52% 48%;transform:rotate(-1deg)}
+.tilt-3{border-radius:52% 48% 46% 54% / 44% 54% 46% 56%;transform:rotate(2.4deg)}
+.tilt-4{border-radius:44% 56% 50% 50% / 56% 44% 56% 44%;transform:rotate(-1.8deg)}
+/* 色谱 */
+.g-green{background:rgba(122,178,158,.4);border:1px solid rgba(93,154,143,.5)}
+.g-blue{background:rgba(96,140,178,.38);border:1px solid rgba(74,116,152,.5)}
+.g-amber{background:rgba(214,168,102,.36);border:1px solid rgba(182,138,80,.5)}
+.g-white{background:rgba(244,242,236,.6);border:1px solid rgba(180,184,182,.55)}
+.g-red{background:rgba(178,96,80,.34);border:1px solid rgba(150,76,62,.5)}
+.glass .g-title{font-family:var(--font-hand);font-weight:400;font-size:22px;
+  letter-spacing:.08em;color:var(--ink)}
+.glass .g-line{font-size:12px;line-height:1.8;color:var(--ink-soft);font-weight:300;flex:1}
+.glass .g-poet{font-size:11px;letter-spacing:.16em;color:var(--ink-soft);opacity:.75}
+.glass .g-sound{position:absolute;top:16px;right:18px;width:7px;height:7px;border-radius:50%;
+  background:var(--seal);opacity:.7}
+
+.glass-submit-line{text-align:center;margin-top:40px;font-size:12.5px;letter-spacing:.06em;
+  color:var(--ink-soft);font-weight:300}
+.glass-submit-line a,.glass-back a{color:var(--band);text-decoration:none;
+  border-bottom:1px solid var(--hair);padding-bottom:2px;margin:0 2px;transition:border-color .25s}
+.glass-submit-line a:hover,.glass-back a:hover{border-bottom-color:var(--seaglass)}
+
+/* 详情页 */
+.poem-body{max-width:440px;margin:6px auto 40px;text-align:center}
+.poem-body p{font-size:15.5px;line-height:2.35;color:var(--ink);font-weight:300;
+  letter-spacing:.04em;margin:0}
+.poem-body p.blank{height:1.2em}
+.poem-audio{max-width:440px;margin:0 auto;text-align:center;
+  border-top:1px solid var(--hair);padding-top:30px}
+.poem-audio .pa-cap{font-size:11.5px;letter-spacing:.2em;color:var(--ink-soft);margin-bottom:16px}
+.poem-audio audio{width:100%;height:38px}
+.poem-audio .pa-note{margin-top:16px;font-size:12.5px;line-height:1.95;color:var(--ink-soft);
+  font-weight:300;text-align:left}
+.poem-noaudio{text-align:center;font-size:12.5px;color:var(--ink-soft);font-weight:300;
+  opacity:.7;border-top:1px solid var(--hair);max-width:440px;margin:0 auto;padding-top:26px}
+.glass-back{text-align:center;margin-top:44px;font-size:12.5px}
