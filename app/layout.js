@@ -1,116 +1,70 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import AutoCheckIn from "@/components/AutoCheckIn";
-import PetWrapper from "@/components/PetWrapper";
-import PWARegister from "@/components/PWARegister";
-import InAppBrowserHint from "@/components/InAppBrowserHint";
-import { LanguageProvider } from "@/components/i18n/LanguageContext";
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import './globals.css';
+import Link from 'next/link';
+
 export const metadata = {
-  metadataBase: new URL("https://www.cradle.art"),
-  title: {
-    default: "Cradle 摇篮 · 慢的、克制的艺术社区",
-    template: "%s · Cradle 摇篮",
-  },
-  description: "Cradle 摇篮是一个慢的、克制的艺术社区：艺术阅览室带你读懂大师经典，每日一展呈现当代创作，杂志社与艺术家专栏深入创作者的世界，汇聚原创艺术家的作品集与展览。",
-  keywords: ["艺术社区", "艺术阅览室", "艺术家", "当代艺术", "艺术展览", "艺术杂志", "原创艺术", "Cradle", "摇篮"],
-  alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    url: "https://www.cradle.art",
-    siteName: "Cradle 摇篮",
-    title: "Cradle 摇篮 · 慢的、克制的艺术社区",
-    description: "艺术阅览室 · 每日一展 · 杂志社 · 艺术家专栏。一个慢的、克制的艺术社区。",
-    locale: "zh_CN",
-    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Cradle 摇篮" }],
-  },
-  twitter: {
-    card: "summary",
-    title: "Cradle 摇篮 · 慢的、克制的艺术社区",
-    description: "艺术阅览室 · 每日一展 · 杂志社 · 艺术家专栏。",
-  },
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Cradle",
-  },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/icons/icon-180-apple.png", sizes: "180x180", type: "image/png" },
-    ],
-  },
+  title: '海角 Cove',
+  description: '音乐人的避风港，也是一座灵感的灯塔。',
 };
-export const viewport = {
-  themeColor: "#C0A57C",
-};
+
+// 导航映射（同构摇篮：每日一展｜艺术阅览室｜作品集｜艺术家｜杂志社｜驻地｜合作伙伴）
+// 摇篮                → 海角
+// 每日一展            → 每日演出   /festival （制作人邀请函，召集乐手/歌手/词曲作者）
+// 艺术阅览室          → 打捞碎月   /records （按期/按主奏乐器/按音乐人 三维浏览）
+// 当代作品集          → 原创码头   /dock
+// 艺术家              → 音乐人     /musicians
+// 杂志社              → 海角电台   /radio    （主持人专访）
+// 驻地                → 灯塔       /lighthouse（随内容积累逐层点亮）
+// 合作伙伴            → 邻港       /harbors
+// （海角原生）        → 海玻璃     /glass    （诗 + AI 辅助生成的音乐，各色卡片）
+const NAV = [
+  { href: '/festival', label: '每日演出' },
+  { href: '/records', label: '打捞碎月' },
+  { href: '/dock', label: '原创码头' },
+  { href: '/glass', label: '海玻璃' },
+  { href: '/musicians', label: '音乐人' },
+  { href: '/radio', label: '海角电台' },
+  { href: '/lighthouse', label: '灯塔' },
+  { href: '/harbors', label: '邻港' },
+  { href: '/login', label: '靠岸' },
+];
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-Hans">
       <head>
-        {/* ★ 首屏语言标记:在 React 之前同步读取 localStorage,尽早把 <html lang> 设好,缩短简→繁可见延迟 */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var l=localStorage.getItem('cradle_lang');if(!l){var n=(navigator.language||'').toLowerCase();l=(n.indexOf('tw')>-1||n.indexOf('hk')>-1||n.indexOf('hant')>-1)?'t':'s';}document.documentElement.lang=l==='t'?'zh-Hant':'zh-Hans';document.documentElement.setAttribute('data-lang',l);}catch(e){}})();`,
-          }}
-        />
-        {/* ★ 结构化数据(SEO/GEO):告诉搜索引擎与AI引擎这是什么站点 */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@graph": [
-                {
-                  "@type": "Organization",
-                  "@id": "https://www.cradle.art/#organization",
-                  name: "Cradle 摇篮",
-                  alternateName: "Cradle",
-                  url: "https://www.cradle.art",
-                  logo: "https://www.cradle.art/icons/icon-512.png",
-                  description: "一个慢的、克制的艺术社区，汇聚艺术阅览室、每日一展、杂志社、艺术家专栏与原创艺术家的作品。",
-                },
-                {
-                  "@type": "WebSite",
-                  "@id": "https://www.cradle.art/#website",
-                  name: "Cradle 摇篮",
-                  url: "https://www.cradle.art",
-                  inLanguage: "zh",
-                  publisher: { "@id": "https://www.cradle.art/#organization" },
-                },
-              ],
-            }),
-          }}
-        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Liu+Jian+Mao+Cao&family=Lora:ital,wght@0,400;0,700;1,400&family=Ma+Shan+Zheng&family=Montserrat:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Poppins:wght@300;400;500;600&family=Raleway:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&family=Zhi+Mang+Xing&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}
-      >
-        <LanguageProvider>
-          {/* ★ 内置浏览器提示(微信/小红书等) */}
-          <InAppBrowserHint />
-          <AutoCheckIn />
-          {children}
-          <PetWrapper />
-          {/* ★ Service Worker 注册(无 UI) */}
-          <PWARegister />
-        </LanguageProvider>
+      <body>
+        <div className="cove-bg" />
+
+        <header className="band">
+          <Link className="band-avatar" href="/login" aria-label="靠岸 / 登录">
+            <span className="avatar-dot" />
+          </Link>
+          <nav className="band-nav">
+            {NAV.filter((n) => n.href !== '/login').map((n) => (
+              <Link key={n.href} href={n.href}>{n.label}</Link>
+            ))}
+          </nav>
+          <Link className="brand-right" href="/" aria-label="海角 Cove 首页">
+            <img src="/cove-icon-white.png" alt="" className="brand-mark" />
+            <svg className="brand-cove" viewBox="0 0 300 90" aria-hidden="true">
+              <g fill="none" stroke="#F6EFE0" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M58 26 Q30 20 26 48 Q24 74 54 70" />
+                <ellipse cx="108" cy="48" rx="24" ry="26" />
+                <path d="M156 24 L172 72 L188 24" />
+                <path d="M242 26 Q214 22 212 48 Q210 72 240 70 M214 48 L236 48" />
+              </g>
+            </svg>
+          </Link>
+        </header>
+
+        {children}
       </body>
     </html>
   );
