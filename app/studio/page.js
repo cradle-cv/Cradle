@@ -34,6 +34,19 @@ export default function StudioPage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [artistRecord, setArtistRecord] = useState(null)
+  const [licenseSaving, setLicenseSaving] = useState(false)
+  async function agreeLicense() {
+    if (!artistRecord) return
+    setLicenseSaving(true)
+    try {
+      const ts = new Date().toISOString()
+      const { error } = await supabase.from('artists')
+        .update({ license_agreed_at: ts }).eq('id', artistRecord.id)
+      if (error) throw error
+      setArtistRecord({ ...artistRecord, license_agreed_at: ts })
+    } catch (err) { alert('确认失败: ' + err.message) }
+    finally { setLicenseSaving(false) }
+  }
   const [partnerRecord, setPartnerRecord] = useState(null)
 
   const [activeIdentity, setActiveIdentity] = useState(null)
@@ -250,6 +263,33 @@ export default function StudioPage() {
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: '"Noto Serif SC", serif' }}>
+      {/* 存量艺术家:上传许可条款追认(确认一次,永久记录) */}
+      {artistRecord && !artistRecord.license_agreed_at && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(17,24,39,0.55)' }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full" style={{ maxWidth: '520px', padding: '28px' }}>
+            <h2 className="text-lg font-bold mb-3" style={{ color: '#111827' }}>关于你的作品，一次说明</h2>
+            <p className="text-sm leading-relaxed mb-3" style={{ color: '#4B5563' }}>
+              摇篮上线了《艺术家上传许可条款》，把你与平台之间关于作品的约定写清楚了，核心是：
+            </p>
+            <ul className="text-sm leading-relaxed mb-4 space-y-1.5" style={{ color: '#4B5563', paddingLeft: '18px', listStyle: 'disc' }}>
+              <li>作品著作权始终归你所有；</li>
+              <li>平台仅取得站内展示的非独占许可；</li>
+              <li>平台不会出售你的作品、不用于第三方商业用途、<strong>不用于训练人工智能模型</strong>；</li>
+              <li>你可以随时删除作品。</li>
+            </ul>
+            <p className="text-xs mb-5" style={{ color: '#9CA3AF' }}>
+              条款全文：<a href="/legal/artist-license" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#374151', textUnderlineOffset: '3px' }}>《艺术家上传许可条款》</a>，确认后不再提示。
+            </p>
+            <div className="flex items-center gap-3">
+              <button onClick={agreeLicense} disabled={licenseSaving}
+                className="flex-1 py-2.5 rounded-xl text-white font-medium disabled:opacity-50" style={{ backgroundColor: '#111827' }}>
+                {licenseSaving ? '确认中…' : '我已阅读并同意'}
+              </button>
+              <a href="/" className="px-5 py-2.5 rounded-xl border text-sm" style={{ color: '#6B7280', borderColor: '#D1D5DB' }}>暂不同意</a>
+            </div>
+          </div>
+        </div>
+      )}
       <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
