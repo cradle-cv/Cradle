@@ -112,6 +112,7 @@ function LoginForm() {
   const inviteCodeFromUrl = searchParams.get('invite') || ''
 
   const [mode, setMode] = useState(initialMode)
+  const [agreedTerms, setAgreedTerms] = useState(false)
   const [method, setMethod] = useState('email')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -194,6 +195,7 @@ function LoginForm() {
     if (usernameError) { setError(usernameError); return }
 
     if (!form.email) { setError('请输入邮箱'); return }
+    if (!agreedTerms) { setError('请先阅读并同意《用户协议》与《隐私政策》'); return }
     if (!form.password) { setError('请输入密码'); return }
     if (passwordStrength(form.password) < 2) { 
       setError('密码强度不够,需要至少 8 位且同时包含字母和数字'); return 
@@ -529,14 +531,22 @@ function LoginForm() {
                   placeholder="如有好友邀请码,填写可获额外奖励"
                   className="w-full px-4 py-3 rounded-xl border outline-none" style={inputStyle} />
               </div>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={agreedTerms}
+                  onChange={(e) => setAgreedTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded flex-shrink-0" />
+                <span className="text-xs leading-relaxed" style={{ color: '#6B7280' }}>
+                  我已阅读并同意
+                  <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="underline mx-0.5" style={{ color: '#374151', textUnderlineOffset: '3px' }}>《用户协议》</a>
+                  与
+                  <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline mx-0.5" style={{ color: '#374151', textUnderlineOffset: '3px' }}>《隐私政策》</a>
+                </span>
+              </label>
               <button type="submit" disabled={loading}
                 className="w-full py-3.5 rounded-xl font-medium text-white"
                 style={{ backgroundColor: loading ? '#9CA3AF' : '#111827' }}>
                 {loading ? '注册中...' : '注册并进入摇篮'}
               </button>
-              <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
-                注册即表示你同意我们的服务条款和隐私政策。
-              </p>
             </form>
           )}
 
