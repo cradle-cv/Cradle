@@ -654,7 +654,16 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-700 pt-6 md:pt-8 text-center text-xs md:text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
+          <div className="border-t border-gray-700 pt-6 md:pt-8 text-center">
+            <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 mb-4 text-xs text-gray-400">
+              <a href="/legal/terms" className="hover:text-gray-200">用户协议</a>
+              <a href="/legal/privacy" className="hover:text-gray-200">隐私政策</a>
+              <a href="/legal/copyright" className="hover:text-gray-200">版权声明</a>
+              <a href="/legal/artist-license" className="hover:text-gray-200">上传许可</a>
+              <a href="/legal/report" className="hover:text-gray-200">侵权投诉</a>
+            </div>
+            <div className="text-xs md:text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
+          </div>
         </div>
       </footer>
     </div>
