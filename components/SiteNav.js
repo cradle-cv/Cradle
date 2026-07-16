@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import UserNav from '@/components/UserNav'
 
 // 全站共享导航:
@@ -18,6 +18,16 @@ const DEFAULT_LINKS = [
 
 export default function SiteNav({ links = DEFAULT_LINKS }) {
   const [open, setOpen] = useState(false)
+  const [showAgreement, setShowAgreement] = useState(false)
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem('cradle_agreement_v1')) setShowAgreement(true)
+    } catch (e) {}
+  }, [])
+  function ackAgreement() {
+    try { localStorage.setItem('cradle_agreement_v1', '1') } catch (e) {}
+    setShowAgreement(false)
+  }
 
   return (
     <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
@@ -76,6 +86,21 @@ export default function SiteNav({ links = DEFAULT_LINKS }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* 协议生效公告(一次性,知道了即不再显示) */}
+      {showAgreement && (
+        <div className="fixed bottom-0 left-0 right-0 z-[90] px-4 py-3" style={{ backgroundColor: '#111827' }}>
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center">
+            <span className="text-xs" style={{ color: '#D1D5DB' }}>
+              摇篮已发布<a href="/legal/terms" className="underline mx-0.5" style={{ color: '#F9FAFB', textUnderlineOffset: '3px' }}>《用户协议》</a>与<a href="/legal/privacy" className="underline mx-0.5" style={{ color: '#F9FAFB', textUnderlineOffset: '3px' }}>《隐私政策》</a>，继续使用即表示你已知悉并同意。
+            </span>
+            <button type="button" onClick={ackAgreement}
+              className="px-4 py-1 rounded-full text-xs" style={{ backgroundColor: '#F9FAFB', color: '#111827' }}>
+              知道了
+            </button>
+          </div>
         </div>
       )}
     </nav>
