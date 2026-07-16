@@ -517,7 +517,10 @@ export default function TryonPage() {
                   {running ? (
                     <p style={{ color: '#9CA3AF', fontSize: '13px', letterSpacing: '1px', textAlign: 'center', padding: '0 20px' }}>{progress || '生成中…'}</p>
                   ) : result ? (
-                    <img src={result} alt="试穿效果" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <img src={result} alt="试穿效果" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      <span style={{ position: 'absolute', right: '8px', bottom: '8px', padding: '2px 8px', fontSize: '11px', letterSpacing: '1px', color: '#FFFFFF', backgroundColor: 'rgba(17,24,39,0.72)', borderRadius: '4px', userSelect: 'none' }}>AI 生成</span>
+                    </div>
                   ) : (
                     <p style={{ color: '#D1D5DB', fontSize: '13px', letterSpacing: '2px' }}>效果圖將顯示在這裡</p>
                   )}
