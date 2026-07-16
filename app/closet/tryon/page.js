@@ -137,6 +137,11 @@ export default function TryonPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    // 人脸信息属敏感个人信息:处理前取得单独同意(PIPL)
+    const consent = window.confirm(
+      '人脸照片属于敏感个人信息。\n\n你上传的照片将保存在你的衣橱中供你重复使用,仅用于生成试穿效果;不用于其他目的,不用于训练人工智能模型。你可以随时在衣橱中删除照片,删除后平台即停止使用。\n\n点击"确定"表示你同意上述处理。'
+    );
+    if (!consent) return;
     try {
       const url = await uploadToR2(file, token);
       const res = await fetch('/api/closet/model', {
