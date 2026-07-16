@@ -15,6 +15,7 @@ export default function StudioNewArtworkPage() {
   const [collections, setCollections] = useState([])
   const [tags, setTags] = useState([])
   const [selectedTags, setSelectedTags] = useState([])
+  const [agreedLicense, setAgreedLicense] = useState(false)
   const fileInputRef = useRef(null)
 
   // ★ 内联创建作品集弹窗
@@ -142,6 +143,7 @@ export default function StudioNewArtworkPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.title) { alert('请填写标题'); return }
+    if (!agreedLicense) { alert('请先阅读并同意《艺术家上传许可条款》'); return }
     // ★ 存储自由:作品集不再必填,可"暂不归类"
     if (!artistRecord) { alert('艺术家信息未加载'); return }
 
@@ -411,6 +413,20 @@ export default function StudioNewArtworkPage() {
                     <p className="text-xs mt-2" style={{ color: '#9CA3AF', lineHeight: 1.7 }}>
                       发布后对所有人可见;草稿只有你自己能看到,以后随时可发布。
                     </p>
+                  </div>
+
+                  <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: '#FAFAF9', border: '0.5px solid #E7E5E4' }}>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input type="checkbox" checked={agreedLicense}
+                        onChange={(e) => setAgreedLicense(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded flex-shrink-0" />
+                      <span className="text-xs leading-relaxed" style={{ color: '#57534E' }}>
+                        我已阅读并同意
+                        <a href="/legal/artist-license" target="_blank" rel="noopener noreferrer"
+                          className="underline mx-0.5" style={{ color: '#1F2937', textUnderlineOffset: '3px' }}>《艺术家上传许可条款》</a>
+                        ：作品著作权归我所有，我授予平台站内展示的非独占许可；平台不会出售我的作品、不用于第三方商业用途、不用于训练人工智能模型。
+                      </span>
+                    </label>
                   </div>
 
                   <div className="pt-4 border-t border-gray-200">
