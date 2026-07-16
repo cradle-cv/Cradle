@@ -616,6 +616,8 @@ export default function GalleryDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {work.year && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>{work.year}</span>}
                   {work.collection_location && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>📍 {convert(work.collection_location)}</span>}
+                  {work.copyright_status === 'public_domain' && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#F0FDF4', color: '#15803D' }}>公有领域</span>}
+                  {work.copyright_status === 'in_copyright' && <span className="px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>© 艺术家权利人 · 评论性适当引用</span>}
                 </div>
               </div>
             </div>
