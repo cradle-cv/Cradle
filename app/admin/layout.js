@@ -1,325 +1,256 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import { AuthProvider, useAuth } from '@/lib/auth-context'
 
 // ═══════════════════════════════════════════════════════════════
-// Section 配置 - 每个 section 定义自己的路径前缀,用于"当前所在 section"判断
+// IG 打包器 · /admin/ig-kit
+// 选期 → 四页轮播海报(钩子封面 + 三张画) + 配文 → 下载图 + 复制文案
+// 跨域经 /api/proxy-image 代理,canvas 可正常导出
 // ═══════════════════════════════════════════════════════════════
-const SECTIONS = [
-  {
-    key: 'gallery',
-    icon: '📚',
-    label: '艺术阅览室',
-    sub: '大师经典 · 馆长的领地',
-    prefixes: ['/admin/gallery', '/admin/curations', '/admin/articles', '/admin/museums', '/admin/gallery-artists', '/admin/batch'],
-    links: [
-      { href: '/admin/gallery', icon: '🖼️', label: '作品管理', matchExact: (p) => p.startsWith('/admin/gallery') && !p.startsWith('/admin/gallery-artists') },
-      { href: '/admin/curations', icon: '📰', label: '本期精选排期' },
-      { href: '/admin/articles', icon: '📝', label: '文章管理' },
-      { href: '/admin/museums', icon: '🏛️', label: '博物馆管理' },
-      { href: '/admin/gallery-artists', icon: '🎭', label: '阅览室艺术家' },
-      { href: '/admin/batch', icon: '⚡', label: '批量管理', matchExact: (p) => p === '/admin/batch' },
-    ],
-  },
-  {
-    key: 'collections',
-    icon: '🎨',
-    label: '当代作品集',
-    sub: '当代回响 · 策展人的发现',
-    prefixes: ['/admin/collections', '/admin/artworks', '/admin/artists', '/admin/batch-artworks'],
-    links: [
-      { href: '/admin/collections', icon: '📚', label: '作品集管理' },
-      { href: '/admin/artworks', icon: '🎨', label: '作品管理' },
-      { href: '/admin/artists', icon: '👤', label: '艺术家管理' },
-      { href: '/admin/batch-artworks', icon: '⚡', label: '批量作品管理' },
-    ],
-  },
-  {
-    key: 'exhibitions',
-    icon: '🖼️',
-    label: '每日一展',
-    sub: '旅行者 · 经典与当代的对话',
-    prefixes: ['/admin/exhibitions', '/admin/dialogue'],
-    links: [
-      { href: '/admin/exhibitions', icon: '🎪', label: '展览管理', matchExact: (p) => p === '/admin/exhibitions' || (p.startsWith('/admin/exhibitions/') && !p.startsWith('/admin/exhibitions/daily')) },
-      { href: '/admin/exhibitions/daily', icon: '⭐', label: '每日一展管理' },
-      { href: '/admin/dialogue', icon: '🎐', label: '本期对话排期' },
-    ],
-  },
-  {
-    key: 'magazine',
-    icon: '📖',
-    label: '杂志社',
-    sub: '编辑 · 深度内容',
-    prefixes: ['/admin/magazine', '/admin/columns'],
-    links: [
-      { href: '/admin/magazine', icon: '📖', label: '杂志管理' },
-      { href: '/admin/columns', icon: '✦', label: '图文专栏' },
-    ],
-  },
-  {
-    key: 'partners',
-    icon: '🤝',
-    label: '合作伙伴',
-    sub: '画廊 · 美术馆 · 艺术机构',
-    prefixes: ['/admin/partners', '/admin/partner-applications'],
-    links: [
-      { href: '/admin/partners', icon: '🤝', label: '合作伙伴管理' },
-      { href: '/admin/partner-applications', icon: '📋', label: '承办申请终审' },
-    ],
-  },
-  {
-    key: 'invitations',
-    icon: '📯',
-    label: '邀请函',
-    sub: '官方发起 · 策展人发起',
-    prefixes: ['/admin/invitations'],
-    links: [
-      { href: '/admin/invitations', icon: '📋', label: '邀请函管理', matchExact: (p) => p === '/admin/invitations' },
-      { href: '/admin/invitations/new', icon: '📯', label: '发起官方邀请函' },
-    ],
-  },
-  {
-    key: 'users',
-    icon: '👥',
-    label: '用户管理',
-    sub: null,
-    prefixes: ['/admin/users', '/admin/identity-review', '/admin/artist-reviews'],
-    links: [
-      { href: '/admin/users', icon: '👤', label: '用户列表' },
-      {
-        href: '/admin/identity-review',
-        icon: '🎭',
-        label: '身份审核',
-        matchExact: (p) => p.startsWith('/admin/identity-review') || p.startsWith('/admin/artist-reviews'),
-      },
-    ],
-  },
-  {
-    key: 'settings',
-    icon: '⚙️',
-    label: '系统设置',
-    sub: null,
-    prefixes: ['/admin/tags', '/admin/badges', '/admin/parallel'],
-    links: [
-      { href: '/admin/tags', icon: '🏷️', label: '标签管理' },
-      { href: '/admin/badges', icon: '🏅', label: '徽章管理' },
-      { href: '/admin/parallel', icon: '🐾', label: '平行体管理' },
-    ],
-  },
-]
 
-function AdminLayoutContent({ children }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { user, userData, loading } = useAuth()
+const FIXED_TAGS = '#Cradle #摇篮 #艺术阅览室 #艺术 #名画 #art #arthistory #painting'
+const W = 1080, H = 1350
+const proxied = (url) => url ? `/api/proxy-image?url=${encodeURIComponent(url)}` : ''
 
-  // ─── 守卫:非 admin 一律跳走 ───
+export default function IgKitPage() {
+  const [curations, setCurations] = useState([])
+  const [selectedId, setSelectedId] = useState('')
+  const [detail, setDetail] = useState(null)
+  const [hook, setHook] = useState('')
+  const [openQs, setOpenQs] = useState([])
+  const [caption, setCaption] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+  const [status, setStatus] = useState('')
+
   useEffect(() => {
-    if (loading) return
-    // 未登录
-    if (!user) {
-      router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
-      return
-    }
-    // 已登录但非 admin
-    if (userData && userData.role !== 'admin') {
-      // 艺术家友好一点,引导去 /studio;其他人回首页
-      const target = userData.role === 'artist' ? '/studio' : '/'
-      router.replace(target)
-    }
-  }, [user, userData, loading, router, pathname])
+    (async () => {
+      const { data } = await supabase
+        .from('gallery_curations')
+        .select('id, issue_number, theme_zh, theme_en, quote, work_ids, is_special, status')
+        .eq('status', 'published')
+        .order('is_special', { ascending: true })
+        .order('issue_number', { ascending: false })
+      setCurations(data || [])
+      setLoading(false)
+    })()
+  }, [])
 
-  const currentSectionKey = useMemo(() => {
-    for (const s of SECTIONS) {
-      if (s.prefixes.some(p => pathname.startsWith(p))) {
-        return s.key
+  useEffect(() => {
+    if (!selectedId) { setDetail(null); setOpenQs([]); return }
+    (async () => {
+      const cur = curations.find(c => c.id === selectedId)
+      if (!cur) return
+      const { data: works } = await supabase
+        .from('gallery_works')
+        .select('id, title, artist_name, cover_image, puzzle_article_id')
+        .in('id', cur.work_ids || [])
+      const ordered = (cur.work_ids || []).map(id => (works || []).find(w => w.id === id)).filter(Boolean)
+
+      // 拉当期开放题(作为改写钩子的原料/参考)
+      const puzzleIds = ordered.map(w => w.puzzle_article_id).filter(Boolean)
+      let qs = []
+      if (puzzleIds.length) {
+        const { data: qData } = await supabase
+          .from('article_questions')
+          .select('question_text, question_type_v2, article_id')
+          .in('article_id', puzzleIds)
+          .eq('question_type_v2', 'open')
+        qs = (qData || []).map(q => q.question_text)
       }
+      setOpenQs(qs)
+
+      const d = {
+        issue: cur.issue_number, is_special: cur.is_special,
+        theme_zh: cur.theme_zh, theme_en: cur.theme_en, quote: cur.quote || '',
+        works: ordered.map(w => ({ title: w.title, artist: w.artist_name, cover: w.cover_image })),
+      }
+      setDetail(d)
+      setCaption(buildCaption(d, hook))
+    })()
+  }, [selectedId, curations])
+
+  useEffect(() => {
+    if (detail) setCaption(buildCaption(detail, hook))
+  }, [hook])
+
+  function buildCaption(d, hk) {
+    const issueLabel = d.is_special ? `特刊《${d.theme_zh}》` : `第 ${d.issue} 期《${d.theme_zh}》`
+    const worksList = d.works.map(w => `· ${w.title}／${w.artist}`).join('\n')
+    const firstLine = hk ? hk.trim() : `摇篮 · 艺术阅览室 ${issueLabel}`
+    return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}`
+  }
+
+  // ── canvas 工具 ──
+  function loadImg(url) {
+    return new Promise((res, rej) => {
+      const i = new Image(); i.crossOrigin = 'anonymous'
+      i.onload = () => res(i); i.onerror = rej; i.src = url
+    })
+  }
+  function fitContain(iw, ih, mw, mh) { const r = Math.min(mw / iw, mh / ih); return { w: iw * r, h: ih * r } }
+  function wrapText(ctx, text, maxW) {
+    const lines = []; let line = ''
+    for (const ch of text) {
+      if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch }
+      else line += ch
     }
-    return null
-  }, [pathname])
-
-  const [expanded, setExpanded] = useState(() => {
-    const init = {}
-    SECTIONS.forEach(s => { init[s.key] = false })
-    return init
-  })
-
-  function toggleSection(key) {
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+    if (line) lines.push(line)
+    return lines
   }
 
-  function isExpanded(s) {
-    return expanded[s.key] || s.key === currentSectionKey
+  function renderHook(ctx, hookText) {
+    ctx.fillStyle = '#161616'; ctx.fillRect(0, 0, W, H)
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#8a8a8a'; ctx.font = '28px "Noto Serif SC", serif'
+    ctx.fillText('Cradle 摇篮 · 艺术阅览室', W / 2, 120)
+    ctx.fillStyle = '#F4F2EC'; ctx.font = '600 74px "Noto Serif SC", serif'
+    const lines = wrapText(ctx, hookText || '（在下方填入钩子）', W - 200)
+    const lineH = 108; let y = (H - lines.length * lineH) / 2 + 60
+    lines.forEach(l => { ctx.fillText(l, W / 2, y); y += lineH })
+    ctx.fillStyle = '#8a8a8a'; ctx.font = '30px "Noto Serif SC", serif'
+    ctx.fillText(`《${detail.theme_zh}》 ${detail.theme_en}`, W / 2, H - 130)
+    ctx.font = 'italic 24px Georgia, serif'; ctx.fillText('cradle.art', W / 2, H - 84)
   }
 
-  if (pathname === '/admin') {
-    return <>{children}</>
+  async function renderWork(ctx, work) {
+    ctx.fillStyle = '#F4F2EC'; ctx.fillRect(0, 0, W, H)
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#1a1a1a'; ctx.font = '700 40px "Noto Serif SC", serif'
+    ctx.fillText('Cradle 摇篮', W / 2, 96)
+    ctx.strokeStyle = '#c9c5bc'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(W / 2 - 60, 122); ctx.lineTo(W / 2 + 60, 122); ctx.stroke()
+    const issueLabel = detail.is_special ? `特刊` : `第 ${detail.issue} 期`
+    ctx.fillStyle = '#333'; ctx.font = '34px "Noto Serif SC", serif'
+    ctx.fillText(`艺术阅览室 ${issueLabel}　《${detail.theme_zh}》`, W / 2, 172)
+    ctx.fillStyle = '#888'; ctx.font = 'italic 28px Georgia, serif'
+    ctx.fillText(detail.theme_en, W / 2, 212)
+
+    const AT = 260, AB = H - 220, AH = AB - AT, AW = W - 150
+    if (work.cover) {
+      try {
+        const img = await loadImg(proxied(work.cover))
+        const { w, h } = fitContain(img.width, img.height, AW, AH)
+        const dx = (W - w) / 2, dy = AT + (AH - h) / 2
+        ctx.fillStyle = '#fff'; ctx.fillRect(dx - 8, dy - 8, w + 16, h + 16)
+        ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1; ctx.strokeRect(dx - 8, dy - 8, w + 16, h + 16)
+        ctx.drawImage(img, dx, dy, w, h)
+      } catch (e) {
+        ctx.fillStyle = '#ddd'; ctx.fillRect((W - AW) / 2, AT, AW, AH)
+        setStatus('部分画作加载失败,请重试或检查该作品封面图。')
+      }
+    } else {
+      ctx.fillStyle = '#eee'; ctx.fillRect((W - AW) / 2, AT, AW, AH)
+      ctx.fillStyle = '#999'; ctx.font = '30px serif'; ctx.fillText('该作品暂无封面图', W / 2, H / 2)
+    }
+
+    const fy = H - 150
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(150, fy); ctx.lineTo(W - 150, fy); ctx.stroke()
+    ctx.fillStyle = '#1a1a1a'; ctx.font = '700 52px "Noto Serif SC", serif'
+    ctx.fillText(`《${work.title}》`, W / 2, fy + 66)
+    ctx.fillStyle = '#666'; ctx.font = '30px "Noto Serif SC", serif'
+    ctx.fillText(work.artist, W / 2, fy + 108)
+    ctx.textAlign = 'right'; ctx.fillStyle = '#aaa'; ctx.font = '26px Georgia, serif'
+    ctx.fillText('cradle.art', W - 60, H - 40); ctx.textAlign = 'left'
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/admin')
+  async function downloadPage(index) {
+    setStatus('生成中…')
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const ctx = cv.getContext('2d')
+    if (index === 0) renderHook(ctx, hook)
+    else await renderWork(ctx, detail.works[index - 1])
+    try {
+      const a = document.createElement('a')
+      a.download = `cradle-${detail.issue}-${index + 1}.png`
+      a.href = cv.toDataURL('image/png'); a.click()
+      setStatus('')
+    } catch (e) {
+      setStatus('导出失败:图片跨域未授权。请确认 /api/proxy-image 已部署。')
+    }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-2xl text-gray-600">加载中...</div>
-      </div>
-    )
+  async function downloadAll() {
+    for (let i = 0; i < 4; i++) { await downloadPage(i); await new Promise(r => setTimeout(r, 400)) }
   }
 
-  // 守卫:未登录或非 admin,显示空白(useEffect 会 router.push 出去)
-  if (!user || !userData || userData.role !== 'admin') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600 mb-2">正在跳转…</p>
-          <p className="text-xs text-gray-400">此页面仅管理员可访问</p>
-        </div>
-      </div>
-    )
+  async function copyCaption() {
+    try { await navigator.clipboard.writeText(caption); setCopied(true); setTimeout(() => setCopied(false), 1800) }
+    catch (e) { alert('复制失败,请手动选中复制') }
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="w-64 bg-white shadow-lg flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            <Link href="/" className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-              <div>
-                <div className="font-bold text-lg">Cradle 后台</div>
-                <div className="text-xs text-gray-500">{userData.username}</div>
-              </div>
-            </Link>
+    <div className="min-h-screen bg-gray-50 p-6" style={{ fontFamily: '"Noto Serif SC", serif' }}>
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-2xl font-bold mb-1" style={{ color: '#111827' }}>Instagram 打包器</h1>
+        <p className="text-sm text-gray-500 mb-6">选择一期，填入钩子，一键生成四页轮播海报（钩子封面 + 三张画）与配文。</p>
 
-            <nav>
-              {SECTIONS.map((s, idx) => (
-                <Section
-                  key={s.key}
-                  section={s}
-                  expanded={isExpanded(s)}
-                  onToggle={() => toggleSection(s.key)}
-                  pathname={pathname}
-                  isCurrent={s.key === currentSectionKey}
-                  isLast={idx === SECTIONS.length - 1}
-                />
+        <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
+          <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>选择期号</label>
+          {loading ? <p className="text-sm text-gray-400">载入中…</p> : (
+            <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: '#D1D5DB' }}>
+              <option value="">— 请选择 —</option>
+              {curations.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.is_special ? '特刊' : `第 ${c.issue_number} 期`}《{c.theme_zh}》
+                </option>
               ))}
-            </nav>
-          </div>
+            </select>
+          )}
         </div>
 
-        <div className="p-6 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            退出登录
-          </button>
-        </div>
-      </aside>
+        {detail && (
+          <>
+            <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
+              <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>钩子文案（封面大字 + 配文第一行）</label>
+              <textarea value={hook} onChange={e => setHook(e.target.value)} rows={2}
+                placeholder="贴入通用钩子，例如：如果人生这条船靠岸前允许你回头看最后一眼，你想看见什么？"
+                className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: '#D1D5DB' }} />
+              {openQs.length > 0 && (
+                <div className="mt-3 text-xs" style={{ color: '#9CA3AF' }}>
+                  <p className="mb-1">当期开放题（供改写参考，勿直接照搬贴画表述）：</p>
+                  <ul className="space-y-1">
+                    {openQs.map((q, i) => <li key={i} className="pl-2 border-l-2" style={{ borderColor: '#E5E7EB' }}>{q}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        {children}
-      </main>
-    </div>
-  )
-}
+            <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>四页轮播海报</h2>
+                <button onClick={downloadAll} className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部四页</button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {['封面·钩子', detail.works[0]?.title, detail.works[1]?.title, detail.works[2]?.title].map((label, i) => (
+                  <button key={i} onClick={() => downloadPage(i)}
+                    className="border rounded-lg py-3 px-2 text-xs hover:bg-gray-50" style={{ borderColor: '#D1D5DB', color: '#374151' }}>
+                    <div className="font-medium mb-0.5">第 {i + 1} 页</div>
+                    <div className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{label}</div>
+                  </button>
+                ))}
+              </div>
+              {status && <p className="mt-2 text-xs" style={{ color: '#B45309' }}>{status}</p>}
+            </div>
 
-function Section({ section, expanded, onToggle, pathname, isCurrent, isLast }) {
-  return (
-    <div style={{
-      borderBottom: isLast ? 'none' : '0.5px solid #F3F4F6',
-      paddingBottom: '8px',
-      marginBottom: '4px',
-    }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors hover:bg-gray-50"
-      >
-        <span className="flex items-center gap-2">
-          <span className="text-sm">{section.icon}</span>
-          <span
-            className="text-xs font-bold uppercase tracking-wider transition-colors"
-            style={{ color: isCurrent ? '#111827' : '#9CA3AF' }}
-          >
-            {section.label}
-          </span>
-        </span>
-        <svg
-          width="10" height="10" viewBox="0 0 10 10" fill="none"
-          style={{
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-            transition: 'transform 0.25s ease',
-            color: isCurrent ? '#111827' : '#9CA3AF',
-          }}
-        >
-          <path d="M3 1 L7 5 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      <div
-        style={{
-          maxHeight: expanded ? `${(section.links.length * 48) + (section.sub ? 24 : 0) + 12}px` : '0px',
-          overflow: 'hidden',
-          transition: 'max-height 0.3s ease',
-        }}
-      >
-        {section.sub && (
-          <div className="px-4 pt-1 pb-2">
-            <span className="text-xs" style={{ color: '#D1D5DB' }}>{section.sub}</span>
-          </div>
+            <div className="bg-white rounded-xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>配文</h2>
+                <div className="flex gap-2">
+                  <button onClick={() => setCaption(buildCaption(detail, hook))} className="px-3 py-1.5 rounded text-xs border" style={{ color: '#6B7280', borderColor: '#D1D5DB' }}>重置</button>
+                  <button onClick={copyCaption} className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: copied ? '#059669' : '#111827' }}>{copied ? '已复制 ✓' : '复制文案'}</button>
+                </div>
+              </div>
+              <textarea value={caption} onChange={e => setCaption(e.target.value)} rows={13}
+                className="w-full border rounded-lg px-3 py-3 text-sm leading-relaxed" style={{ borderColor: '#D1D5DB', fontFamily: '"Noto Serif SC", serif' }} />
+              <p className="mt-2 text-xs text-gray-400">第一行为钩子（勾人点"更多"）。可直接编辑。</p>
+            </div>
+          </>
         )}
-
-        <div className="space-y-0.5 pt-1">
-          {section.links.map(link => {
-            const active = link.matchExact
-              ? link.matchExact(pathname)
-              : pathname.startsWith(link.href)
-            return (
-              <NavLink key={link.href} href={link.href} icon={link.icon} active={active}>
-                {link.label}
-              </NavLink>
-            )
-          })}
-        </div>
       </div>
     </div>
-  )
-}
-
-function NavLink({ href, icon, children, active }) {
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-        active
-          ? 'bg-blue-50 text-blue-600 font-medium'
-          : 'text-gray-700 hover:bg-gray-50'
-      }`}
-    >
-      <span className="text-lg">{icon}</span>
-      <span className="text-sm">{children}</span>
-    </Link>
-  )
-}
-
-export default function AdminLayout({ children }) {
-  const pathname = usePathname()
-
-  if (pathname === '/admin') {
-    return <>{children}</>
-  }
-
-  return (
-    <AuthProvider>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
-    </AuthProvider>
   )
 }
