@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // ═══════════════════════════════════════════════════════════════
-// IG 打包器 v2 · /admin/ig-kit
-// 选期 → 自动读取当期通用钩子(ig_hooks)供勾选 → 勾选的钩子各生成一张封面
-// → 自动预览全部海报(N张钩子封面 + 3张画) → 逐张下载 + 配文
+// IG 打包器 v3 · /admin/ig-kit
+// 选期 → 读当期通用钩子(ig_hooks)供勾选 → 勾中的钩子变可编辑文本框(改字图实时变)
+// + 自定义钩子按钮 → 每条选中的钩子各生成一张封面 + 三张画 → 自动预览 → 下载 + 配文
 // ═══════════════════════════════════════════════════════════════
 
 const FIXED_TAGS = '#Cradle #摇篮 #艺术阅览室 #艺术 #名画 #art #arthistory #painting'
@@ -17,13 +17,12 @@ export default function IgKitPage() {
   const [curations, setCurations] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState(null)
-  const [hooks, setHooks] = useState([])          // 当期所有钩子
-  const [checkedHooks, setCheckedHooks] = useState([]) // 已勾选的钩子文本
+  // 钩子项:{ id, text, checked, source:'lib'|'custom' }
+  const [hookItems, setHookItems] = useState([])
   const [openQs, setOpenQs] = useState([])
   const [caption, setCaption] = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [status, setStatus] = useState('')
   const imgCache = useRef({})
 
   useEffect(() => {
@@ -40,7 +39,7 @@ export default function IgKitPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedId) { setDetail(null); setHooks([]); setCheckedHooks([]); setOpenQs([]); return }
+    if (!selectedId) { setDetail(null); setHookItems([]); setOpenQs([]); return }
     (async () => {
       const cur = curations.find(c => c.id === selectedId)
       if (!cur) return
@@ -61,22 +60,21 @@ export default function IgKitPage() {
       setOpenQs(qs)
 
       const hk = Array.isArray(cur.ig_hooks) ? cur.ig_hooks : []
-      setHooks(hk)
-      setCheckedHooks(hk.length ? [hk[0]] : [])  // 默认勾第一条
+      setHookItems(hk.map((t, i) => ({ id: `lib-${i}`, text: t, checked: i === 0, source: 'lib' })))
 
-      const d = {
+      setDetail({
         issue: cur.issue_number, is_special: cur.is_special,
         theme_zh: cur.theme_zh, theme_en: cur.theme_en, quote: cur.quote || '',
         works: ordered.map(w => ({ title: w.title, artist: w.artist_name, cover: w.cover_image })),
-      }
-      setDetail(d)
+      })
     })()
   }, [selectedId, curations])
 
-  // 配文随勾选的第一条钩子变化
+  // 配文随第一条选中钩子变
+  const firstChecked = hookItems.find(h => h.checked)?.text || ''
   useEffect(() => {
-    if (detail) setCaption(buildCaption(detail, checkedHooks[0] || ''))
-  }, [detail, checkedHooks])
+    if (detail) setCaption(buildCaption(detail, firstChecked))
+  }, [detail, firstChecked])
 
   function buildCaption(d, firstHook) {
     const issueLabel = d.is_special ? `特刊《${d.theme_zh}》` : `第 ${d.issue} 期《${d.theme_zh}》`
@@ -85,8 +83,17 @@ export default function IgKitPage() {
     return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}`
   }
 
-  function toggleHook(h) {
-    setCheckedHooks(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h])
+  function toggleHook(id) {
+    setHookItems(prev => prev.map(h => h.id === id ? { ...h, checked: !h.checked } : h))
+  }
+  function editHook(id, text) {
+    setHookItems(prev => prev.map(h => h.id === id ? { ...h, text } : h))
+  }
+  function addCustom() {
+    setHookItems(prev => [...prev, { id: `custom-${Date.now()}`, text: '', checked: true, source: 'custom' }])
+  }
+  function removeCustom(id) {
+    setHookItems(prev => prev.filter(h => h.id !== id))
   }
 
   // ── canvas ──
@@ -112,7 +119,7 @@ export default function IgKitPage() {
     ctx.fillStyle = '#8a8a8a'; ctx.font = '28px "Noto Serif SC", serif'
     ctx.fillText('Cradle 摇篮 · 艺术阅览室', W / 2, 120)
     ctx.fillStyle = '#F4F2EC'; ctx.font = '600 74px "Noto Serif SC", serif'
-    const lines = wrapText(ctx, hookText, W - 200)
+    const lines = wrapText(ctx, hookText || '（在左侧填写钩子）', W - 200)
     const lineH = 108; let y = (H - lines.length * lineH) / 2 + 60
     lines.forEach(l => { ctx.fillText(l, W / 2, y); y += lineH })
     ctx.fillStyle = '#8a8a8a'; ctx.font = '30px "Noto Serif SC", serif'
@@ -155,26 +162,18 @@ export default function IgKitPage() {
     ctx.fillText('cradle.art', W - 60, H - 40); ctx.textAlign = 'left'
   }
 
-  // 组装页序:勾选的钩子(各一页) + 三张画
-  function pageList() {
-    if (!detail) return []
-    const hookPages = checkedHooks.map(h => ({ type: 'hook', hook: h }))
-    const workPages = detail.works.map(w => ({ type: 'work', w }))
-    return [...hookPages, ...workPages]
-  }
-
-  // 自动预览:每当 detail / checkedHooks 变,重画所有预览 canvas
-  const [pageCanvases, setPageCanvases] = useState([])
-  useEffect(() => {
-    const pages = pageList()
-    setPageCanvases(pages)
-  }, [detail, checkedHooks])
+  // 页序:选中的钩子(各一页,文本即时) + 三张画
+  const checkedHookTexts = hookItems.filter(h => h.checked).map(h => h.text)
+  const pages = detail ? [
+    ...checkedHookTexts.map(t => ({ type: 'hook', hook: t })),
+    ...detail.works.map(w => ({ type: 'work', w })),
+  ] : []
 
   return (
     <div className="min-h-screen bg-gray-50 p-6" style={{ fontFamily: '"Noto Serif SC", serif' }}>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-1" style={{ color: '#111827' }}>Instagram 打包器</h1>
-        <p className="text-sm text-gray-500 mb-6">选择一期，勾选钩子，海报自动预览。每个勾选的钩子生成一张封面，加三张画海报。</p>
+        <p className="text-sm text-gray-500 mb-6">选期，勾选或编辑钩子，海报自动预览。每条选中的钩子各生成一张封面，加三张画。</p>
 
         <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
           <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>选择期号</label>
@@ -192,22 +191,33 @@ export default function IgKitPage() {
         {detail && (
           <>
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
-              <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>钩子（勾选的每条各生成一张封面）</label>
-              {hooks.length === 0 ? (
-                <p className="text-sm text-amber-700">本期还没有钩子。让 Claude 把开放题改写成通用钩子写入后即可显示。</p>
+              <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>钩子（勾选后可直接编辑，改字预览实时更新）</label>
+              {hookItems.length === 0 ? (
+                <p className="text-sm text-amber-700 mb-3">本期还没有预置钩子。可点下方"自定义钩子"自己写，或让 Claude 从主题与引言提炼后写入。</p>
               ) : (
-                <div className="space-y-2">
-                  {hooks.map((h, i) => (
-                    <label key={i} className="flex items-start gap-2.5 cursor-pointer">
-                      <input type="checkbox" checked={checkedHooks.includes(h)} onChange={() => toggleHook(h)} className="mt-1 w-4 h-4 flex-shrink-0" />
-                      <span className="text-sm leading-relaxed" style={{ color: '#374151' }}>{h}</span>
-                    </label>
+                <div className="space-y-2.5">
+                  {hookItems.map(h => (
+                    <div key={h.id} className="flex items-start gap-2.5">
+                      <input type="checkbox" checked={h.checked} onChange={() => toggleHook(h.id)} className="mt-2.5 w-4 h-4 flex-shrink-0" />
+                      {h.checked ? (
+                        <textarea value={h.text} onChange={e => editHook(h.id, e.target.value)} rows={2}
+                          className="flex-1 border rounded-lg px-3 py-2 text-sm leading-relaxed"
+                          style={{ borderColor: '#111827', backgroundColor: '#FAFAF9' }} />
+                      ) : (
+                        <span className="flex-1 text-sm leading-relaxed py-2" style={{ color: '#6B7280' }}>{h.text || '（空）'}</span>
+                      )}
+                      {h.source === 'custom' && (
+                        <button onClick={() => removeCustom(h.id)} className="mt-2 text-xs" style={{ color: '#B91C1C' }}>删除</button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
+              <button onClick={addCustom} className="mt-3 px-3 py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>+ 自定义钩子</button>
+
               {openQs.length > 0 && (
                 <details className="mt-4">
-                  <summary className="text-xs cursor-pointer" style={{ color: '#9CA3AF' }}>查看当期开放题（改写钩子的原料）</summary>
+                  <summary className="text-xs cursor-pointer" style={{ color: '#9CA3AF' }}>查看当期开放题（参考）</summary>
                   <ul className="mt-2 space-y-1 text-xs" style={{ color: '#9CA3AF' }}>
                     {openQs.map((q, i) => <li key={i} className="pl-2 border-l-2" style={{ borderColor: '#E5E7EB' }}>{q}</li>)}
                   </ul>
@@ -215,20 +225,19 @@ export default function IgKitPage() {
               )}
             </div>
 
-            {/* 自动预览 */}
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>海报预览（共 {pageCanvases.length} 张）</h2>
+                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>海报预览（共 {pages.length} 张）</h2>
                 <button onClick={() => document.querySelectorAll('[data-dl]').forEach(b => b.click())}
                   className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部</button>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                {pageCanvases.map((p, i) => (
-                  <PosterThumb key={i} index={i} page={p}
-                    renderHook={renderHook} renderWork={renderWork}
-                    issue={detail.issue} />
+                {pages.map((p, i) => (
+                  <PosterThumb key={`${p.type}-${i}-${p.type === 'hook' ? p.hook : p.w.title}`}
+                    index={i} page={p} renderHook={renderHook} renderWork={renderWork} issue={detail.issue} />
                 ))}
               </div>
+              {pages.length === 0 && <p className="text-sm text-gray-400">勾选至少一条钩子以生成海报。</p>}
             </div>
 
             <div className="bg-white rounded-xl p-5 shadow-sm">
@@ -239,7 +248,7 @@ export default function IgKitPage() {
               </div>
               <textarea value={caption} onChange={e => setCaption(e.target.value)} rows={13}
                 className="w-full border rounded-lg px-3 py-3 text-sm leading-relaxed" style={{ borderColor: '#D1D5DB', fontFamily: '"Noto Serif SC", serif' }} />
-              <p className="mt-2 text-xs text-gray-400">第一行为勾选的第一条钩子。</p>
+              <p className="mt-2 text-xs text-gray-400">第一行为第一条选中的钩子。</p>
             </div>
           </>
         )}
@@ -248,11 +257,8 @@ export default function IgKitPage() {
   )
 }
 
-// 单张海报缩略图:挂载即自动画,可点击下载
 function PosterThumb({ index, page, renderHook, renderWork, issue }) {
   const canvasRef = useRef(null)
-  const [ready, setReady] = useState(false)
-
   useEffect(() => {
     let cancelled = false
     async function draw() {
@@ -260,14 +266,11 @@ function PosterThumb({ index, page, renderHook, renderWork, issue }) {
       const ctx = cv.getContext('2d')
       if (page.type === 'hook') renderHook(ctx, page.hook)
       else await renderWork(ctx, page.w)
-      if (!cancelled) setReady(true)
     }
-    setReady(false)
-    // 等字体
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw)
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) draw() })
     else draw()
     return () => { cancelled = true }
-  }, [page])
+  }, [page.type, page.type === 'hook' ? page.hook : page.w?.title])
 
   function download() {
     const cv = canvasRef.current; if (!cv) return
@@ -284,8 +287,7 @@ function PosterThumb({ index, page, renderHook, renderWork, issue }) {
       <canvas ref={canvasRef} width={W} height={H}
         style={{ width: '100%', aspectRatio: '4/5', display: 'block', border: '1px solid #E5E7EB', borderRadius: 4, background: '#F4F2EC' }} />
       <p className="text-xs truncate w-full text-center" style={{ color: '#9CA3AF' }}>{index + 1}. {label}</p>
-      <button data-dl onClick={download}
-        className="w-full py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>下载</button>
+      <button data-dl onClick={download} className="w-full py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>下载</button>
     </div>
   )
 }
