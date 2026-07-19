@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // ═══════════════════════════════════════════════════════════════
-// IG 打包器 · /admin/ig-kit
-// 选期 → 四页轮播海报(钩子封面 + 三张画) + 配文 → 下载图 + 复制文案
-// 跨域经 /api/proxy-image 代理,canvas 可正常导出
+// IG 打包器 v2 · /admin/ig-kit
+// 选期 → 自动读取当期通用钩子(ig_hooks)供勾选 → 勾选的钩子各生成一张封面
+// → 自动预览全部海报(N张钩子封面 + 3张画) → 逐张下载 + 配文
 // ═══════════════════════════════════════════════════════════════
 
 const FIXED_TAGS = '#Cradle #摇篮 #艺术阅览室 #艺术 #名画 #art #arthistory #painting'
@@ -17,18 +17,20 @@ export default function IgKitPage() {
   const [curations, setCurations] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState(null)
-  const [hook, setHook] = useState('')
+  const [hooks, setHooks] = useState([])          // 当期所有钩子
+  const [checkedHooks, setCheckedHooks] = useState([]) // 已勾选的钩子文本
   const [openQs, setOpenQs] = useState([])
   const [caption, setCaption] = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [status, setStatus] = useState('')
+  const imgCache = useRef({})
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('gallery_curations')
-        .select('id, issue_number, theme_zh, theme_en, quote, work_ids, is_special, status')
+        .select('id, issue_number, theme_zh, theme_en, quote, work_ids, is_special, status, ig_hooks')
         .eq('status', 'published')
         .order('is_special', { ascending: true })
         .order('issue_number', { ascending: false })
@@ -38,7 +40,7 @@ export default function IgKitPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedId) { setDetail(null); setOpenQs([]); return }
+    if (!selectedId) { setDetail(null); setHooks([]); setCheckedHooks([]); setOpenQs([]); return }
     (async () => {
       const cur = curations.find(c => c.id === selectedId)
       if (!cur) return
@@ -48,18 +50,19 @@ export default function IgKitPage() {
         .in('id', cur.work_ids || [])
       const ordered = (cur.work_ids || []).map(id => (works || []).find(w => w.id === id)).filter(Boolean)
 
-      // 拉当期开放题(作为改写钩子的原料/参考)
       const puzzleIds = ordered.map(w => w.puzzle_article_id).filter(Boolean)
       let qs = []
       if (puzzleIds.length) {
         const { data: qData } = await supabase
-          .from('article_questions')
-          .select('question_text, question_type_v2, article_id')
-          .in('article_id', puzzleIds)
-          .eq('question_type_v2', 'open')
+          .from('article_questions').select('question_text, question_type_v2, article_id')
+          .in('article_id', puzzleIds).eq('question_type_v2', 'open')
         qs = (qData || []).map(q => q.question_text)
       }
       setOpenQs(qs)
+
+      const hk = Array.isArray(cur.ig_hooks) ? cur.ig_hooks : []
+      setHooks(hk)
+      setCheckedHooks(hk.length ? [hk[0]] : [])  // 默认勾第一条
 
       const d = {
         issue: cur.issue_number, is_special: cur.is_special,
@@ -67,26 +70,31 @@ export default function IgKitPage() {
         works: ordered.map(w => ({ title: w.title, artist: w.artist_name, cover: w.cover_image })),
       }
       setDetail(d)
-      setCaption(buildCaption(d, hook))
     })()
   }, [selectedId, curations])
 
+  // 配文随勾选的第一条钩子变化
   useEffect(() => {
-    if (detail) setCaption(buildCaption(detail, hook))
-  }, [hook])
+    if (detail) setCaption(buildCaption(detail, checkedHooks[0] || ''))
+  }, [detail, checkedHooks])
 
-  function buildCaption(d, hk) {
+  function buildCaption(d, firstHook) {
     const issueLabel = d.is_special ? `特刊《${d.theme_zh}》` : `第 ${d.issue} 期《${d.theme_zh}》`
     const worksList = d.works.map(w => `· ${w.title}／${w.artist}`).join('\n')
-    const firstLine = hk ? hk.trim() : `摇篮 · 艺术阅览室 ${issueLabel}`
+    const firstLine = firstHook ? firstHook.trim() : `摇篮 · 艺术阅览室 ${issueLabel}`
     return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}`
   }
 
-  // ── canvas 工具 ──
+  function toggleHook(h) {
+    setCheckedHooks(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h])
+  }
+
+  // ── canvas ──
   function loadImg(url) {
+    if (imgCache.current[url]) return Promise.resolve(imgCache.current[url])
     return new Promise((res, rej) => {
       const i = new Image(); i.crossOrigin = 'anonymous'
-      i.onload = () => res(i); i.onerror = rej; i.src = url
+      i.onload = () => { imgCache.current[url] = i; res(i) }; i.onerror = rej; i.src = url
     })
   }
   function fitContain(iw, ih, mw, mh) { const r = Math.min(mw / iw, mh / ih); return { w: iw * r, h: ih * r } }
@@ -96,24 +104,21 @@ export default function IgKitPage() {
       if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch }
       else line += ch
     }
-    if (line) lines.push(line)
-    return lines
+    if (line) lines.push(line); return lines
   }
-
   function renderHook(ctx, hookText) {
     ctx.fillStyle = '#161616'; ctx.fillRect(0, 0, W, H)
     ctx.textAlign = 'center'
     ctx.fillStyle = '#8a8a8a'; ctx.font = '28px "Noto Serif SC", serif'
     ctx.fillText('Cradle 摇篮 · 艺术阅览室', W / 2, 120)
     ctx.fillStyle = '#F4F2EC'; ctx.font = '600 74px "Noto Serif SC", serif'
-    const lines = wrapText(ctx, hookText || '（在下方填入钩子）', W - 200)
+    const lines = wrapText(ctx, hookText, W - 200)
     const lineH = 108; let y = (H - lines.length * lineH) / 2 + 60
     lines.forEach(l => { ctx.fillText(l, W / 2, y); y += lineH })
     ctx.fillStyle = '#8a8a8a'; ctx.font = '30px "Noto Serif SC", serif'
     ctx.fillText(`《${detail.theme_zh}》 ${detail.theme_en}`, W / 2, H - 130)
     ctx.font = 'italic 24px Georgia, serif'; ctx.fillText('cradle.art', W / 2, H - 84)
   }
-
   async function renderWork(ctx, work) {
     ctx.fillStyle = '#F4F2EC'; ctx.fillRect(0, 0, W, H)
     ctx.textAlign = 'center'
@@ -126,7 +131,6 @@ export default function IgKitPage() {
     ctx.fillText(`艺术阅览室 ${issueLabel}　《${detail.theme_zh}》`, W / 2, 172)
     ctx.fillStyle = '#888'; ctx.font = 'italic 28px Georgia, serif'
     ctx.fillText(detail.theme_en, W / 2, 212)
-
     const AT = 260, AB = H - 220, AH = AB - AT, AW = W - 150
     if (work.cover) {
       try {
@@ -138,13 +142,8 @@ export default function IgKitPage() {
         ctx.drawImage(img, dx, dy, w, h)
       } catch (e) {
         ctx.fillStyle = '#ddd'; ctx.fillRect((W - AW) / 2, AT, AW, AH)
-        setStatus('部分画作加载失败,请重试或检查该作品封面图。')
       }
-    } else {
-      ctx.fillStyle = '#eee'; ctx.fillRect((W - AW) / 2, AT, AW, AH)
-      ctx.fillStyle = '#999'; ctx.font = '30px serif'; ctx.fillText('该作品暂无封面图', W / 2, H / 2)
     }
-
     const fy = H - 150
     ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(150, fy); ctx.lineTo(W - 150, fy); ctx.stroke()
@@ -156,36 +155,26 @@ export default function IgKitPage() {
     ctx.fillText('cradle.art', W - 60, H - 40); ctx.textAlign = 'left'
   }
 
-  async function downloadPage(index) {
-    setStatus('生成中…')
-    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
-    const ctx = cv.getContext('2d')
-    if (index === 0) renderHook(ctx, hook)
-    else await renderWork(ctx, detail.works[index - 1])
-    try {
-      const a = document.createElement('a')
-      a.download = `cradle-${detail.issue}-${index + 1}.png`
-      a.href = cv.toDataURL('image/png'); a.click()
-      setStatus('')
-    } catch (e) {
-      setStatus('导出失败:图片跨域未授权。请确认 /api/proxy-image 已部署。')
-    }
+  // 组装页序:勾选的钩子(各一页) + 三张画
+  function pageList() {
+    if (!detail) return []
+    const hookPages = checkedHooks.map(h => ({ type: 'hook', hook: h }))
+    const workPages = detail.works.map(w => ({ type: 'work', w }))
+    return [...hookPages, ...workPages]
   }
 
-  async function downloadAll() {
-    for (let i = 0; i < 4; i++) { await downloadPage(i); await new Promise(r => setTimeout(r, 400)) }
-  }
-
-  async function copyCaption() {
-    try { await navigator.clipboard.writeText(caption); setCopied(true); setTimeout(() => setCopied(false), 1800) }
-    catch (e) { alert('复制失败,请手动选中复制') }
-  }
+  // 自动预览:每当 detail / checkedHooks 变,重画所有预览 canvas
+  const [pageCanvases, setPageCanvases] = useState([])
+  useEffect(() => {
+    const pages = pageList()
+    setPageCanvases(pages)
+  }, [detail, checkedHooks])
 
   return (
     <div className="min-h-screen bg-gray-50 p-6" style={{ fontFamily: '"Noto Serif SC", serif' }}>
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-1" style={{ color: '#111827' }}>Instagram 打包器</h1>
-        <p className="text-sm text-gray-500 mb-6">选择一期，填入钩子，一键生成四页轮播海报（钩子封面 + 三张画）与配文。</p>
+        <p className="text-sm text-gray-500 mb-6">选择一期，勾选钩子，海报自动预览。每个勾选的钩子生成一张封面，加三张画海报。</p>
 
         <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
           <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>选择期号</label>
@@ -194,9 +183,7 @@ export default function IgKitPage() {
               className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: '#D1D5DB' }}>
               <option value="">— 请选择 —</option>
               {curations.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.is_special ? '特刊' : `第 ${c.issue_number} 期`}《{c.theme_zh}》
-                </option>
+                <option key={c.id} value={c.id}>{c.is_special ? '特刊' : `第 ${c.issue_number} 期`}《{c.theme_zh}》</option>
               ))}
             </select>
           )}
@@ -205,52 +192,100 @@ export default function IgKitPage() {
         {detail && (
           <>
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
-              <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>钩子文案（封面大字 + 配文第一行）</label>
-              <textarea value={hook} onChange={e => setHook(e.target.value)} rows={2}
-                placeholder="贴入通用钩子，例如：如果人生这条船靠岸前允许你回头看最后一眼，你想看见什么？"
-                className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: '#D1D5DB' }} />
+              <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>钩子（勾选的每条各生成一张封面）</label>
+              {hooks.length === 0 ? (
+                <p className="text-sm text-amber-700">本期还没有钩子。让 Claude 把开放题改写成通用钩子写入后即可显示。</p>
+              ) : (
+                <div className="space-y-2">
+                  {hooks.map((h, i) => (
+                    <label key={i} className="flex items-start gap-2.5 cursor-pointer">
+                      <input type="checkbox" checked={checkedHooks.includes(h)} onChange={() => toggleHook(h)} className="mt-1 w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm leading-relaxed" style={{ color: '#374151' }}>{h}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               {openQs.length > 0 && (
-                <div className="mt-3 text-xs" style={{ color: '#9CA3AF' }}>
-                  <p className="mb-1">当期开放题（供改写参考，勿直接照搬贴画表述）：</p>
-                  <ul className="space-y-1">
+                <details className="mt-4">
+                  <summary className="text-xs cursor-pointer" style={{ color: '#9CA3AF' }}>查看当期开放题（改写钩子的原料）</summary>
+                  <ul className="mt-2 space-y-1 text-xs" style={{ color: '#9CA3AF' }}>
                     {openQs.map((q, i) => <li key={i} className="pl-2 border-l-2" style={{ borderColor: '#E5E7EB' }}>{q}</li>)}
                   </ul>
-                </div>
+                </details>
               )}
             </div>
 
+            {/* 自动预览 */}
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>四页轮播海报</h2>
-                <button onClick={downloadAll} className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部四页</button>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>海报预览（共 {pageCanvases.length} 张）</h2>
+                <button onClick={() => document.querySelectorAll('[data-dl]').forEach(b => b.click())}
+                  className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部</button>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {['封面·钩子', detail.works[0]?.title, detail.works[1]?.title, detail.works[2]?.title].map((label, i) => (
-                  <button key={i} onClick={() => downloadPage(i)}
-                    className="border rounded-lg py-3 px-2 text-xs hover:bg-gray-50" style={{ borderColor: '#D1D5DB', color: '#374151' }}>
-                    <div className="font-medium mb-0.5">第 {i + 1} 页</div>
-                    <div className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{label}</div>
-                  </button>
+              <div className="grid grid-cols-3 gap-4">
+                {pageCanvases.map((p, i) => (
+                  <PosterThumb key={i} index={i} page={p}
+                    renderHook={renderHook} renderWork={renderWork}
+                    issue={detail.issue} />
                 ))}
               </div>
-              {status && <p className="mt-2 text-xs" style={{ color: '#B45309' }}>{status}</p>}
             </div>
 
             <div className="bg-white rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold" style={{ color: '#111827' }}>配文</h2>
-                <div className="flex gap-2">
-                  <button onClick={() => setCaption(buildCaption(detail, hook))} className="px-3 py-1.5 rounded text-xs border" style={{ color: '#6B7280', borderColor: '#D1D5DB' }}>重置</button>
-                  <button onClick={copyCaption} className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: copied ? '#059669' : '#111827' }}>{copied ? '已复制 ✓' : '复制文案'}</button>
-                </div>
+                <button onClick={async () => { try { await navigator.clipboard.writeText(caption); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch (e) { alert('复制失败') } }}
+                  className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: copied ? '#059669' : '#111827' }}>{copied ? '已复制 ✓' : '复制文案'}</button>
               </div>
               <textarea value={caption} onChange={e => setCaption(e.target.value)} rows={13}
                 className="w-full border rounded-lg px-3 py-3 text-sm leading-relaxed" style={{ borderColor: '#D1D5DB', fontFamily: '"Noto Serif SC", serif' }} />
-              <p className="mt-2 text-xs text-gray-400">第一行为钩子（勾人点"更多"）。可直接编辑。</p>
+              <p className="mt-2 text-xs text-gray-400">第一行为勾选的第一条钩子。</p>
             </div>
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// 单张海报缩略图:挂载即自动画,可点击下载
+function PosterThumb({ index, page, renderHook, renderWork, issue }) {
+  const canvasRef = useRef(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function draw() {
+      const cv = canvasRef.current; if (!cv) return
+      const ctx = cv.getContext('2d')
+      if (page.type === 'hook') renderHook(ctx, page.hook)
+      else await renderWork(ctx, page.w)
+      if (!cancelled) setReady(true)
+    }
+    setReady(false)
+    // 等字体
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw)
+    else draw()
+    return () => { cancelled = true }
+  }, [page])
+
+  function download() {
+    const cv = canvasRef.current; if (!cv) return
+    try {
+      const a = document.createElement('a')
+      a.download = `cradle-${issue}-${index + 1}.png`
+      a.href = cv.toDataURL('image/png'); a.click()
+    } catch (e) { alert('导出失败：图片跨域未授权，确认 /api/proxy-image 已部署') }
+  }
+
+  const label = page.type === 'hook' ? '钩子封面' : `《${page.w.title}》`
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <canvas ref={canvasRef} width={W} height={H}
+        style={{ width: '100%', aspectRatio: '4/5', display: 'block', border: '1px solid #E5E7EB', borderRadius: 4, background: '#F4F2EC' }} />
+      <p className="text-xs truncate w-full text-center" style={{ color: '#9CA3AF' }}>{index + 1}. {label}</p>
+      <button data-dl onClick={download}
+        className="w-full py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>下载</button>
     </div>
   )
 }
