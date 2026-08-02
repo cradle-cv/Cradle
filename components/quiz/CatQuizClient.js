@@ -1,12 +1,12 @@
 'use client'
 // components/quiz/CatQuizClient.js
 // 镜·猫（variant="mirror"）与 猫格测试（variant="pop"）共用组件
-// v1.1：新增匿名结果落库（quiz_results 表），静默写入，失败不影响体验
 
 import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { QUESTIONS, PROFILES, DIM_NAMES } from '@/lib/quiz/catBank'
 import { sampleQuestions, scoreAnswers, matchProfiles } from '@/lib/quiz/engine'
+import { CATS } from '@/lib/quiz/catIcons'
 
 const serif = "'Songti SC', 'Noto Serif SC', serif"
 
@@ -20,7 +20,7 @@ const THEMES = {
     optionBorder: '#E5E7EB',
     title: '镜 · 猫',
     subtitle: 'Mirror · Cat',
-    intro: '十五个情境。没有对错，只有反应。答完之后，你会遇见一只猫。',
+    intro: '二十四个情境。没有对错，只有反应。答完之后，你会遇见一只猫。',
     button: '开始',
     again: '再照一次',
     dualLabel: '你介于两者之间',
@@ -34,7 +34,7 @@ const THEMES = {
     optionBorder: '#EADDD0',
     title: '猫格测试',
     subtitle: '你是哪只猫？',
-    intro: '15道情境题，凭直觉选。测完你会得到你的专属猫格，记得截图保存。',
+    intro: '24道情境题，凭直觉选。测完你会得到你的专属猫格，记得截图保存。',
     button: '开始测试',
     again: '再测一次',
     dualLabel: '稀有双猫格',
@@ -170,6 +170,12 @@ export default function CatQuizClient({ variant = 'mirror' }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
               {outcome.results.map(({ profile }) => (
                 <div key={profile.id}>
+                  {CATS[profile.id] && (
+                    <div
+                      style={{ width: '132px', height: '132px', margin: '0 auto 8px' }}
+                      dangerouslySetInnerHTML={{ __html: CATS[profile.id] }}
+                    />
+                  )}
                   <h2 style={{ fontFamily: serif, fontSize: '42px', fontWeight: 400, letterSpacing: '6px', margin: '0 0 24px' }}>
                     {profile.name}
                   </h2>
