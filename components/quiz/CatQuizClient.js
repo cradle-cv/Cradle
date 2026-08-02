@@ -23,6 +23,7 @@ const THEMES = {
     intro: '二十四个情境。没有对错，只有反应。答完之后，你会遇见一只猫。',
     button: '开始',
     again: '再照一次',
+    back: '上一题',
     dualLabel: '你介于两者之间',
   },
   pop: {
@@ -37,6 +38,7 @@ const THEMES = {
     intro: '24道情境题，凭直觉选。测完你会得到你的专属猫格，记得截图保存。',
     button: '开始测试',
     again: '再测一次',
+    back: '上一题',
     dualLabel: '稀有双猫格',
   },
 }
@@ -70,6 +72,16 @@ export default function CatQuizClient({ variant = 'mirror' }) {
     setCurrent(0)
     setOutcome(null)
     setStage('quiz')
+  }
+
+  function goBack() {
+    if (current === 0) return
+    const prev = current - 1
+    const prevId = sampled[prev].id
+    const next = { ...choices }
+    delete next[prevId]
+    setChoices(next)
+    setCurrent(prev)
   }
 
   function pick(optionIdx) {
@@ -130,9 +142,19 @@ export default function CatQuizClient({ variant = 'mirror' }) {
         {/* 答题 */}
         {stage === 'quiz' && sampled[current] && (
           <div style={{ padding: '10px 0 80px' }}>
-            <p style={{ fontSize: '11px', letterSpacing: '3px', color: th.faint, textAlign: 'center', marginBottom: '32px' }}>
-              {current + 1} / {sampled.length}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+              <button onClick={goBack} disabled={current === 0} style={{
+                background: 'transparent', border: 'none', cursor: current === 0 ? 'default' : 'pointer',
+                fontSize: '11px', letterSpacing: '3px', fontFamily: 'inherit', padding: '6px 0',
+                color: current === 0 ? 'transparent' : th.faint,
+              }}>
+                ← {th.back}
+              </button>
+              <p style={{ fontSize: '11px', letterSpacing: '3px', color: th.faint, margin: 0 }}>
+                {current + 1} / {sampled.length}
+              </p>
+              <span style={{ fontSize: '11px', letterSpacing: '3px', visibility: 'hidden' }}>← {th.back}</span>
+            </div>
             <div style={{ height: '1px', background: th.optionBorder, marginBottom: '32px', position: 'relative' }}>
               <div style={{
                 position: 'absolute', left: 0, top: 0, height: '1px', background: th.ink,
