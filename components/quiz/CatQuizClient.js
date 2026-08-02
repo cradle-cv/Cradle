@@ -1,7 +1,7 @@
 'use client'
 // components/quiz/CatQuizClient.js
 // 镜·猫（variant="mirror"）与 猫格测试（variant="pop"）共用组件
-// v1.6：双猫结果改为单屏紧凑版式（双图标并排 + 短文案），便于一屏截图分享
+// v1.7：双猫格标签加大加深，作为结果页的醒目标识
 // 含 v1.2 画稿接入与 v1.1 匿名落库
 
 import { useState, useMemo } from 'react'
@@ -224,7 +224,11 @@ export default function CatQuizClient({ variant = 'mirror' }) {
         {stage === 'result' && outcome && (
           <div style={{ padding: '10px 0 80px', textAlign: 'center' }}>
             {outcome.dual && (
-              <p style={{ fontSize: '11px', letterSpacing: '4px', color: th.faint, marginBottom: '20px' }}>
+              <p style={{
+                fontSize: '16px', fontWeight: 600, letterSpacing: '5px', color: th.ink,
+                display: 'inline-block', padding: '6px 18px', marginBottom: '24px',
+                border: `1px solid ${th.ink}`, borderRadius: isMirror ? 0 : '999px',
+              }}>
                 {th.dualLabel}
               </p>
             )}
