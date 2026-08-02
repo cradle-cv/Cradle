@@ -1,7 +1,7 @@
 'use client'
 // components/quiz/CatQuizClient.js
 // 镜·猫（variant="mirror"）与 猫格测试（variant="pop"）共用组件
-// v1.5：改为 上一题/下一题 导航，选中答案以深色块标记，点下一题前进
+// v1.6：双猫结果改为单屏紧凑版式（双图标并排 + 短文案），便于一屏截图分享
 // 含 v1.2 画稿接入与 v1.1 匿名落库
 
 import { useState, useMemo } from 'react'
@@ -31,6 +31,7 @@ const THEMES = {
     next: '下一题',
     finish: '完成',
     dualLabel: '你介于两者之间',
+    dualClose: '两只猫都在你身上，都是真的。',
   },
   pop: {
     bg: '#FBF5EE',
@@ -50,7 +51,13 @@ const THEMES = {
     next: '下一题',
     finish: '看结果',
     dualLabel: '稀有双猫格',
+    dualClose: '两种猫格你都占，全网少见，快截图！',
   },
+}
+
+function firstSentence(text) {
+  const m = text.match(/^[^。！？]+[。！？]/)
+  return m ? m[0] : text
 }
 
 function saveResult(variant, outcome) {
@@ -221,41 +228,71 @@ export default function CatQuizClient({ variant = 'mirror' }) {
                 {th.dualLabel}
               </p>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
-              {outcome.results.map(({ profile }) => (
-                <div key={profile.id}>
-                  {CATS[profile.id] && (
-                    <div
-                      style={{ width: '132px', height: '132px', margin: '0 auto 8px' }}
-                      dangerouslySetInnerHTML={{ __html: CATS[profile.id] }}
-                    />
-                  )}
-                  <h2 style={{ fontFamily: serif, fontSize: '42px', fontWeight: 400, letterSpacing: '6px', margin: '0 0 24px' }}>
-                    {profile.name}
-                  </h2>
-                  {isMirror ? (
-                    <>
-                      <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', lineHeight: 2, color: th.ink, maxWidth: '440px', margin: '0 auto 24px' }}>
-                        {profile.epigraph}
-                      </p>
-                      <p style={{ fontSize: '14px', lineHeight: 2.1, color: th.sub, maxWidth: '460px', margin: '0 auto', textAlign: 'left' }}>
-                        {profile.descMirror}
-                      </p>
-                    </>
-                  ) : (
-                    <div style={{ background: '#FFFFFF', border: `1px solid ${th.optionBorder}`, borderRadius: '18px', padding: '28px 24px', maxWidth: '460px', margin: '0 auto' }}>
-                      <p style={{ fontSize: '14px', lineHeight: 2, color: th.ink, textAlign: 'left', margin: 0 }}>
-                        {profile.descPop}
+            {outcome.dual ? (
+              /* 双猫：单屏紧凑版式 */
+              <div>
+                <h2 style={{ fontFamily: serif, fontSize: '34px', fontWeight: 400, letterSpacing: '4px', margin: '0 0 28px' }}>
+                  {outcome.results[0].profile.name}
+                  <span style={{ fontSize: '22px', color: th.faint, margin: '0 12px' }}>×</span>
+                  {outcome.results[1].profile.name}
+                </h2>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '24px' }}>
+                  {outcome.results.map(({ profile }) => (
+                    <div key={profile.id} style={{ width: '46%', maxWidth: '220px' }}>
+                      {CATS[profile.id] && (
+                        <div
+                          style={{ width: '96px', height: '96px', margin: '0 auto 6px' }}
+                          dangerouslySetInnerHTML={{ __html: CATS[profile.id] }}
+                        />
+                      )}
+                      <p style={{ fontFamily: serif, fontSize: '13px', lineHeight: 1.9, color: th.sub, fontStyle: isMirror ? 'italic' : 'normal', margin: 0 }}>
+                        {isMirror ? profile.epigraph : firstSentence(profile.descPop)}
                       </p>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+                <p style={{ fontSize: '13px', letterSpacing: '1px', color: th.ink, marginTop: '28px' }}>
+                  {th.dualClose}
+                </p>
+              </div>
+            ) : (
+              /* 单猫：完整版式 */
+              <div>
+                {outcome.results.map(({ profile }) => (
+                  <div key={profile.id}>
+                    {CATS[profile.id] && (
+                      <div
+                        style={{ width: '132px', height: '132px', margin: '0 auto 8px' }}
+                        dangerouslySetInnerHTML={{ __html: CATS[profile.id] }}
+                      />
+                    )}
+                    <h2 style={{ fontFamily: serif, fontSize: '42px', fontWeight: 400, letterSpacing: '6px', margin: '0 0 24px' }}>
+                      {profile.name}
+                    </h2>
+                    {isMirror ? (
+                      <>
+                        <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', lineHeight: 2, color: th.ink, maxWidth: '440px', margin: '0 auto 24px' }}>
+                          {profile.epigraph}
+                        </p>
+                        <p style={{ fontSize: '14px', lineHeight: 2.1, color: th.sub, maxWidth: '460px', margin: '0 auto', textAlign: 'left' }}>
+                          {profile.descMirror}
+                        </p>
+                      </>
+                    ) : (
+                      <div style={{ background: '#FFFFFF', border: `1px solid ${th.optionBorder}`, borderRadius: '18px', padding: '28px 24px', maxWidth: '460px', margin: '0 auto' }}>
+                        <p style={{ fontSize: '14px', lineHeight: 2, color: th.ink, textAlign: 'left', margin: 0 }}>
+                          {profile.descPop}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 四维刻度：仅镜版展示 */}
             {isMirror && (
-              <div style={{ maxWidth: '360px', margin: '56px auto 0' }}>
+              <div style={{ maxWidth: '360px', margin: outcome.dual ? '36px auto 0' : '56px auto 0' }}>
                 {outcome.U.map((v, d) => (
                   <div key={d} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
                     <span style={{ fontSize: '11px', letterSpacing: '3px', color: th.faint, width: '54px', textAlign: 'left', flexShrink: 0 }}>
