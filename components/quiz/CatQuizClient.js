@@ -1,8 +1,10 @@
 'use client'
 // components/quiz/CatQuizClient.js
 // 镜·猫（variant="mirror"）与 猫格测试（variant="pop"）共用组件
+// v1.1：新增匿名结果落库（quiz_results 表），静默写入，失败不影响体验
 
 import { useState, useMemo } from 'react'
+import { supabase } from '@/lib/supabase'
 import { QUESTIONS, PROFILES, DIM_NAMES } from '@/lib/quiz/catBank'
 import { sampleQuestions, scoreAnswers, matchProfiles } from '@/lib/quiz/engine'
 
@@ -39,6 +41,19 @@ const THEMES = {
   },
 }
 
+function saveResult(variant, outcome) {
+  try {
+    supabase.from('quiz_results').insert({
+      quiz_type: 'cat',
+      variant,
+      profile_id: outcome.results[0].profile.id,
+      second_profile_id: outcome.dual ? outcome.results[1].profile.id : null,
+      is_dual: outcome.dual,
+      u_vector: outcome.U,
+    }).then(() => {}, () => {})
+  } catch (_) { /* 静默失败 */ }
+}
+
 export default function CatQuizClient({ variant = 'mirror' }) {
   const th = THEMES[variant]
   const isMirror = variant === 'mirror'
@@ -65,8 +80,10 @@ export default function CatQuizClient({ variant = 'mirror' }) {
       setCurrent(current + 1)
     } else {
       const U = scoreAnswers(sampled, next)
-      setOutcome(matchProfiles(U, PROFILES))
+      const result = matchProfiles(U, PROFILES)
+      setOutcome(result)
       setStage('result')
+      saveResult(variant, result)
     }
   }
 
