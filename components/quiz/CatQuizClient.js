@@ -1,6 +1,8 @@
 'use client'
 // components/quiz/CatQuizClient.js
 // 镜·猫（variant="mirror"）与 猫格测试（variant="pop"）共用组件
+// v1.5：改为 上一题/下一题 导航，选中答案以深色块标记，点下一题前进
+// 含 v1.2 画稿接入与 v1.1 匿名落库
 
 import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -18,12 +20,16 @@ const THEMES = {
     faint: '#9CA3AF',
     line: '#111827',
     optionBorder: '#E5E7EB',
+    selectedBg: '#111827',      // 镜版选中：墨色块
+    selectedText: '#FFFFFF',
     title: '镜 · 猫',
     subtitle: 'Mirror · Cat',
     intro: '二十四个情境。没有对错，只有反应。答完之后，你会遇见一只猫。',
     button: '开始',
     again: '再照一次',
     back: '上一题',
+    next: '下一题',
+    finish: '完成',
     dualLabel: '你介于两者之间',
   },
   pop: {
@@ -33,12 +39,16 @@ const THEMES = {
     faint: '#B5A395',
     line: '#4A3B33',
     optionBorder: '#EADDD0',
+    selectedBg: '#6F5443',      // 猫格版选中：深咖啡色块
+    selectedText: '#FFF9F2',
     title: '猫格测试',
     subtitle: '你是哪只猫？',
     intro: '24道情境题，凭直觉选。测完你会得到你的专属猫格，记得截图保存。',
     button: '开始测试',
     again: '再测一次',
     back: '上一题',
+    next: '下一题',
+    finish: '看结果',
     dualLabel: '稀有双猫格',
   },
 }
@@ -74,24 +84,22 @@ export default function CatQuizClient({ variant = 'mirror' }) {
     setStage('quiz')
   }
 
-  function goBack() {
-    if (current === 0) return
-    const prev = current - 1
-    const prevId = sampled[prev].id
-    const next = { ...choices }
-    delete next[prevId]
-    setChoices(next)
-    setCurrent(prev)
-  }
-
   function pick(optionIdx) {
     const q = sampled[current]
-    const next = { ...choices, [q.id]: optionIdx }
-    setChoices(next)
+    setChoices({ ...choices, [q.id]: optionIdx })
+  }
+
+  function goBack() {
+    if (current > 0) setCurrent(current - 1)
+  }
+
+  function goNext() {
+    const q = sampled[current]
+    if (choices[q.id] === undefined) return
     if (current + 1 < sampled.length) {
       setCurrent(current + 1)
     } else {
-      const U = scoreAnswers(sampled, next)
+      const U = scoreAnswers(sampled, choices)
       const result = matchProfiles(U, PROFILES)
       setOutcome(result)
       setStage('result')
@@ -104,6 +112,9 @@ export default function CatQuizClient({ variant = 'mirror' }) {
     const q = sampled[current]
     return !isMirror && q.textPop ? q.textPop : q.text
   }, [stage, sampled, current, isMirror])
+
+  const isLast = current + 1 === sampled.length
+  const answered = stage === 'quiz' && sampled[current] && choices[sampled[current].id] !== undefined
 
   return (
     <div style={{ minHeight: '100vh', background: th.bg, color: th.ink, fontFamily: isMirror ? serif : 'inherit' }}>
@@ -142,19 +153,9 @@ export default function CatQuizClient({ variant = 'mirror' }) {
         {/* 答题 */}
         {stage === 'quiz' && sampled[current] && (
           <div style={{ padding: '10px 0 80px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-              <button onClick={goBack} disabled={current === 0} style={{
-                background: 'transparent', border: 'none', cursor: current === 0 ? 'default' : 'pointer',
-                fontSize: '11px', letterSpacing: '3px', fontFamily: 'inherit', padding: '6px 0',
-                color: current === 0 ? 'transparent' : th.faint,
-              }}>
-                ← {th.back}
-              </button>
-              <p style={{ fontSize: '11px', letterSpacing: '3px', color: th.faint, margin: 0 }}>
-                {current + 1} / {sampled.length}
-              </p>
-              <span style={{ fontSize: '11px', letterSpacing: '3px', visibility: 'hidden' }}>← {th.back}</span>
-            </div>
+            <p style={{ fontSize: '11px', letterSpacing: '3px', color: th.faint, textAlign: 'center', marginBottom: '32px' }}>
+              {current + 1} / {sampled.length}
+            </p>
             <div style={{ height: '1px', background: th.optionBorder, marginBottom: '32px', position: 'relative' }}>
               <div style={{
                 position: 'absolute', left: 0, top: 0, height: '1px', background: th.ink,
@@ -165,18 +166,49 @@ export default function CatQuizClient({ variant = 'mirror' }) {
               {questionText}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {sampled[current].options.map((o, i) => (
-                <button key={i} onClick={() => pick(i)} style={{
-                  textAlign: 'left', background: isMirror ? 'transparent' : '#FFFFFF',
-                  border: `1px solid ${th.optionBorder}`, borderRadius: isMirror ? 0 : '14px',
-                  padding: '16px 20px', fontSize: '15px', lineHeight: 1.7, color: th.ink,
-                  cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = th.ink}
-                onMouseLeave={e => e.currentTarget.style.borderColor = th.optionBorder}>
-                  {o.t}
-                </button>
-              ))}
+              {sampled[current].options.map((o, i) => {
+                const selected = choices[sampled[current].id] === i
+                return (
+                  <button key={i} onClick={() => pick(i)} style={{
+                    textAlign: 'left',
+                    background: selected ? th.selectedBg : (isMirror ? 'transparent' : '#FFFFFF'),
+                    color: selected ? th.selectedText : th.ink,
+                    border: selected ? `1px solid ${th.selectedBg}` : `1px solid ${th.optionBorder}`,
+                    borderRadius: isMirror ? 0 : '14px',
+                    padding: '16px 20px', fontSize: '15px', lineHeight: 1.7,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+                  }}
+                  onMouseEnter={e => { if (!selected) e.currentTarget.style.borderColor = th.ink }}
+                  onMouseLeave={e => { if (!selected) e.currentTarget.style.borderColor = th.optionBorder }}>
+                    {o.t}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 上一题 / 下一题 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px' }}>
+              <button onClick={goBack} disabled={current === 0} style={{
+                background: 'transparent', cursor: current === 0 ? 'default' : 'pointer',
+                border: `1px solid ${current === 0 ? 'transparent' : th.optionBorder}`,
+                borderRadius: isMirror ? 0 : '999px',
+                padding: '12px 32px', fontSize: '13px', letterSpacing: '3px', fontFamily: 'inherit',
+                color: current === 0 ? 'transparent' : th.sub,
+              }}>
+                {th.back}
+              </button>
+              <button onClick={goNext} disabled={!answered} style={{
+                background: answered ? th.ink : 'transparent',
+                color: answered ? (isMirror ? '#FFFFFF' : '#FFF9F2') : th.faint,
+                cursor: answered ? 'pointer' : 'default',
+                border: `1px solid ${answered ? th.ink : th.optionBorder}`,
+                borderRadius: isMirror ? 0 : '999px',
+                padding: '12px 40px', fontSize: '13px', letterSpacing: '3px', fontFamily: 'inherit',
+                transition: 'background 0.2s, color 0.2s',
+              }}>
+                {isLast ? th.finish : th.next}
+              </button>
             </div>
           </div>
         )}
