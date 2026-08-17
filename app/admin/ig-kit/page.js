@@ -33,6 +33,7 @@ const COVER = {
   panelEdge: 'rgba(255,255,255,0.34)', // 面板描边
   textMain: '#F7F5F0',
   textSub: 'rgba(247,245,240,0.72)',
+  panelLift: 28,   // 文字面板在视觉上再上提的像素，觉得偏高就调小，偏低就调大
   blur: 26,        // 背景模糊半径
   feather: 46,     // 三条画带交界处的羽化高度
 }
@@ -192,7 +193,10 @@ export default function IgKitPage() {
     const panelW = W - 150
     const panelH = lines.length * lineH + padY * 2
     const panelX = (W - panelW) / 2
-    const panelY = (H - panelH) / 2 + 20
+    // 底部有主题、英文名与站名三行，分量重于顶部一行题签，
+    // 故面板不按整幅居中，而在题签与底部文字块之间居中，再上提一点求视觉平衡
+    const zoneTop = 160, zoneBottom = H - 190
+    const panelY = zoneTop + (zoneBottom - zoneTop - panelH) / 2 - COVER.panelLift
 
     // 面板内再模糊一次背景（真毛玻璃）
     ctx.save()
