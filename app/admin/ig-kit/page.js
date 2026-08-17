@@ -13,6 +13,18 @@ const FIXED_TAGS = '#Cradle #摇篮 #艺术阅览室 #艺术 #名画 #art #arthi
 const W = 1080, H = 1350
 const proxied = (url) => url ? `/api/proxy-image?url=${encodeURIComponent(url)}` : ''
 
+// iPad / iPhone 的 Safari 不支持 <a download>，需要另走系统分享或长按保存
+const isApple = () => typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    try { canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob 返回空')), 'image/png') }
+    catch (e) { reject(e) }
+  })
+}
+
 // ── 封面外观常量（想调浅色版改这里）──
 const COVER = {
   scrimTop: 'rgba(18,18,20,0.30)',   // 整幅蒙版（上）
@@ -34,6 +46,7 @@ export default function IgKitPage() {
   const [caption, setCaption] = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState(null)
   const imgCache = useRef({})
 
   useEffect(() => {
@@ -318,13 +331,17 @@ export default function IgKitPage() {
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold" style={{ color: '#111827' }}>海报预览（共 {pages.length} 张）</h2>
-                <button onClick={() => document.querySelectorAll('[data-dl]').forEach(b => b.click())}
+                <button onClick={async () => {
+                  const btns = Array.from(document.querySelectorAll('[data-dl]'))
+                  for (const b of btns) { b.click(); await new Promise(r => setTimeout(r, 600)) }
+                }}
                   className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部</button>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 {pages.map((p, i) => (
                   <PosterThumb key={`${p.type}-${i}-${p.type === 'hook' ? p.hook : p.w.title}`}
-                    index={i} page={p} renderHook={renderHook} renderWork={renderWork} issue={detail.issue} />
+                    index={i} page={p} renderHook={renderHook} renderWork={renderWork} issue={detail.issue}
+                    onPreview={setPreviewUrl} />
                 ))}
               </div>
               {pages.length === 0 && <p className="text-sm text-gray-400">勾选至少一条钩子以生成海报。</p>}
@@ -343,11 +360,22 @@ export default function IgKitPage() {
           </>
         )}
       </div>
+
+      {/* 苹果设备：大图浮层，长按选「存储到照片」 */}
+      {previewUrl && (
+        <div onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}
+          style={{ position: 'fixed', inset: 0, zIndex: 120, backgroundColor: 'rgba(17,24,39,0.92)',
+                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', gap: '14px' }}>
+          <p style={{ color: '#F9FAFB', fontSize: '14px' }}>长按下面的图片，选择「存储到照片」</p>
+          <img src={previewUrl} alt="海报" style={{ maxWidth: '100%', maxHeight: '78vh', borderRadius: 6 }} />
+          <button style={{ padding: '8px 20px', borderRadius: 999, backgroundColor: '#F9FAFB', color: '#111827', fontSize: '13px' }}>关闭</button>
+        </div>
+      )}
     </div>
   )
 }
 
-function PosterThumb({ index, page, renderHook, renderWork, issue }) {
+function PosterThumb({ index, page, renderHook, renderWork, issue, onPreview }) {
   const canvasRef = useRef(null)
   useEffect(() => {
     let cancelled = false
@@ -362,13 +390,38 @@ function PosterThumb({ index, page, renderHook, renderWork, issue }) {
     return () => { cancelled = true }
   }, [page.type, page.type === 'hook' ? page.hook : page.w?.title])
 
-  function download() {
+  async function download() {
     const cv = canvasRef.current; if (!cv) return
+    const filename = `cradle-${issue}-${index + 1}.png`
+    let blob
     try {
-      const a = document.createElement('a')
-      a.download = `cradle-${issue}-${index + 1}.png`
-      a.href = cv.toDataURL('image/png'); a.click()
-    } catch (e) { alert('导出失败：图片跨域未授权，确认 /api/proxy-image 已部署') }
+      blob = await canvasToBlob(cv)
+    } catch (e) {
+      alert('导出失败：图片跨域未授权，确认 /api/proxy-image 已部署')
+      return
+    }
+
+    // 路一：系统分享面板（iPad / iPhone 上可一步存入照片，也可直接发到 Instagram）
+    try {
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] })
+        return
+      }
+    } catch (e) { /* 用户取消或不支持，继续往下 */ }
+
+    // 路二：苹果设备退回大图预览，长按选「存储到照片」
+    if (isApple()) {
+      onPreview(URL.createObjectURL(blob))
+      return
+    }
+
+    // 路三：桌面浏览器直接下载
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000)
   }
 
   const label = page.type === 'hook' ? '钩子封面' : `《${page.w.title}》`
