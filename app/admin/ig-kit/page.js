@@ -4,20 +4,31 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // ═══════════════════════════════════════════════════════════════
-// IG 打包器 v3 · /admin/ig-kit
-// 选期 → 读当期通用钩子(ig_hooks)供勾选 → 勾中的钩子变可编辑文本框(改字图实时变)
-// + 自定义钩子按钮 → 每条选中的钩子各生成一张封面 + 三张画 → 自动预览 → 下载 + 配文
+// IG 打包器 v4 · /admin/ig-kit
+// 钩子封面改为「三画中段模糊平铺 + 毛玻璃面板」，替代原先的纯黑底大字
+// 保留 v3 的：读取 ig_hooks 勾选、勾中后可编辑、自定义钩子、自动预览、逐张下载
 // ═══════════════════════════════════════════════════════════════
 
 const FIXED_TAGS = '#Cradle #摇篮 #艺术阅览室 #艺术 #名画 #art #arthistory #painting'
 const W = 1080, H = 1350
 const proxied = (url) => url ? `/api/proxy-image?url=${encodeURIComponent(url)}` : ''
 
+// ── 封面外观常量（想调浅色版改这里）──
+const COVER = {
+  scrimTop: 'rgba(18,18,20,0.30)',   // 整幅蒙版（上）
+  scrimBot: 'rgba(18,18,20,0.46)',   // 整幅蒙版（下），上浅下深让底部文字更稳
+  panelFill: 'rgba(255,255,255,0.16)', // 毛玻璃面板底色
+  panelEdge: 'rgba(255,255,255,0.34)', // 面板描边
+  textMain: '#F7F5F0',
+  textSub: 'rgba(247,245,240,0.72)',
+  blur: 26,        // 背景模糊半径
+  feather: 46,     // 三条画带交界处的羽化高度
+}
+
 export default function IgKitPage() {
   const [curations, setCurations] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState(null)
-  // 钩子项:{ id, text, checked, source:'lib'|'custom' }
   const [hookItems, setHookItems] = useState([])
   const [openQs, setOpenQs] = useState([])
   const [caption, setCaption] = useState('')
@@ -70,11 +81,8 @@ export default function IgKitPage() {
     })()
   }, [selectedId, curations])
 
-  // 配文随第一条选中钩子变
   const firstChecked = hookItems.find(h => h.checked)?.text || ''
-  useEffect(() => {
-    if (detail) setCaption(buildCaption(detail, firstChecked))
-  }, [detail, firstChecked])
+  useEffect(() => { if (detail) setCaption(buildCaption(detail, firstChecked)) }, [detail, firstChecked])
 
   function buildCaption(d, firstHook) {
     const issueLabel = d.is_special ? `特刊《${d.theme_zh}》` : `第 ${d.issue} 期《${d.theme_zh}》`
@@ -83,20 +91,12 @@ export default function IgKitPage() {
     return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}`
   }
 
-  function toggleHook(id) {
-    setHookItems(prev => prev.map(h => h.id === id ? { ...h, checked: !h.checked } : h))
-  }
-  function editHook(id, text) {
-    setHookItems(prev => prev.map(h => h.id === id ? { ...h, text } : h))
-  }
-  function addCustom() {
-    setHookItems(prev => [...prev, { id: `custom-${Date.now()}`, text: '', checked: true, source: 'custom' }])
-  }
-  function removeCustom(id) {
-    setHookItems(prev => prev.filter(h => h.id !== id))
-  }
+  function toggleHook(id) { setHookItems(p => p.map(h => h.id === id ? { ...h, checked: !h.checked } : h)) }
+  function editHook(id, text) { setHookItems(p => p.map(h => h.id === id ? { ...h, text } : h)) }
+  function addCustom() { setHookItems(p => [...p, { id: `custom-${Date.now()}`, text: '', checked: true, source: 'custom' }]) }
+  function removeCustom(id) { setHookItems(p => p.filter(h => h.id !== id)) }
 
-  // ── canvas ──
+  // ── 图片与文字工具 ──
   function loadImg(url) {
     if (imgCache.current[url]) return Promise.resolve(imgCache.current[url])
     return new Promise((res, rej) => {
@@ -113,19 +113,111 @@ export default function IgKitPage() {
     }
     if (line) lines.push(line); return lines
   }
-  function renderHook(ctx, hookText) {
-    ctx.fillStyle = '#161616'; ctx.fillRect(0, 0, W, H)
-    ctx.textAlign = 'center'
-    ctx.fillStyle = '#8a8a8a'; ctx.font = '28px "Noto Serif SC", serif'
-    ctx.fillText('Cradle 摇篮 · 艺术阅览室', W / 2, 120)
-    ctx.fillStyle = '#F4F2EC'; ctx.font = '600 74px "Noto Serif SC", serif'
-    const lines = wrapText(ctx, hookText || '（在左侧填写钩子）', W - 200)
-    const lineH = 108; let y = (H - lines.length * lineH) / 2 + 60
-    lines.forEach(l => { ctx.fillText(l, W / 2, y); y += lineH })
-    ctx.fillStyle = '#8a8a8a'; ctx.font = '30px "Noto Serif SC", serif'
-    ctx.fillText(`《${detail.theme_zh}》 ${detail.theme_en}`, W / 2, H - 130)
-    ctx.font = 'italic 24px Georgia, serif'; ctx.fillText('cradle.art', W / 2, H - 84)
+  // 圆角矩形路径
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + w, y, x + w, y + h, r)
+    ctx.arcTo(x + w, y + h, x, y + h, r)
+    ctx.arcTo(x, y + h, x, y, r)
+    ctx.arcTo(x, y, x + w, y, r)
+    ctx.closePath()
   }
+
+  // ═══ 钩子封面：三画中段模糊平铺 + 毛玻璃面板 ═══
+  async function renderHook(ctx, hookText) {
+    const bandH = H / 3
+
+    // 底色（图未加载出来时的兜底）
+    ctx.fillStyle = '#2A2A2E'; ctx.fillRect(0, 0, W, H)
+
+    // ① 三条画带：各取纵向正中一段，横向满幅，做模糊
+    const covers = detail.works.map(w => w.cover).filter(Boolean)
+    for (let i = 0; i < 3; i++) {
+      const url = covers[i % (covers.length || 1)]
+      if (!url) continue
+      try {
+        const img = await loadImg(proxied(url))
+        // 源图取中段：宽度满取，高度取中间与画带同比例的一条
+        const srcRatio = W / bandH
+        let sw = img.width, sh = sw / srcRatio
+        if (sh > img.height) { sh = img.height; sw = sh * srcRatio }
+        const sx = (img.width - sw) / 2
+        const sy = (img.height - sh) / 2   // 纵向正中
+        ctx.save()
+        ctx.beginPath(); ctx.rect(0, i * bandH, W, bandH); ctx.clip()
+        ctx.filter = `blur(${COVER.blur}px)`
+        // 略微外扩，避免模糊后边缘露出透明
+        ctx.drawImage(img, sx, sy, sw, sh, -40, i * bandH - 40, W + 80, bandH + 80)
+        ctx.filter = 'none'
+        ctx.restore()
+      } catch (e) { /* 单张失败则留底色 */ }
+    }
+
+    // ② 交界处羽化：在两条带的接缝上盖一层上下渐隐的柔光，让三条融成一片
+    for (let i = 1; i < 3; i++) {
+      const y = i * bandH
+      const g = ctx.createLinearGradient(0, y - COVER.feather, 0, y + COVER.feather)
+      g.addColorStop(0, 'rgba(30,30,34,0)')
+      g.addColorStop(0.5, 'rgba(30,30,34,0.42)')
+      g.addColorStop(1, 'rgba(30,30,34,0)')
+      ctx.fillStyle = g
+      ctx.fillRect(0, y - COVER.feather, W, COVER.feather * 2)
+    }
+
+    // ③ 整幅蒙版：统一色调并压住背景，保证文字可读
+    const scrim = ctx.createLinearGradient(0, 0, 0, H)
+    scrim.addColorStop(0, COVER.scrimTop)
+    scrim.addColorStop(1, COVER.scrimBot)
+    ctx.fillStyle = scrim; ctx.fillRect(0, 0, W, H)
+
+    // ④ 毛玻璃面板
+    ctx.font = '600 66px "Noto Serif SC", serif'
+    const lines = wrapText(ctx, hookText || '（在左侧填写钩子）', W - 320)
+    const lineH = 96
+    const padY = 76, padX = 72
+    const panelW = W - 150
+    const panelH = lines.length * lineH + padY * 2
+    const panelX = (W - panelW) / 2
+    const panelY = (H - panelH) / 2 + 20
+
+    // 面板内再模糊一次背景（真毛玻璃）
+    ctx.save()
+    roundRect(ctx, panelX, panelY, panelW, panelH, 34); ctx.clip()
+    ctx.filter = 'blur(16px)'
+    ctx.drawImage(ctx.canvas, panelX - 20, panelY - 20, panelW + 40, panelH + 40,
+                              panelX - 20, panelY - 20, panelW + 40, panelH + 40)
+    ctx.filter = 'none'
+    ctx.fillStyle = COVER.panelFill
+    ctx.fillRect(panelX, panelY, panelW, panelH)
+    ctx.restore()
+    // 面板描边
+    roundRect(ctx, panelX, panelY, panelW, panelH, 34)
+    ctx.strokeStyle = COVER.panelEdge; ctx.lineWidth = 1.5; ctx.stroke()
+
+    // ⑤ 面板上的钩子文字
+    ctx.textAlign = 'center'
+    ctx.fillStyle = COVER.textMain
+    ctx.font = '600 66px "Noto Serif SC", serif'
+    let ty = panelY + padY + 52
+    lines.forEach(l => { ctx.fillText(l, W / 2, ty); ty += lineH })
+
+    // ⑥ 顶部题签与底部主题
+    ctx.fillStyle = COVER.textSub
+    ctx.font = '28px "Noto Serif SC", serif'
+    ctx.fillText('Cradle 摇篮 · 艺术阅览室', W / 2, 118)
+    ctx.fillStyle = COVER.textMain
+    ctx.font = '34px "Noto Serif SC", serif'
+    ctx.fillText(`《${detail.theme_zh}》`, W / 2, H - 148)
+    ctx.fillStyle = COVER.textSub
+    ctx.font = 'italic 28px Georgia, serif'
+    ctx.fillText(detail.theme_en, W / 2, H - 104)
+    ctx.font = 'italic 24px Georgia, serif'
+    ctx.fillText('cradle.art', W / 2, H - 58)
+    ctx.textAlign = 'left'
+  }
+
+  // ═══ 画作海报页（保持原样）═══
   async function renderWork(ctx, work) {
     ctx.fillStyle = '#F4F2EC'; ctx.fillRect(0, 0, W, H)
     ctx.textAlign = 'center'
@@ -133,7 +225,7 @@ export default function IgKitPage() {
     ctx.fillText('Cradle 摇篮', W / 2, 96)
     ctx.strokeStyle = '#c9c5bc'; ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(W / 2 - 60, 122); ctx.lineTo(W / 2 + 60, 122); ctx.stroke()
-    const issueLabel = detail.is_special ? `特刊` : `第 ${detail.issue} 期`
+    const issueLabel = detail.is_special ? '特刊' : `第 ${detail.issue} 期`
     ctx.fillStyle = '#333'; ctx.font = '34px "Noto Serif SC", serif'
     ctx.fillText(`艺术阅览室 ${issueLabel}　《${detail.theme_zh}》`, W / 2, 172)
     ctx.fillStyle = '#888'; ctx.font = 'italic 28px Georgia, serif'
@@ -162,10 +254,9 @@ export default function IgKitPage() {
     ctx.fillText('cradle.art', W - 60, H - 40); ctx.textAlign = 'left'
   }
 
-  // 页序:选中的钩子(各一页,文本即时) + 三张画
-  const checkedHookTexts = hookItems.filter(h => h.checked).map(h => h.text)
+  const checkedTexts = hookItems.filter(h => h.checked).map(h => h.text)
   const pages = detail ? [
-    ...checkedHookTexts.map(t => ({ type: 'hook', hook: t })),
+    ...checkedTexts.map(t => ({ type: 'hook', hook: t })),
     ...detail.works.map(w => ({ type: 'work', w })),
   ] : []
 
@@ -173,7 +264,7 @@ export default function IgKitPage() {
     <div className="min-h-screen bg-gray-50 p-6" style={{ fontFamily: '"Noto Serif SC", serif' }}>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-1" style={{ color: '#111827' }}>Instagram 打包器</h1>
-        <p className="text-sm text-gray-500 mb-6">选期，勾选或编辑钩子，海报自动预览。每条选中的钩子各生成一张封面，加三张画。</p>
+        <p className="text-sm text-gray-500 mb-6">选期，勾选或编辑钩子，海报自动预览。封面取三幅画的中段模糊平铺，文字压在毛玻璃面板上。</p>
 
         <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
           <label className="block text-sm font-medium mb-2" style={{ color: '#374151' }}>选择期号</label>
@@ -193,7 +284,7 @@ export default function IgKitPage() {
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
               <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>钩子（勾选后可直接编辑，改字预览实时更新）</label>
               {hookItems.length === 0 ? (
-                <p className="text-sm text-amber-700 mb-3">本期还没有预置钩子。可点下方"自定义钩子"自己写，或让 Claude 从主题与引言提炼后写入。</p>
+                <p className="text-sm text-amber-700 mb-3">本期还没有预置钩子，可点下方自定义钩子自己写。</p>
               ) : (
                 <div className="space-y-2.5">
                   {hookItems.map(h => (
@@ -214,7 +305,6 @@ export default function IgKitPage() {
                 </div>
               )}
               <button onClick={addCustom} className="mt-3 px-3 py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>+ 自定义钩子</button>
-
               {openQs.length > 0 && (
                 <details className="mt-4">
                   <summary className="text-xs cursor-pointer" style={{ color: '#9CA3AF' }}>查看当期开放题（参考）</summary>
@@ -264,7 +354,7 @@ function PosterThumb({ index, page, renderHook, renderWork, issue }) {
     async function draw() {
       const cv = canvasRef.current; if (!cv) return
       const ctx = cv.getContext('2d')
-      if (page.type === 'hook') renderHook(ctx, page.hook)
+      if (page.type === 'hook') await renderHook(ctx, page.hook)
       else await renderWork(ctx, page.w)
     }
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) draw() })
