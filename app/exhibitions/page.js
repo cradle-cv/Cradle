@@ -9,14 +9,14 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 async function getData() {
-  // 本页上下两半按场地分工：
-  //   上半「当代回响」= 线下实体展（offline 与 both，由存储过程提供）
-  //   下半「线上展览」= 仅线上（online），两边零重叠
+  // 本页上下两半各讲一件事，同一场展览可以两边都出现：
+  //   上半「当代回响」= 有线下实体展出的（offline 与 both），讲现场与感受
+  //   下半「线上展览」= 在线上展出的（online 与 both），讲展出的作品
   const { data: allExhibitions } = await supabase
     .from('exhibitions')
     .select('*')
     .in('status', ['active', 'ended', 'upcoming'])
-    .eq('venue_type', 'online')
+    .in('venue_type', ['online', 'both'])
     .order('start_date', { ascending: false })
 
   const specialExhibitions = (allExhibitions || []).filter(e => e.exhibition_type !== 'dialogue')
@@ -71,7 +71,7 @@ export default async function ExhibitionsPage() {
         </div>
       </section>
 
-      {/* 线上展览：仅 venue_type = online 的场次 */}
+      {/* 线上展览：online 与 both，讲展出的作品 */}
       {(
         <section className="px-6 pt-4 pb-12">
           <div className="max-w-6xl mx-auto">
