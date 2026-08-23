@@ -169,6 +169,17 @@ export default function SeenSection({ exhibitions }) {
               </div>
             )}
 
+            {ex.description && (
+              <p className="text-sm mb-5"
+                style={{
+                  color: '#4B5563', lineHeight: 1.85,
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}>
+                {ex.description}
+              </p>
+            )}
+
             <Link href={`/exhibitions/${ex.id}`}
               className="inline-block px-6 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
               style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
