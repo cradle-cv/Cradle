@@ -20,7 +20,7 @@ export default function OfflineExhibitionCard({ ex }) {
   }
 
   return (
-    <a href={`/exhibitions/${ex.id}`} className="group block">
+    <a href={`/exhibitions/${ex.id}/onsite`} className="group block">
       <div className="rounded-xl overflow-hidden transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md"
         style={{ border: '1px solid #E5E7EB', backgroundColor: '#FFFFFF', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
 
