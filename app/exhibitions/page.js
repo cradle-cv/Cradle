@@ -17,8 +17,11 @@ async function getData(venue) {
     .in('status', ['active', 'ended', 'upcoming'])
     .order('start_date', { ascending: false })
 
-  if (venue === 'online' || venue === 'offline') {
-    q = q.eq('venue_type', venue)
+  // both = 线上线下都办过，两种筛选下都应出现
+  if (venue === 'online') {
+    q = q.in('venue_type', ['online', 'both'])
+  } else if (venue === 'offline') {
+    q = q.in('venue_type', ['offline', 'both'])
   }
 
   const { data: allExhibitions } = await q
@@ -61,18 +64,17 @@ export default async function ExhibitionsPage({ searchParams }) {
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <SiteNav />
 
-      {/* 被看见：作品真的挂上过墙的那些场次 */}
+      {/* 当代回响：以线下实体展的图文呈现 */}
       <section className="px-6 pt-8 pb-4">
         <div className="max-w-6xl mx-auto">
           <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
             <div className="flex items-center justify-between">
-              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 被看见</span>
+              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 当代回响</span>
               <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
             </div>
           </div>
 
           <div className="pt-6 pb-2">
-            <p className="text-sm mb-6" style={{ color: '#6B7280' }}>这些作品离开了屏幕，挂上了墙。</p>
             <SeenSection exhibitions={offlineExhibitions} />
           </div>
         </div>
