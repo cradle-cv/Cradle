@@ -50,21 +50,28 @@ export default function StudioNewArtworkPage() {
     if (!session) { router.push('/login?redirect=/studio/artworks/new'); return }
 
     const { data: userData } = await supabase.from('users')
-      .select('id, role').eq('auth_id', session.user.id).single()
+      .select('id, role, username').eq('auth_id', session.user.id).single()
     if (!userData) { router.push('/login'); return }
 
-    const { data: identity } = await supabase.from('user_identities')
-      .select('id').eq('user_id', userData.id)
-      .eq('identity_type', 'artist').eq('is_active', true).maybeSingle()
-    const isArtist = !!identity || userData.role === 'admin'
-    if (!isArtist) { router.push('/studio'); return }
-
-    const { data: artist } = await supabase.from('artists')
+    // 创作不设门槛：登录即可上传。作品能否进入策展栏目，另由编辑部决定。
+    let { data: artist } = await supabase.from('artists')
       .select('id, display_name').eq('owner_user_id', userData.id).maybeSingle()
+
+    // 没有容器就当场建一条（懒创建），使新用户点开就能传
     if (!artist) {
-      alert('请先建立艺术家主页')
-      router.push('/profile/my-artist/new')
-      return
+      const { data: created, error: createErr } = await supabase.from('artists')
+        .insert({
+          owner_user_id: userData.id,
+          user_id: userData.id,
+          display_name: userData.username || '未命名'
+        })
+        .select('id, display_name').single()
+      if (createErr) {
+        alert('创建创作空间时出错，请稍后再试')
+        router.push('/profile')
+        return
+      }
+      artist = created
     }
     setArtistRecord(artist)
 
