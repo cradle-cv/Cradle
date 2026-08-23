@@ -136,21 +136,13 @@ export default function SeenSection({ exhibitions }) {
             {artists.length > 0 && (
               <div className="mb-5">
                 <p className="text-xs mb-3" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>参展艺术家</p>
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                   {artists.map((a, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <div key={i} className="flex items-center gap-2.5 min-w-0">
                       {a.avatar
                         ? <img src={a.avatar} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                         : <div className="w-9 h-9 rounded-full flex-shrink-0" style={{ backgroundColor: '#E5E7EB' }} />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: '#111827' }}>{a.name}</p>
-                        {a.artwork_title && (
-                          <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{a.artwork_title}</p>
-                        )}
-                      </div>
-                      {a.artwork_image && (
-                        <img src={a.artwork_image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
-                      )}
+                      <p className="text-sm font-medium truncate" style={{ color: '#111827' }}>{a.name}</p>
                     </div>
                   ))}
                 </div>
