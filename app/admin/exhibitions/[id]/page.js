@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { uploadImage } from '@/lib/upload'
 
 const GALLERY_STYLES = [
   { id: 'classic', name: '🏛️ 经典长廊', desc: '深色墙壁 + 金色画框 + 射灯' },
@@ -21,6 +22,11 @@ export default function EditExhibitionPage({ params }) {
   const [ownerType, setOwnerType] = useState('platform')
   const [partners, setPartners] = useState([])
   const [artworks, setArtworks] = useState([])
+  const [sitePhotos, setSitePhotos] = useState([])
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [exArtists, setExArtists] = useState([])
+  const [artistKeyword, setArtistKeyword] = useState('')
+  const [artistResults, setArtistResults] = useState([])
   const [selectedArtworks, setSelectedArtworks] = useState([])
   const [galleryStyle, setGalleryStyle] = useState('classic')
   const [curations, setCurations] = useState([])
@@ -55,6 +61,8 @@ export default function EditExhibitionPage({ params }) {
         loadPartners(),
         loadArtworks(),
         loadCurations(),
+        loadSitePhotos(id),
+        loadExArtists(id),
       ])
     }
     init()
@@ -151,6 +159,83 @@ export default function EditExhibitionPage({ params }) {
       alert('加载失败')
       router.push('/admin/exhibitions')
     }
+  }
+
+  // ── 现场照片 ──
+  async function loadSitePhotos(exId) {
+    const { data } = await supabase.from('exhibition_photos')
+      .select('*').eq('exhibition_id', exId)
+      .order('display_order', { ascending: true }).order('created_at', { ascending: true })
+    setSitePhotos(data || [])
+  }
+
+  async function handleSitePhotoUpload(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length || !exhibitionId) return
+    setPhotoUploading(true)
+    try {
+      for (const f of files) {
+        const { url } = await uploadImage(f, 'exhibitions')
+        await supabase.from('exhibition_photos').insert({
+          exhibition_id: exhibitionId,
+          image_url: url,
+          display_order: sitePhotos.length,
+        })
+      }
+      await loadSitePhotos(exhibitionId)
+    } catch (err) {
+      alert('现场照片上传失败: ' + err.message)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  async function updatePhotoCaption(id, caption) {
+    await supabase.from('exhibition_photos').update({ caption }).eq('id', id)
+    setSitePhotos(prev => prev.map(p => p.id === id ? { ...p, caption } : p))
+  }
+
+  async function deleteSitePhoto(id) {
+    if (!confirm('删除这张现场照片？')) return
+    await supabase.from('exhibition_photos').delete().eq('id', id)
+    setSitePhotos(prev => prev.filter(p => p.id !== id))
+  }
+
+  // ── 参展艺术家 ──
+  async function loadExArtists(exId) {
+    const { data } = await supabase.from('exhibition_artists')
+      .select('*, artists(id, display_name, avatar_url), artworks(id, title, image_url)')
+      .eq('exhibition_id', exId)
+      .order('display_order', { ascending: true }).order('created_at', { ascending: true })
+    setExArtists(data || [])
+  }
+
+  async function searchArtists(kw) {
+    setArtistKeyword(kw)
+    if (!kw.trim()) { setArtistResults([]); return }
+    const { data } = await supabase.from('artists')
+      .select('id, display_name, avatar_url')
+      .ilike('display_name', `%${kw.trim()}%`)
+      .limit(8)
+    setArtistResults(data || [])
+  }
+
+  async function addExArtist(artist) {
+    if (!exhibitionId) return
+    await supabase.from('exhibition_artists').insert({
+      exhibition_id: exhibitionId,
+      artist_id: artist?.id || null,
+      guest_name: artist ? null : (artistKeyword.trim() || '未具名'),
+      display_order: exArtists.length,
+    })
+    setArtistKeyword(''); setArtistResults([])
+    await loadExArtists(exhibitionId)
+  }
+
+  async function removeExArtist(id) {
+    await supabase.from('exhibition_artists').delete().eq('id', id)
+    setExArtists(prev => prev.filter(a => a.id !== id))
   }
 
   async function loadPartners() {
@@ -503,6 +588,94 @@ export default function EditExhibitionPage({ params }) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* ══ 现场照片 ══ */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">📷 现场照片</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                展出现场的照片。首页「被看见」会优先用第一张作为主图。
+              </p>
+
+              <input id="sitePhotoInput" type="file" accept="image/*" multiple
+                onChange={handleSitePhotoUpload} className="hidden" />
+              <button type="button" disabled={photoUploading}
+                onClick={() => document.getElementById('sitePhotoInput')?.click()}
+                className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
+                <div className="text-3xl mb-1">📤</div>
+                <div className="text-base font-medium text-gray-900">
+                  {photoUploading ? '上传中…' : '选择现场照片（可多选）'}
+                </div>
+              </button>
+
+              {sitePhotos.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {sitePhotos.map((p, i) => (
+                    <div key={p.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
+                      <img src={p.image_url} alt="" className="w-24 h-24 object-cover rounded flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-400 mb-1">第 {i + 1} 张</p>
+                        <input type="text" defaultValue={p.caption || ''}
+                          onBlur={(e) => updatePhotoCaption(p.id, e.target.value)}
+                          placeholder="说明，如：开幕当天（可留空）"
+                          className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
+                      </div>
+                      <button type="button" onClick={() => deleteSitePhoto(p.id)}
+                        className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ══ 参展艺术家 ══ */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">🧑‍🎨 参展艺术家</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                从平台艺术家里搜名字添加；不在平台上的人，输入名字后点「添加为非平台艺术家」。
+              </p>
+
+              <div className="relative">
+                <input type="text" value={artistKeyword}
+                  onChange={(e) => searchArtists(e.target.value)}
+                  placeholder="输入艺术家名字搜索…"
+                  className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                {artistKeyword.trim() && (
+                  <div className="mt-2 border rounded-lg overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
+                    {artistResults.map(a => (
+                      <button key={a.id} type="button" onClick={() => addExArtist(a)}
+                        className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">
+                        {a.avatar_url
+                          ? <img src={a.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                          : <div className="w-7 h-7 rounded-full" style={{ backgroundColor: '#E5E7EB' }} />}
+                        {a.display_name}
+                        <span className="ml-auto text-xs text-gray-400">平台艺术家</span>
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => addExArtist(null)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50" style={{ color: '#6B7280' }}>
+                      添加为非平台艺术家：「{artistKeyword.trim()}」
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {exArtists.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {exArtists.map(a => (
+                    <span key={a.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                      style={{ backgroundColor: '#F3F4F6', color: '#374151' }}>
+                      {a.artists?.avatar_url && (
+                        <img src={a.artists.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      )}
+                      {a.artists?.display_name || a.guest_name}
+                      {!a.artist_id && <span className="text-xs" style={{ color: '#9CA3AF' }}>非平台</span>}
+                      <button type="button" onClick={() => removeExArtist(a.id)}
+                        style={{ color: '#9CA3AF' }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {ownerType === 'platform' && (
