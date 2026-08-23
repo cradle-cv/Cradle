@@ -353,26 +353,6 @@ export default function UserNav() {
         {/* ★ 简/繁切换 */}
         <LangToggle />
 
-        {/* ★ 上传作品：最要紧的动作放在栏上，不必藏进菜单 */}
-        <a href="/studio/artworks/new"
-          aria-label="上传作品"
-          className="inline-flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-85"
-          style={{
-            gap: '6px',
-            height: '34px',
-            padding: '0 12px',
-            borderRadius: '999px',
-            backgroundColor: '#111827',
-            color: '#FFFFFF',
-            fontSize: '13px',
-          }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span className="hidden sm:inline">上传</span>
-        </a>
-
         {/* ★ 通知铃铛 */}
         <NotificationBell />
         
@@ -484,6 +464,16 @@ export default function UserNav() {
 
               {/* ── 我的 ── */}
               <div className="py-1">
+                <a href="/studio/artworks/new" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span style={{ color: '#6B7280' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </span>
+                  上传作品
+                </a>
                 <a href="/profile" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span style={{ color: '#6B7280' }}><IconUser /></span> 个人主页
