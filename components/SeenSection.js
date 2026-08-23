@@ -38,7 +38,6 @@ export default function SeenSection({ exhibitions }) {
         <div className="flex-shrink-0 flex flex-col gap-3" style={{ width: '96px', paddingRight: '16px' }}>
           {exhibitions.map((e, i) => {
             const isCurrent = i === activeIdx
-            const eArtists = Array.isArray(e.artists) ? e.artists : []
             const ePhotos = Array.isArray(e.photos) ? e.photos : []
             return (
               <button key={e.id} onClick={() => setActiveIdx(i)}
@@ -61,34 +60,14 @@ export default function SeenSection({ exhibitions }) {
                   marginBottom: '8px',
                 }}>{e.title}</div>
 
-                {eArtists.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-1 justify-items-center">
-                    {eArtists.slice(0, 6).map((a, ai) => (
-                      <div key={ai} className="rounded-full overflow-hidden"
-                        style={{
-                          width: '18px', height: '18px',
-                          backgroundColor: isCurrent ? 'rgba(255,255,255,0.2)' : '#E5E7EB',
-                          border: isCurrent ? '1px solid rgba(255,255,255,0.3)' : '1px solid #fff',
-                        }}>
-                        {a.avatar ? (
-                          <img src={a.avatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center"
-                            style={{ fontSize: '7px', color: isCurrent ? '#fff' : '#D1D5DB' }}>·</div>
-                        )}
-                      </div>
-                    ))}
+                {/* 缩略图：优先用展览封面，没有封面就退回第一张现场照片 */}
+                {(e.cover_image || ePhotos[0]?.url) && (
+                  <div className="rounded overflow-hidden" style={{ aspectRatio: '4 / 3' }}>
+                    <img src={e.cover_image || ePhotos[0].url} alt=""
+                      className="w-full h-full object-cover"
+                      style={{ opacity: isCurrent ? 1 : 0.75 }} />
                   </div>
-                ) : ePhotos.length > 0 ? (
-                  <div className="rounded overflow-hidden" style={{ height: '32px' }}>
-                    <img src={ePhotos[0].url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ) : e.cover_image ? (
-                  <div className="rounded overflow-hidden" style={{ height: '32px' }}>
-                    <img src={e.cover_image} alt="" className="w-full h-full object-cover"
-                      style={{ opacity: isCurrent ? 1 : 0.7 }} />
-                  </div>
-                ) : null}
+                )}
               </button>
             )
           })}
