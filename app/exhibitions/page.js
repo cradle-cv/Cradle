@@ -3,6 +3,8 @@ import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import SeenSection from '@/components/SeenSection'
 import SiteNav from '@/components/SiteNav'
+import HorizontalRail from '@/components/HorizontalRail'
+import InvitationCompactCard from '@/components/InvitationCompactCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -29,11 +31,29 @@ async function getData() {
     console.error('get_homepage_offline_exhibitions failed:', e)
   }
 
-  return { specialExhibitions, offlineExhibitions }
+  let invitations = []
+  try {
+    const { data: invs } = await supabase.rpc('get_homepage_invitations', { p_limit: 12 })
+    invitations = invs || []
+  } catch (e) {
+    console.error('get_homepage_invitations failed:', e)
+  }
+
+  let submittedInvitationIds = []
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: subs } = await supabase.rpc('get_my_invitation_submissions')
+      if (subs) submittedInvitationIds = subs.map(s => s.invitation_id)
+    }
+  } catch (e) { /* 未登录时忽略 */ }
+
+  return { specialExhibitions, offlineExhibitions, invitations, submittedInvitationIds }
 }
 
 export default async function ExhibitionsPage() {
-  const { specialExhibitions, offlineExhibitions } = await getData()
+  const { specialExhibitions, offlineExhibitions, invitations, submittedInvitationIds } = await getData()
+  const submittedSet = new Set(submittedInvitationIds)
 
   const today = new Date()
   const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
@@ -79,7 +99,7 @@ export default async function ExhibitionsPage() {
               <div className="flex items-center justify-between">
                 <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>线 上 展 览</span>
                 <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
-                  {ongoing.length + upcoming.length + past.length} exhibitions
+                  {ongoing.length + upcoming.length} exhibitions
                 </span>
               </div>
             </div>
@@ -183,23 +203,32 @@ export default async function ExhibitionsPage() {
               </div>
             )}
 
-            {past.length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#9CA3AF' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>往期展览 ({past.length})</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {past.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#9CA3AF" statusText="已结束" />
-                  ))}
-                </div>
+            {ongoing.length === 0 && upcoming.length === 0 && (
+              <div className="py-16 text-center">
+                <p style={{ color: '#9CA3AF' }}>还没有线上展览</p>
               </div>
             )}
 
-            {ongoing.length === 0 && upcoming.length === 0 && past.length === 0 && (
-              <div className="py-16 text-center">
-                <p style={{ color: '#9CA3AF' }}>还没有线上展览</p>
+            {/* 参展邀请：摇篮正在收什么，收过什么 */}
+            {invitations.length > 0 && (
+              <div className="mt-12 pt-10" style={{ borderTop: '0.5px solid #E5E7EB' }}>
+                <div className="flex items-end justify-between mb-6">
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: '#111827' }}>参展邀请</h2>
+                    <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>摇篮正在收什么，收过什么</p>
+                  </div>
+                  <Link href="/invitations" className="text-sm flex-shrink-0" style={{ color: '#6B7280' }}>
+                    查看全部邀请 →
+                  </Link>
+                </div>
+                <HorizontalRail>
+                  {invitations.map(inv => (
+                    <div key={inv.id} className="flex-shrink-0"
+                      style={{ width: 'min(78vw, 300px)', scrollSnapAlign: 'start' }}>
+                      <InvitationCompactCard inv={inv} alreadySubmitted={submittedSet.has(inv.id)} />
+                    </div>
+                  ))}
+                </HorizontalRail>
               </div>
             )}
           </div>
