@@ -379,9 +379,25 @@ export default function UserNav() {
         {/* 头像菜单 */}
         <div className="relative" ref={menuRef}>
           <button onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity relative">
-            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 relative"
-              style={{ backgroundColor: '#E5E7EB', border: '2px solid #E5E7EB' }}>
+            aria-label="打开菜单"
+            className="flex items-center hover:opacity-80 transition-opacity relative"
+            style={{
+              gap: '8px',
+              padding: '3px 4px 3px 11px',
+              borderRadius: '999px',
+              border: '0.5px solid #D1D5DB',
+              backgroundColor: '#FFFFFF',
+            }}>
+            {/* 菜单条纹：全世界通用的「这里能展开」 */}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+              stroke="#6B7280" strokeWidth="2" strokeLinecap="round"
+              className="flex-shrink-0" aria-hidden="true">
+              <line x1="4" y1="7" x2="20" y2="7" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="17" x2="20" y2="17" />
+            </svg>
+            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 relative"
+              style={{ backgroundColor: '#E5E7EB' }}>
               {userData?.avatar_url ? (
                 <img src={userData.avatar_url} className="w-full h-full object-cover" alt="" />
               ) : (
@@ -404,13 +420,6 @@ export default function UserNav() {
                 {userData.total_points}
               </span>
             )}
-            {/* 下拉箭头：让头像一眼看出可展开，手机端同样显示（很小，不占地方） */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="#9CA3AF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-              className="flex-shrink-0 transition-transform"
-              style={{ transform: showMenu ? 'rotate(180deg)' : 'none' }} aria-hidden="true">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
           </button>
 
           {showMenu && (
