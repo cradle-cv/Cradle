@@ -44,7 +44,6 @@ export default function ProfilePage() {
         const { data: aw } = await supabase.from('artworks')
           .select('*')
           .eq('artist_id', ar.id)
-          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false })
         if (aw) setArtworks(aw)
       }
@@ -199,8 +198,8 @@ export default function ProfilePage() {
               return (
                 <div key={w.id} className="bg-white rounded-xl overflow-hidden shadow-sm">
                   <Link href={`/artworks/${w.id}`} className="block relative">
-                    {w.cover_image ? (
-                      <img src={w.cover_image} alt={w.title} className="w-full object-cover"
+                    {w.image_url ? (
+                      <img src={w.image_url} alt={w.title} className="w-full object-cover"
                         style={{ aspectRatio: '1/1' }} />
                     ) : (
                       <div className="w-full flex items-center justify-center" style={{ aspectRatio: '1/1', backgroundColor: '#F3F4F6' }}>
