@@ -25,10 +25,10 @@ export default function EditExhibitionPage({ params }) {
   const [sitePhotos, setSitePhotos] = useState([])
   const [photoUploading, setPhotoUploading] = useState(false)
   const [exArtists, setExArtists] = useState([])
-  const [voices, setVoices] = useState([])
-  const [voiceUploading, setVoiceUploading] = useState(false)
   const [artistKeyword, setArtistKeyword] = useState('')
   const [artistResults, setArtistResults] = useState([])
+  const [voices, setVoices] = useState([])
+  const [voiceUploading, setVoiceUploading] = useState(false)
   const [selectedArtworks, setSelectedArtworks] = useState([])
   const [galleryStyle, setGalleryStyle] = useState('classic')
   const [curations, setCurations] = useState([])
@@ -53,6 +53,7 @@ export default function EditExhibitionPage({ params }) {
     quote_author: '',
     curation_issue_number: '',
     onsite_headline: '',
+    venue_type: 'online',
   })
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function EditExhibitionPage({ params }) {
           description: platformExhibition.description || '',
           cover_image: platformExhibition.cover_image || '',
           onsite_headline: platformExhibition.onsite_headline || '',
+          venue_type: platformExhibition.venue_type || 'online',
           partner_id: '',
           type: platformExhibition.type || 'regular',
           start_date: platformExhibition.start_date || '',
@@ -148,6 +150,7 @@ export default function EditExhibitionPage({ params }) {
           quote_author: '',
           curation_issue_number: '',
           onsite_headline: '',
+          venue_type: 'online',
         })
 
         if (partnerExhibition.cover_image) {
@@ -169,39 +172,26 @@ export default function EditExhibitionPage({ params }) {
 
   // ── 现场照片 ──
   async function loadSitePhotos(exId) {
-    const { data } = await supabase.from('exhibition_photos')
-      .select('*').eq('exhibition_id', exId)
-      .order('display_order', { ascending: true }).order('created_at', { ascending: true })
+    const { data } = await supabase.from('exhibition_photos').select('*')
+      .eq('exhibition_id', exId).order('display_order', { ascending: true }).order('created_at', { ascending: true })
     setSitePhotos(data || [])
   }
-
   async function handleSitePhotoUpload(e) {
-    const files = Array.from(e.target.files || [])
-    e.target.value = ''
+    const files = Array.from(e.target.files || []); e.target.value = ''
     if (!files.length || !exhibitionId) return
     setPhotoUploading(true)
     try {
       for (const f of files) {
         const { url } = await uploadImage(f, 'exhibitions')
-        await supabase.from('exhibition_photos').insert({
-          exhibition_id: exhibitionId,
-          image_url: url,
-          display_order: sitePhotos.length,
-        })
+        await supabase.from('exhibition_photos').insert({ exhibition_id: exhibitionId, image_url: url, display_order: sitePhotos.length })
       }
       await loadSitePhotos(exhibitionId)
-    } catch (err) {
-      alert('现场照片上传失败: ' + err.message)
-    } finally {
-      setPhotoUploading(false)
-    }
+    } catch (err) { alert('现场照片上传失败: ' + err.message) } finally { setPhotoUploading(false) }
   }
-
   async function updatePhotoCaption(id, caption) {
     await supabase.from('exhibition_photos').update({ caption }).eq('id', id)
     setSitePhotos(prev => prev.map(p => p.id === id ? { ...p, caption } : p))
   }
-
   async function deleteSitePhoto(id) {
     if (!confirm('删除这张现场照片？')) return
     await supabase.from('exhibition_photos').delete().eq('id', id)
@@ -212,73 +202,51 @@ export default function EditExhibitionPage({ params }) {
   async function loadExArtists(exId) {
     const { data } = await supabase.from('exhibition_artists')
       .select('*, artists(id, display_name, avatar_url), artworks(id, title, image_url)')
-      .eq('exhibition_id', exId)
-      .order('display_order', { ascending: true }).order('created_at', { ascending: true })
+      .eq('exhibition_id', exId).order('display_order', { ascending: true }).order('created_at', { ascending: true })
     setExArtists(data || [])
   }
-
   async function searchArtists(kw) {
     setArtistKeyword(kw)
     if (!kw.trim()) { setArtistResults([]); return }
-    const { data } = await supabase.from('artists')
-      .select('id, display_name, avatar_url')
-      .ilike('display_name', `%${kw.trim()}%`)
-      .limit(8)
+    const { data } = await supabase.from('artists').select('id, display_name, avatar_url')
+      .ilike('display_name', `%${kw.trim()}%`).limit(8)
     setArtistResults(data || [])
   }
-
   async function addExArtist(artist) {
     if (!exhibitionId) return
     await supabase.from('exhibition_artists').insert({
-      exhibition_id: exhibitionId,
-      artist_id: artist?.id || null,
-      guest_name: artist ? null : (artistKeyword.trim() || '未具名'),
-      display_order: exArtists.length,
-    })
+      exhibition_id: exhibitionId, artist_id: artist?.id || null,
+      guest_name: artist ? null : (artistKeyword.trim() || '未具名'), display_order: exArtists.length })
     setArtistKeyword(''); setArtistResults([])
     await loadExArtists(exhibitionId)
   }
-
   async function removeExArtist(id) {
     await supabase.from('exhibition_artists').delete().eq('id', id)
     setExArtists(prev => prev.filter(a => a.id !== id))
   }
 
-  // ── 现场的声音（观众照片 + 感受）──
+  // ── 现场的声音 ──
   async function loadVoices(exId) {
-    const { data } = await supabase.from('exhibition_voices')
-      .select('*').eq('exhibition_id', exId)
-      .order('display_order', { ascending: true }).order('created_at', { ascending: true })
+    const { data } = await supabase.from('exhibition_voices').select('*')
+      .eq('exhibition_id', exId).order('display_order', { ascending: true }).order('created_at', { ascending: true })
     setVoices(data || [])
   }
-
   async function handleVoiceUpload(e) {
-    const files = Array.from(e.target.files || [])
-    e.target.value = ''
+    const files = Array.from(e.target.files || []); e.target.value = ''
     if (!files.length || !exhibitionId) return
     setVoiceUploading(true)
     try {
       for (const f of files) {
         const { url } = await uploadImage(f, 'exhibitions')
-        await supabase.from('exhibition_voices').insert({
-          exhibition_id: exhibitionId,
-          photo_url: url,
-          display_order: voices.length,
-        })
+        await supabase.from('exhibition_voices').insert({ exhibition_id: exhibitionId, photo_url: url, display_order: voices.length })
       }
       await loadVoices(exhibitionId)
-    } catch (err) {
-      alert('现场照片上传失败: ' + err.message)
-    } finally {
-      setVoiceUploading(false)
-    }
+    } catch (err) { alert('上传失败: ' + err.message) } finally { setVoiceUploading(false) }
   }
-
   async function updateVoice(id, patch) {
     await supabase.from('exhibition_voices').update(patch).eq('id', id)
     setVoices(prev => prev.map(v => v.id === id ? { ...v, ...patch } : v))
   }
-
   async function deleteVoice(id) {
     if (!confirm('删除这条现场感受？')) return
     await supabase.from('exhibition_voices').delete().eq('id', id)
@@ -459,7 +427,11 @@ export default function EditExhibitionPage({ params }) {
   }
 
   if (loading) {
-    return (
+    const venueType = formData.venue_type || 'online'
+  const showOnline = venueType === 'online' || venueType === 'both'
+  const showOffline = venueType === 'offline' || venueType === 'both'
+
+  return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-2xl text-gray-600">加载中...</div>
       </div>
@@ -523,7 +495,7 @@ export default function EditExhibitionPage({ params }) {
                   />
                 </div>
 
-                {ownerType === 'platform' && (
+                {ownerType === 'platform' && showOnline && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">展览标题(英文)</label>
                     <input
@@ -637,150 +609,153 @@ export default function EditExhibitionPage({ params }) {
               </div>
             </div>
 
-            {/* ══ 现场照片 ══ */}
+            {/* ══ 展出方式 ══ */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">📷 现场照片</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                展出现场的照片。首页「被看见」会优先用第一张作为主图。
-              </p>
-
-              <input id="sitePhotoInput" type="file" accept="image/*" multiple
-                onChange={handleSitePhotoUpload} className="hidden" />
-              <button type="button" disabled={photoUploading}
-                onClick={() => document.getElementById('sitePhotoInput')?.click()}
-                className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
-                <div className="text-3xl mb-1">📤</div>
-                <div className="text-base font-medium text-gray-900">
-                  {photoUploading ? '上传中…' : '选择现场照片（可多选）'}
-                </div>
-              </button>
-
-              {sitePhotos.length > 0 && (
-                <div className="mt-5 space-y-3">
-                  {sitePhotos.map((p, i) => (
-                    <div key={p.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
-                      <img src={p.image_url} alt="" className="w-24 h-24 object-cover rounded flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-400 mb-1">第 {i + 1} 张</p>
-                        <input type="text" defaultValue={p.caption || ''}
-                          onBlur={(e) => updatePhotoCaption(p.id, e.target.value)}
-                          placeholder="说明，如：开幕当天（可留空）"
-                          className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
-                      </div>
-                      <button type="button" onClick={() => deleteSitePhoto(p.id)}
-                        className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ══ 参展艺术家 ══ */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">🧑‍🎨 参展艺术家</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                从平台艺术家里搜名字添加；不在平台上的人，输入名字后点「添加为非平台艺术家」。
-              </p>
-
-              <div className="relative">
-                <input type="text" value={artistKeyword}
-                  onChange={(e) => searchArtists(e.target.value)}
-                  placeholder="输入艺术家名字搜索…"
-                  className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
-                {artistKeyword.trim() && (
-                  <div className="mt-2 border rounded-lg overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
-                    {artistResults.map(a => (
-                      <button key={a.id} type="button" onClick={() => addExArtist(a)}
-                        className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">
-                        {a.avatar_url
-                          ? <img src={a.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-                          : <div className="w-7 h-7 rounded-full" style={{ backgroundColor: '#E5E7EB' }} />}
-                        {a.display_name}
-                        <span className="ml-auto text-xs text-gray-400">平台艺术家</span>
-                      </button>
-                    ))}
-                    <button type="button" onClick={() => addExArtist(null)}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50" style={{ color: '#6B7280' }}>
-                      添加为非平台艺术家：「{artistKeyword.trim()}」
+              <h2 className="text-xl font-bold text-gray-900 mb-2">📍 展出方式</h2>
+              <p className="text-sm text-gray-500 mb-4">决定下面显示哪些区块，也决定这场展览出现在网站的哪一处。</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'online', label: '仅线上', hint: '作品在网站展出' },
+                  { key: 'offline', label: '仅线下', hint: '只在实体场地' },
+                  { key: 'both', label: '线上线下', hint: '两处都办过' },
+                ].map(v => {
+                  const on = venueType === v.key
+                  return (
+                    <button key={v.key} type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, venue_type: v.key }))}
+                      className="px-3 py-3 rounded-lg border text-left transition-colors"
+                      style={on
+                        ? { borderColor: '#111827', backgroundColor: '#111827', color: '#FFFFFF' }
+                        : { borderColor: '#D1D5DB', backgroundColor: '#FFFFFF', color: '#374151' }}>
+                      <div className="text-sm font-medium">{v.label}</div>
+                      <div className="text-xs mt-0.5" style={{ color: on ? 'rgba(255,255,255,0.7)' : '#9CA3AF' }}>{v.hint}</div>
                     </button>
-                  </div>
-                )}
+                  )
+                })}
               </div>
-
-              {exArtists.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {exArtists.map(a => (
-                    <span key={a.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
-                      style={{ backgroundColor: '#F3F4F6', color: '#374151' }}>
-                      {a.artists?.avatar_url && (
-                        <img src={a.artists.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                      )}
-                      {a.artists?.display_name || a.guest_name}
-                      {!a.artist_id && <span className="text-xs" style={{ color: '#9CA3AF' }}>非平台</span>}
-                      <button type="button" onClick={() => removeExArtist(a.id)}
-                        style={{ color: '#9CA3AF' }}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* ══ 现场的声音 ══ */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">🗣️ 现场的声音</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                观众在现场的照片与他的一句话，显示在展览现场页。横竖照片都可以，会按各自比例排列。
-              </p>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">现场页主视觉标语</label>
-                <textarea rows={2}
-                  value={formData.onsite_headline || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, onsite_headline: e.target.value }))}
-                  placeholder={'压在现场大图上的大字，换行可分两行，例如：\n面对面。\n照片到心。'}
-                  className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
-              </div>
-
-              <input id="voiceInput" type="file" accept="image/*" multiple
-                onChange={handleVoiceUpload} className="hidden" />
-              <button type="button" disabled={voiceUploading}
-                onClick={() => document.getElementById('voiceInput')?.click()}
-                className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
-                <div className="text-3xl mb-1">📤</div>
-                <div className="text-base font-medium text-gray-900">
-                  {voiceUploading ? '上传中…' : '选择观众现场照片（可多选）'}
-                </div>
-              </button>
-
-              {voices.length > 0 && (
-                <div className="mt-5 space-y-3">
-                  {voices.map((v, i) => (
-                    <div key={v.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
-                      <img src={v.photo_url} alt="" className="w-24 h-24 object-cover rounded flex-shrink-0" />
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <p className="text-xs text-gray-400">第 {i + 1} 位</p>
-                        <input type="text" defaultValue={v.person_name || ''}
-                          onBlur={(e) => updateVoice(v.id, { person_name: e.target.value })}
-                          placeholder="名字"
-                          className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
-                        <textarea rows={2} defaultValue={v.quote || ''}
-                          onBlur={(e) => updateVoice(v.id, { quote: e.target.value })}
-                          placeholder="他的一句话，例如：让人更靠近的摄影，在展览中感受到的温度"
-                          className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
-                        <input type="text" defaultValue={v.label || 'VISITOR'}
-                          onBlur={(e) => updateVoice(v.id, { label: e.target.value })}
-                          placeholder="左上角小标签，如 VISITOR / CREATOR"
-                          className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
-                      </div>
-                      <button type="button" onClick={() => deleteVoice(v.id)}
-                        className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
+            {showOffline && (
+              <>
+                {/* ══ 现场照片 ══ */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">📷 现场照片</h2>
+                  <p className="text-sm text-gray-500 mb-4">展场照片。第一张用作现场页的主视觉，说明文字会压在图上。</p>
+                  <input id="sitePhotoInput" type="file" accept="image/*" multiple onChange={handleSitePhotoUpload} className="hidden" />
+                  <button type="button" disabled={photoUploading}
+                    onClick={() => document.getElementById('sitePhotoInput')?.click()}
+                    className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
+                    <div className="text-3xl mb-1">📤</div>
+                    <div className="text-base font-medium text-gray-900">{photoUploading ? '上传中…' : '选择现场照片（可多选）'}</div>
+                  </button>
+                  {sitePhotos.length > 0 && (
+                    <div className="mt-5 space-y-3">
+                      {sitePhotos.map((p, i) => (
+                        <div key={p.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
+                          <img src={p.image_url} alt="" className="w-24 h-24 object-cover rounded flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-400 mb-1">第 {i + 1} 张</p>
+                            <input type="text" defaultValue={p.caption || ''}
+                              onBlur={(e) => updatePhotoCaption(p.id, e.target.value)}
+                              placeholder="说明文字，会压在这张图上（可留空）"
+                              className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
+                          </div>
+                          <button type="button" onClick={() => deleteSitePhoto(p.id)} className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
 
-            {ownerType === 'platform' && (
+                {/* ══ 参展艺术家 ══ */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">🧑‍🎨 参展艺术家</h2>
+                  <p className="text-sm text-gray-500 mb-4">从平台艺术家里搜名字添加；不在平台上的人，输入名字后点最后一条。</p>
+                  <div className="relative">
+                    <input type="text" value={artistKeyword} onChange={(e) => searchArtists(e.target.value)}
+                      placeholder="输入艺术家名字搜索…"
+                      className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                    {artistKeyword.trim() && (
+                      <div className="mt-2 border rounded-lg overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
+                        {artistResults.map(a => (
+                          <button key={a.id} type="button" onClick={() => addExArtist(a)}
+                            className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50">
+                            {a.avatar_url ? <img src={a.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                              : <div className="w-7 h-7 rounded-full" style={{ backgroundColor: '#E5E7EB' }} />}
+                            {a.display_name}
+                            <span className="ml-auto text-xs text-gray-400">平台艺术家</span>
+                          </button>
+                        ))}
+                        <button type="button" onClick={() => addExArtist(null)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50" style={{ color: '#6B7280' }}>
+                          添加为非平台艺术家：「{artistKeyword.trim()}」
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {exArtists.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {exArtists.map(a => (
+                        <span key={a.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                          style={{ backgroundColor: '#F3F4F6', color: '#374151' }}>
+                          {a.artists?.avatar_url && <img src={a.artists.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />}
+                          {a.artists?.display_name || a.guest_name}
+                          {!a.artist_id && <span className="text-xs" style={{ color: '#9CA3AF' }}>非平台</span>}
+                          <button type="button" onClick={() => removeExArtist(a.id)} style={{ color: '#9CA3AF' }}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ══ 现场的声音 ══ */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">🗣️ 现场的声音</h2>
+                  <p className="text-sm text-gray-500 mb-4">观众在现场的照片与他的一句话。横竖照片都可以，会按各自比例排列。</p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">现场页主视觉标语</label>
+                    <textarea rows={2} value={formData.onsite_headline || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, onsite_headline: e.target.value }))}
+                      placeholder="压在现场大图上的大字，换行可分两行"
+                      className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                  </div>
+                  <input id="voiceInput" type="file" accept="image/*" multiple onChange={handleVoiceUpload} className="hidden" />
+                  <button type="button" disabled={voiceUploading}
+                    onClick={() => document.getElementById('voiceInput')?.click()}
+                    className="w-full px-6 py-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
+                    <div className="text-3xl mb-1">📤</div>
+                    <div className="text-base font-medium text-gray-900">{voiceUploading ? '上传中…' : '选择观众现场照片（可多选）'}</div>
+                  </button>
+                  {voices.length > 0 && (
+                    <div className="mt-5 space-y-3">
+                      {voices.map((v, i) => (
+                        <div key={v.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
+                          <img src={v.photo_url} alt="" className="w-24 h-24 object-cover rounded flex-shrink-0" />
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <p className="text-xs text-gray-400">第 {i + 1} 位</p>
+                            <input type="text" defaultValue={v.person_name || ''}
+                              onBlur={(e) => updateVoice(v.id, { person_name: e.target.value })}
+                              placeholder="名字"
+                              className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
+                            <textarea rows={2} defaultValue={v.quote || ''}
+                              onBlur={(e) => updateVoice(v.id, { quote: e.target.value })}
+                              placeholder="他的一句话感受"
+                              className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
+                            <input type="text" defaultValue={v.label || 'VISITOR'}
+                              onBlur={(e) => updateVoice(v.id, { label: e.target.value })}
+                              placeholder="左上角小标签"
+                              className="w-full px-3 py-1.5 border rounded text-sm" style={{ borderColor: '#D1D5DB' }} />
+                          </div>
+                          <button type="button" onClick={() => deleteVoice(v.id)} className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {ownerType === 'platform' && showOnline && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
                   🎨 {isDialogue ? '参展作品(来自不同艺术家)' : '展览作品'}
@@ -952,7 +927,7 @@ export default function EditExhibitionPage({ params }) {
                   </div>
                 )}
 
-                {ownerType === 'platform' && !isDialogue && exhibitionId && (
+                {ownerType === 'platform' && showOnline && !isDialogue && exhibitionId && (
                   <div className="pt-2 space-y-2">
                     <a href={`/admin/exhibitions/${exhibitionId}/layout`}
                       className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-white text-sm transition-all hover:opacity-90"
