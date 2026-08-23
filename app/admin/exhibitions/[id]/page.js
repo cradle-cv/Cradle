@@ -225,6 +225,40 @@ export default function EditExhibitionPage({ params }) {
     setExArtists(prev => prev.filter(a => a.id !== id))
   }
 
+  // 从已选展览作品自动带入参展艺术家（按人去重，不覆盖已有）
+  async function importArtistsFromArtworks() {
+    if (!exhibitionId) return
+    const { data: eas } = await supabase.from('exhibition_artworks')
+      .select('artwork_id, artworks(id, artist_id, title)')
+      .eq('exhibition_id', exhibitionId)
+
+    const rows = (eas || []).map(x => x.artworks).filter(Boolean)
+    if (rows.length === 0) { alert('这场展览还没有选入作品'); return }
+
+    // 每位艺术家取其第一件作品作为代表
+    const firstByArtist = new Map()
+    rows.forEach(aw => {
+      if (aw.artist_id && !firstByArtist.has(aw.artist_id)) firstByArtist.set(aw.artist_id, aw)
+    })
+    if (firstByArtist.size === 0) { alert('这些作品上没有可识别的艺术家'); return }
+
+    const existing = new Set(exArtists.map(a => a.artist_id).filter(Boolean))
+    const toAdd = [...firstByArtist.entries()].filter(([artistId]) => !existing.has(artistId))
+
+    if (toAdd.length === 0) { alert('参展艺术家已经是最新的，没有需要补充的'); return }
+    if (!confirm(`将从展览作品中带入 ${toAdd.length} 位艺术家，已有的不会改动。继续？`)) return
+
+    const payload = toAdd.map(([artistId, aw], i) => ({
+      exhibition_id: exhibitionId,
+      artist_id: artistId,
+      artwork_id: aw.id,
+      display_order: exArtists.length + i,
+    }))
+    const { error } = await supabase.from('exhibition_artists').insert(payload)
+    if (error) { alert('带入失败: ' + error.message); return }
+    await loadExArtists(exhibitionId)
+  }
+
   // ── 现场的声音 ──
   async function loadVoices(exId) {
     const { data } = await supabase.from('exhibition_voices').select('*')
@@ -672,6 +706,13 @@ export default function EditExhibitionPage({ params }) {
                 <div className="bg-white rounded-lg shadow p-6">
                   <h2 className="text-xl font-bold text-gray-900 mb-1">🧑‍🎨 参展艺术家</h2>
                   <p className="text-sm text-gray-500 mb-4">从平台艺术家里搜名字添加；不在平台上的人，输入名字后点最后一条。</p>
+
+                  <button type="button" onClick={importArtistsFromArtworks}
+                    className="w-full mb-4 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors hover:bg-gray-50"
+                    style={{ borderColor: '#111827', color: '#111827' }}>
+                    ⇩ 从展览作品自动带入艺术家
+                  </button>
+
                   <div className="relative">
                     <input type="text" value={artistKeyword} onChange={(e) => searchArtists(e.target.value)}
                       placeholder="输入艺术家名字搜索…"
