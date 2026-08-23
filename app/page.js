@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import SiteNav from '@/components/SiteNav'
+import HorizontalRail from '@/components/HorizontalRail'
+import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -66,17 +68,18 @@ async function getData() {
     homepageSelect = userMags[(seed + 7) % userMags.length]
   }
 
-  const { data: recentExhibitions } = await supabase
-    .from('exhibitions')
-    .select('*')
-    .eq('status', 'active')
-    .order('start_date', { ascending: false })
-    .limit(3)
+  let offlineExhibitions = []
+  try {
+    const { data: offs } = await supabase.rpc('get_homepage_offline_exhibitions', { p_limit: 8 })
+    offlineExhibitions = offs || []
+  } catch (e) {
+    console.error('get_homepage_offline_exhibitions failed:', e)
+  }
 
   return {
     exhibition, collections: collections || [], artists: artists || [],
     partners: partners || [], galleryWorks: galleryWorks || [],
-    homepageDaily, homepageSelect, recentExhibitions: recentExhibitions || [],
+    homepageDaily, homepageSelect, offlineExhibitions,
     homepageInvitations,
     submittedInvitationIds,
   }
@@ -253,7 +256,7 @@ function ExhibitionActionButton({ exhibition }) {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, recentExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
+  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, offlineExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
   const submittedSet = new Set(submittedInvitationIds)
 
   return (
@@ -373,38 +376,31 @@ export default async function Home() {
               </>
             )}
 
-            {/* 邀请函小卡片区 */}
-            {homepageInvitations.length > 0 && (
-              <div className="mt-8 md:mt-10">
-                <div className={
-                  homepageInvitations.length === 1
-                    ? 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
-                    : homepageInvitations.length === 2
-                    ? 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'
-                    : 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6'
-                }>
-                  {homepageInvitations.map(inv => (
-                    <InvitationCompactCard
-                      key={inv.id}
-                      inv={inv}
-                      alreadySubmitted={submittedSet.has(inv.id)}
-                    />
-                  ))}
+            {/* 被看见：作品真的挂上过墙的那些场次 */}
+            {offlineExhibitions.length > 0 && (
+              <div className="mt-10 md:mt-14">
+                <div className="text-center mb-6 md:mb-8">
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-900">被看见</h3>
+                  <p className="text-xs md:text-sm text-gray-500 mt-2">这些作品离开了屏幕，挂上了墙</p>
                 </div>
+                <HorizontalRail>
+                  {offlineExhibitions.map(ex => (
+                    <div key={ex.id} className="flex-shrink-0"
+                      style={{ width: 'min(82vw, 340px)', scrollSnapAlign: 'start' }}>
+                      <OfflineExhibitionCard ex={ex} />
+                    </div>
+                  ))}
+                </HorizontalRail>
               </div>
             )}
 
             <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
-              {exhibition && (
-                <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                  查看更多展览 →
-                </a>
-              )}
-              {homepageInvitations.length > 0 && (
-                <a href="/invitations" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                  查看所有邀请函 →
-                </a>
-              )}
+              <a href="/exhibitions?venue=online" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+                查看线上展览 →
+              </a>
+              <a href="/exhibitions?venue=offline" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+                查看线下展览 →
+              </a>
             </div>
           </div>
         </section>
@@ -556,62 +552,29 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 近期展览 */}
-      {recentExhibitions.length > 0 && (
+      {/* 参展邀请：进行中在前，已截止在后 */}
+      {homepageInvitations.length > 0 && (
         <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="flex justify-between items-center mb-8 md:mb-10">
-              <h2 className="text-2xl md:text-4xl font-bold text-gray-900">近期展览</h2>
-              <a href="/exhibitions" className="text-gray-600 hover:text-gray-900 text-xs md:text-sm">查看全部展览 →</a>
+              <div>
+                <h2 className="text-2xl md:text-4xl font-bold text-gray-900">参展邀请</h2>
+                <p className="text-xs md:text-sm text-gray-500 mt-2">摇篮正在收什么，收过什么</p>
+              </div>
+              <a href="/invitations" className="text-gray-600 hover:text-gray-900 text-xs md:text-sm flex-shrink-0">查看全部邀请 →</a>
             </div>
-            <div className="grid md:grid-cols-3 gap-4 md:gap-6">
-              {recentExhibitions.map(ex => (
-                <div key={ex.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
-                  {/* ★ 改动:已布展 = 整张可点 + 不灰化;未布展 = 灰化 + 浮层提示 */}
-                  {ex.is_open ? (
-                    <a href={`/exhibitions/${ex.id}`} className="block">
-                      <div className="flex gap-3 md:gap-4 p-4 md:p-5">
-                        <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                          {ex.cover_image ? (<img loading="lazy" src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
-                          {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
-                          <div className="space-y-1 text-xs text-gray-500">
-                            {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
-                            {ex.location && <p>📍 {ex.location}</p>}
-                          </div>
-                        </div>
-                      </div>
-                    </a>
-                  ) : (
-                    <>
-                      <div className="flex gap-3 md:gap-4 p-4 md:p-5" style={{ opacity: 0.6 }}>
-                        <div className="w-16 h-16 md:w-24 md:h-24 rounded-lg flex-shrink-0 overflow-hidden">
-                          {ex.cover_image ? (<img loading="lazy" src={ex.cover_image} alt={ex.title} className="w-full h-full object-cover" style={{ filter: 'brightness(0.7)' }} />) : (<div className="w-full h-full flex items-center justify-center text-2xl md:text-3xl" style={{ backgroundColor: '#F3F4F6' }}>🖼️</div>)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 mb-1 md:mb-2 line-clamp-2 text-sm md:text-base">{ex.title}</h3>
-                          {ex.curator_name && <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3">{ex.curator_name}</p>}
-                          <div className="space-y-1 text-xs text-gray-500">
-                            {ex.start_date && <p>📅 {new Date(ex.start_date).toLocaleDateString('zh-CN')}{ex.end_date && ` — ${new Date(ex.end_date).toLocaleDateString('zh-CN')}`}</p>}
-                            {ex.location && <p>📍 {ex.location}</p>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#FCD34D' }}>
-                          {ex.status === 'ended' ? '已结束' : ex.status === 'upcoming' ? '即将开展' : '🔨 布展中'}
-                        </span>
-                      </div>
-                    </>
-                  )}
+            <HorizontalRail>
+              {homepageInvitations.map(inv => (
+                <div key={inv.id} className="flex-shrink-0"
+                  style={{ width: 'min(78vw, 320px)', scrollSnapAlign: 'start' }}>
+                  <InvitationCompactCard inv={inv} alreadySubmitted={submittedSet.has(inv.id)} />
                 </div>
               ))}
-            </div>
+            </HorizontalRail>
           </div>
         </section>
       )}
+
 
       {/* 页脚 */}
       <footer className="bg-[#1F2937] text-white py-10 md:py-12 px-4 md:px-6">
