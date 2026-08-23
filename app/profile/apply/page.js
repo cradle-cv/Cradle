@@ -43,12 +43,11 @@ export default function ApplyOverviewPage() {
 
   useEffect(() => { load() }, [])
 
+  // 只提醒最要紧的两项，其余一律选填；这份清单不再拦人，只作建议
   function checkMissing(u) {
     const miss = []
     if (!u.avatar_url) miss.push({ key: 'avatar', label: '头像' })
-    if (!u.bio || u.bio.trim().length < 10) miss.push({ key: 'bio', label: '个人简介(至少 10 字)' })
-    if (!u.location || !u.location.trim()) miss.push({ key: 'location', label: '所在地' })
-    if (!u.profession || !u.profession.trim()) miss.push({ key: 'profession', label: '职业' })
+    if (!u.bio || !u.bio.trim()) miss.push({ key: 'bio', label: '个人简介' })
     return miss
   }
 
@@ -220,7 +219,7 @@ export default function ApplyOverviewPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <p className="text-sm font-medium mb-2" style={{ color: '#92400E' }}>
-                  请先完善个人资料,再申请身份
+                  资料还没填完，也可以直接申请
                 </p>
                 <p className="text-xs" style={{ color: '#92400E', opacity: 0.8, lineHeight: 1.8 }}>
                   还缺 {missingFields.length} 项:
@@ -229,7 +228,7 @@ export default function ApplyOverviewPage() {
                   </span>
                 </p>
                 <p className="text-xs mt-2" style={{ color: '#92400E', opacity: 0.7 }}>
-                  一个完整的资料能让我们更好地认识你,也让通过后的身份更有公信力。
+                  这些可以在申请时一并递交,填得完整些,我们更容易认识你。
                 </p>
               </div>
               <span className="text-xs whitespace-nowrap mt-1" style={{ color: '#92400E', letterSpacing: '2px' }}>
@@ -254,7 +253,7 @@ export default function ApplyOverviewPage() {
             const isApproved = s.state === 'approved'
             const isPending = s.state === 'pending'
             const isRejected = s.state === 'rejected'
-            const disabled = (hasAnyPending && !isPending) || (profileIncomplete && !isApproved && !isPending)
+            const disabled = (hasAnyPending && !isPending)
 
             return (
               <div
@@ -458,7 +457,7 @@ export default function ApplyOverviewPage() {
                       disabled
                       className="w-full py-2.5 rounded-lg text-sm transition"
                       style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF', cursor: 'not-allowed' }}>
-                      {profileIncomplete ? '先完善资料' : '请等待当前申请完成'}
+                      {'请等待当前申请完成'}
                     </button>
                   ) : (
                     <Link
