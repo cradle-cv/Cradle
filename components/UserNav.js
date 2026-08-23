@@ -353,6 +353,26 @@ export default function UserNav() {
         {/* ★ 简/繁切换 */}
         <LangToggle />
 
+        {/* ★ 上传作品：最要紧的动作放在栏上，不必藏进菜单 */}
+        <a href="/studio/artworks/new"
+          aria-label="上传作品"
+          className="inline-flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-85"
+          style={{
+            gap: '6px',
+            height: '34px',
+            padding: '0 12px',
+            borderRadius: '999px',
+            backgroundColor: '#111827',
+            color: '#FFFFFF',
+            fontSize: '13px',
+          }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span className="hidden sm:inline">上传</span>
+        </a>
+
         {/* ★ 通知铃铛 */}
         <NotificationBell />
         
@@ -384,6 +404,13 @@ export default function UserNav() {
                 {userData.total_points}
               </span>
             )}
+            {/* 下拉箭头：让头像一眼看出可展开，手机端同样显示（很小，不占地方） */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="#9CA3AF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              className="flex-shrink-0 transition-transform"
+              style={{ transform: showMenu ? 'rotate(180deg)' : 'none' }} aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
           {showMenu && (
