@@ -8,23 +8,16 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
-async function getData(venue) {
-  // 放宽到 active / ended / upcoming：先前只取 active，
-  // 导致已闭展与即将开展的场次在本页看不到
-  let q = supabase
+async function getData() {
+  // 本页上下两半按场地分工：
+  //   上半「当代回响」= 线下实体展（offline 与 both，由存储过程提供）
+  //   下半「线上展览」= 仅线上（online），两边零重叠
+  const { data: allExhibitions } = await supabase
     .from('exhibitions')
     .select('*')
     .in('status', ['active', 'ended', 'upcoming'])
+    .eq('venue_type', 'online')
     .order('start_date', { ascending: false })
-
-  // both = 线上线下都办过，两种筛选下都应出现
-  if (venue === 'online') {
-    q = q.in('venue_type', ['online', 'both'])
-  } else if (venue === 'offline') {
-    q = q.in('venue_type', ['offline', 'both'])
-  }
-
-  const { data: allExhibitions } = await q
 
   const specialExhibitions = (allExhibitions || []).filter(e => e.exhibition_type !== 'dialogue')
 
@@ -39,10 +32,8 @@ async function getData(venue) {
   return { specialExhibitions, offlineExhibitions }
 }
 
-export default async function ExhibitionsPage({ searchParams }) {
-  const sp = await searchParams
-  const venue = sp?.venue === 'online' || sp?.venue === 'offline' ? sp.venue : 'all'
-  const { specialExhibitions, offlineExhibitions } = await getData(venue)
+export default async function ExhibitionsPage() {
+  const { specialExhibitions, offlineExhibitions } = await getData()
 
   const today = new Date()
   const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
@@ -80,13 +71,13 @@ export default async function ExhibitionsPage({ searchParams }) {
         </div>
       </section>
 
-      {/* 特别展览 */}
+      {/* 线上展览：仅 venue_type = online 的场次 */}
       {(
         <section className="px-6 pt-4 pb-12">
           <div className="max-w-6xl mx-auto">
             <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0', marginBottom: '24px' }}>
               <div className="flex items-center justify-between">
-                <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>特 别 展 览</span>
+                <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>线 上 展 览</span>
                 <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
                   {ongoing.length + upcoming.length + past.length} exhibitions
                 </span>
@@ -164,27 +155,6 @@ export default async function ExhibitionsPage({ searchParams }) {
               )
             })()}
 
-            {/* 线上 / 线下切换：venue 是筛选，下面的时间分组照旧 */}
-            <div className="flex items-center gap-2 mb-8">
-              {[
-                { key: 'all', label: '全部' },
-                { key: 'offline', label: '线下展览' },
-                { key: 'online', label: '线上展览' },
-              ].map(t => {
-                const active = venue === t.key
-                return (
-                  <Link key={t.key}
-                    href={t.key === 'all' ? '/exhibitions' : `/exhibitions?venue=${t.key}`}
-                    className="px-4 py-1.5 rounded-full text-sm transition-colors"
-                    style={active
-                      ? { backgroundColor: '#111827', color: '#FFFFFF' }
-                      : { backgroundColor: '#FFFFFF', color: '#6B7280', border: '0.5px solid #E5E7EB' }}>
-                    {t.label}
-                  </Link>
-                )
-              })}
-            </div>
-
             {ongoing.length > 0 && (
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-6">
@@ -229,14 +199,7 @@ export default async function ExhibitionsPage({ searchParams }) {
 
             {ongoing.length === 0 && upcoming.length === 0 && past.length === 0 && (
               <div className="py-16 text-center">
-                <p style={{ color: '#9CA3AF' }}>
-                  {venue === 'offline' ? '还没有线下展览' : venue === 'online' ? '还没有线上展览' : '还没有展览'}
-                </p>
-                {venue !== 'all' && (
-                  <Link href="/exhibitions" className="inline-block mt-3 text-sm" style={{ color: '#374151' }}>
-                    查看全部展览 →
-                  </Link>
-                )}
+                <p style={{ color: '#9CA3AF' }}>还没有线上展览</p>
               </div>
             )}
           </div>
