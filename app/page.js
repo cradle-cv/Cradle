@@ -395,11 +395,8 @@ export default async function Home() {
             )}
 
             <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-10 md:mt-12">
-              <a href="/exhibitions?venue=online" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                查看线上展览 →
-              </a>
-              <a href="/exhibitions?venue=offline" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
-                查看线下展览 →
+              <a href="/exhibitions" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">
+                查看全部展览 →
               </a>
             </div>
           </div>
