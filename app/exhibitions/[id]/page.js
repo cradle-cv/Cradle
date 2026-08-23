@@ -1,354 +1,442 @@
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import UserNav from '@/components/UserNav'
-import DialogueSection from '@/components/DialogueSection'
-import SiteNav from '@/components/SiteNav'
-
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-export const fetchCache = 'force-no-store'
 
-async function getData(venue) {
-  // 放宽到 active / ended / upcoming：先前只取 active，
-  // 导致已闭展与即将开展的场次在本页看不到
-  let q = supabase
+import { supabase } from '@/lib/supabase'
+import { notFound } from 'next/navigation'
+
+async function getExhibition(id) {
+  const { data: exhibition } = await supabase
     .from('exhibitions')
     .select('*')
-    .in('status', ['active', 'ended', 'upcoming'])
-    .order('start_date', { ascending: false })
+    .eq('id', id)
+    .single()
 
-  if (venue === 'online' || venue === 'offline') {
-    q = q.eq('venue_type', venue)
+  if (!exhibition) return null
+
+  const { data: exhibitionArtworks } = await supabase
+    .from('exhibition_artworks')
+    .select('*, artworks(*, artists(*))')
+    .eq('exhibition_id', id)
+    .order('display_order', { ascending: true })
+
+  const artworks = exhibitionArtworks
+    ?.map(ea => ea.artworks)
+    .filter(Boolean) || []
+
+  // ═══════════════════════════════════════════════════════
+  // 通过 ipa 反查承办方和源邀请函
+  // 注意:exhibitions 表本身没有 partner_id / source_application_id 字段
+  // ═══════════════════════════════════════════════════════
+  let partner = null
+  let sourceInvitation = null
+
+  const { data: ipa } = await supabase
+    .from('invitation_partner_applications')
+    .select(`
+      partner_id,
+      invitation_id,
+      partners:partner_id (id, name, name_en, logo_url, city, type, description),
+      invitations:invitation_id (id, title, is_official, theme_color, cover_image,
+        creator:creator_user_id (id, username, avatar_url))
+    `)
+    .eq('generated_exhibition_id', id)
+    .eq('selection_status', 'approved')
+    .maybeSingle()
+
+  if (ipa) {
+    partner = ipa.partners || null
+    sourceInvitation = ipa.invitations || null
   }
 
-  const { data: allExhibitions } = await q
-
-  const specialExhibitions = (allExhibitions || []).filter(e => e.exhibition_type !== 'dialogue')
-
-  const { data: allDialogues } = await supabase
-    .from('dialogue_curations')
+  // ── 现场照片 ──
+  const { data: sitePhotos } = await supabase
+    .from('exhibition_photos')
     .select('*')
-    .eq('status', 'published')
-    .order('issue_number', { ascending: false })
+    .eq('exhibition_id', id)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: true })
 
-  const dialogueWithArtists = await Promise.all(
-    (allDialogues || []).map(async (d) => {
-      if (!d.artwork_ids || d.artwork_ids.length === 0) return { ...d, artworks: [], artists: [] }
-      const { data: aws } = await supabase
-        .from('artworks')
-        .select('id, title, image_url, artist_id, artists(id, display_name, avatar_url)')
-        .in('id', d.artwork_ids)
+  // ── 参展艺术家（与平台 artists / artworks 挂钩，非平台的用 guest_name）──
+  const { data: exArtists } = await supabase
+    .from('exhibition_artists')
+    .select('*, artists(id, display_name, avatar_url), artworks(id, title, image_url)')
+    .eq('exhibition_id', id)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: true })
 
-      const artworks = aws || []
-      const artistMap = new Map()
-      artworks.forEach(aw => {
-        if (aw.artists && !artistMap.has(aw.artist_id)) {
-          artistMap.set(aw.artist_id, aw.artists)
-        }
-      })
-
-      return { ...d, artworks, artists: [...artistMap.values()] }
-    })
-  )
-
-  return { allDialogues: dialogueWithArtists, specialExhibitions }
+  return {
+    exhibition, artworks, partner, sourceInvitation,
+    sitePhotos: sitePhotos || [],
+    exArtists: exArtists || [],
+  }
 }
 
-export default async function ExhibitionsPage({ searchParams }) {
-  const sp = await searchParams
-  const venue = sp?.venue === 'online' || sp?.venue === 'offline' ? sp.venue : 'all'
-  const { allDialogues, specialExhibitions } = await getData(venue)
+function getStatusLabel(status) {
+  if (status === 'active') return { text: '进行中', color: 'bg-green-100 text-green-700' }
+  if (status === 'draft') return { text: '预告', color: 'bg-yellow-100 text-yellow-700' }
+  if (status === 'pending_review') return { text: '待上架', color: 'bg-blue-100 text-blue-700' }
+  if (status === 'archived') return { text: '已结束', color: 'bg-gray-100 text-gray-700' }
+  return { text: status, color: 'bg-gray-100 text-gray-700' }
+}
 
-  const today = new Date()
-  const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
-  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
+function getTypeLabel(type) {
+  const labels = {
+    gallery: '画廊',
+    museum: '美术馆',
+    studio: '工作室',
+    bookstore: '书店',
+    academy: '艺术学院',
+    other: '艺术空间',
+  }
+  return labels[type] || type
+}
 
-  const now = new Date()
-  const ongoing = []
-  const upcoming = []
-  const past = []
-  specialExhibitions.forEach(ex => {
-    const start = ex.start_date ? new Date(ex.start_date) : null
-    const end = ex.end_date ? new Date(ex.end_date) : null
-    if (end && end < now) past.push(ex)
-    else if (start && start > now) upcoming.push(ex)
-    else ongoing.push(ex)
-  })
+export default async function ExhibitionDetailPage({ params }) {
+  const { id } = await params
+  const data = await getExhibition(id)
+
+  if (!data) notFound()
+
+  const { exhibition, artworks, partner, sourceInvitation, sitePhotos, exArtists } = data
+  const status = getStatusLabel(exhibition.status)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      <SiteNav />
-
-      {/* 当代回响 */}
-      <section className="px-6 pt-8 pb-4">
-        <div className="max-w-6xl mx-auto">
-          <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>Cradle · 当代回响</span>
-              <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
-            </div>
+      {/* 导航栏 */}
+      <nav className="sticky top-0 bg-white/98 backdrop-blur-sm border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-12">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-0 h-10 flex-shrink-0"></div>
+              <div style={{ height: '69px', overflow: 'hidden' }}>
+                <img src="/image/logo.png" alt="Cradle摇篮" style={{ height: '99px', marginTop: '-10px' }} className="object-contain" />
+              </div>
+            </a>
           </div>
-
-          <DialogueSection allDialogues={allDialogues} />
+          <a href="/" className="text-gray-600 hover:text-gray-900">← 返回首页</a>
         </div>
-      </section>
+      </nav>
 
-      {/* 特别展览 */}
-      {(
-        <section className="px-6 pt-4 pb-12">
+      {/* 展览封面 */}
+      <div className="relative">
+        <div className="h-[400px] bg-gray-200">
+          {exhibition.cover_image ? (
+            <img src={exhibition.cover_image} alt={exhibition.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-8xl bg-gradient-to-br from-gray-100 to-gray-200">
+              🖼️
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 p-8">
           <div className="max-w-6xl mx-auto">
-            <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0', marginBottom: '24px' }}>
-              <div className="flex items-center justify-between">
-                <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>特 别 展 览</span>
-                <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
-                  {ongoing.length + upcoming.length + past.length} exhibitions
+            <div className="flex items-center gap-3 mb-3">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status.color}`}>
+                {status.text}
+              </span>
+              {exhibition.type === 'daily' && (
+                <span className="px-3 py-1 bg-[#F59E0B] text-white rounded-full text-sm font-medium">
+                  ⭐ 每日一展
                 </span>
-              </div>
+              )}
             </div>
+            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+              {exhibition.title}
+            </h1>
+            {exhibition.title_en && (
+              <p className="text-xl text-white/80 drop-shadow-lg">{exhibition.title_en}</p>
+            )}
+            <a href={`/exhibitions/${exhibition.id}/3d`}
+              className="inline-flex items-center gap-2 mt-4 px-6 py-3 rounded-xl font-medium text-white transition-all hover:scale-105 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #c9a96e, #b08d4f)', boxShadow: '0 4px 20px rgba(201,169,110,0.4)' }}>
+              🏛️ 进入3D展厅
+            </a>
+          </div>
+        </div>
+      </div>
 
-            {ongoing.length > 0 && (() => {
-              const today = new Date()
-              const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
-              let hash = 0
-              for (let i = 0; i < dateString.length; i++) { hash = ((hash << 5) - hash) + dateString.charCodeAt(i); hash = hash & hash }
-              const todayExhibition = ongoing[Math.abs(hash) % ongoing.length]
-              return (
-                <div className="mb-10">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100">
-                    <div className="grid md:grid-cols-2 gap-0">
-                      <div className="relative">
-                        <div className="absolute top-6 left-6 px-4 py-2 text-sm font-medium rounded-full z-10" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>
-                          🌟 今日推荐
-                        </div>
-                        <div className="aspect-[4/3]">
-                          {todayExhibition.cover_image ? (
-                            <img src={todayExhibition.cover_image} alt={todayExhibition.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}>
-                              <span className="text-6xl">🖼️</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="p-10 flex flex-col justify-between">
-                        <div>
-                          <h2 className="text-3xl font-bold mb-4" style={{ color: '#111827' }}>{todayExhibition.title}</h2>
-                          <div className="flex items-center gap-3 mb-6" style={{ color: '#6B7280' }}>
-                            {todayExhibition.curator_name && <span>{todayExhibition.curator_name}</span>}
-                            {todayExhibition.curator_name && todayExhibition.location && <span>·</span>}
-                            {todayExhibition.location && <span>{todayExhibition.location}</span>}
-                          </div>
-                          {todayExhibition.description && (
-                            <p className="leading-relaxed mb-8" style={{ color: '#374151' }}>{todayExhibition.description}</p>
-                          )}
-                          <div className="space-y-4 mb-8">
-                            {todayExhibition.start_date && (
-                              <div className="flex items-start gap-3">
-                                <span style={{ color: '#F59E0B' }}>📅</span>
-                                <div>
-                                  <div className="text-sm" style={{ color: '#9CA3AF' }}>展期</div>
-                                  <div className="font-medium" style={{ color: '#111827' }}>
-                                    {new Date(todayExhibition.start_date).toLocaleDateString('zh-CN')}
-                                    {todayExhibition.end_date && ` — ${new Date(todayExhibition.end_date).toLocaleDateString('zh-CN')}`}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            {todayExhibition.location && (
-                              <div className="flex items-start gap-3">
-                                <span style={{ color: '#F59E0B' }}>📍</span>
-                                <div>
-                                  <div className="text-sm" style={{ color: '#9CA3AF' }}>地点</div>
-                                  <div className="font-medium" style={{ color: '#111827' }}>{todayExhibition.location}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <Link href={`/exhibitions/${todayExhibition.id}`}
-                          className="px-8 py-4 font-medium rounded-lg self-start inline-block transition hover:opacity-90"
-                          style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
-                          查看展览 →
-                        </Link>
-                      </div>
-                    </div>
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="grid md:grid-cols-3 gap-12">
+          {/* 左侧:展览详情 */}
+          <div className="md:col-span-2">
+            {/* 源邀请函横幅 */}
+            {sourceInvitation && (
+              <a href={`/invitations/${sourceInvitation.id}`}
+                className="block mb-8 rounded-xl overflow-hidden group transition hover:shadow-md"
+                style={{
+                  border: `0.5px solid ${sourceInvitation.is_official ? '#E5E7EB' : (sourceInvitation.theme_color || '#8a7a5c') + '66'}`,
+                  backgroundColor: sourceInvitation.is_official ? '#FAFAFA' : (sourceInvitation.theme_color || '#8a7a5c') + '10',
+                }}>
+                <div className="flex items-center gap-4 p-5">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                    {sourceInvitation.cover_image ? (
+                      <img src={sourceInvitation.cover_image} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl">📯</div>
+                    )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs mb-1" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>
+                      SOURCE INVITATION · 源自邀请函
+                    </p>
+                    <p className="font-bold truncate group-hover:text-[#F59E0B] transition-colors" style={{ color: '#111827' }}>
+                      {sourceInvitation.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                      {sourceInvitation.is_official
+                        ? 'Cradle 官方邀请函'
+                        : `由 ${sourceInvitation.creator?.username || '策展人'} 发起`}
+                    </p>
+                  </div>
+                  <span className="text-sm flex-shrink-0" style={{ color: '#9CA3AF' }}>
+                    查看邀请函 ›
+                  </span>
                 </div>
-              )
-            })()}
+              </a>
+            )}
 
-            {/* 线上 / 线下切换：venue 是筛选，下面的时间分组照旧 */}
-            <div className="flex items-center gap-2 mb-8">
-              {[
-                { key: 'all', label: '全部' },
-                { key: 'offline', label: '线下展览' },
-                { key: 'online', label: '线上展览' },
-              ].map(t => {
-                const active = venue === t.key
-                return (
-                  <Link key={t.key}
-                    href={t.key === 'all' ? '/exhibitions' : `/exhibitions?venue=${t.key}`}
-                    className="px-4 py-1.5 rounded-full text-sm transition-colors"
-                    style={active
-                      ? { backgroundColor: '#111827', color: '#FFFFFF' }
-                      : { backgroundColor: '#FFFFFF', color: '#6B7280', border: '0.5px solid #E5E7EB' }}>
-                    {t.label}
-                  </Link>
-                )
-              })}
-            </div>
-
-            {ongoing.length > 0 && (
+            {/* 描述 */}
+            {exhibition.description && (
               <div className="mb-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>进行中 ({ongoing.length})</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {ongoing.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#10B981" statusText="进行中" />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {upcoming.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>即将开始 ({upcoming.length})</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {upcoming.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#3B82F6" statusText="即将开始" />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {past.length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#9CA3AF' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>往期展览 ({past.length})</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {past.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#9CA3AF" statusText="已结束" />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {ongoing.length === 0 && upcoming.length === 0 && past.length === 0 && (
-              <div className="py-16 text-center">
-                <p style={{ color: '#9CA3AF' }}>
-                  {venue === 'offline' ? '还没有线下展览' : venue === 'online' ? '还没有线上展览' : '还没有展览'}
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">展览简介</h2>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line text-lg">
+                  {exhibition.description}
                 </p>
-                {venue !== 'all' && (
-                  <Link href="/exhibitions" className="inline-block mt-3 text-sm" style={{ color: '#374151' }}>
-                    查看全部展览 →
-                  </Link>
+              </div>
+            )}
+
+            {/* ══ 现场照片 ══ */}
+            {sitePhotos.length > 0 && (
+              <div className="mb-10">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">展出现场</h2>
+                <p className="text-sm text-gray-500 mb-6">这些作品离开了屏幕，挂上了墙</p>
+
+                <div className="rounded-xl overflow-hidden mb-3" style={{ backgroundColor: '#F3F4F6' }}>
+                  <img src={sitePhotos[0].image_url} alt={sitePhotos[0].caption || exhibition.title}
+                    className="w-full object-cover" style={{ maxHeight: '560px' }} />
+                </div>
+                {sitePhotos[0].caption && (
+                  <p className="text-sm text-gray-500 mb-4">{sitePhotos[0].caption}</p>
+                )}
+
+                {sitePhotos.length > 1 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
+                    {sitePhotos.slice(1).map(p => (
+                      <figure key={p.id} className="m-0">
+                        <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
+                          <img src={p.image_url} alt={p.caption || ''} loading="lazy"
+                            className="w-full object-cover" style={{ aspectRatio: '4 / 3' }} />
+                        </div>
+                        {p.caption && (
+                          <figcaption className="text-xs text-gray-500 mt-1.5">{p.caption}</figcaption>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
-          </div>
-        </section>
-      )}
 
-      {allDialogues.length === 0 && specialExhibitions.length === 0 && (
-        <section className="px-6 pb-20">
-          <div className="max-w-6xl mx-auto text-center py-20">
-            <div className="text-5xl mb-4">🖼️</div>
-            <p style={{ color: '#9CA3AF' }}>暂无展览，敬请期待</p>
-          </div>
-        </section>
-      )}
+            {/* ══ 参展艺术家 ══ */}
+            {exArtists.length > 0 && (
+              <div className="mb-10">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  参展艺术家 ({exArtists.length})
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {exArtists.map(ea => {
+                    const name = ea.artists?.display_name || ea.guest_name
+                    const workTitle = ea.artworks?.title || ea.artwork_title
+                    const inner = (
+                      <div className="flex items-center gap-4 p-4 rounded-xl border transition-colors hover:bg-gray-50"
+                        style={{ borderColor: '#E5E7EB' }}>
+                        {ea.artists?.avatar_url ? (
+                          <img src={ea.artists.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full flex-shrink-0" style={{ backgroundColor: '#E5E7EB' }} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{name}</p>
+                          {workTitle && <p className="text-sm text-gray-500 truncate">{workTitle}</p>}
+                          {!ea.artist_id && <p className="text-xs text-gray-400">非平台艺术家</p>}
+                        </div>
+                        {ea.artworks?.image_url && (
+                          <img src={ea.artworks.image_url} alt="" loading="lazy"
+                            className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                        )}
+                      </div>
+                    )
+                    return ea.artist_id ? (
+                      <a key={ea.id} href={`/artists/${ea.artist_id}`} className="block">{inner}</a>
+                    ) : (
+                      <div key={ea.id}>{inner}</div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
-      <footer className="bg-[#1F2937] text-white py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500"></div>
-                <div className="text-xl font-bold">Cradle摇篮</div>
+            {/* 展览作品 */}
+            {artworks.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  展出作品 ({artworks.length})
+                </h2>
+                <div className="grid md:grid-cols-3 gap-6">
+                  {artworks.map((artwork) => (
+                    <a key={artwork.id} href={`/artworks/${artwork.id}`} className="group">
+                      <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
+                        {artwork.image_url ? (
+                          <img src={artwork.image_url} alt={artwork.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl">🎨</div>
+                        )}
+                      </div>
+                      <h3 className="text-base font-bold text-gray-900 mb-1">{artwork.title}</h3>
+                      <p className="text-sm text-gray-600">{artwork.artists?.display_name || '未知艺术家'}</p>
+                    </a>
+                  ))}
+                </div>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">汇聚全球原创艺术家的创作平台，探索艺术的无限可能</p>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">关于我们</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">平台介绍</Link></li>
-                <li><Link href="#" className="hover:text-white">团队成员</Link></li>
-                <li><Link href="#" className="hover:text-white">联系我们</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">艺术家服务</h5>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white">上传作品</Link></li>
-                <li><Link href="#" className="hover:text-white">创建展览</Link></li>
-                <li><Link href="#" className="hover:text-white">艺术家认证</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-4">订阅艺术资讯</h5>
-              <div className="space-y-3">
-                <input type="email" placeholder="输入您的邮箱" className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500" />
-                <button className="w-full py-3 bg-[#10B981] text-white rounded font-medium hover:bg-[#059669]">订阅</button>
+            )}
+
+            {artworks.length === 0 && (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <div className="text-4xl mb-3">🖼️</div>
+                <p className="text-gray-500">展览作品信息暂未公布</p>
+              </div>
+            )}
+          </div>
+
+          {/* 右侧:展览信息卡片 */}
+          <div>
+            <div className="bg-gray-50 rounded-xl p-6 sticky top-24">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">展览信息</h3>
+
+              <div className="space-y-5">
+                {exhibition.start_date && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">📅</span>
+                    <div>
+                      <p className="text-sm text-gray-500">展期</p>
+                      <p className="font-medium text-gray-900">
+                        {new Date(exhibition.start_date).toLocaleDateString('zh-CN', {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                        {exhibition.end_date && (
+                          <><br />— {new Date(exhibition.end_date).toLocaleDateString('zh-CN', {
+                            year: 'numeric', month: 'long', day: 'numeric'
+                          })}</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {exhibition.location && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">📍</span>
+                    <div>
+                      <p className="text-sm text-gray-500">地点</p>
+                      <p className="font-medium text-gray-900">{exhibition.location}</p>
+                    </div>
+                  </div>
+                )}
+
+                {exhibition.curator_name && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">👤</span>
+                    <div>
+                      <p className="text-sm text-gray-500">策展人</p>
+                      <p className="font-medium text-gray-900">{exhibition.curator_name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {exhibition.opening_hours && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">🕐</span>
+                    <div>
+                      <p className="text-sm text-gray-500">开放时间</p>
+                      <p className="font-medium text-gray-900 whitespace-pre-line">{exhibition.opening_hours}</p>
+                    </div>
+                  </div>
+                )}
+
+                {(exhibition.is_free || exhibition.ticket_price) && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[#F59E0B] text-lg">🎫</span>
+                    <div>
+                      <p className="text-sm text-gray-500">票务</p>
+                      <p className="font-medium text-gray-900">
+                        {exhibition.is_free === true
+                          ? '免费'
+                          : exhibition.ticket_price ? `¥ ${exhibition.ticket_price}` : '—'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 承办方卡片 */}
+              {partner && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <p className="text-xs mb-3 tracking-widest" style={{ color: '#9CA3AF', letterSpacing: '3px' }}>
+                    HOSTED BY · 承办方
+                  </p>
+                  <a href={`/partners/${partner.id}`} className="block group">
+                    <div className="flex items-center gap-3 p-3 rounded-lg transition"
+                      style={{ backgroundColor: '#FFFFFF', border: '0.5px solid #E5E7EB' }}>
+                      <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0"
+                        style={{ backgroundColor: '#F3F4F6', border: '0.5px solid #E5E7EB' }}>
+                        {partner.logo_url ? (
+                          <img src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl">🏛️</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate group-hover:text-[#F59E0B] transition-colors" style={{ color: '#111827' }}>
+                          {partner.name}
+                        </p>
+                        {partner.name_en && (
+                          <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{partner.name_en}</p>
+                        )}
+                        <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                          {getTypeLabel(partner.type)}
+                          {partner.city && <span> · {partner.city}</span>}
+                        </p>
+                      </div>
+                      <span className="text-sm flex-shrink-0" style={{ color: '#9CA3AF' }}>›</span>
+                    </div>
+                  </a>
+                </div>
+              )}
+
+              {/* 分享/收藏按钮 */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex gap-3">
+                  <button className="flex-1 px-4 py-3 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors text-center">
+                    ❤️ 收藏展览
+                  </button>
+                  <button className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    🔗
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-700 pt-8 text-center text-sm text-gray-500">© 2026 Cradle摇篮. All rights reserved.</div>
+        </div>
+      </div>
+
+      <footer className="bg-[#1F2937] text-white py-8 px-6 mt-12">
+        <div className="max-w-6xl mx-auto text-center text-sm text-gray-500">
+          © 2026 Cradle摇篮. All rights reserved.
         </div>
       </footer>
     </div>
-  )
-}
-
-function ExhibitionCard({ exhibition, statusColor, statusText }) {
-  return (
-    <Link href={`/exhibitions/${exhibition.id}`}
-      className="group bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg hover:border-gray-200 transition-all">
-      <div className="relative h-48 overflow-hidden" style={{ backgroundColor: '#F3F4F6' }}>
-        {exhibition.cover_image ? (
-          <img src={exhibition.cover_image} alt={exhibition.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#E5E7EB' }}>
-            <span className="text-4xl">🖼️</span>
-          </div>
-        )}
-        <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: statusColor, color: '#FFFFFF' }}>
-          {statusText}
-        </div>
-      </div>
-      <div className="p-5">
-        <h3 className="font-bold mb-2 line-clamp-2 group-hover:text-gray-600 transition-colors" style={{ color: '#111827' }}>
-          {exhibition.title}
-        </h3>
-        {exhibition.description && (
-          <p className="text-sm line-clamp-2 mb-3" style={{ color: '#6B7280' }}>{exhibition.description}</p>
-        )}
-        <div className="space-y-1.5">
-          {exhibition.curator_name && (
-            <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
-              <span>🎨</span><span>{exhibition.curator_name}</span>
-            </div>
-          )}
-          {exhibition.start_date && (
-            <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
-              <span>📅</span>
-              <span>{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</span>
-            </div>
-          )}
-          {exhibition.location && (
-            <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
-              <span>📍</span><span>{exhibition.location}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
   )
 }
