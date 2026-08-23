@@ -7,6 +7,7 @@ import Link from 'next/link'
 // 左侧竖向标签栏沿用旧对话栏目的形式：场次名 + 参展艺术家小头像网格
 export default function SeenSection({ exhibitions }) {
   const [activeIdx, setActiveIdx] = useState(0)
+  const [photoIdx, setPhotoIdx] = useState(0)
 
   if (!exhibitions || exhibitions.length === 0) {
     return (
@@ -19,7 +20,8 @@ export default function SeenSection({ exhibitions }) {
   const ex = exhibitions[activeIdx] || exhibitions[0]
   const photos = Array.isArray(ex.photos) ? ex.photos : []
   const artists = Array.isArray(ex.artists) ? ex.artists : []
-  const hero = photos[0]?.url || ex.cover_image
+  const hero = photos[photoIdx]?.url || photos[0]?.url || ex.cover_image
+  const heroCaption = photos[photoIdx]?.caption || photos[0]?.caption
 
   const statusLabel =
     ex.status === 'ended' ? '已闭展' :
@@ -40,7 +42,7 @@ export default function SeenSection({ exhibitions }) {
             const isCurrent = i === activeIdx
             const ePhotos = Array.isArray(e.photos) ? e.photos : []
             return (
-              <button key={e.id} onClick={() => setActiveIdx(i)}
+              <button key={e.id} onClick={() => { setActiveIdx(i); setPhotoIdx(0) }}
                 className="w-full rounded-md overflow-hidden transition-all duration-300 text-left"
                 style={{
                   backgroundColor: isCurrent ? '#111827' : '#F3F4F6',
@@ -97,16 +99,23 @@ export default function SeenSection({ exhibitions }) {
             {photos.length > 1 && (
               <div className="flex gap-2 mt-3 overflow-x-auto pb-1"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {photos.slice(1, 7).map((p, i) => (
-                  <div key={i} className="flex-shrink-0 rounded-lg overflow-hidden" style={{ width: '96px', height: '72px' }}>
+                {photos.map((p, i) => (
+                  <button key={i} type="button" onClick={() => setPhotoIdx(i)}
+                    className="flex-shrink-0 rounded-lg overflow-hidden transition-all"
+                    style={{
+                      width: '96px', height: '72px',
+                      outline: i === photoIdx ? '2px solid #111827' : 'none',
+                      outlineOffset: '1px',
+                      opacity: i === photoIdx ? 1 : 0.6,
+                    }}>
                     <img src={p.url} alt={p.caption || ''} className="w-full h-full object-cover" />
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
 
-            {photos[0]?.caption && (
-              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>{photos[0].caption}</p>
+            {heroCaption && (
+              <p className="text-xs mt-2" style={{ color: '#9CA3AF' }}>{heroCaption}</p>
             )}
           </div>
 
