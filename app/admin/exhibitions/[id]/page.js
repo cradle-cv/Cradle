@@ -427,11 +427,7 @@ export default function EditExhibitionPage({ params }) {
   }
 
   if (loading) {
-    const venueType = formData.venue_type || 'online'
-  const showOnline = venueType === 'online' || venueType === 'both'
-  const showOffline = venueType === 'offline' || venueType === 'both'
-
-  return (
+    return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-2xl text-gray-600">加载中...</div>
       </div>
@@ -440,6 +436,11 @@ export default function EditExhibitionPage({ params }) {
 
   const isDialogue = formData.exhibition_type === 'dialogue'
   const currentStyle = GALLERY_STYLES.find(s => s.id === galleryStyle)
+
+  // 场地类型决定显示哪些区块
+  const venueType = formData.venue_type || 'online'
+  const showOnline = venueType === 'online' || venueType === 'both'
+  const showOffline = venueType === 'offline' || venueType === 'both'
 
   return (
     <div>
