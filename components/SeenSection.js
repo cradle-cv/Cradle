@@ -168,10 +168,10 @@ export default function SeenSection({ exhibitions }) {
               </p>
             )}
 
-            <Link href={`/exhibitions/${ex.id}`}
+            <Link href={`/exhibitions/${ex.id}/onsite`}
               className="inline-block px-6 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
               style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
-              查看这场展览 →
+              走进展览现场 →
             </Link>
           </div>
         </div>
