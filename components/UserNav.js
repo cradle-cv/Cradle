@@ -330,7 +330,7 @@ export default function UserNav() {
 
   const noIdentityYet = !hasPendingApp && myIdentities.length === 0
   // 红点只在身份数据加载完后才判断,避免一进来就闪红点
-  const hasRedDot = identityLoaded && (signedToday === false || unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing)
+  const hasRedDot = identityLoaded && (unreadMsgs > 0 || noIdentityYet || partnerPageMissing || artistPageMissing)
 
   // 新用户判断:总积分 < 50 + 没身份 + 没待审申请
   const isNewbie = identityLoaded && (userData?.total_points || 0) < 50 && myIdentities.length === 0 && !hasPendingApp
@@ -482,123 +482,56 @@ export default function UserNav() {
                 </a>
               )}
 
-              <div className="py-1 border-b" style={{ borderColor: '#F3F4F6' }}>
-                <button onClick={openJianyuModal}
-                  className="flex items-center justify-between w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-                  style={{ color: '#374151' }}>
-                  <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconEnvelope /></span>
-                    今日笺语
-                  </span>
-                  {signedToday === false && (
-                    <span className="text-xs" style={{ color: '#DC2626' }}>未收</span>
-                  )}
-                  {signedToday === true && (
-                    <span className="text-xs" style={{ color: '#9CA3AF' }}>已收</span>
-                  )}
-                </button>
-              </div>
-
-              {/* ★ 我的衣橱 — 放在今日笺语下面 */}
-              <div className="py-1 border-b" style={{ borderColor: '#F3F4F6' }}>
-                <a href="/closet" onClick={() => setShowMenu(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span style={{ color: '#6B7280' }}><IconHanger /></span> 我的衣橱
-                </a>
-              </div>
-
+              {/* ── 我的 ── */}
               <div className="py-1">
                 <a href="/profile" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span style={{ color: '#6B7280' }}><IconUser /></span> 个人主页
                 </a>
-                {/* ★ 通知 — 跳到 /notifications */}
-                <a href="/notifications" onClick={() => setShowMenu(false)}
-                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconBell /></span> 通知
-                  </span>
-                </a>
-                {/* ★ 站内信 — 跳到 /messages(原私信系统) */}
-                <a href="/messages" onClick={() => setShowMenu(false)}
-                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconMail /></span> 站内信
-                  </span>
-                  {unreadMsgs > 0 && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#DC2626', color: '#FFFFFF', minWidth: '18px', textAlign: 'center' }}>
-                      {unreadMsgs > 99 ? '99+' : unreadMsgs}
-                    </span>
-                  )}
-                </a>
-                <a href="/profile/apply" onClick={() => setShowMenu(false)}
-                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span className="inline-flex items-center gap-3">
-                    <span style={{ color: '#6B7280' }}><IconCertificate /></span> 身份申请
-                  </span>
-                  {hasPendingApp && (
-                    <span className="text-xs" style={{ color: '#B45309' }}>审核中</span>
-                  )}
-                  {!hasPendingApp && (partnerPageMissing || artistPageMissing) && (
-                    <span className="text-xs" style={{ color: '#F59E0B' }}>
-                      {partnerPageMissing && artistPageMissing ? '主页待创建' :
-                       partnerPageMissing ? '机构页待创建' : '艺术家页待创建'}
-                    </span>
-                  )}
-                  {!hasPendingApp && noIdentityYet && !partnerPageMissing && !artistPageMissing && (
-                    <span className="text-xs" style={{ color: '#DC2626' }}>●</span>
-                  )}
-                  {myIdentities.length > 0 && !hasPendingApp && !partnerPageMissing && !artistPageMissing && (
-                    <span className="text-xs" style={{ color: '#9CA3AF' }}>{myIdentities.length} 个</span>
-                  )}
+                <a href="/studio" onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span style={{ color: '#6B7280' }}><IconPalette /></span> 创作空间
                 </a>
                 <a href="/profile/edit" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
                   <span style={{ color: '#6B7280' }}><IconEdit /></span> 编辑资料
                 </a>
-                <a href="/gallery" onClick={() => setShowMenu(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                  <span style={{ color: '#6B7280' }}><IconGallery /></span> 艺术阅览室
-                </a>
-
-                {isResident && !isArtist && !isAdmin && (
-                  <a href="/residency" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                    <span style={{ color: '#8a7a5c' }}><IconScroll /></span> 进入驻地
-                  </a>
-                )}
-
-                {(isArtist || isCurator || isPartner || isAdmin) && (
-                  <>
-                    <a href="/studio" onClick={() => setShowMenu(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                      <span style={{ color: '#6B7280' }}><IconPalette /></span> 工作台
-                    </a>
-                    {(isArtist || isAdmin) && (
-                      <a href="/profile/my-submissions" onClick={() => setShowMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                        <span style={{ color: '#6B7280' }}><IconInbox /></span> 我的投稿
-                      </a>
-                    )}
-                  </>
-                )}
-
-                {(isCurator || isAdmin) && (
-                  <a href="/curator/invitations/new" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                    <span style={{ color: '#6B7280' }}><IconMegaphone /></span> 发起邀请函
-                  </a>
-                )}
-
-                {isAdmin && (
-                  <a href="/admin/dashboard" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
-                    <span style={{ color: '#6B7280' }}><IconSettings /></span> 后台管理
-                  </a>
-                )}
               </div>
 
-              {/* ★ 使用指南 — 所有用户可见,放在退出登录之前 */}
+              {/* ── 消息：通知与站内信合并为一个入口 ── */}
+              <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>
+                <a href="/messages" onClick={() => setShowMenu(false)}
+                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                  <span className="inline-flex items-center gap-3">
+                    <span style={{ color: '#6B7280' }}><IconEnvelope /></span> 消息
+                  </span>
+                  {unreadMsgs > 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+                      {unreadMsgs}
+                    </span>
+                  )}
+                </a>
+              </div>
+
+              {/* ── 按身份显示 ── */}
+              {(isCurator || isAdmin) && (
+                <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>
+                  {isCurator && (
+                    <a href="/curator/invitations/new" onClick={() => setShowMenu(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                      <span style={{ color: '#6B7280' }}><IconMail /></span> 发起邀请函
+                    </a>
+                  )}
+                  {isAdmin && (
+                    <a href="/admin/dashboard" onClick={() => setShowMenu(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#374151' }}>
+                      <span style={{ color: '#6B7280' }}><IconSettings /></span> 后台管理
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* ── 其他 ── */}
               <div className="border-t py-1" style={{ borderColor: '#F3F4F6' }}>
                 <a href="/guide" onClick={() => setShowMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors" style={{ color: '#6B7280' }}>
