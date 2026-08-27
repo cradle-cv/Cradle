@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
+import ShareButton from '@/components/ShareButton'
 
 async function getExhibition(id) {
   const { data: exhibition } = await supabase
