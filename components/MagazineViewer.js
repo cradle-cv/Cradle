@@ -87,6 +87,10 @@ export default function MagazineViewer({ magazine, spreads = [], onClose, userId
               📤 导出
             </button>
           )}
+          <ShareButton variant="text" label="分享"
+            title={magazine?.title || ''}
+            text={magazine?.description || ''}
+            style={{ color: 'rgba(255,255,255,0.7)' }} />
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
             {[1, 1.5, 2].map(z => (
               <button key={z} onClick={() => setZoom(z)} className="px-3 py-1 rounded text-xs font-medium transition"
