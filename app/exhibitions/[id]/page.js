@@ -422,9 +422,10 @@ export default async function ExhibitionDetailPage({ params }) {
                   <button className="flex-1 px-4 py-3 bg-[#F59E0B] text-white font-medium rounded-lg hover:bg-[#D97706] transition-colors text-center">
                     ❤️ 收藏展览
                   </button>
-                  <button className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                    🔗
-                  </button>
+                  <ShareButton variant="icon"
+                    title={exhibition.title}
+                    text={exhibition.description || ''}
+                    style={{ width: '48px', height: '48px', borderRadius: '8px' }} />
                 </div>
               </div>
             </div>
