@@ -7,6 +7,7 @@ import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import T from '@/components/i18n/T'
 import SiteNav from '@/components/SiteNav'
+import ShareButton from '@/components/ShareButton'
 
 async function getCollection(id) {
   const { data: collection } = await supabase
