@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import ShareButton from '@/components/ShareButton'
 
 const MagazineExporter = dynamic(() => import('./MagazineExporter'), { ssr: false })
 
