@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { uploadImage } from '@/lib/upload'
 
 // 随机主题色池(非官方邀请函用)
 const THEME_COLORS = [
@@ -30,18 +31,13 @@ const MEDIUM_OPTIONS = [
   { value: 'mixed', label: '综合媒介' },
 ]
 
+// 服务端 /api/upload 会校验 Authorization 头，
+// 改用 lib/upload 的 uploadImage，它会自动带上登录凭证
 async function uploadToR2(file, folder) {
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('folder', folder)
-  const res = await fetch('/api/upload', { method: 'POST', body: fd })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || '上传失败')
-  }
-  const { url } = await res.json()
+  const { url } = await uploadImage(file, folder)
   return url
 }
+
 
 /**
  * @param {'admin' | 'curator'} mode - admin 建官方邀请函,curator 建个人邀请函
