@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import UserNav from '@/components/UserNav'
 import SiteNav from '@/components/SiteNav'
+import ShareButton from '@/components/ShareButton'
 
 async function getArtist(id) {
   const { data: artist } = await supabase
@@ -164,13 +165,16 @@ export default async function ArtistDetailPage({ params }) {
             </div>
 
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-4xl font-bold text-gray-900">{artist.display_name}</h1>
                 {artist.verified_at && (
                   <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
                     ✓ 认证艺术家
                   </span>
                 )}
+                <ShareButton variant="text" label="分享主页"
+                  title={artist.display_name}
+                  text={artist.intro || artist.specialty || ''} />
               </div>
 
               {artist.specialty && (
