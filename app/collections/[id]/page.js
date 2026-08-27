@@ -125,6 +125,11 @@ export default async function CollectionDetailPage({ params }) {
           <h1 className="text-2xl font-bold" style={{ color: '#111827', marginBottom: '4px' }}>
             <T>{collection.title}</T>
           </h1>
+          <div className="mt-3">
+            <ShareButton variant="text" label="分享这个作品集"
+              title={collection.title}
+              text={collection.description || ''} />
+          </div>
           {collection.title_en && !hasTheme && (
             <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', color: '#9CA3AF', marginBottom: '8px' }}>
               {collection.title_en}
