@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Wand2, Save, Eye, Loader2, Upload } from 'lucide-react'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
+import { uploadImage } from '@/lib/upload'
 
 const LAYOUTS = [
   { id: 'fullscreen', name: '全屏图+浮层', icon: '🖼️', desc: '大图背景，文字叠在上面' },
@@ -138,12 +139,9 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
   // 图片上传
   async function handleImageUpload(index, field, file) {
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('folder', 'rike-pages')
-      const resp = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await resp.json()
-      if (data.url) updatePage(index, field, data.url)
+      // uploadImage 会自动带上登录凭证，服务端要校验 Authorization 头
+      const { url } = await uploadImage(file, 'rike-pages')
+      if (url) updatePage(index, field, url)
       else alert('上传失败')
     } catch (err) { alert('上传失败: ' + err.message) }
   }
