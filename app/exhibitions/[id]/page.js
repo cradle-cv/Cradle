@@ -91,6 +91,30 @@ function getTypeLabel(type) {
   return labels[type] || type
 }
 
+export async function generateMetadata({ params }) {
+  const { id } = await params
+  const { data: e } = await supabase
+    .from('exhibitions')
+    .select('title, description, cover_image, location')
+    .eq('id', id)
+    .maybeSingle()
+  if (!e) return { title: '展览' }
+  const desc = (e.description || '').replace(/\s+/g, ' ').slice(0, 140) ||
+    `${e.location ? e.location + '｜' : ''}Cradle 摇篮展览《${e.title}》。`
+  return {
+    title: e.title,
+    description: desc,
+    alternates: { canonical: `/exhibitions/${id}` },
+    openGraph: {
+      type: 'article',
+      title: `${e.title} · Cradle 摇篮`,
+      description: desc,
+      url: `https://www.cradle.art/exhibitions/${id}`,
+      images: e.cover_image ? [{ url: e.cover_image }] : undefined,
+    },
+  }
+}
+
 export default async function ExhibitionDetailPage({ params }) {
   const { id } = await params
   const data = await getExhibition(id)
