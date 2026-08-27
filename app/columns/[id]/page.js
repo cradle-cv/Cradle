@@ -4,6 +4,7 @@ export const revalidate = 0
 import { supabase } from '@/lib/supabase'
 import SiteNav from '@/components/SiteNav'
 import { notFound } from 'next/navigation'
+import ShareButton from '@/components/ShareButton'
 
 async function getPost(id) {
   const { data } = await supabase
