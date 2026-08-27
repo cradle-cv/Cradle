@@ -46,13 +46,49 @@ export async function POST(request) {
       return NextResponse.json({ error: '未登录,请先登录后再上传' }, { status: 401 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
+    // 服务端密钥优先：它不受 JWT 签名算法迁移的影响；
+    // 没有配置时退回 publishable / anon key
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !supabaseKey) {
+      console.error('[upload] 缺少 Supabase 环境变量：URL 或密钥未配置')
+      return NextResponse.json(
+        { error: '服务端配置有误，请联系管理员' },
+        { status: 500 }
+      )
+    }
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, supabaseKey)
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
     if (authError || !user) {
-      return NextResponse.json({ error: '登录已过期,请重新登录后再上传' }, { status: 401 })
+      // 先解出 token 里的过期时间，用来区分「真的过期」与「验签失败」
+      let expired = false
+      try {
+        const payload = JSON.parse(
+          Buffer.from(token.split('.')[1], 'base64').toString('utf8')
+        )
+        expired = typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+      } catch (e) {
+        // token 结构本身就不对，按无效处理
+      }
+
+      if (expired) {
+        return NextResponse.json(
+          { error: '登录已过期，请重新登录后再上传' },
+          { status: 401 }
+        )
+      }
+
+      // 未过期却验不过，多半是密钥配置或签名算法不匹配，
+      // 这类问题用户自己重登也没用，必须让日志留下线索
+      console.error('[upload] token 校验失败（未过期）:', authError?.message || '无 user 返回')
+      return NextResponse.json(
+        { error: '身份校验未通过，请联系管理员检查服务端密钥配置' },
+        { status: 401 }
+      )
     }
 
     // ── 2. 读取并校验文件 ──
