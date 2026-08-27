@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import ShareButton from '@/components/ShareButton'
 
 // 图标路径（R2 CDN）
 const COIN_GOLD = 'https://cdn.cradle.art/assets/gold-coin-100.png?v=2'
