@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Upload, X, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
+import { uploadImage } from '@/lib/upload';
 
 /**
  * 图片上传组件 - 复用 /api/upload 接口上传到 R2 CDN
@@ -38,22 +39,9 @@ export default function ImageUploader({ value, onChange, folder = 'jianghuayao' 
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', folder);
-
-      const resp = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        throw new Error(data.error || '上传失败');
-      }
-
-      onChange(data.url);
+      // uploadImage 会自动带上登录凭证，服务端要校验 Authorization 头
+      const { url } = await uploadImage(file, folder);
+      onChange(url);
     } catch (err) {
       setError(err.message);
     } finally {
