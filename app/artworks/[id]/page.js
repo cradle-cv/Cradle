@@ -355,6 +355,9 @@ export default function ArtworkDetailPage() {
             <span className="font-bold text-gray-900">{artwork.title}</span>
           </div>
           <div className="flex items-center gap-3">
+            <ShareButton variant="text" label="分享"
+              title={artwork.title}
+              text={artwork.description || ''} />
             {isOwner && (
               <Link href={`/studio/artworks/${id}`}
                 className="text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
