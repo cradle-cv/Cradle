@@ -99,6 +99,11 @@ export default async function ColumnPostPage({ params }) {
             <h1 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, color: '#111827', lineHeight: 1.4, margin: 0 }}>
               {post.title}
             </h1>
+            <div style={{ marginTop: '14px' }}>
+              <ShareButton variant="text" label="分享这篇专栏"
+                title={post.title}
+                text={post.subtitle || ''} />
+            </div>
             {post.subtitle && (
               <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '16px', color: '#6B7280', marginTop: '10px' }}>
                 {post.subtitle}
