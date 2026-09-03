@@ -39,6 +39,10 @@ export function sortNotes(notes, view, includeHidden = false) {
   }
   return list.sort((a, b) => (b.is_pinned - a.is_pinned) || byTime(a, b))
 }
+export function hotSort(notes, includeHidden = false) {
+  const list = includeHidden ? notes.slice() : notes.filter(n => !n.is_hidden)
+  return list.sort((a, b) => (b.is_pinned - a.is_pinned) || (heat(b) - heat(a)) || (new Date(b.created_at) - new Date(a.created_at)))
+}
 export function activityUrl(code) {
   if (typeof window === "undefined") return `${BASE_PATH}/${code}`
   return `${window.location.origin}${BASE_PATH}/${code}`
@@ -196,9 +200,10 @@ export function Stars({ value, onChange, size = 14 }) {
     </span>
   )
 }
-export function NoteCard({ note, mine, big, liked, onLike, host, onPin, onStar, onHide, onDelete }) {
+export function NoteCard({ note, mine, big, liked, onLike, host, onPin, onStar, onHide, onDelete, rank, bump }) {
   return (
     <div className={`zt-card${note.is_pinned ? " pinned" : ""}${note.is_hidden ? " hidden" : ""}${big ? " big" : ""}`} style={{ background: tintOf(note.id) }}>
+      {rank && <span className={`zt-rank r${rank}`}>{rank}</span>}
       <div className="zt-card-head">
         <span className="zt-nick">{note.nickname || "匿名"}{mine && <em>我的</em>}</span>
         <span className="zt-time">{fmtTime(note.created_at)}</span>
@@ -211,7 +216,7 @@ export function NoteCard({ note, mine, big, liked, onLike, host, onPin, onStar, 
           {(note.stars > 0 || host) && <Stars value={note.stars} onChange={host ? onStar : undefined} size={big ? 20 : 14} />}
         </div>
         {onLike
-          ? <button className={`zt-like${liked ? " on" : ""}`} onClick={onLike} disabled={liked}>👍 {note.likes || 0}</button>
+          ? <button className={`zt-like${liked ? " on" : ""}${bump ? " bump" : ""}`} onClick={onLike} disabled={liked}>👍 {note.likes || 0}</button>
           : (note.likes > 0 && <span className="zt-like static">👍 {note.likes}</span>)}
       </div>
       {host && (
@@ -342,4 +347,23 @@ const CSS = `
 .zt-screen-foot{position:fixed;left:0;right:0;bottom:0;padding:10px 40px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);background:linear-gradient(to top,var(--paper),transparent);pointer-events:none}
 .zt-screen-foot button{pointer-events:auto}
 .zt-closed-banner{margin:16px 40px 0;padding:10px 16px;border-radius:10px;background:rgba(217,83,43,.12);color:var(--accent);font-size:14px;text-align:center}
+
+/* 学生端：递出成功 & 浏览 */
+.zt-done{text-align:center;padding:36px 16px 28px}
+.zt-done .plane{font-size:56px;display:inline-block;animation:zt-fly 1.1s cubic-bezier(.2,.8,.3,1) both}
+.zt-done h2{font-size:22px;margin:14px 0 6px}
+.zt-done p{color:var(--muted);font-size:14px;margin:0 0 24px}
+.zt-bigbtn{display:block;width:100%;padding:16px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(217,83,43,.3);transition:.15s;animation:zt-pulse 2s ease-in-out infinite}
+.zt-bigbtn:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(217,83,43,.38)}
+.zt-linkbtn{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px;padding:8px}
+.zt-linkbtn:hover{color:var(--ink)}
+.zt-rank{position:absolute;top:-10px;left:-8px;width:30px;height:30px;border-radius:50%;background:#26221e;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.2);font-family:ui-monospace,Menlo,monospace}
+.zt-rank.r1{background:linear-gradient(135deg,#f9d976,#e8a317);color:#3a2a00;font-size:16px}
+.zt-rank.r2{background:linear-gradient(135deg,#e8e8e8,#b5b5b5);color:#333;font-size:16px}
+.zt-rank.r3{background:linear-gradient(135deg,#e9b98a,#b8763f);color:#3a2000;font-size:16px}
+.zt-like.bump{animation:zt-bump .35s ease}
+.zt-heat{font-size:11px;color:rgba(38,34,30,.45);margin-left:6px}
+@keyframes zt-fly{0%{transform:translate(-40px,30px) rotate(-20deg) scale(.6);opacity:0}60%{transform:translate(6px,-6px) rotate(8deg) scale(1.08);opacity:1}100%{transform:none}}
+@keyframes zt-pulse{0%,100%{box-shadow:0 8px 24px rgba(217,83,43,.3)}50%{box-shadow:0 8px 30px rgba(217,83,43,.55)}}
+@keyframes zt-bump{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
 `
