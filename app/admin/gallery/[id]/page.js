@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { uploadImage } from '@/lib/upload'
+import { uploadImage, uploadDirect } from '@/lib/upload'
 import Link from 'next/link'
 import GalleryImageManager from '@/components/GalleryImageManager'
 import MagazineEditor from '@/components/MagazineEditor'
@@ -16,6 +16,7 @@ export default function AdminGalleryEditPage() {
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState('')
   const [motionUploading, setMotionUploading] = useState(false)
+  const [motionProgress, setMotionProgress] = useState(0)
   const motionRef = useRef(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [articles, setArticles] = useState({ puzzle: [], rike: [], fengshang: [] })
@@ -140,24 +141,22 @@ export default function AdminGalleryEditPage() {
     } catch (err) { alert('❌ 上传失败: ' + err.message) }
   }
 
-  // 动效视频：悬停播放，留空则只显示静态封面
+  // 动效视频：走直传，文件不经过 Vercel，因此不受 4.5MB 请求体上限约束
   async function handleMotion(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (file.size > 4 * 1024 * 1024) {
-      alert('❌ 视频超过 4MB。请先压缩，命令参考：\nffmpeg -i 输入.mp4 -c:v libx264 -crf 26 -pix_fmt yuv420p -an -movflags +faststart 输出.mp4')
-      return
-    }
     setMotionUploading(true)
+    setMotionProgress(0)
     try {
-      const { url } = await uploadImage(file, 'motion')
+      const { url } = await uploadDirect(file, 'motion', setMotionProgress)
       setForm(prev => ({ ...prev, motion_image: url }))
       alert('✅ 动效视频上传成功，记得点保存')
     } catch (err) {
       alert('❌ 上传失败: ' + err.message)
     } finally {
       setMotionUploading(false)
+      setMotionProgress(0)
     }
   }
 
@@ -499,7 +498,7 @@ export default function AdminGalleryEditPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">🎬 动效视频</h2>
           <p className="text-sm text-gray-500 mb-4">
             鼠标悬停在阅览室卡片上时播放，播完循环，移开回到静态封面。
-            MP4 格式，建议 15 秒以内、4MB 以内。留空则不做动效。
+            MP4 格式，建议 15 秒以内。文件直传，不受 4MB 限制，上限 200MB。留空则不做动效。
             保护期内的作品请勿填写。
           </p>
 
@@ -510,7 +509,7 @@ export default function AdminGalleryEditPage() {
             className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
             <div className="text-2xl mb-1">🎞️</div>
             <div className="text-sm font-medium text-gray-900">
-              {motionUploading ? '上传中…' : (form.motion_image ? '点击更换动效视频' : '点击上传动效视频')}
+              {motionUploading ? `上传中… ${motionProgress}%` : (form.motion_image ? '点击更换动效视频' : '点击上传动效视频')}
             </div>
           </button>
 
