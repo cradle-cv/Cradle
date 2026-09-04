@@ -1,15 +1,20 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 /**
- * 作品封面：静态显示 cover_image，鼠标悬停时切换到 motion_image。
+ * 作品封面：静态显示 cover_image，鼠标悬停时播放 motion_image 指定的视频。
  *
- * 设计要点：
- *   1. 不悬停就不加载动图，避免一进页面就下载好几兆
- *   2. 动图加载完成之前继续显示静图，不出现空白或闪烁
- *   3. motion_image 为空时行为与普通 <img> 完全一致
- *   4. 手机没有悬停，只显示静图，不做任何额外加载
+ * 为什么用 video 而不是动态 WebP：
+ *   15-30 秒的动效若用 WebP 约 8-15 MB，且必须全部下载完才显示第一帧；
+ *   同样内容的 MP4 只有 1 MB 上下，还能边下边播。
+ *
+ * 行为：
+ *   1. 不悬停不加载（preload="none"），一进页面不会拖任何视频
+ *   2. 悬停即开始播放，从头播起，播完循环
+ *   3. 移开暂停并淡回静图，下次悬停从头再来
+ *   4. motion 为空时与普通 <img> 完全一致
+ *   5. 手机无悬停，只显示静图
  */
 export default function MotionCover({
   cover,
@@ -17,63 +22,57 @@ export default function MotionCover({
   alt = '',
   className = 'w-full h-full object-cover',
   hoverScale = true,
+  loop = true,
 }) {
-  const [hovering, setHovering] = useState(false)
-  const [motionReady, setMotionReady] = useState(false)
-  const startedRef = useRef(false)
+  const [active, setActive] = useState(false)
+  const [ready, setReady] = useState(false)
+  const videoRef = useRef(null)
 
-  function handleEnter() {
-    if (!motion) return
-    setHovering(true)
-    // 第一次悬停时才开始下载动图
-    if (!startedRef.current) {
-      startedRef.current = true
-      const img = new window.Image()
-      img.onload = () => setMotionReady(true)
-      img.src = motion
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    if (active) {
+      v.currentTime = 0
+      const p = v.play()
+      if (p && p.catch) p.catch(() => { /* 自动播放被拦时静默处理 */ })
+    } else {
+      v.pause()
+      setReady(false)
     }
-  }
+  }, [active])
 
-  function handleLeave() {
-    setHovering(false)
+  if (!cover) {
+    return <div className="w-full h-full flex items-center justify-center text-5xl">🖼️</div>
   }
 
   const scaleClass = hoverScale && !motion
     ? 'group-hover:scale-105 transition-transform duration-700'
     : ''
 
-  if (!cover) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-5xl">🖼️</div>
-    )
-  }
-
   return (
     <div
       className="relative w-full h-full"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
+      onMouseEnter={() => motion && setActive(true)}
+      onMouseLeave={() => setActive(false)}
     >
-      {/* 静图：始终在底层，动图没准备好时它就是唯一可见的 */}
-      <img
-        src={cover}
-        alt={alt}
-        loading="lazy"
-        className={`${className} ${scaleClass}`}
-      />
+      <img src={cover} alt={alt} loading="lazy" className={`${className} ${scaleClass}`} />
 
-      {/* 动图：加载完成且正在悬停时淡入 */}
-      {motion && motionReady && (
-        <img
-          src={motion}
-          alt=""
-          aria-hidden="true"
+      {motion && (
+        <video
+          ref={videoRef}
+          src={active ? motion : undefined}
           className={className}
+          muted
+          playsInline
+          loop={loop}
+          preload="none"
+          aria-hidden="true"
+          onCanPlay={() => setReady(true)}
           style={{
             position: 'absolute',
             inset: 0,
-            opacity: hovering ? 1 : 0,
-            transition: 'opacity 420ms ease',
+            opacity: active && ready ? 1 : 0,
+            transition: 'opacity 450ms ease',
             pointerEvents: 'none',
           }}
         />
