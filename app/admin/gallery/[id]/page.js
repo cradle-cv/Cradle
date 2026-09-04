@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { uploadImage, uploadDirect } from '@/lib/upload'
+import { uploadImage, uploadFile } from '@/lib/upload'
 import Link from 'next/link'
 import GalleryImageManager from '@/components/GalleryImageManager'
 import MagazineEditor from '@/components/MagazineEditor'
@@ -146,10 +146,15 @@ export default function AdminGalleryEditPage() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      const mb = (file.size / 1024 / 1024).toFixed(1)
+      alert(`❌ 视频 ${mb}MB，超过 4MB 上限。\n\n请在剪映导出时把「位元率」调到 3 Mbps、解析度调到 720P，并关闭「智慧型 HDR」。`)
+      return
+    }
     setMotionUploading(true)
     setMotionProgress(0)
     try {
-      const { url } = await uploadDirect(file, 'motion', setMotionProgress)
+      const { url } = await uploadFile(file, 'motion')
       setForm(prev => ({ ...prev, motion_image: url }))
       alert('✅ 动效视频上传成功，记得点保存')
     } catch (err) {
@@ -498,7 +503,7 @@ export default function AdminGalleryEditPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">🎬 动效视频</h2>
           <p className="text-sm text-gray-500 mb-4">
             鼠标悬停在阅览室卡片上时播放，播完循环，移开回到静态封面。
-            MP4 格式，建议 15 秒以内。文件直传，不受 4MB 限制，上限 200MB。留空则不做动效。
+            MP4 格式，建议 15 秒以内、4MB 以内。留空则不做动效。
             保护期内的作品请勿填写。
           </p>
 
