@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useConvert } from '@/components/i18n/LanguageContext'
+import MotionCover from '@/components/MotionCover'
 
 const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
 function toRoman(n) { return ROMAN[n] || `${n}` }
@@ -196,8 +197,10 @@ export default function GalleryClient({ works, museums, galleryArtists = [], cur
                     {(currentCuration.works || []).map(work => (
                       <Link key={work.id} href={`/gallery/${work.id}`} className="group text-center">
                         <div className="rounded-xl overflow-hidden" style={{ aspectRatio: '3/4', backgroundColor: '#F3F4F6' }}>
-                          {work.cover_image ? (<img src={work.cover_image} alt={work.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) :
-                            (<div className="w-full h-full flex items-center justify-center text-5xl">🖼️</div>)}
+                          <MotionCover
+                            cover={work.cover_image}
+                            motion={work.motion_image}
+                            alt={work.title} />
                         </div>
                         <h3 className="text-lg font-bold mt-3 group-hover:text-gray-600 transition-colors" style={{ color: '#111827' }}>{convert(work.title)}</h3>
                         {work.title_en && <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{work.title_en}</p>}
