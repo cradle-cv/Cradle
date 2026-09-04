@@ -23,6 +23,9 @@ const ALLOWED_TYPES = {
   'image/png': 'png',
   'image/gif': 'gif',
   'image/svg+xml': 'svg',
+  // 动效视频：阅览室作品悬停播放用，需控制在 4MB 以内（Vercel 请求体上限）
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
   'application/pdf': 'pdf',
   'application/msword': 'doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
