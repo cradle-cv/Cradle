@@ -15,6 +15,8 @@ export default function AdminGalleryEditPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState('')
+  const [motionUploading, setMotionUploading] = useState(false)
+  const motionRef = useRef(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [articles, setArticles] = useState({ puzzle: [], rike: [], fengshang: [] })
   const [museums, setMuseums] = useState([])
@@ -27,7 +29,7 @@ export default function AdminGalleryEditPage() {
   const [convertingToMag, setConvertingToMag] = useState(false)
 
   const [form, setForm] = useState({
-    title: '', title_en: '', cover_image: '',
+    title: '', title_en: '', cover_image: '', motion_image: '',
     description: '', artist_name: '', artist_name_en: '',
     year: '', medium: '', dimensions: '', artist_avatar: '', collection_location: '',
     puzzle_article_id: '', rike_article_id: '', fengshang_article_id: '',
@@ -72,7 +74,7 @@ export default function AdminGalleryEditPage() {
 
       setForm({
         title: work.title || '', title_en: work.title_en || '',
-        cover_image: work.cover_image || '', description: work.description || '',
+        cover_image: work.cover_image || '', motion_image: work.motion_image || '', description: work.description || '',
         artist_name: work.artist_name || '', artist_name_en: work.artist_name_en || '',
         year: work.year || '', medium: work.medium || '',
         dimensions: work.dimensions || '', artist_avatar: work.artist_avatar || '',
@@ -136,6 +138,27 @@ export default function AdminGalleryEditPage() {
       await syncCoverToArticles(url)
       alert('✅ 封面上传成功（已同步到谜题和日课）')
     } catch (err) { alert('❌ 上传失败: ' + err.message) }
+  }
+
+  // 动效视频：悬停播放，留空则只显示静态封面
+  async function handleMotion(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      alert('❌ 视频超过 4MB。请先压缩，命令参考：\nffmpeg -i 输入.mp4 -c:v libx264 -crf 26 -pix_fmt yuv420p -an -movflags +faststart 输出.mp4')
+      return
+    }
+    setMotionUploading(true)
+    try {
+      const { url } = await uploadImage(file, 'motion')
+      setForm(prev => ({ ...prev, motion_image: url }))
+      alert('✅ 动效视频上传成功，记得点保存')
+    } catch (err) {
+      alert('❌ 上传失败: ' + err.message)
+    } finally {
+      setMotionUploading(false)
+    }
   }
 
   async function syncCoverToArticles(imageUrl) {
@@ -340,7 +363,7 @@ export default function AdminGalleryEditPage() {
     try {
       const updateData = {
         title: form.title.trim(), title_en: form.title_en.trim() || null,
-        cover_image: form.cover_image || null, description: form.description.trim() || null,
+        cover_image: form.cover_image || null, motion_image: form.motion_image || null, description: form.description.trim() || null,
         artist_name: form.artist_name.trim() || null, artist_name_en: form.artist_name_en.trim() || null,
         year: form.year.trim() || null, medium: form.medium.trim() || null,
         dimensions: form.dimensions.trim() || null, artist_avatar: form.artist_avatar.trim() || null,
@@ -469,6 +492,40 @@ export default function AdminGalleryEditPage() {
             <div className="text-sm font-medium text-gray-900">点击更换封面图</div>
           </button>
           {preview && <div className="mt-3 max-w-xs"><img src={preview} alt="预览" className="rounded-lg w-full" /></div>}
+        </div>
+
+        {/* 动效视频 */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">🎬 动效视频</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            鼠标悬停在阅览室卡片上时播放，播完循环，移开回到静态封面。
+            MP4 格式，建议 15 秒以内、4MB 以内。留空则不做动效。
+            保护期内的作品请勿填写。
+          </p>
+
+          <input ref={motionRef} type="file" accept="video/mp4,video/webm"
+            onChange={handleMotion} className="hidden" />
+          <button type="button" disabled={motionUploading}
+            onClick={() => motionRef.current?.click()}
+            className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50">
+            <div className="text-2xl mb-1">🎞️</div>
+            <div className="text-sm font-medium text-gray-900">
+              {motionUploading ? '上传中…' : (form.motion_image ? '点击更换动效视频' : '点击上传动效视频')}
+            </div>
+          </button>
+
+          {form.motion_image && (
+            <div className="mt-3">
+              <video src={form.motion_image} className="rounded-lg w-full max-w-xs"
+                controls muted playsInline preload="metadata" />
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-xs text-gray-400 truncate flex-1">{form.motion_image}</span>
+                <button type="button"
+                  onClick={() => setForm(prev => ({ ...prev, motion_image: '' }))}
+                  className="text-xs flex-shrink-0" style={{ color: '#DC2626' }}>移除</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 组图管理 */}
