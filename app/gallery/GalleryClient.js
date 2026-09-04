@@ -574,9 +574,10 @@ function WorkGrid({ works }) {
           <Link key={work.id} href={`/gallery/${work.id}`} className="group">
             <article className="h-full flex flex-col">
               <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '280px' }}>
-                {work.cover_image && work.cover_image.length > 0 ? (<img src={work.cover_image} alt={work.title} loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) :
-                  (<div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center"><span className="text-6xl">🖼️</span></div>)}
+                <MotionCover
+                  cover={work.cover_image}
+                  motion={work.motion_image}
+                  alt={work.title} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-amber-700">⭐ {work.total_points} 积分</div>
                 {work.museums?.name && <div className="absolute top-3 left-3 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">🏛️ {convert(work.museums.name)}</div>}
