@@ -11,7 +11,7 @@ import { useState, useRef, useEffect } from 'react'
  *
  * 行为：
  *   1. 不悬停不加载（preload="none"），一进页面不会拖任何视频
- *   2. 悬停即开始播放，从头播起，播完循环
+ *   2. 悬停即开始播放，从头播起，播完停在最后一帧
  *   3. 移开暂停并淡回静图，下次悬停从头再来
  *   4. motion 为空时与普通 <img> 完全一致
  *   5. 手机无悬停，只显示静图
@@ -22,22 +22,34 @@ export default function MotionCover({
   alt = '',
   className = 'w-full h-full object-cover',
   hoverScale = true,
-  loop = true,
+  loop = false,
 }) {
   const [active, setActive] = useState(false)
   const [ready, setReady] = useState(false)
+  const [loaded, setLoaded] = useState(false)   // 首次悬停后就保留 src，不再重复下载
   const videoRef = useRef(null)
+
+  function enter() {
+    if (!motion) return
+    setLoaded(true)
+    setActive(true)
+  }
+
+  function leave() {
+    setActive(false)
+  }
 
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
     if (active) {
-      v.currentTime = 0
+      v.currentTime = 0            // 每次悬停都从头播
       const p = v.play()
       if (p && p.catch) p.catch(() => { /* 自动播放被拦时静默处理 */ })
     } else {
       v.pause()
-      setReady(false)
+      v.currentTime = 0            // 归零，下次悬停不会先闪出上次停住的那一帧
+      setReady(false)              // 淡出，露出下面的静图
     }
   }, [active])
 
@@ -52,15 +64,15 @@ export default function MotionCover({
   return (
     <div
       className="relative w-full h-full"
-      onMouseEnter={() => motion && setActive(true)}
-      onMouseLeave={() => setActive(false)}
+      onMouseEnter={enter}
+      onMouseLeave={leave}
     >
       <img src={cover} alt={alt} loading="lazy" className={`${className} ${scaleClass}`} />
 
       {motion && (
         <video
           ref={videoRef}
-          src={active ? motion : undefined}
+          src={loaded ? motion : undefined}
           className={className}
           muted
           playsInline
