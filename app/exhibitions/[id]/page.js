@@ -173,11 +173,29 @@ export default async function ExhibitionDetailPage({ params }) {
             {exhibition.title_en && (
               <p className="text-xl text-white/80 drop-shadow-lg">{exhibition.title_en}</p>
             )}
-            <a href={`/exhibitions/${exhibition.id}/3d`}
-              className="inline-flex items-center gap-2 mt-4 px-6 py-3 rounded-xl font-medium text-white transition-all hover:scale-105 active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #c9a96e, #b08d4f)', boxShadow: '0 4px 20px rgba(201,169,110,0.4)' }}>
-              🏛️ 进入3D展厅
-            </a>
+            <div className="flex flex-wrap gap-3 mt-4">
+              <a href={`/exhibitions/${exhibition.id}/3d`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all hover:scale-105 active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #c9a96e, #b08d4f)', boxShadow: '0 4px 20px rgba(201,169,110,0.4)' }}>
+                🏛️ 进入3D展厅
+              </a>
+
+              {/* 有现场照片才给这个入口，免得点进去是空的 */}
+              {sitePhotos.length > 0 && (
+                <a href={`/exhibitions/${exhibition.id}/onsite`}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.92)',
+                    color: '#111827',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+                  }}>
+                  📷 走进现场
+                  <span className="text-sm" style={{ color: '#6B7280' }}>
+                    {sitePhotos.length} 张
+                  </span>
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
