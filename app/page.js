@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import SiteNav, { HOME_LINKS } from '@/components/SiteNav'
 import HorizontalRail from '@/components/HorizontalRail'
 import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
+import CurationHero from '@/components/CurationHero'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,7 +24,14 @@ async function getData() {
   const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(8)
   const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('display_order', { ascending: true }).limit(4)
-  const { data: galleryWorks } = await supabase.from('gallery_works').select('*').eq('status', 'published').order('display_order', { ascending: true }).limit(3)
+  // 首页 Hero 用最新一期的三幅画，而不是按 display_order 取前三幅
+  let latestCuration = null
+  try {
+    const { data } = await supabase.rpc('get_latest_curation')
+    latestCuration = (data && data[0]) || null
+  } catch (e) {
+    console.error('get_latest_curation failed:', e)
+  }
 
   let homepageInvitations = []
   try {
@@ -78,7 +86,7 @@ async function getData() {
 
   return {
     exhibition, collections: collections || [], artists: artists || [],
-    partners: partners || [], galleryWorks: galleryWorks || [],
+    partners: partners || [], latestCuration,
     homepageDaily, homepageSelect, offlineExhibitions,
     homepageInvitations,
     submittedInvitationIds,
@@ -256,71 +264,15 @@ function ExhibitionActionButton({ exhibition }) {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, galleryWorks, homepageDaily, homepageSelect, offlineExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
+  const { exhibition, collections, artists, partners, latestCuration, homepageDaily, homepageSelect, offlineExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
   const submittedSet = new Set(submittedInvitationIds)
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <SiteNav links={HOME_LINKS} />
 
-      {/* Hero区 */}
-      <section className="py-10 md:py-20 px-4 md:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col-reverse md:flex-row items-center gap-8 md:gap-16">
-            <div className="flex-1 w-full">
-              {galleryWorks.length > 0 ? (
-                <>
-                  <h1 className="text-3xl md:text-6xl font-bold text-gray-900 mb-4 md:mb-6 leading-tight">
-                    {galleryWorks[0].title}
-                  </h1>
-                  {galleryWorks[0].title_en && <p className="text-base md:text-xl text-gray-500 mb-3 md:mb-4 italic">{galleryWorks[0].title_en}</p>}
-                  {galleryWorks[0].artist_name && <p className="text-base md:text-lg text-gray-600 mb-3 md:mb-4">{galleryWorks[0].artist_name}{galleryWorks[0].year ? ` · ${galleryWorks[0].year}` : ''}</p>}
-                  {galleryWorks[0].description && (
-                    <p className="text-sm md:text-base text-gray-500 leading-relaxed max-w-xl" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {galleryWorks[0].description}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-3 md:gap-4 mt-6">
-                    <a href={`/gallery/${galleryWorks[0].id}`} className="px-6 md:px-8 py-3 md:py-4 bg-gray-900 text-white text-sm md:text-base font-medium rounded-lg hover:bg-gray-800">探索作品</a>
-                    <a href="/gallery" className="px-6 md:px-8 py-3 md:py-4 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-50">进入阅览室</a>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h1 className="text-3xl md:text-6xl font-bold text-gray-900 mb-4 md:mb-6 leading-tight">探索艺术的<br/>无限可能 🎨<br/>与创作之美</h1>
-                  <p className="text-base md:text-lg text-gray-600 mb-8 md:mb-10 leading-relaxed max-w-xl">汇聚全球原创艺术家的创作灵感,在这里阅读艺术鉴赏文章,欣赏诗文、绘画、摄影等多元作品</p>
-                  <div className="flex flex-wrap gap-3 md:gap-4">
-                    <a href="/gallery" className="px-6 md:px-8 py-3 md:py-4 bg-gray-900 text-white text-sm md:text-base font-medium rounded-lg hover:bg-gray-800">进入阅览室</a>
-                    <a href="#collections" className="px-6 md:px-8 py-3 md:py-4 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-50">浏览作品集</a>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="relative w-2/3 md:w-1/3 flex-shrink-0">
-              {galleryWorks.length > 0 ? (
-                <a href={`/gallery/${galleryWorks[0].id}`} className="block group">
-                  <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                    {galleryWorks[0].cover_image ? (
-                      <img src={galleryWorks[0].cover_image} alt={galleryWorks[0].title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center"><span className="text-6xl">🖼️</span></div>
-                    )}
-                  </div>
-                </a>
-              ) : (
-                <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl relative">
-                  <img loading="lazy" src="/image/hero.jpg" alt="静谧时光" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                  <div className="absolute bottom-8 left-8 z-10">
-                    <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">静谧时光</h3>
-                    <p className="text-white drop-shadow-lg">张艺谋</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Hero：当期阅览室的三幅画 */}
+      <CurationHero curation={latestCuration} />
 
       {/* 每日一展 + 邀请函 */}
       {(exhibition || homepageInvitations.length > 0) && (
