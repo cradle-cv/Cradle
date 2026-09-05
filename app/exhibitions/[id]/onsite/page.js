@@ -104,7 +104,7 @@ export default async function OnsitePage({ params }) {
         {voices.length > 0 && (
           <div className="mb-12">
             <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0', marginBottom: '28px' }}>
-              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>
+              <span style={{ fontSize: '22px', letterSpacing: '6px', color: '#374151' }}>
                 现 场 的 声 音
               </span>
             </div>
@@ -115,20 +115,27 @@ export default async function OnsitePage({ params }) {
                   <div className="relative rounded-lg overflow-hidden" style={{ backgroundColor: '#111827' }}>
                     <img src={v.photo_url} alt={v.person_name || ''} loading="lazy"
                       className="w-full block" style={{ opacity: 0.92 }} />
-                    <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12"
-                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))' }}>
+                    <div className="absolute inset-x-0 bottom-0 px-5 pb-5 pt-20"
+                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 15%, rgba(0,0,0,0.6) 55%, rgba(0,0,0,0))' }}>
                       {v.quote && (
-                        <p className="text-sm mb-1.5" style={{ color: 'rgba(255,255,255,0.92)', lineHeight: 1.65 }}>
+                        <p className="mb-2" style={{
+                          fontSize: '28px', color: 'rgba(255,255,255,0.96)', lineHeight: 1.5,
+                          textShadow: '0 1px 12px rgba(0,0,0,0.5)',
+                        }}>
                           {v.quote}
                         </p>
                       )}
                       {v.person_name && (
-                        <p className="text-lg" style={{ color: '#FFFFFF' }}>{v.person_name}</p>
+                        <p style={{
+                          fontSize: '36px', color: '#FFFFFF', lineHeight: 1.3,
+                          textShadow: '0 1px 12px rgba(0,0,0,0.5)',
+                        }}>{v.person_name}</p>
                       )}
                     </div>
                     {v.label && (
-                      <span className="absolute top-3 left-3 px-2 py-0.5 text-xs"
+                      <span className="absolute top-3 left-3 px-3 py-1"
                         style={{
+                          fontSize: '24px',
                           color: 'rgba(255,255,255,0.9)',
                           border: '0.5px solid rgba(255,255,255,0.55)',
                           letterSpacing: '2px',
