@@ -7,6 +7,18 @@ import UserNav from '@/components/UserNav'
 // - lg 以下(手机/窄屏 iPad):汉堡按钮 + 下拉菜单
 // links 可按页面自定义,默认用 /#锚点 形式,任何页面都能用
 const DEFAULT_LINKS = [
+  { href: '/gallery', label: '艺术阅览室' },
+  { href: '/exhibitions', label: '每日一展' },
+  { href: '/magazine', label: '杂志社' },
+  { href: '/collections', label: '作品集' },
+  { href: '/artists', label: '艺术家' },
+  { href: '/partners', label: '合作伙伴' },
+  { href: '/residency', label: '驻地' },
+]
+
+// 首页专用：点击后在本页滚动到对应区块，而不是跳转
+// 用法：<SiteNav links={HOME_LINKS} />
+export const HOME_LINKS = [
   { href: '/#gallery', label: '艺术阅览室' },
   { href: '/#daily', label: '每日一展' },
   { href: '/#magazine', label: '杂志社' },
