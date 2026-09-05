@@ -167,17 +167,11 @@ export default function ExhibitionShowcase({ exhibitions }) {
               </Link>
             )}
             <Link href={`/exhibitions/${ex.id}`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-gray-50"
-              style={
-                photos.length > 0
-                  ? { border: '0.5px solid #D1D5DB', color: '#374151' }
-                  : { backgroundColor: '#111827', color: '#FFFFFF' }
-              }>
-              看展出作品
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+              style={{ backgroundColor: '#4B5563', color: '#FFFFFF' }}>
+              线上看展
               {artworkCount > 0 && (
-                <span style={{ color: photos.length > 0 ? '#9CA3AF' : 'rgba(255,255,255,0.6)' }}>
-                  {artworkCount} 件
-                </span>
+                <span style={{ color: 'rgba(255,255,255,0.65)' }}>{artworkCount} 件</span>
               )}
             </Link>
           </div>
