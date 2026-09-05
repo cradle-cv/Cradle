@@ -59,17 +59,24 @@ export default async function ExhibitionsPage() {
   const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
   const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
 
+  // 不再按时间分成三组：线上展总量还小，分组反而会出现整组为空的情况。
+  // 统一按开始时间倒序平铺，状态由卡片自己显示。
   const now = new Date()
-  const ongoing = []
-  const upcoming = []
-  const past = []
-  specialExhibitions.forEach(ex => {
+
+  function statusOf(ex) {
     const start = ex.start_date ? new Date(ex.start_date) : null
     const end = ex.end_date ? new Date(ex.end_date) : null
-    if (end && end < now) past.push(ex)
-    else if (start && start > now) upcoming.push(ex)
-    else ongoing.push(ex)
+    if (end && end < now) return { text: '已结束', color: '#9CA3AF' }
+    if (start && start > now) return { text: '即将开始', color: '#3B82F6' }
+    return { text: '进行中', color: '#10B981' }
+  }
+
+  const onlineList = [...specialExhibitions].sort((a, b) => {
+    const ta = a.start_date ? new Date(a.start_date).getTime() : 0
+    const tb = b.start_date ? new Date(b.start_date).getTime() : 0
+    return tb - ta
   })
+  const ongoing = onlineList.filter(e => statusOf(e).text === '进行中')
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -99,7 +106,7 @@ export default async function ExhibitionsPage() {
               <div className="flex items-center justify-between">
                 <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>线 上 展 览</span>
                 <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
-                  {ongoing.length + upcoming.length} exhibitions
+                  {onlineList.length} exhibitions
                 </span>
               </div>
             </div>
@@ -175,35 +182,21 @@ export default async function ExhibitionsPage() {
               )
             })()}
 
-            {ongoing.length > 0 && (
+            {onlineList.length > 0 && (
               <div className="mb-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>进行中 ({ongoing.length})</h2>
-                </div>
                 <div className="grid md:grid-cols-3 gap-6">
-                  {ongoing.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#10B981" statusText="进行中" />
-                  ))}
+                  {onlineList.map(ex => {
+                    const s = statusOf(ex)
+                    return (
+                      <ExhibitionCard key={ex.id} exhibition={ex}
+                        statusColor={s.color} statusText={s.text} />
+                    )
+                  })}
                 </div>
               </div>
             )}
 
-            {upcoming.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
-                  <h2 className="text-lg font-bold" style={{ color: '#111827' }}>即将开始 ({upcoming.length})</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {upcoming.map(ex => (
-                    <ExhibitionCard key={ex.id} exhibition={ex} statusColor="#3B82F6" statusText="即将开始" />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {ongoing.length === 0 && upcoming.length === 0 && (
+            {onlineList.length === 0 && (
               <div className="py-16 text-center">
                 <p style={{ color: '#9CA3AF' }}>还没有线上展览</p>
               </div>
