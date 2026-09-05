@@ -150,6 +150,23 @@ export default function AdminCurationsPage() {
     else loadData()
   }
 
+  // 送上首页：数据库有触发器保证同时只有一期为真
+  async function toggleHomepage(c) {
+    if (c.status !== 'published') {
+      alert('这一期还没有发布，发布之后才能送上首页')
+      return
+    }
+    const next = !c.show_on_homepage
+    const { error } = await supabase.from('gallery_curations')
+      .update({ show_on_homepage: next }).eq('id', c.id)
+    if (error) { alert('操作失败：' + error.message); return }
+    // 触发器会把其余期撤下，本地状态照此同步
+    setCurations(prev => prev.map(x =>
+      x.id === c.id ? { ...x, show_on_homepage: next }
+                    : (next ? { ...x, show_on_homepage: false } : x)
+    ))
+  }
+
   async function togglePublish(c) {
     const newStatus = c.status === 'published' ? 'draft' : 'published'
     const { error } = await supabase.from('gallery_curations').update({
@@ -461,6 +478,15 @@ export default function AdminCurationsPage() {
 
                   {/* 操作 */}
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => toggleHomepage(c)}
+                      title={c.show_on_homepage ? '正在首页展示，点击撤下' : '把这一期送上首页'}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                      style={{
+                        backgroundColor: c.show_on_homepage ? '#111827' : '#F3F4F6',
+                        color: c.show_on_homepage ? '#FFFFFF' : '#6B7280',
+                      }}>
+                      {c.show_on_homepage ? '★ 首页展示中' : '☆ 送上首页'}
+                    </button>
                     <button onClick={() => togglePublish(c)}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
                       style={{
