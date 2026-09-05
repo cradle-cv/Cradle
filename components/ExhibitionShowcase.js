@@ -192,7 +192,9 @@ export default function ExhibitionShowcase({ exhibitions }) {
             {exhibitions.map((e, i) => {
               const on = i === idx
               const ePhotos = Array.isArray(e.photos) ? e.photos : []
-              const thumb = ePhotos[0]?.url || e.cover_image
+              // 切换器统一用封面：封面是设计过的，一排放在一起才整齐；
+              // 现场照片各拍各的，留给上方的大图去用
+              const thumb = e.cover_image || ePhotos[0]?.url
               const es = statusOf(e)
               return (
                 <button key={e.id} type="button"
