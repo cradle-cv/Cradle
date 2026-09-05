@@ -297,7 +297,7 @@ function GuideContent() {
         <h1 className="text-4xl md:text-5xl font-bold mb-6" style={{ color: '#111827', letterSpacing: '2px', lineHeight: 1.3 }}>使用指南</h1>
         <div className="text-base leading-relaxed mb-4" style={{ color: '#4B5563', lineHeight: 2 }}>欢迎来到 Cradle。</div>
         <div className="text-sm leading-relaxed" style={{ color: '#6B7280', lineHeight: 2 }}>
-          这里是一个慢的、克制的艺术社区。
+          这里是一个慢的、自在的艺术社区。
           你不必急着掌握所有功能。
           先选一个最像你此刻状态的身份,从那里开始走。
           <br /><br />
