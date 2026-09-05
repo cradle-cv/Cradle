@@ -11,35 +11,30 @@ import MotionCover from '@/components/MotionCover'
 export default function CurationHero({ curation }) {
   if (!curation || !curation.works || curation.works.length === 0) return null
 
-  const { issue_number, is_special, theme_zh, theme_en, quote, works } = curation
+  const { issue_number, is_special, theme_zh, theme_en, quote, quote_author, works } = curation
 
-  // 引言取前两段，第一屏不宜太长
-  const lead = (quote || '')
-    .split('\n')
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-
-  const issueLabel = is_special ? '特刊' : `第 ${issue_number} 期`
+  const serif = '"Playfair Display", "Noto Serif SC", Georgia, serif'
+  const accent = is_special ? '0.5px solid #B45309' : '0.5px solid #111827'
+  const accentLeft = is_special ? '2px solid #B45309' : '2px solid #111827'
 
   return (
     <section className="px-4 md:px-6 pt-8 md:pt-14 pb-10 md:pb-16">
       <div className="max-w-6xl mx-auto">
 
-        {/* 期号与主题 */}
+        {/* 期号与主题：排法与阅览室一致，英文斜体在上、中文小字在下 */}
         <div className="text-center mb-7 md:mb-10">
-          <p style={{ fontSize: '11px', letterSpacing: '6px', color: '#9CA3AF' }}>
-            艺 术 阅 览 室 · {issueLabel}
+          <p style={{ fontSize: '11px', letterSpacing: '5px', color: '#9CA3AF', margin: '0 0 8px' }}>
+            {is_special ? '特 刊' : '本 期 精 选'}
           </p>
-          <h1 className="font-bold mt-3 mb-1"
-            style={{ fontSize: 'clamp(28px, 5vw, 52px)', color: '#111827', lineHeight: 1.25 }}>
+          <p style={{
+            fontFamily: serif, fontStyle: 'italic', fontWeight: 400,
+            fontSize: 'clamp(30px, 4.6vw, 48px)', color: '#111827', lineHeight: 1.1, margin: 0,
+          }}>
+            {theme_en || ''}
+          </p>
+          <p style={{ fontSize: '15px', color: '#6B7280', letterSpacing: '5px', marginTop: '8px' }}>
             {theme_zh}
-          </h1>
-          {theme_en && (
-            <p className="italic" style={{ fontSize: 'clamp(15px, 2vw, 22px)', color: '#9CA3AF' }}>
-              {theme_en}
-            </p>
-          )}
+          </p>
         </div>
 
         {/* 三幅画 */}
@@ -65,15 +60,19 @@ export default function CurationHero({ curation }) {
           ))}
         </div>
 
-        {/* 引言 */}
-        {lead.length > 0 && (
-          <div className="max-w-2xl mx-auto text-center mt-9 md:mt-12">
-            {lead.map((p, i) => (
-              <p key={i} className="mb-3"
-                style={{ fontSize: 'clamp(14px, 1.6vw, 17px)', color: '#4B5563', lineHeight: 2 }}>
-                {p}
-              </p>
-            ))}
+        {/* 引言：与阅览室同一形态，全文、斜体、左侧竖线 */}
+        {quote && (
+          <div className="max-w-3xl mx-auto" style={{ padding: '16px 0', margin: '28px auto 0' }}>
+            <div style={{ borderBottom: accent, marginBottom: '16px' }}></div>
+            <div style={{ borderLeft: accentLeft, paddingLeft: '20px' }}>
+              <p style={{
+                fontSize: '14px', lineHeight: 1.8, color: '#6B7280',
+                fontStyle: 'italic', whiteSpace: 'pre-wrap',
+              }}>{quote}</p>
+              {quote_author && (
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>—— {quote_author}</p>
+              )}
+            </div>
           </div>
         )}
 
