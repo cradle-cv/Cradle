@@ -23,7 +23,8 @@ function daysLeft(deadline) {
   return Math.ceil(diff / 86400000)
 }
 
-const IMG_WIDTH = 128   // 右侧图片宽度，觉得窄可以调大
+const IMG_WIDTH = 128        // 右侧图片宽度，觉得窄可以调大
+const CARD_MIN_HEIGHT = 188  // 两张卡等高，内容多少都不塌
 
 function Arrows({ idx, total, onPrev, onNext }) {
   if (total <= 1) return null
@@ -57,18 +58,29 @@ function Arrows({ idx, total, onPrev, onNext }) {
 
 function Card({ href, image, children, arrows }) {
   return (
-    <div className="rounded-xl overflow-hidden flex"
-      style={{ border: '0.5px solid #E5E7EB', backgroundColor: '#FFFFFF' }}>
+    <div className="rounded-xl flex items-stretch"
+      style={{
+        border: '0.5px solid #E5E7EB',
+        backgroundColor: '#FFFFFF',
+        overflow: 'hidden',
+        minHeight: `${CARD_MIN_HEIGHT}px`,
+      }}>
       <div className="flex-1 min-w-0 p-5 md:p-6 flex flex-col">
         {arrows && <div className="flex justify-end mb-2">{arrows}</div>}
         <Link href={href} className="flex-1 block">{children}</Link>
       </div>
-      <Link href={href} className="flex-shrink-0 block"
+
+      {/* 图片这一栏：绝对定位铺满，才不会被原图比例撑破卡片 */}
+      <Link href={href} className="flex-shrink-0 block relative self-stretch"
         style={{ width: `${IMG_WIDTH}px`, backgroundColor: '#F3F4F6' }}>
         {image ? (
-          <img src={image} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <img src={image} alt="" loading="lazy"
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%', objectFit: 'cover',
+            }} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-2xl">🛠️</div>
+          <div className="absolute inset-0 flex items-center justify-center text-2xl">🛠️</div>
         )}
       </Link>
     </div>
@@ -172,7 +184,7 @@ export default function ParticipationBlock({ workshops, invitations }) {
                   fontSize: '13px', color: '#6B7280', lineHeight: 1.7,
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>
-                  {inv.description}
+                  {inv.description.replace(/\s+/g, ' ')}
                 </p>
               )}
               <p className="mt-2" style={{ fontSize: '13px', color: '#B45309' }}>
