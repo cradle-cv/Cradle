@@ -24,13 +24,13 @@ async function getData() {
   const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(8)
   const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('display_order', { ascending: true }).limit(4)
-  // 首页 Hero 用最新一期的三幅画，而不是按 display_order 取前三幅
-  let latestCuration = null
+  // 首页 Hero：当期加往前两期，右侧期号可切换
+  let homeCurations = []
   try {
-    const { data } = await supabase.rpc('get_latest_curation')
-    latestCuration = (data && data[0]) || null
+    const { data } = await supabase.rpc('get_home_curations', { p_limit: 3 })
+    homeCurations = data || []
   } catch (e) {
-    console.error('get_latest_curation failed:', e)
+    console.error('get_home_curations failed:', e)
   }
 
   let homepageInvitations = []
@@ -86,7 +86,7 @@ async function getData() {
 
   return {
     exhibition, collections: collections || [], artists: artists || [],
-    partners: partners || [], latestCuration,
+    partners: partners || [], homeCurations,
     homepageDaily, homepageSelect, offlineExhibitions,
     homepageInvitations,
     submittedInvitationIds,
@@ -264,7 +264,7 @@ function ExhibitionActionButton({ exhibition }) {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, latestCuration, homepageDaily, homepageSelect, offlineExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
+  const { exhibition, collections, artists, partners, homeCurations, homepageDaily, homepageSelect, offlineExhibitions, homepageInvitations, submittedInvitationIds } = await getData()
   const submittedSet = new Set(submittedInvitationIds)
 
   return (
@@ -272,7 +272,7 @@ export default async function Home() {
       <SiteNav links={HOME_LINKS} />
 
       {/* Hero：当期阅览室的三幅画 */}
-      <CurationHero curation={latestCuration} />
+      <CurationHero curations={homeCurations} />
 
       {/* 每日一展 + 邀请函 */}
       {(exhibition || homepageInvitations.length > 0) && (
