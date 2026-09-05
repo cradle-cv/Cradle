@@ -36,7 +36,7 @@ export default function CurationHero({ curations }) {
       <div className="max-w-6xl mx-auto">
 
         {/* ── 顶栏：左日期 · 中主题 · 右期号切换 ── */}
-        <div className="flex items-start justify-between gap-4 md:gap-8 mb-7 md:mb-10">
+        <div className="flex items-center justify-between gap-3 md:gap-8 mb-7 md:mb-10">
 
           {/* 左：今天的日期，恒定不变 */}
           <div className="flex-shrink-0 text-center" style={{ minWidth: '64px' }}>
@@ -67,37 +67,47 @@ export default function CurationHero({ curations }) {
             )}
           </div>
 
-          {/* 右：期号，兼作切换器 */}
-          <div className="flex-shrink-0 text-center" style={{ minWidth: '64px' }}>
-            <button type="button" aria-label="看新一期"
-              onClick={() => canNext && setIdx(idx - 1)}
-              disabled={!canNext}
-              className="block mx-auto transition-opacity"
-              style={{ opacity: canNext ? 1 : 0.2, cursor: canNext ? 'pointer' : 'default' }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </button>
-
-            <div style={{ padding: '3px 0' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '3px', color: '#9CA3AF' }}>No.</div>
-              <div style={{ fontSize: '18px', letterSpacing: '1px', color: '#374151', lineHeight: 1.3 }}>
-                {ROMAN[issue_number] || issue_number}
-              </div>
-              {is_special && (
-                <div style={{ fontSize: '9px', color: accentColor, letterSpacing: '2px' }}>特刊</div>
-              )}
-            </div>
-
+          {/* 右：期号做成带框的按钮，左右两侧各一个箭头 */}
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button type="button" aria-label="看上一期"
               onClick={() => canPrev && setIdx(idx + 1)}
               disabled={!canPrev}
-              className="block mx-auto transition-opacity"
-              style={{ opacity: canPrev ? 1 : 0.2, cursor: canPrev ? 'pointer' : 'default' }}>
+              className="flex items-center justify-center rounded-full transition-all hover:bg-gray-50"
+              style={{
+                width: '28px', height: '28px', flexShrink: 0,
+                border: '0.5px solid #D1D5DB',
+                opacity: canPrev ? 1 : 0.25,
+                cursor: canPrev ? 'pointer' : 'default',
+              }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280"
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="6 9 12 15 18 9" />
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+
+            <div className="text-center" style={{ border: '1px solid #111827', padding: '6px 11px' }}>
+              <div style={{ fontSize: '8px', letterSpacing: '2px', color: '#9CA3AF' }}>No.</div>
+              <div style={{ fontSize: '17px', lineHeight: 1.2, color: '#111827' }}>
+                {ROMAN[issue_number] || issue_number}
+              </div>
+              {is_special && (
+                <div style={{ fontSize: '8px', color: accentColor, letterSpacing: '2px' }}>特刊</div>
+              )}
+            </div>
+
+            <button type="button" aria-label="看新一期"
+              onClick={() => canNext && setIdx(idx - 1)}
+              disabled={!canNext}
+              className="flex items-center justify-center rounded-full transition-all hover:bg-gray-50"
+              style={{
+                width: '28px', height: '28px', flexShrink: 0,
+                border: '0.5px solid #D1D5DB',
+                opacity: canNext ? 1 : 0.25,
+                cursor: canNext ? 'pointer' : 'default',
+              }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6" />
               </svg>
             </button>
           </div>
@@ -136,13 +146,11 @@ export default function CurationHero({ curations }) {
           </div>
         )}
 
-        {/* 当期进阅览室；切到往期时直接带去那一期的第一幅
-            （阅览室首页暂不认期号参数，作品页是确实存在的入口） */}
         <div className="flex justify-center mt-7 md:mt-9">
-          <a href={idx === 0 ? '/gallery' : `/gallery/${works[0].id}`}
+          <a href="/gallery"
             className="px-8 py-3.5 rounded-lg font-medium transition hover:opacity-90"
             style={{ backgroundColor: '#111827', color: '#FFFFFF', fontSize: '15px' }}>
-            {idx === 0 ? '进入阅览室' : `看这一期 · ${theme_zh}`}
+            进入阅览室
           </a>
         </div>
       </div>
