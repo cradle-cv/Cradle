@@ -34,10 +34,10 @@ async function getData() {
     console.error('get_home_curations failed:', e)
   }
 
-  let homeWorkshops = null
+  let homeWorkshops = []
   try {
-    const { data } = await supabase.rpc('get_home_workshops')
-    homeWorkshops = (data && data[0]) || null
+    const { data } = await supabase.rpc('get_home_workshops', { p_limit: 5 })
+    homeWorkshops = data || []
   } catch (e) {
     console.error('get_home_workshops failed:', e)
   }
@@ -227,7 +227,7 @@ export default async function Home() {
       {/* 参与：工坊与参展邀请 */}
       <ParticipationBlock
         workshops={homeWorkshops}
-        invitation={homepageInvitations[0] || null} />
+        invitations={homepageInvitations} />
 
       {/* 杂志社 */}
       {(homepageDaily || homepageSelect) && (
