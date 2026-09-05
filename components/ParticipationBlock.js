@@ -1,10 +1,13 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 
 /**
- * 首页「参与」区：左工坊、右参展邀请。
+ * 首页「工坊 / 参展邀请」两块。
  *
- * 刻意不用图片网格：首页其他模块都是图，这一块用纯文字加数据，
- * 让「轮到我了」这件事在视觉上区分出来。
+ * 标题与首页其他模块同一规格，放在卡片之外；
+ * 卡片内的内容可用右上角箭头切换，右侧配一张通到底的图。
  */
 
 function fmtShort(d) {
@@ -20,94 +23,173 @@ function daysLeft(deadline) {
   return Math.ceil(diff / 86400000)
 }
 
-export default function ParticipationBlock({ workshops, invitation }) {
-  const hasWorkshop = workshops && (workshops.open_count > 0 || workshops.next_title)
-  const hasInvitation = !!invitation
-  if (!hasWorkshop && !hasInvitation) return null
+const IMG_WIDTH = 128   // 右侧图片宽度，觉得窄可以调大
 
-  const cardStyle = {
-    border: '0.5px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
+function Arrows({ idx, total, onPrev, onNext }) {
+  if (total <= 1) return null
+  const btn = {
+    width: '24px', height: '24px', borderRadius: '999px',
+    border: '0.5px solid #D1D5DB',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{idx + 1} / {total}</span>
+      <button type="button" aria-label="上一个"
+        onClick={(e) => { e.preventDefault(); onPrev() }}
+        className="transition-colors hover:bg-gray-50" style={btn}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7280"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+      <button type="button" aria-label="下一个"
+        onClick={(e) => { e.preventDefault(); onNext() }}
+        className="transition-colors hover:bg-gray-50" style={btn}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7280"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+    </div>
+  )
+}
 
-  const left = daysLeft(invitation?.deadline)
+function Card({ href, image, children, arrows }) {
+  return (
+    <div className="rounded-xl overflow-hidden flex"
+      style={{ border: '0.5px solid #E5E7EB', backgroundColor: '#FFFFFF' }}>
+      <div className="flex-1 min-w-0 p-5 md:p-6 flex flex-col">
+        {arrows && <div className="flex justify-end mb-2">{arrows}</div>}
+        <Link href={href} className="flex-1 block">{children}</Link>
+      </div>
+      <Link href={href} className="flex-shrink-0 block"
+        style={{ width: `${IMG_WIDTH}px`, backgroundColor: '#F3F4F6' }}>
+        {image ? (
+          <img src={image} alt="" loading="lazy" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-2xl">🛠️</div>
+        )}
+      </Link>
+    </div>
+  )
+}
+
+export default function ParticipationBlock({ workshops, invitations }) {
+  const wList = workshops || []
+  const iList = invitations || []
+  const [wIdx, setWIdx] = useState(0)
+  const [iIdx, setIIdx] = useState(0)
+
+  if (wList.length === 0 && iList.length === 0) return null
+
+  const w = wList[wIdx] || null
+  const inv = iList[iIdx] || null
+  const left = daysLeft(inv?.deadline)
+
+  const titleCls = 'text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3'
+  const subCls = 'text-xs md:text-sm text-gray-500 mb-5 md:mb-6'
 
   return (
     <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
 
-          {/* ── 工坊 ── */}
-          <Link href="/workshops" className="block p-5 md:p-6 transition-shadow hover:shadow-md"
-            style={cardStyle}>
-            <h2 className="font-bold" style={{ fontSize: '18px', color: '#111827' }}>工坊</h2>
-            <p className="mt-2" style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.8 }}>
-              跟着艺术家动手做一件东西，南昌与台中都有。
-            </p>
-
-            <div className="mt-4 pt-4" style={{ borderTop: '0.5px solid #F3F4F6' }}>
-              {workshops?.next_title ? (
-                <>
-                  <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>最 近 一 场</p>
-                  <p className="font-medium mt-1.5" style={{ fontSize: '14px', color: '#111827' }}>
-                    {workshops.next_starts_at ? `${fmtShort(workshops.next_starts_at)} · ` : ''}
-                    {workshops.next_title}
-                  </p>
-                  <p className="mt-1" style={{ fontSize: '12px', color: '#059669' }}>
-                    {workshops.next_capacity
-                      ? `余 ${Math.max(0, workshops.next_capacity - (workshops.next_signed || 0))} 位`
-                      : '正在招募'}
-                    {workshops.open_count > 1 && ` · 另有 ${workshops.open_count - 1} 场招募中`}
-                    　→
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>眼 下</p>
-                  <p className="font-medium mt-1.5" style={{ fontSize: '14px', color: '#6B7280' }}>
-                    暂无正在招募的工坊
-                  </p>
-                  <p className="mt-1" style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                    {workshops?.closed_count > 0 ? `看看办过的 ${workshops.closed_count} 场 →` : '敬请期待 →'}
-                  </p>
-                </>
-              )}
+        {/* ── 工坊 ── */}
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className={titleCls}>工坊</h2>
+              <p className={subCls}>跟着艺术家动手做一件东西，南昌与台中都有</p>
             </div>
-          </Link>
+            <Link href="/workshops"
+              className="text-gray-600 hover:text-gray-900 text-xs md:text-sm flex-shrink-0 mb-6">
+              全部工坊 →
+            </Link>
+          </div>
 
-          {/* ── 参展邀请 ── */}
-          <Link href={invitation ? `/invitations/${invitation.id}` : '/invitations'}
-            className="block p-5 md:p-6 transition-shadow hover:shadow-md" style={cardStyle}>
-            <h2 className="font-bold" style={{ fontSize: '18px', color: '#111827' }}>参展邀请</h2>
-            <p className="mt-2" style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.8 }}>
-              把你的作品交过来，入选后进入摇篮的展览。
-            </p>
-
-            <div className="mt-4 pt-4" style={{ borderTop: '0.5px solid #F3F4F6' }}>
-              {invitation ? (
-                <>
-                  <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>正 在 收 稿</p>
-                  <p className="font-medium mt-1.5" style={{ fontSize: '14px', color: '#111827' }}>
-                    {invitation.title}
-                  </p>
-                  <p className="mt-1" style={{ fontSize: '12px', color: '#B45309' }}>
-                    {left !== null ? `还剩 ${left} 天` : '收稿中'}　→
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>眼 下</p>
-                  <p className="font-medium mt-1.5" style={{ fontSize: '14px', color: '#6B7280' }}>
-                    暂无正在收稿的邀请
-                  </p>
-                  <p className="mt-1" style={{ fontSize: '12px', color: '#9CA3AF' }}>看看往期 →</p>
-                </>
-              )}
-            </div>
-          </Link>
-
+          {w ? (
+            <Card href={`/workshops/${w.id}`} image={w.cover_image || w.first_photo}
+              arrows={
+                <Arrows idx={wIdx} total={wList.length}
+                  onPrev={() => setWIdx((wIdx - 1 + wList.length) % wList.length)}
+                  onNext={() => setWIdx((wIdx + 1) % wList.length)} />
+              }>
+              <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>
+                {w.is_open ? '招 募 中' : '办 过 的'}
+              </p>
+              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#111827', lineHeight: 1.5 }}>
+                {w.title}
+              </p>
+              <p className="mt-1.5" style={{ fontSize: '13px', color: '#6B7280' }}>
+                {w.starts_at ? fmtShort(w.starts_at) : '日期待定'}
+                {w.artist_name ? ` · ${w.artist_name}` : ''}
+                {w.venue ? ` · ${w.venue}` : ''}
+              </p>
+              <p className="mt-2" style={{ fontSize: '13px', color: w.is_open ? '#059669' : '#9CA3AF' }}>
+                {w.is_open
+                  ? (w.capacity ? `余 ${Math.max(0, w.capacity - (w.signed || 0))} 位` : '正在招募')
+                  : '看看当时的现场'}
+                　→
+              </p>
+            </Card>
+          ) : (
+            <Card href="/workshops" image={null}>
+              <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>眼 下</p>
+              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#6B7280' }}>
+                暂无正在招募的工坊
+              </p>
+              <p className="mt-2" style={{ fontSize: '13px', color: '#9CA3AF' }}>敬请期待 →</p>
+            </Card>
+          )}
         </div>
+
+        {/* ── 参展邀请 ── */}
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className={titleCls}>参展邀请</h2>
+              <p className={subCls}>把你的作品交过来，入选后进入摇篮的展览</p>
+            </div>
+            <Link href="/invitations"
+              className="text-gray-600 hover:text-gray-900 text-xs md:text-sm flex-shrink-0 mb-6">
+              全部邀请 →
+            </Link>
+          </div>
+
+          {inv ? (
+            <Card href={`/invitations/${inv.id}`} image={inv.cover_image}
+              arrows={
+                <Arrows idx={iIdx} total={iList.length}
+                  onPrev={() => setIIdx((iIdx - 1 + iList.length) % iList.length)}
+                  onNext={() => setIIdx((iIdx + 1) % iList.length)} />
+              }>
+              <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>正 在 收 稿</p>
+              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#111827', lineHeight: 1.5 }}>
+                {inv.title}
+              </p>
+              {inv.description && (
+                <p className="mt-1.5" style={{
+                  fontSize: '13px', color: '#6B7280', lineHeight: 1.7,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {inv.description}
+                </p>
+              )}
+              <p className="mt-2" style={{ fontSize: '13px', color: '#B45309' }}>
+                {left !== null ? `还剩 ${left} 天` : '收稿中'}　→
+              </p>
+            </Card>
+          ) : (
+            <Card href="/invitations" image={null}>
+              <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>眼 下</p>
+              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#6B7280' }}>
+                暂无正在收稿的邀请
+              </p>
+              <p className="mt-2" style={{ fontSize: '13px', color: '#9CA3AF' }}>看看往期 →</p>
+            </Card>
+          )}
+        </div>
+
       </div>
     </section>
   )
