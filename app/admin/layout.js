@@ -46,6 +46,7 @@ const SECTIONS = [
     prefixes: ['/admin/exhibitions', '/admin/dialogue'],
     links: [
       { href: '/admin/exhibitions', icon: '🎪', label: '展览管理', matchExact: (p) => p === '/admin/exhibitions' || (p.startsWith('/admin/exhibitions/') && !p.startsWith('/admin/exhibitions/daily')) },
+      { href: '/admin/workshops', icon: '🛠️', label: '工坊管理', matchExact: (p) => p.startsWith('/admin/workshops') },
       { href: '/admin/exhibitions/daily', icon: '⭐', label: '每日一展管理' },
       { href: '/admin/dialogue', icon: '🎐', label: '本期对话排期' },
     ],
