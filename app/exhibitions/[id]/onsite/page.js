@@ -24,6 +24,11 @@ async function getData(id) {
     .order('display_order', { ascending: true })
     .order('created_at', { ascending: true })
 
+  const { count: artworkCount } = await supabase
+    .from('exhibition_artworks')
+    .select('*', { count: 'exact', head: true })
+    .eq('exhibition_id', id)
+
   const { data: exArtists } = await supabase
     .from('exhibition_artists')
     .select('*, artists(id, display_name, avatar_url)')
@@ -32,6 +37,7 @@ async function getData(id) {
 
   return {
     exhibition,
+    artworkCount: artworkCount || 0,
     photos: photos || [],
     voices: voices || [],
     exArtists: exArtists || [],
@@ -53,7 +59,7 @@ export default async function OnsitePage({ params }) {
   const data = await getData(id)
   if (!data) notFound()
 
-  const { exhibition, photos, voices, exArtists } = data
+  const { exhibition, artworkCount, photos, voices, exArtists } = data
 
   function fmt(d) {
     if (!d) return ''
@@ -165,14 +171,18 @@ export default async function OnsitePage({ params }) {
           </div>
         )}
 
-        {/* 通往线上展 */}
-        {(exhibition.venue_type === 'online' || exhibition.venue_type === 'both') && (
+        {/* 通往展出作品：以真有作品为准，不看 venue_type */}
+        {artworkCount > 0 && (
           <div className="pt-6" style={{ borderTop: '0.5px solid #E5E7EB' }}>
-            <p className="text-sm mb-3" style={{ color: '#6B7280' }}>这场展览也在线上展出</p>
+            <p className="text-sm mb-3" style={{ color: '#6B7280' }}>
+              这场展览共展出 {artworkCount} 件作品，都可以逐件细看
+            </p>
             <Link href={`/exhibitions/${exhibition.id}`}
-              className="inline-block px-6 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
               style={{ backgroundColor: '#111827', color: '#FFFFFF' }}>
-              查看展出作品 →
+              看展出作品
+              <span style={{ color: 'rgba(255,255,255,0.65)' }}>{artworkCount} 件</span>
+              →
             </Link>
           </div>
         )}
