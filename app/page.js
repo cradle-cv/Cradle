@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import SiteNav from '@/components/SiteNav'
+import SiteNav, { HOME_LINKS } from '@/components/SiteNav'
 import HorizontalRail from '@/components/HorizontalRail'
 import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
 
@@ -261,7 +261,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
-      <SiteNav />
+      <SiteNav links={HOME_LINKS} />
 
       {/* Hero区 */}
       <section className="py-10 md:py-20 px-4 md:px-6">
