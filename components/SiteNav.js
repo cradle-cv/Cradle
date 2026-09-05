@@ -9,6 +9,7 @@ import UserNav from '@/components/UserNav'
 const DEFAULT_LINKS = [
   { href: '/gallery', label: '艺术阅览室' },
   { href: '/exhibitions', label: '每日一展' },
+  { href: '/workshops', label: '工坊' },
   { href: '/magazine', label: '杂志社' },
   { href: '/collections', label: '作品集' },
   { href: '/artists', label: '艺术家' },
@@ -21,6 +22,7 @@ const DEFAULT_LINKS = [
 export const HOME_LINKS = [
   { href: '/#gallery', label: '艺术阅览室' },
   { href: '/#daily', label: '每日一展' },
+  { href: '/workshops', label: '工坊' },
   { href: '/#magazine', label: '杂志社' },
   { href: '/#collections', label: '作品集' },
   { href: '/#artists', label: '艺术家' },
