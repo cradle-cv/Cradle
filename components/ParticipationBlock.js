@@ -58,21 +58,24 @@ function Arrows({ idx, total, onPrev, onNext }) {
 
 function Card({ href, image, children, arrows }) {
   return (
-    <div className="rounded-xl flex items-stretch"
+    <div className="rounded-xl"
       style={{
         border: '0.5px solid #E5E7EB',
         backgroundColor: '#FFFFFF',
         overflow: 'hidden',
         minHeight: `${CARD_MIN_HEIGHT}px`,
+        // 用 grid 而不是 flex：右栏宽度写死，左栏拿剩下的，
+        // 文字再多也挤不掉图片
+        display: 'grid',
+        gridTemplateColumns: `minmax(0, 1fr) ${IMG_WIDTH}px`,
       }}>
-      <div className="flex-1 min-w-0 p-5 md:p-6 flex flex-col">
+      <div className="p-5 md:p-6 flex flex-col" style={{ minWidth: 0, overflow: 'hidden' }}>
         {arrows && <div className="flex justify-end mb-2">{arrows}</div>}
-        <Link href={href} className="flex-1 block">{children}</Link>
+        <Link href={href} className="flex-1 block" style={{ minWidth: 0 }}>{children}</Link>
       </div>
 
-      {/* 图片这一栏：绝对定位铺满，才不会被原图比例撑破卡片 */}
-      <Link href={href} className="flex-shrink-0 block relative self-stretch"
-        style={{ width: `${IMG_WIDTH}px`, backgroundColor: '#F3F4F6' }}>
+      <Link href={href} className="block relative"
+        style={{ backgroundColor: '#F3F4F6', overflow: 'hidden' }}>
         {image ? (
           <img src={image} alt="" loading="lazy"
             style={{
@@ -129,7 +132,10 @@ export default function ParticipationBlock({ workshops, invitations }) {
               <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>
                 {w.is_open ? '招 募 中' : '办 过 的'}
               </p>
-              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#111827', lineHeight: 1.5 }}>
+              <p className="font-medium mt-2" style={{
+                fontSize: '16px', color: '#111827', lineHeight: 1.5,
+                overflowWrap: 'anywhere',
+              }}>
                 {w.title}
               </p>
               <p className="mt-1.5" style={{ fontSize: '13px', color: '#6B7280' }}>
@@ -176,13 +182,17 @@ export default function ParticipationBlock({ workshops, invitations }) {
                   onNext={() => setIIdx((iIdx + 1) % iList.length)} />
               }>
               <p style={{ fontSize: '10px', letterSpacing: '2px', color: '#9CA3AF' }}>正 在 收 稿</p>
-              <p className="font-medium mt-2" style={{ fontSize: '16px', color: '#111827', lineHeight: 1.5 }}>
+              <p className="font-medium mt-2" style={{
+                fontSize: '16px', color: '#111827', lineHeight: 1.5,
+                overflowWrap: 'anywhere',
+              }}>
                 {inv.title}
               </p>
               {inv.description && (
                 <p className="mt-1.5" style={{
                   fontSize: '13px', color: '#6B7280', lineHeight: 1.7,
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  overflowWrap: 'anywhere',
                 }}>
                   {inv.description.replace(/\s+/g, ' ')}
                 </p>
