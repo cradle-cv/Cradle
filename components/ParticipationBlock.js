@@ -23,7 +23,7 @@ function daysLeft(deadline) {
   return Math.ceil(diff / 86400000)
 }
 
-const IMG_WIDTH = 128        // 右侧图片宽度，觉得窄可以调大
+const IMG_WIDTH = 168        // 右栏宽度；图按 4:3 横版显示，卡片高度不受影响
 const CARD_MIN_HEIGHT = 188  // 两张卡等高，内容多少都不塌
 
 function Arrows({ idx, total, onPrev, onNext }) {
@@ -68,23 +68,34 @@ function Card({ href, image, children, arrows }) {
         // 文字再多也挤不掉图片
         display: 'grid',
         gridTemplateColumns: `minmax(0, 1fr) ${IMG_WIDTH}px`,
+        alignItems: 'center',
       }}>
       <div className="p-5 md:p-6 flex flex-col" style={{ minWidth: 0, overflow: 'hidden' }}>
         {arrows && <div className="flex justify-end mb-2">{arrows}</div>}
         <Link href={href} className="flex-1 block" style={{ minWidth: 0 }}>{children}</Link>
       </div>
 
-      <Link href={href} className="block relative"
-        style={{ backgroundColor: '#F3F4F6', overflow: 'hidden' }}>
-        {image ? (
-          <img src={image} alt="" loading="lazy"
-            style={{
-              position: 'absolute', inset: 0,
-              width: '100%', height: '100%', objectFit: 'cover',
-            }} />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-2xl">🛠️</div>
-        )}
+      {/* 横版图：卡片高度不变，图在右栏内垂直居中 */}
+      <Link href={href} className="block"
+        style={{ paddingRight: '18px', paddingLeft: '4px' }}>
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '4 / 3',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          backgroundColor: '#F3F4F6',
+        }}>
+          {image ? (
+            <img src={image} alt="" loading="lazy"
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%', objectFit: 'cover',
+              }} />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-xl">🛠️</div>
+          )}
+        </div>
       </Link>
     </div>
   )
