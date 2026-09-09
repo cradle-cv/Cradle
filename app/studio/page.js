@@ -56,6 +56,7 @@ export default function StudioPage() {
   const [collections, setCollections] = useState([])
   const [exhibitions, setExhibitions] = useState([])
   const [magazines, setMagazines] = useState([])
+  const [workshops, setWorkshops] = useState([])
   const [myInvitations, setMyInvitations] = useState([])
   const [myCuratedExhibitions, setMyCuratedExhibitions] = useState([])
   const [openInvitations, setOpenInvitations] = useState([])
@@ -128,6 +129,7 @@ export default function StudioPage() {
         hasCurator ? loadCuratorData() : Promise.resolve(),
         hasPartner ? loadPartnerData() : Promise.resolve(),
         loadMagazines(userData.id),
+        loadWorkshops(userData.id),
         loadUnreadMessages(),
       ])
 
@@ -166,6 +168,30 @@ export default function StudioPage() {
       setCollections(colsRes.data || [])
       setExhibitions(exRes.data || [])
     } catch (e) { console.error('艺术家数据:', e) }
+  }
+
+  async function loadWorkshops(userId) {
+    try {
+      const { data } = await supabase.from('workshops')
+        .select('id, title, summary, cover_image, status, starts_at, city, venue, capacity, price_note')
+        .eq('created_by', userId)
+        .order('starts_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+
+      const list = data || []
+      // 报名数一次查完
+      const ids = list.map(w => w.id)
+      let counts = {}
+      if (ids.length > 0) {
+        const { data: s } = await supabase.from('workshop_signups')
+          .select('workshop_id, status').in('workshop_id', ids)
+        ;(s || []).forEach(x => {
+          if (x.status === 'cancelled') return
+          counts[x.workshop_id] = (counts[x.workshop_id] || 0) + 1
+        })
+      }
+      setWorkshops(list.map(w => ({ ...w, signed: counts[w.id] || 0 })))
+    } catch (e) { console.error('工坊:', e) }
   }
 
   async function loadMagazines(userId) {
@@ -328,6 +354,7 @@ export default function StudioPage() {
                 collections={collections}
                 exhibitions={exhibitions}
                 magazines={magazines}
+                workshops={workshops}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
               />
@@ -520,7 +547,7 @@ function ResidentOnlyView() {
 // ═══════════════════════════════════════════════════════════════
 // 艺术家模块
 // ═══════════════════════════════════════════════════════════════
-function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhibitions, magazines, activeTab, setActiveTab }) {
+function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhibitions, magazines, workshops, activeTab, setActiveTab }) {
   const hasNoCollections = collections.length === 0
   const stats = {
     artworks: artworks.length,
@@ -613,6 +640,7 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
           { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
           { key: 'collections', label: '📚 我的作品集', count: stats.collections },
           { key: 'exhibitions', label: '🏛️ 观展邀请' },
+          { key: 'workshops', label: '🛠️ 我的工坊', count: workshops.length },
           { key: 'magazines', label: '📖 自制杂志', count: magazines.length },
           { key: 'mytools', label: '📋 我的待办' },
         ]}
@@ -628,6 +656,9 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
       )}
       {activeTab === 'exhibitions' && (
         <ArtistExhibitionsTab exhibitions={exhibitions} />
+      )}
+      {activeTab === 'workshops' && (
+        <WorkshopsTab workshops={workshops} artistRecord={artistRecord} />
       )}
       {activeTab === 'magazines' && (
         <MagazinesTab magazines={magazines} statusColors={statusColors} />
@@ -840,6 +871,106 @@ function ArtistExhibitionsTab({ exhibitions }) {
         <EmptyState icon="🏛️" text="暂无观展邀请">
           <p className="text-xs mt-1" style={{ color: '#D1D5DB' }}>当有新展览时,你会收到专属邀请</p>
         </EmptyState>
+      )}
+    </div>
+  )
+}
+
+function WorkshopsTab({ workshops, artistRecord }) {
+  const STATUS = {
+    draft:   { label: '草稿',   color: '#6B7280', bg: '#F3F4F6' },
+    pending: { label: '待审',   color: '#B45309', bg: '#FEF3C7' },
+    open:    { label: '招募中', color: '#059669', bg: '#ECFDF5' },
+    closed:  { label: '已截止', color: '#9CA3AF', bg: '#F9FAFB' },
+  }
+
+  function fmt(d) {
+    if (!d) return '日期待定'
+    const dt = new Date(d)
+    return `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`
+  }
+
+  const verified = !!artistRecord?.verified_at
+
+  return (
+    <div>
+      <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: '#F9FAFB' }}>
+        <p className="text-sm" style={{ color: '#374151', lineHeight: 1.9 }}>
+          工坊由你自己发起：定题目、定时间地点、定人数与费用。
+          <strong>摇篮不经手收款</strong>，有人报名之后，你会在这里看到他的称呼与联系方式，由你直接与他联系。
+        </p>
+        <p className="text-sm mt-2" style={{ color: '#6B7280', lineHeight: 1.9 }}>
+          建好之后提交待审，编辑部放行才会出现在网站上。
+        </p>
+      </div>
+
+      {!verified && (
+        <div className="rounded-xl px-5 py-4 mb-5" style={{ backgroundColor: '#FEF3C7' }}>
+          <p className="text-sm" style={{ color: '#92400E' }}>
+            发起工坊需要先通过艺术家认证。
+            <Link href="/profile/apply" className="underline ml-1">去申请认证</Link>
+          </p>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-sm" style={{ color: '#6B7280' }}>
+          共 {workshops.length} 场
+        </span>
+        {verified && (
+          <Link href="/studio/workshops/new"
+            className="px-5 py-2.5 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: '#111827' }}>
+            ＋ 发起工坊
+          </Link>
+        )}
+      </div>
+
+      {workshops.length === 0 ? (
+        <div className="bg-white rounded-xl p-14 text-center shadow-sm">
+          <div className="text-4xl mb-3">🛠️</div>
+          <p className="text-gray-500 mb-1">你还没有发起过工坊</p>
+          <p className="text-sm text-gray-400">
+            想教什么就开什么，一次几个人也可以
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {workshops.map(w => {
+            const st = STATUS[w.status] || STATUS.draft
+            return (
+              <Link key={w.id} href={`/studio/workshops/${w.id}`}
+                className="flex items-start gap-4 bg-white rounded-xl p-4 shadow-sm transition-shadow hover:shadow-md">
+                {w.cover_image ? (
+                  <img src={w.cover_image} alt="" className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0 text-2xl"
+                    style={{ backgroundColor: '#F3F4F6' }}>🛠️</div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-full text-xs"
+                      style={{ backgroundColor: st.bg, color: st.color }}>{st.label}</span>
+                    <span className="font-medium text-gray-900">{w.title}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1.5">
+                    {fmt(w.starts_at)}
+                    {w.venue ? ` · ${w.venue}` : ''}
+                    {w.city ? ` · ${w.city}` : ''}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {w.price_note || '费用未填'}
+                    {w.capacity ? ` · 限 ${w.capacity} 人` : ''}
+                    <span style={{ color: w.signed > 0 ? '#059669' : '#9CA3AF' }}>
+                      {` · 已报名 ${w.signed} 人`}
+                    </span>
+                  </p>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
       )}
     </div>
   )
