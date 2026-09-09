@@ -172,9 +172,18 @@ export default function StudioPage() {
 
   async function loadWorkshops(userId) {
     try {
+      // 自己建的，或挂在自己名下的（编辑部代建、交给主办人打理的那种）。
+      // 艺术家记录在这里单独查一次：它与本函数并行加载，不能依赖外部状态。
+      const { data: myArtist } = await supabase.from('artists')
+        .select('id').eq('owner_user_id', userId).maybeSingle()
+
+      const filter = myArtist?.id
+        ? `created_by.eq.${userId},artist_id.eq.${myArtist.id}`
+        : `created_by.eq.${userId}`
+
       const { data } = await supabase.from('workshops')
         .select('id, title, summary, cover_image, status, starts_at, city, venue, capacity, price_note')
-        .eq('created_by', userId)
+        .or(filter)
         .order('starts_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
 
@@ -658,7 +667,7 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
         <ArtistExhibitionsTab exhibitions={exhibitions} />
       )}
       {activeTab === 'workshops' && (
-        <WorkshopsTab workshops={workshops} artistRecord={artistRecord} />
+        <WorkshopsTab workshops={workshops} artistRecord={artistRecord} isAdmin={isAdmin} />
       )}
       {activeTab === 'magazines' && (
         <MagazinesTab magazines={magazines} statusColors={statusColors} />
@@ -876,7 +885,7 @@ function ArtistExhibitionsTab({ exhibitions }) {
   )
 }
 
-function WorkshopsTab({ workshops, artistRecord }) {
+function WorkshopsTab({ workshops, artistRecord, isAdmin }) {
   const STATUS = {
     draft:   { label: '草稿',   color: '#6B7280', bg: '#F3F4F6' },
     pending: { label: '待审',   color: '#B45309', bg: '#FEF3C7' },
@@ -890,7 +899,8 @@ function WorkshopsTab({ workshops, artistRecord }) {
     return `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`
   }
 
-  const verified = !!artistRecord?.verified_at
+  // 管理员本来就是发认证的人，不必再被认证门槛拦一次
+  const verified = isAdmin || !!artistRecord?.verified_at
 
   return (
     <div>
