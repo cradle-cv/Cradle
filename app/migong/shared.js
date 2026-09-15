@@ -44,19 +44,55 @@ function rng(seed) {
   }
 }
 
-// ── 迷宫生成（递归回溯）───────────────────────────────────────
-// 返回 size×size 的格子，1 = 墙，0 = 路。起点 (1,1)，终点 (size-2,size-2)。
-export function generateMaze(seed, size = 15) {
+// ── 形状与场景 ────────────────────────────────────────────────
+export const SHAPES = [
+  { key: "square",  label: "方形" },
+  { key: "circle",  label: "圆形" },
+  { key: "diamond", label: "菱形" },
+]
+export const SCENES = {
+  stone: { key: "stone", label: "石径", bg: "#f4efe6", outside: "#e8e1d4", wall: "#2b2620", player: "#d9532b", start: "#8fd19e", end: "#f2c14e", trail: "rgba(217,83,43,.25)" },
+  moss:  { key: "moss",  label: "苔园", bg: "#e3ecd8", outside: "#cfdcc0", wall: "#2f4a2b", player: "#c8551f", start: "#a7d78f", end: "#f0c95a", trail: "rgba(200,85,31,.25)" },
+  sea:   { key: "sea",   label: "夜海", bg: "#dde8f2", outside: "#c6d6e6", wall: "#1b2f4b", player: "#e2603a", start: "#8fd1c4", end: "#f3c85b", trail: "rgba(226,96,58,.25)" },
+}
+export const SCENE_LIST = Object.values(SCENES)
+
+// ── 迷宫生成（递归回溯 + 形状遮罩）───────────────────────────
+// 返回 size×size 的格子，1 = 墙，0 = 路；mask 标出哪些格子属于这个形状。
+// 方形：左上到右下。圆形与菱形：顶部到底部。
+export function generateMaze(seed, size = 15, shape = "square") {
   if (size % 2 === 0) size += 1
   const rand = rng(seed)
+  const c = (size - 1) / 2
+
+  // 可以开路的格子
+  const carveable = (x, y) => {
+    if (x < 1 || y < 1 || x > size - 2 || y > size - 2) return false
+    if (shape === "circle")  return Math.hypot(x - c, y - c) <= c - 1
+    if (shape === "diamond") return Math.abs(x - c) + Math.abs(y - c) <= c - 1
+    return true
+  }
+
   const g = Array.from({ length: size }, () => Array(size).fill(1))
-  const stack = [[1, 1]]
-  g[1][1] = 0
+
+  // 起点与终点：方形取对角；其余取中轴的最上与最下
+  let start, end
+  if (shape === "square") {
+    start = [1, 1]; end = [size - 2, size - 2]
+  } else {
+    const cx = c % 2 === 1 ? c : c - 1
+    let top = null, bottom = null
+    for (let y = 1; y < size - 1; y += 2) if (carveable(cx, y)) { top = [cx, y]; break }
+    for (let y = size - 2; y > 0; y -= 2) if (carveable(cx, y)) { bottom = [cx, y]; break }
+    start = top; end = bottom
+  }
+
+  const stack = [start]
+  g[start[1]][start[0]] = 0
   const dirs = [[0, 2], [2, 0], [0, -2], [-2, 0]]
 
   while (stack.length) {
     const [x, y] = stack[stack.length - 1]
-    // 打乱四个方向
     const order = dirs.slice()
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]
@@ -64,7 +100,7 @@ export function generateMaze(seed, size = 15) {
     let moved = false
     for (const [dx, dy] of order) {
       const nx = x + dx, ny = y + dy
-      if (nx > 0 && ny > 0 && nx < size - 1 && ny < size - 1 && g[ny][nx] === 1) {
+      if (carveable(nx, ny) && g[ny][nx] === 1) {
         g[y + dy / 2][x + dx / 2] = 0
         g[ny][nx] = 0
         stack.push([nx, ny])
@@ -74,26 +110,38 @@ export function generateMaze(seed, size = 15) {
     }
     if (!moved) stack.pop()
   }
-  return { grid: g, size, start: [1, 1], end: [size - 2, size - 2] }
+
+  // 渲染遮罩：可开路的格子及其四邻（这样形状的外墙才画得出来）
+  const mask = Array.from({ length: size }, () => Array(size).fill(false))
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (carveable(x, y)) { mask[y][x] = true; continue }
+    for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+      if (carveable(x + dx, y + dy)) { mask[y][x] = true; break }
+    }
+  }
+
+  return { grid: g, mask, size, start, end, shape }
 }
 
 // ── 迷宫画布 ─────────────────────────────────────────────────
-export function MazeCanvas({ maze, player, cell = 22, showPath = [], big = false }) {
-  const { grid, size, start, end } = maze
+export function MazeCanvas({ maze, player, cell = 22, showPath = [], big = false, scene = "stone" }) {
+  const { grid, mask, size, start, end } = maze
+  const t = SCENES[scene] || SCENES.stone
   const px = size * cell
   return (
-    <svg viewBox={`0 0 ${px} ${px}`} width="100%" style={{ maxWidth: big ? 720 : 420, display: "block", margin: "0 auto", borderRadius: 12, background: "#f4efe6" }}>
-      {grid.map((row, y) => row.map((v, x) =>
-        v === 1 ? <rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill="#2b2620" /> : null
-      ))}
+    <svg viewBox={`0 0 ${px} ${px}`} width="100%" style={{ maxWidth: big ? 720 : 420, display: "block", margin: "0 auto", borderRadius: 12, background: t.outside }}>
+      {grid.map((row, y) => row.map((v, x) => {
+        if (!mask[y][x]) return null
+        return <rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill={v === 1 ? t.wall : t.bg} />
+      }))}
       {showPath.map(([x, y], i) => (
-        <rect key={`p${i}`} x={x * cell + cell * 0.3} y={y * cell + cell * 0.3} width={cell * 0.4} height={cell * 0.4} fill="rgba(217,83,43,.25)" rx={2} />
+        <rect key={`p${i}`} x={x * cell + cell * 0.3} y={y * cell + cell * 0.3} width={cell * 0.4} height={cell * 0.4} fill={t.trail} rx={2} />
       ))}
-      <rect x={start[0] * cell + 2} y={start[1] * cell + 2} width={cell - 4} height={cell - 4} fill="#8fd19e" rx={4} />
-      <rect x={end[0] * cell + 2} y={end[1] * cell + 2} width={cell - 4} height={cell - 4} fill="#f2c14e" rx={4} />
+      <rect x={start[0] * cell + 2} y={start[1] * cell + 2} width={cell - 4} height={cell - 4} fill={t.start} rx={4} />
+      <rect x={end[0] * cell + 2} y={end[1] * cell + 2} width={cell - 4} height={cell - 4} fill={t.end} rx={4} />
       <text x={end[0] * cell + cell / 2} y={end[1] * cell + cell / 2 + 4} textAnchor="middle" fontSize={cell * 0.6}>🏁</text>
       {player && (
-        <circle cx={player[0] * cell + cell / 2} cy={player[1] * cell + cell / 2} r={cell * 0.34} fill="#d9532b" stroke="#fff" strokeWidth={2} />
+        <circle cx={player[0] * cell + cell / 2} cy={player[1] * cell + cell / 2} r={cell * 0.34} fill={t.player} stroke="#fff" strokeWidth={2} />
       )}
     </svg>
   )
