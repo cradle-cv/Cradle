@@ -19,7 +19,7 @@ export default function MigongPlay({ params }) {
   const startRef = useRef(null)
   const rafRef = useRef(null)
 
-  const maze = useMemo(() => round ? generateMaze(round.seed, round.size) : null, [round])
+  const maze = useMemo(() => round ? generateMaze(round.seed, round.size, round.shape || 'square') : null, [round])
 
   useEffect(() => { setNick(ls.get("mg_nick", "")) }, [])
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function MigongPlay({ params }) {
         {phase === "playing" && (
           <>
             <div className={`mg-timer`}>{fmtMs(elapsed)}</div>
-            <MazeCanvas maze={maze} player={pos} showPath={path} cell={22} />
+            <MazeCanvas maze={maze} player={pos} showPath={path} cell={22} scene={round.scene} />
             <div className="mg-dpad">
               <span className="blank" />
               <button onClick={() => move(0, -1)} aria-label="上">▲</button>
