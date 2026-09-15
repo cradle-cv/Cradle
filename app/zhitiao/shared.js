@@ -140,34 +140,9 @@ export async function fetchHostPassword() {
     return data?.host_password || DEFAULT_PW
   } catch { return DEFAULT_PW }
 }
+// 主持台不再设密码门，直接放行。
+// 保留组件名与 fetchHostPassword，两个页面不必改动。
 export function HostGate({ children }) {
-  const [ok, setOk] = useState(null)
-  const [pw, setPw] = useState("")
-  const [err, setErr] = useState("")
-  const [busy, setBusy] = useState(false)
-  useEffect(() => { setOk(ls.get("zt_host_ok", false) === true) }, [])
-  const submit = async () => {
-    setBusy(true); setErr("")
-    const real = await fetchHostPassword()
-    if (pw === real) { ls.set("zt_host_ok", true); setOk(true) }
-    else setErr("密码不正确")
-    setBusy(false)
-  }
-  if (ok === null) return <Shell><div className="zt-muted" style={{ padding: 40, textAlign: "center" }}>加载中…</div></Shell>
-  if (!ok) return (
-    <Shell>
-      <div className="zt-login">
-        <div className="zt-brand">纸条</div>
-        <div className="zt-muted" style={{ marginBottom: 20 }}>课堂头脑风暴 · 主持人入口</div>
-        <input type="password" className="zt-input" placeholder="主持人密码" value={pw} autoFocus
-          onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} />
-        {err && <div className="zt-err">{err}</div>}
-        <button className="zt-btn zt-btn-primary" style={{ width: "100%", marginTop: 12 }} disabled={busy || !pw} onClick={submit}>
-          {busy ? "验证中…" : "进入主持台"}
-        </button>
-      </div>
-    </Shell>
-  )
   return children
 }
 export function hostLogout() { ls.set("zt_host_ok", false); window.location.href = BASE_PATH }
@@ -216,7 +191,10 @@ export function NoteCard({ note, mine, big, liked, onLike, host, onPin, onStar, 
           {(note.stars > 0 || host) && <Stars value={note.stars} onChange={host ? onStar : undefined} size={big ? 20 : 14} />}
         </div>
         {onLike
-          ? <button className={`zt-like${liked ? " on" : ""}${bump ? " bump" : ""}`} onClick={onLike} disabled={liked}>👍 {note.likes || 0}</button>
+          ? <span className="zt-likewrap">
+              <button className={`zt-like${liked ? " on" : ""}${bump ? " bump" : ""}`} onClick={onLike} disabled={liked}>👍 {note.likes || 0}</button>
+              {!liked && <span className="zt-likehint">送它上热门</span>}
+            </span>
           : (note.likes > 0 && <span className="zt-like static">👍 {note.likes}</span>)}
       </div>
       {host && (
@@ -316,6 +294,8 @@ const CSS = `
 .zt-like{border:1px solid rgba(38,34,30,.14);background:rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;color:#26221e}
 .zt-like.on,.zt-like:disabled{background:rgba(217,83,43,.12);border-color:rgba(217,83,43,.3);color:var(--accent);cursor:default}
 .zt-like.static{cursor:default}
+.zt-likewrap{display:inline-flex;align-items:center;gap:6px}
+.zt-likehint{font-size:11px;color:rgba(38,34,30,.45);letter-spacing:.5px}
 .zt-card-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(38,34,30,.15)}
 .zt-card-actions button{flex:1;border:1px solid rgba(38,34,30,.14);background:rgba(255,255,255,.75);border-radius:8px;padding:5px 0;font-size:12px;cursor:pointer;font-family:inherit;color:#26221e}
 .zt-card-actions button:hover{border-color:#26221e}
