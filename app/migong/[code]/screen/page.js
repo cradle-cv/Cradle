@@ -7,7 +7,7 @@ export default function MigongScreen({ params }) {
   const { code } = use(params)
   const { round, results, live } = useRound(code)
   const [fs, setFs] = useState(false)
-  const maze = useMemo(() => round ? generateMaze(round.seed, round.size) : null, [round])
+  const maze = useMemo(() => round ? generateMaze(round.seed, round.size, round.shape || 'square') : null, [round])
 
   useEffect(() => {
     const onChange = () => setFs(!!document.fullscreenElement)
@@ -51,7 +51,7 @@ export default function MigongScreen({ params }) {
 
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "center" }}>
           <div>
-            <MazeCanvas maze={maze} cell={20} big />
+            <MazeCanvas maze={maze} cell={20} big scene={round.scene} />
           </div>
           <div>
             <Podium results={results} big />
