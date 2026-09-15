@@ -8,7 +8,7 @@ export default function MigongHostRound({ params }) {
   const { code } = use(params)
   const { round, results, live, reload } = useRound(code)
   const [msg, toast] = useToast()
-  const maze = useMemo(() => round ? generateMaze(round.seed, round.size) : null, [round])
+  const maze = useMemo(() => round ? generateMaze(round.seed, round.size, round.shape || 'square') : null, [round])
 
   if (round === null) {
     return <Shell><div className="mg-wrap"><div className="mg-muted" style={{ padding: 40, textAlign: "center" }}>没有这一局，或已被删除。<br /><Link href={BASE_PATH}>回主持台</Link></div></div></Shell>
@@ -63,7 +63,7 @@ export default function MigongHostRound({ params }) {
               <button className="mg-btn mg-btn-sm mg-btn-ghost" onClick={clearResults} style={{ color: "#c0392b" }}>清空成绩</button>
             </div>
           </div>
-          {maze && <MazeCanvas maze={maze} cell={18} />}
+          {maze && <MazeCanvas maze={maze} cell={18} scene={round.scene} />}
           <p className="mg-muted" style={{ fontSize: 12, marginTop: 8, textAlign: "center" }}>
             绿色是起点，🏁 是终点。学生在自己手机上走，这里只是给你看的。
           </p>
