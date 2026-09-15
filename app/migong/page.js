@@ -62,6 +62,11 @@ export default function MigongHost() {
               <button key={o.key} className={`mg-btn mg-btn-sm${shape === o.key ? " mg-btn-primary" : ""}`} onClick={() => setShape(o.key)}>{o.label}</button>
             ))}
           </div>
+          {shape !== "square" && (
+            <p className="mg-muted" style={{ fontSize: 12, margin: "-2px 0 10px 48px" }}>
+              圆形和菱形会裁掉四角，通道比方形少，建议选中或大。
+            </p>
+          )}
           <div className="mg-row" style={{ marginBottom: 14 }}>
             <span className="mg-muted" style={{ width: 40 }}>场景</span>
             {SCENE_LIST.map(o => (
