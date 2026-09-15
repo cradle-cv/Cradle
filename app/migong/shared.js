@@ -51,9 +51,9 @@ export const SHAPES = [
   { key: "diamond", label: "菱形" },
 ]
 export const SCENES = {
-  stone: { key: "stone", label: "石径", bg: "#f4efe6", outside: "#e8e1d4", wall: "#2b2620", player: "#d9532b", start: "#8fd19e", end: "#f2c14e", trail: "rgba(217,83,43,.25)" },
-  moss:  { key: "moss",  label: "苔园", bg: "#e3ecd8", outside: "#cfdcc0", wall: "#2f4a2b", player: "#c8551f", start: "#a7d78f", end: "#f0c95a", trail: "rgba(200,85,31,.25)" },
-  sea:   { key: "sea",   label: "夜海", bg: "#dde8f2", outside: "#c6d6e6", wall: "#1b2f4b", player: "#e2603a", start: "#8fd1c4", end: "#f3c85b", trail: "rgba(226,96,58,.25)" },
+  stone: { key: "stone", label: "石径", bg: "#f6f1e8", outside: "#e6dfd2", wall: "#3a332c", wallLight: "#5a5147", dot: "rgba(58,51,44,.08)", player: "#d9532b", start: "#7cc47f", end: "#f2c14e", trail: "rgba(217,83,43,.28)" },
+  moss:  { key: "moss",  label: "苔园", bg: "#e9f0df", outside: "#d3dfc4", wall: "#34503a", wallLight: "#4f6d55", dot: "rgba(52,80,58,.08)", player: "#d4682a", start: "#9ad68c", end: "#f0c95a", trail: "rgba(212,104,42,.28)" },
+  sea:   { key: "sea",   label: "夜海", bg: "#e4edf5", outside: "#cbd9e8", wall: "#22395a", wallLight: "#3d5578", dot: "rgba(34,57,90,.08)", player: "#e7653c", start: "#8fd1c4", end: "#f3c85b", trail: "rgba(231,101,60,.28)" },
 }
 export const SCENE_LIST = Object.values(SCENES)
 
@@ -111,16 +111,25 @@ export function generateMaze(seed, size = 15, shape = "square") {
     if (!moved) stack.pop()
   }
 
-  // 渲染遮罩：可开路的格子及其四邻（这样形状的外墙才画得出来）
+  // 渲染遮罩：可开路的格子，加上它们八个方向的邻格。
+  // 用八邻而不是四邻，形状的外墙才能连成一整圈，不会在斜角处断开。
   const mask = Array.from({ length: size }, () => Array(size).fill(false))
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     if (carveable(x, y)) { mask[y][x] = true; continue }
-    for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
-      if (carveable(x + dx, y + dy)) { mask[y][x] = true; break }
-    }
+    for (let dy = -1; dy <= 1 && !mask[y][x]; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if ((dx || dy) && carveable(x + dx, y + dy)) { mask[y][x] = true; break }
   }
 
-  return { grid: g, mask, size, start, end, shape }
+  // 遮罩内但不可开路的格子一律算墙，否则形状边缘会露出一排孤立的路面格
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (mask[y][x] && !carveable(x, y)) g[y][x] = 1
+  }
+
+  // 形状内部（可铺路面的区域），画布用它决定哪些格子铺路面色
+  const inner = Array.from({ length: size }, (_, y) => Array.from({ length: size }, (_, x) => carveable(x, y)))
+
+  return { grid: g, mask, inner, size, start, end, shape }
 }
 
 // ── 迷宫画布 ─────────────────────────────────────────────────
@@ -128,20 +137,76 @@ export function MazeCanvas({ maze, player, cell = 22, showPath = [], big = false
   const { grid, mask, size, start, end } = maze
   const t = SCENES[scene] || SCENES.stone
   const px = size * cell
+  const half = cell / 2
+  const isPath = (x, y) => x >= 0 && y >= 0 && x < size && y < size && mask[y][x] && grid[y][x] === 0
+
+  // 以墙为底，把路刻出来：相邻的路格连成圆头粗线。
+  // 这样任何形状的边界都是实心的墙，不会露出零碎的路面格。
+  const segs = []
+  const dots = []
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (!isPath(x, y)) continue
+    const cx = x * cell + half, cy = y * cell + half
+    let linked = false
+    if (isPath(x + 1, y)) { segs.push(`M${cx} ${cy}L${cx + cell} ${cy}`); linked = true }
+    if (isPath(x, y + 1)) { segs.push(`M${cx} ${cy}L${cx} ${cy + cell}`); linked = true }
+    if (isPath(x - 1, y) || isPath(x, y - 1)) linked = true
+    if (!linked) dots.push([cx, cy])
+  }
+  const pathD = segs.join("")
+  const pathW = cell * 0.62
+
+  const uid = `mz${size}${scene}`
   return (
-    <svg viewBox={`0 0 ${px} ${px}`} width="100%" style={{ maxWidth: big ? 720 : 420, display: "block", margin: "0 auto", borderRadius: 12, background: t.outside }}>
-      {grid.map((row, y) => row.map((v, x) => {
-        if (!mask[y][x]) return null
-        return <rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill={v === 1 ? t.wall : t.bg} />
-      }))}
-      {showPath.map(([x, y], i) => (
-        <rect key={`p${i}`} x={x * cell + cell * 0.3} y={y * cell + cell * 0.3} width={cell * 0.4} height={cell * 0.4} fill={t.trail} rx={2} />
-      ))}
-      <rect x={start[0] * cell + 2} y={start[1] * cell + 2} width={cell - 4} height={cell - 4} fill={t.start} rx={4} />
-      <rect x={end[0] * cell + 2} y={end[1] * cell + 2} width={cell - 4} height={cell - 4} fill={t.end} rx={4} />
-      <text x={end[0] * cell + cell / 2} y={end[1] * cell + cell / 2 + 4} textAnchor="middle" fontSize={cell * 0.6}>🏁</text>
+    <svg viewBox={`0 0 ${px} ${px}`} width="100%"
+      style={{ maxWidth: big ? 720 : 420, display: "block", margin: "0 auto", borderRadius: 16, background: t.outside,
+        boxShadow: "0 10px 30px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.05)" }}>
+      <defs>
+        <filter id={`${uid}-sh`} x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy={cell * 0.08} stdDeviation={cell * 0.08} floodColor="#000" floodOpacity="0.22" />
+        </filter>
+        <filter id={`${uid}-in`} x="-5%" y="-5%" width="110%" height="110%">
+          <feDropShadow dx="0" dy={cell * 0.06} stdDeviation={cell * 0.1} floodColor="#000" floodOpacity="0.18" />
+        </filter>
+        <radialGradient id={`${uid}-pl`} cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="60%" stopColor={t.player} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* 墙体：整个形状先涂成墙色，带一点投影让它浮起来 */}
+      <g filter={`url(#${uid}-in)`}>
+        {grid.map((row, y) => row.map((v, x) =>
+          mask[y][x] ? <rect key={`w${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill={t.wall} /> : null
+        ))}
+      </g>
+
+      {/* 通道：先一层稍宽的浅色作边，再一层路面色 */}
+      <path d={pathD} stroke={t.wallLight} strokeWidth={pathW + cell * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} stroke={t.bg} strokeWidth={pathW} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <g fill={t.bg}>
+        {dots.map(([x, y], i) => <circle key={`d${i}`} cx={x} cy={y} r={pathW / 2} />)}
+      </g>
+
+      {/* 足迹 */}
+      <g fill={t.trail}>
+        {showPath.map(([x, y], i) => <circle key={`p${i}`} cx={x * cell + half} cy={y * cell + half} r={cell * 0.14} />)}
+      </g>
+
+      {/* 起点：绿色圆环 */}
+      <circle cx={start[0] * cell + half} cy={start[1] * cell + half} r={cell * 0.26} fill="none" stroke={t.start} strokeWidth={cell * 0.12} />
+      <circle cx={start[0] * cell + half} cy={start[1] * cell + half} r={cell * 0.08} fill={t.start} />
+
+      {/* 终点：金色圆角方块加旗帜 */}
+      <rect x={end[0] * cell + cell * 0.16} y={end[1] * cell + cell * 0.16} width={cell * 0.68} height={cell * 0.68} rx={cell * 0.2} fill={t.end} filter={`url(#${uid}-sh)`} />
+      <text x={end[0] * cell + half} y={end[1] * cell + half + cell * 0.22} textAnchor="middle" fontSize={cell * 0.56}>🏁</text>
+
+      {/* 棋子：带高光的圆球 */}
       {player && (
-        <circle cx={player[0] * cell + cell / 2} cy={player[1] * cell + cell / 2} r={cell * 0.34} fill={t.player} stroke="#fff" strokeWidth={2} />
+        <g filter={`url(#${uid}-sh)`}>
+          <circle cx={player[0] * cell + half} cy={player[1] * cell + half} r={cell * 0.32} fill={t.player} stroke="#fff" strokeWidth={cell * 0.08} />
+          <circle cx={player[0] * cell + half} cy={player[1] * cell + half} r={cell * 0.32} fill={`url(#${uid}-pl)`} />
+        </g>
       )}
     </svg>
   )
