@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { sb, genCode, fmtDate, fetchHostPassword, hostLogout, HostGate, Shell, Toast, useToast, BASE_PATH } from "./shared"
+import { sb, genCode, fmtDate, HostGate, Shell, Toast, useToast, BASE_PATH } from "./shared"
 
 export default function ZhitiaoHome() {
   return (
@@ -19,7 +19,6 @@ function Dashboard() {
   const [busy, setBusy] = useState(false)
   const [list, setList] = useState(null)
   const [msg, toast] = useToast()
-  const [showPw, setShowPw] = useState(false)
 
   const load = useCallback(async () => {
     const { data } = await sb.from("zhitiao_activities")
@@ -60,13 +59,9 @@ function Dashboard() {
       <div className="zt-wrap">
         <div className="zt-topbar">
           <div className="zt-brand">纸条<small>主持台</small></div>
-          <div className="zt-row">
-            <button className="zt-btn zt-btn-sm zt-btn-ghost" onClick={() => setShowPw(v => !v)}>修改密码</button>
-            <button className="zt-btn zt-btn-sm zt-btn-ghost" onClick={hostLogout}>退出</button>
-          </div>
+
         </div>
 
-        {showPw && <PasswordPanel onDone={() => { setShowPw(false); toast("密码已更新") }} />}
 
         <div className="zt-panel" style={{ marginBottom: 24 }}>
           <h3>创建新活动</h3>
@@ -109,31 +104,5 @@ function Dashboard() {
       </div>
       <Toast msg={msg} />
     </Shell>
-  )
-}
-
-function PasswordPanel({ onDone }) {
-  const [oldPw, setOld] = useState("")
-  const [newPw, setNew] = useState("")
-  const [err, setErr] = useState("")
-  const save = async () => {
-    setErr("")
-    const real = await fetchHostPassword()
-    if (oldPw !== real) { setErr("当前密码不正确"); return }
-    if (newPw.length < 4) { setErr("新密码至少 4 位"); return }
-    const { error } = await sb.from("zhitiao_settings").update({ host_password: newPw, updated_at: new Date().toISOString() }).eq("id", 1)
-    if (error) { setErr("保存失败：" + error.message); return }
-    onDone()
-  }
-  return (
-    <div className="zt-panel" style={{ marginBottom: 24 }}>
-      <h3>修改主持人密码</h3>
-      <div className="zt-row">
-        <input type="password" className="zt-input" style={{ width: 200 }} placeholder="当前密码" value={oldPw} onChange={e => setOld(e.target.value)} />
-        <input type="password" className="zt-input" style={{ width: 200 }} placeholder="新密码" value={newPw} onChange={e => setNew(e.target.value)} />
-        <button className="zt-btn zt-btn-primary" onClick={save}>保存</button>
-      </div>
-      {err && <div className="zt-err">{err}</div>}
-    </div>
   )
 }
