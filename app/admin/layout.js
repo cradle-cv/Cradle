@@ -85,6 +85,18 @@ const SECTIONS = [
     ],
   },
   {
+    key: 'seewayphoto',
+    icon: '📷',
+    label: '夕帷摄影',
+    sub: '个人作品集 · 独立子站',
+    prefixes: ['/admin/seewayphoto'],
+    links: [
+      { href: '/admin/seewayphoto', icon: '🗂️', label: '系列管理', matchExact: (p) => p === '/admin/seewayphoto' || (p.startsWith('/admin/seewayphoto/') && !p.startsWith('/admin/seewayphoto/settings') && !p.startsWith('/admin/seewayphoto/messages')) },
+      { href: '/admin/seewayphoto/settings', icon: '📝', label: '站点设置' },
+      { href: '/admin/seewayphoto/messages', icon: '✉️', label: '留言' },
+    ],
+  },
+  {
     key: 'users',
     icon: '👥',
     label: '用户管理',
