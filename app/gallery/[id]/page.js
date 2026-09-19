@@ -112,6 +112,44 @@ async function silentlyCheckBadges(userId, onNewBadge) {
   }
 }
 
+// ── 日课计时 ────────────────────────────────────────────────
+// 这两个组件各自订阅自己的每秒刷新，只重画自己这一小块，
+// 页面其余部分（画作大图、正文）不受影响，手机上就不会跟着跳动。
+
+function RikeCounter({ secondsRef }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => tick(n => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const s = secondsRef.current
+  return (
+    <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
+      <span className="text-sm text-gray-500">已阅读</span>
+      <span className={`text-xl font-bold ${s >= 15 ? 'text-green-600' : 'text-gray-900'}`}>{s}</span>
+      <span className="text-sm text-gray-500">秒</span>
+      {s < 15 && <span className="text-xs text-gray-400">（还需 {15 - s} 秒）</span>}
+      {s >= 15 && <span className="text-green-600">✓</span>}
+    </div>
+  )
+}
+
+function RikeDoneButton({ ready, secondsRef, onDone, className = "" }) {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (ready) return
+    const t = setInterval(() => tick(n => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [ready])
+  const left = Math.max(0, 15 - secondsRef.current)
+  return (
+    <button onClick={onDone} disabled={!ready}
+      className={`${className} px-8 py-3 rounded-xl font-medium text-sm ${ready ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+      {ready ? '✓ 完成日课 (+20✨)' : `继续阅读 (${left}s)`}
+    </button>
+  )
+}
+
 export default function GalleryDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -131,7 +169,10 @@ export default function GalleryDetailPage() {
   const [perceptionResponses, setPerceptionResponses] = useState({})
 
   const [rikeArticle, setRikeArticle] = useState(null)
-  const [rikeSeconds, setRikeSeconds] = useState(0)
+  // 秒数放在 ref 里：它每秒都在变，若作为 state 会让整页每秒重渲染一次，
+  // 手机上表现为画面随倒计时跳动。只有「是否满 15 秒」这一个布尔量需要触发重渲染。
+  const rikeSecondsRef = useRef(0)
+  const [rikeReady, setRikeReady] = useState(false)
   const rikeTimer = useRef(null)
   const [rikePages, setRikePages] = useState([])
   const [showRikeMagazine, setShowRikeMagazine] = useState(false)
@@ -507,14 +548,17 @@ export default function GalleryDetailPage() {
   // ── 日课 ────────────────────────────────────────────────────
   function startRikeTimer() {
     if (rikeTimer.current) return
-    rikeTimer.current = setInterval(() => setRikeSeconds(prev => prev + 1), 1000)
+    rikeTimer.current = setInterval(() => {
+      rikeSecondsRef.current += 1
+      if (rikeSecondsRef.current >= 15) setRikeReady(true)
+    }, 1000)
   }
 
   async function completeRike() {
     if (rikeTimer.current) { clearInterval(rikeTimer.current); rikeTimer.current = null }
     await awardInspirationPoints('rike_complete', 20, `完成日课「${work.title}」`)
     const newProg = await saveProgress({
-      rike_completed: true, rike_read_seconds: rikeSeconds, rike_completed_at: new Date().toISOString(), current_step: 'fengshang',
+      rike_completed: true, rike_read_seconds: rikeSecondsRef.current, rike_completed_at: new Date().toISOString(), current_step: 'fengshang',
     })
     if (newProg) checkAndSettlePoints(newProg)
     // ★ 完成日课 → 检测探索者·台灯系列(完成 30 / 100 篇日课)
@@ -794,13 +838,7 @@ export default function GalleryDetailPage() {
         {tab === 'rike' && currentUser && (
           <div className="grid md:grid-cols-2 gap-8">
             <LeftPanel>
-              <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-full shadow-sm">
-                <span className="text-sm text-gray-500">已阅读</span>
-                <span className={`text-xl font-bold ${rikeSeconds >= 15 ? 'text-green-600' : 'text-gray-900'}`}>{rikeSeconds}</span>
-                <span className="text-sm text-gray-500">秒</span>
-                {rikeSeconds < 15 && <span className="text-xs text-gray-400">（还需 {15 - rikeSeconds} 秒）</span>}
-                {rikeSeconds >= 15 && <span className="text-green-600">✓</span>}
-              </div>
+              <RikeCounter secondsRef={rikeSecondsRef} />
             </LeftPanel>
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -832,14 +870,14 @@ export default function GalleryDetailPage() {
                     <div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-white">打开杂志阅读</span><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{rikePages.length} 页</span></div><p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>沉浸式图文导读体验</p></div>
                     <span className="text-lg text-white">→</span>
                   </button>
-                  {!rikeDone && <button onClick={completeRike} disabled={rikeSeconds < 15} className={`mt-4 px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>{rikeSeconds >= 15 ? '✓ 完成日课 (+20✨)' : `继续阅读 (${15 - rikeSeconds}s)`}</button>}
+                  {!rikeDone && <RikeDoneButton ready={rikeReady} secondsRef={rikeSecondsRef} onDone={completeRike} className="mt-4" />}
                   {rikeDone && !fengshangDone && <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>}
                 </div>
               ) : rikeArticle ? (
                 <div>
                   {rikeArticle.intro && <p className="mb-4" style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.6' }}>{convert(rikeArticle.intro)}</p>}
                   {rikeArticle.content && <div className="bg-white rounded-2xl p-6 shadow-sm mb-6" style={{ color: '#374151', lineHeight: '1.8', fontSize: '15px' }} dangerouslySetInnerHTML={{ __html: formatContent(convert(rikeArticle.content)) }} />}
-                  {!rikeDone && <button onClick={completeRike} disabled={rikeSeconds < 15} className={`px-8 py-3 rounded-xl font-medium text-sm ${rikeSeconds >= 15 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>{rikeSeconds >= 15 ? '✓ 完成日课 (+20✨)' : `继续阅读 (${15 - rikeSeconds}s)`}</button>}
+                  {!rikeDone && <RikeDoneButton ready={rikeReady} secondsRef={rikeSecondsRef} onDone={completeRike} />}
                   {rikeDone && !fengshangDone && <button onClick={() => setTab('fengshang')} className="mt-4 px-8 py-3 rounded-xl font-medium text-white" style={{ backgroundColor: '#111827' }}>前往风赏 🎐 →</button>}
                 </div>
               ) : (
