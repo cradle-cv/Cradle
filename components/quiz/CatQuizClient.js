@@ -60,17 +60,41 @@ function firstSentence(text) {
   return m ? m[0] : text
 }
 
-function saveResult(variant, outcome) {
+async function saveResult(variant, outcome) {
+  const catId = outcome.results[0].profile.id
+  // 未登录也记在本地，这样不注册也能拥有自己那只猫
+  try { localStorage.setItem('bao_companion', catId) } catch (_) {}
+
   try {
-    supabase.from('quiz_results').insert({
+    let userId = null
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: u } = await supabase.from('users')
+        .select('id').eq('auth_id', session.user.id).maybeSingle()
+      userId = u?.id || null
+    }
+
+    await supabase.from('quiz_results').insert({
       quiz_type: 'cat',
       variant,
-      profile_id: outcome.results[0].profile.id,
+      profile_id: catId,
       second_profile_id: outcome.dual ? outcome.results[1].profile.id : null,
       is_dual: outcome.dual,
       u_vector: outcome.U,
-    }).then(() => {}, () => {})
-  } catch (_) { /* 静默失败 */ }
+      user_id: userId,
+    })
+
+    // 登录的人：把这只猫设成陪着他的伙伴
+    if (userId) {
+      await supabase.from('user_companion').upsert({
+        user_id: userId,
+        companion_id: catId,
+        source: 'quiz',
+        u_vector: outcome.U,
+        updated_at: new Date().toISOString(),
+      })
+    }
+  } catch (_) { /* 静默失败，不影响测试本身 */ }
 }
 
 export default function CatQuizClient({ variant = 'mirror' }) {
