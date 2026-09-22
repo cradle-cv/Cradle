@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAdminList } from '@/components/admin/useAdminList'
 
 export default function AdminArtistsPage() {
   const router = useRouter()
@@ -47,6 +48,15 @@ export default function AdminArtistsPage() {
     setArtists(data || [])
     setLoading(false)
   }
+
+  const { shown, bar } = useAdminList(artists, {
+    searchKeys: ['display_name', 'specialty', 'users.username', 'users.email'],
+    filters: [
+      { key: 'is_master', label: '大师', options: [{ v: 'true', l: '是' }, { v: 'false', l: '否' }] },
+      { key: 'show_on_homepage', label: '首页', options: [{ v: 'true', l: '展示' }, { v: 'false', l: '不展示' }] },
+    ],
+    pageSize: 30,
+  })
 
   if (loading) {
     return (
@@ -100,11 +110,13 @@ export default function AdminArtistsPage() {
         />
       </div>
 
+      {bar}
+
       {/* 艺术家列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <div className="space-y-4">
-            {artists.map((artist) => (
+            {shown.map((artist) => (
               <div
                 key={artist.id}
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
