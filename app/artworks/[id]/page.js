@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
+import CollectionNotes from '@/components/CollectionNotes'
 
 // 图标路径（R2 CDN）
 const COIN_GOLD = 'https://cdn.cradle.art/assets/gold-coin-100.png?v=2'
@@ -39,6 +40,7 @@ export default function ArtworkDetailPage() {
 
   // 留言
   const [comments, setComments] = useState([])
+  const [collectionNotes, setCollectionNotes] = useState([])
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
 
@@ -100,6 +102,12 @@ export default function ArtworkDetailPage() {
       const { data: tagLinks } = await supabase
         .from('artwork_tags').select('tags(*)').eq('artwork_id', id)
       setTags(tagLinks?.map(l => l.tags).filter(Boolean) || [])
+
+      // 收藏回馈
+      const { data: notes } = await supabase
+        .from('artwork_collections').select('*')
+        .eq('artwork_id', id).order('display_order').order('created_at')
+      setCollectionNotes(notes || [])
 
       if (w.artist_id) {
         const { data: related } = await supabase
@@ -632,6 +640,8 @@ export default function ArtworkDetailPage() {
                 </div>
               )}
             </div>
+
+            <CollectionNotes notes={collectionNotes} />
 
             {recentTips.length > 0 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
