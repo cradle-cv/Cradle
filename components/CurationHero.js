@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import MotionCover from '@/components/MotionCover'
+import ResponsiveRail from '@/components/ResponsiveRail'
+import { imgUrl } from '@/lib/img'
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
   'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
@@ -114,12 +116,12 @@ export default function CurationHero({ curations }) {
         </div>
 
         {/* ── 三幅画 ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+        <ResponsiveRail mobileWidth="85%" desktopCols={3} gap={16}>
           {works.map(w => (
             <a key={w.id} href={`/gallery/${w.id}`} className="group block">
               <div className="rounded-xl overflow-hidden"
                 style={{ aspectRatio: '3 / 4', backgroundColor: '#F3F4F6' }}>
-                <MotionCover cover={w.cover_image} motion={w.motion_image} alt={w.title} />
+                <MotionCover cover={imgUrl(w.cover_image, 700)} motion={w.motion_image} alt={w.title} />
               </div>
               <p className="font-medium truncate mt-3" style={{ fontSize: '14px', color: '#111827' }}>
                 {w.title}
@@ -129,7 +131,7 @@ export default function CurationHero({ curations }) {
               </p>
             </a>
           ))}
-        </div>
+        </ResponsiveRail>
 
         {/* ── 引言 ── */}
         {quote && (
