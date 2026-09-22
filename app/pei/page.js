@@ -33,20 +33,21 @@ const PARTS = [
 const REQ_IDS = PARTS.filter(p=>p.req).map(p=>p.id)
 
 
-const emptyParts = () => PARTS.map(p=>({id:p.id, model:"", price:"", img:""}))
+const emptyParts = () => PARTS.map(p=>({id:p.id, model:"", price:"", img:"", link:""}))
+const extractUrl = t => { const m=String(t||"").match(/https?:\/\/[^\s"'<>，。）】]+/); return m?m[0]:"" }
 const num = v => { const n=parseFloat(v); return isNaN(n)?0:n }
 const calcTotal = parts => parts.reduce((s,p)=>s+num(p.price),0)
 
 function scoreBuild(parts, budget){
   const req = parts.filter(p=>REQ_IDS.includes(p.id))
   const models = req.filter(p=>p.model.trim()).length
-  const imgs = req.filter(p=>p.img).length
+  const imgs = req.filter(p=>p.img||extractUrl(p.link)).length
   const prices = req.filter(p=>p.price!==""&&num(p.price)>=0&&(p.id==="gpu"||num(p.price)>0)).length
   const total = calcTotal(parts)
   const inBudget = total>0 && total<=budget
   const detail = [
     {desc:"必选硬件填写型号", got:models, of:8, pts:Math.round(models/8*40), max:40},
-    {desc:"必选硬件上传图片", got:imgs,   of:8, pts:Math.round(imgs/8*20),   max:20},
+    {desc:"必选硬件有图片或商品链接", got:imgs,   of:8, pts:Math.round(imgs/8*20),   max:20},
     {desc:"必选硬件填写价格", got:prices, of:8, pts:Math.round(prices/8*20), max:20},
     {desc:`总价控制在预算 ¥${budget} 内`, got:inBudget?1:0, of:1, pts:inBudget?20:0, max:20},
   ]
@@ -110,32 +111,44 @@ const Page=({children,style={}})=>(
 )
 
 /* ── Build sheet (shared by student edit + teacher view) ── */
-function PartCard({part,meta,readOnly,onChange}){
+function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
   const fileRef=useRef(null)
-  const [busy,setBusy]=useState(false)
-  async function pick(e){
-    const f=e.target.files?.[0]; if(!f) return
-    setBusy(true)
-    try{ const d=await compressImage(f); onChange({...part,img:d}) }
-    catch(_){ alert("图片读取失败，请换一张") }
-    setBusy(false); e.target.value=""
+  const [drag,setDrag]=useState(false)
+  const url=extractUrl(part.link)
+  const filled=part.model.trim()&&(part.img||url)&&part.price!==""
+  function pick(e){ const f=e.target.files?.[0]; if(f) onFile(f); e.target.value="" }
+  function drop(e){
+    e.preventDefault(); setDrag(false); onActivate&&onActivate()
+    const f=[...(e.dataTransfer?.files||[])].find(x=>x.type.startsWith("image/"))
+    if(f) onFile(f)
   }
-  const filled=part.model.trim()&&part.img&&part.price!==""
   return(
-    <div style={{background:"#fff",borderRadius:12,overflow:"hidden",
-      border:`1.5px solid ${filled?"#6ee7b7":meta.req?C.border:"#f1f5f9"}`}}>
-      <div onClick={()=>!readOnly&&fileRef.current?.click()} style={{height:120,background:"#f8fafc",
-        display:"flex",alignItems:"center",justifyContent:"center",position:"relative",
-        cursor:readOnly?"default":"pointer",borderBottom:`1px solid ${C.border}`}}>
+    <div onMouseDown={()=>!readOnly&&onActivate&&onActivate()} style={{background:"#fff",borderRadius:12,overflow:"hidden",
+      border:`2px solid ${active?C.accent:filled?"#6ee7b7":meta.req?C.border:"#f1f5f9"}`,
+      boxShadow:active?"0 0 0 3px #cffafe":"none",transition:"box-shadow .15s"}}>
+      <div onDragOver={e=>{if(readOnly)return;e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
+        onDrop={readOnly?undefined:drop}
+        style={{height:120,background:drag?"#cffafe":"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",
+          position:"relative",borderBottom:`1px solid ${C.border}`}}>
         {part.img
           ? <img src={part.img} alt={meta.name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",padding:6}}/>
-          : <div style={{textAlign:"center",color:"#94a3b8"}}>
-              <div style={{fontSize:30}}>{meta.emoji}</div>
-              <div style={{fontSize:11,marginTop:4}}>{readOnly?"未上传图片":busy?"处理中…":"点击上传图片"}</div>
+          : <div style={{textAlign:"center",color:"#94a3b8",fontSize:11,lineHeight:1.6}}>
+              <div style={{fontSize:28}}>{meta.emoji}</div>
+              {readOnly
+                ? <div>{url?"未传图，见商品链接":"未上传图片"}</div>
+                : <>
+                    <div>{active?"按 Ctrl+V 粘贴截图":"点选卡片后 Ctrl+V 粘贴"}</div>
+                    <div>或拖入图片 · <span onClick={e=>{e.stopPropagation();fileRef.current?.click()}}
+                      style={{color:C.accent,cursor:"pointer",textDecoration:"underline"}}>选择文件</span></div>
+                  </>}
             </div>}
         {part.img&&!readOnly&&(
           <button onClick={e=>{e.stopPropagation();onChange({...part,img:""})}} style={{position:"absolute",top:6,right:6,
             width:22,height:22,borderRadius:11,border:"none",background:"rgba(0,0,0,.45)",color:"#fff",cursor:"pointer",fontSize:12}}>✕</button>
+        )}
+        {part.img&&!readOnly&&(
+          <button onClick={e=>{e.stopPropagation();fileRef.current?.click()}} style={{position:"absolute",bottom:6,right:6,
+            padding:"2px 8px",borderRadius:6,border:"none",background:"rgba(0,0,0,.45)",color:"#fff",cursor:"pointer",fontSize:10}}>换图</button>
         )}
         <input ref={fileRef} type="file" accept="image/*" onChange={pick} style={{display:"none"}}/>
       </div>
@@ -148,19 +161,29 @@ function PartCard({part,meta,readOnly,onChange}){
         {readOnly
           ? <>
               <div style={{fontSize:12,color:part.model?C.text:"#94a3b8",minHeight:18}}>{part.model||"未填写型号"}</div>
-              <div style={{fontSize:15,fontWeight:900,color:C.accent,fontFamily:FM,marginTop:4}}>
-                {part.price!==""?`¥${num(part.price).toLocaleString()}`:"—"}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
+                <span style={{fontSize:15,fontWeight:900,color:C.accent,fontFamily:FM}}>
+                  {part.price!==""?`¥${num(part.price).toLocaleString()}`:"—"}</span>
+                {url&&<a href={url} target="_blank" rel="noopener noreferrer"
+                  style={{fontSize:11,color:C.accent,fontWeight:700,textDecoration:"none"}}>🔗 查看商品</a>}
+              </div>
             </>
           : <>
               <input value={part.model} maxLength={40} placeholder={meta.hint}
                 onChange={e=>onChange({...part,model:e.target.value})}
                 style={inp({padding:"7px 9px",fontSize:12,marginBottom:6})}/>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
                 <span style={{fontSize:13,color:C.muted}}>¥</span>
                 <input type="number" min="0" value={part.price} placeholder="参考价格"
                   onChange={e=>onChange({...part,price:e.target.value})}
                   style={inp({padding:"7px 9px",fontSize:13,fontWeight:700,fontFamily:FM})}/>
               </div>
+              <input value={part.link||""} placeholder="🔗 粘贴商品链接（可代替图片）"
+                onChange={e=>onChange({...part,link:e.target.value})}
+                onBlur={e=>{const u=extractUrl(e.target.value); if(u&&u!==e.target.value) onChange({...part,link:u})}}
+                style={inp({padding:"6px 9px",fontSize:11,color:url?C.accentDark:C.text,
+                  borderColor:part.link&&!url?"#fca5a5":C.border})}/>
+              {part.link&&!url&&<div style={{fontSize:10,color:C.red,marginTop:3}}>没识别到网址，请复制完整链接</div>}
             </>}
       </div>
     </div>
@@ -168,12 +191,39 @@ function PartCard({part,meta,readOnly,onChange}){
 }
 
 function BuildGrid({parts,readOnly,onPart}){
+  const [activeId,setActiveId]=useState(null)
+  const partsRef=useRef(parts); partsRef.current=parts
+  const onPartRef=useRef(onPart); onPartRef.current=onPart
+  const getPart=id=>partsRef.current.find(p=>p.id===id)||{id,model:"",price:"",img:"",link:""}
+
+  async function addFile(id,file){
+    try{ const d=await compressImage(file); onPartRef.current&&onPartRef.current({...getPart(id),img:d}) }
+    catch(_){ alert("图片读取失败，请换一张") }
+  }
+
+  useEffect(()=>{
+    if(readOnly) return
+    function onPaste(e){
+      if(!activeId) return
+      const items=[...(e.clipboardData?.items||[])]
+      const imgItem=items.find(it=>it.kind==="file"&&it.type.startsWith("image/"))
+      if(imgItem){ e.preventDefault(); const f=imgItem.getAsFile(); if(f) addFile(activeId,f); return }
+      const tag=(e.target?.tagName||"").toLowerCase()
+      if(tag==="input"||tag==="textarea") return
+      const u=extractUrl(e.clipboardData?.getData("text"))
+      if(u){ e.preventDefault(); onPartRef.current&&onPartRef.current({...getPart(activeId),link:u}) }
+    }
+    document.addEventListener("paste",onPaste)
+    return()=>document.removeEventListener("paste",onPaste)
+  },[activeId,readOnly])
+
   return(
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12}}>
       {PARTS.map(meta=>{
-        const part=parts.find(p=>p.id===meta.id)||{id:meta.id,model:"",price:"",img:""}
+        const part={link:"",...(parts.find(p=>p.id===meta.id)||{id:meta.id,model:"",price:"",img:""})}
         return <PartCard key={meta.id} part={part} meta={meta} readOnly={readOnly}
-          onChange={np=>onPart&&onPart(np)}/>
+          active={!readOnly&&activeId===meta.id} onActivate={()=>setActiveId(meta.id)}
+          onFile={f=>addFile(meta.id,f)} onChange={np=>onPart&&onPart(np)}/>
       })}
     </div>
   )
@@ -629,7 +679,7 @@ function SBuild({me,task,onBack}){
       <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
         <Card style={{marginBottom:16,background:"#ecfeff",border:"1px solid #a5f3fc",padding:"14px 18px"}}>
           <div style={{fontSize:13,lineHeight:1.7}}>{task.scenario}</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:6}}>在电商平台搜索硬件，保存商品图片上传，填写型号和当前售价。内容自动保存。</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:6}}>在电商平台搜索硬件，填写型号和当前售价。图片可截图后点选卡片按 Ctrl+V 粘贴，也可直接粘贴商品分享链接代替图片。内容自动保存。</div>
         </Card>
         {locked&&(
           <Card style={{marginBottom:16,padding:"14px 18px"}}>
