@@ -31,19 +31,50 @@ const PARTS = [
   {id:"hdd",    name:"机械硬盘",    emoji:"📀", req:false, hint:"如 希捷 2T（可选）"},
 ]
 const REQ_IDS = PARTS.filter(p=>p.req).map(p=>p.id)
+const LAPTOP_PARTS = [
+  {id:"laptop", name:"笔记本整机",    emoji:"💻", req:true,  hint:"品牌+型号，如 联想 小新 Pro 14 2025", wide:true},
+  {id:"monitor",name:"外接显示器",    emoji:"🖥️", req:false, hint:"如 AOC 27寸 2K（可选）"},
+  {id:"kb",     name:"键盘",          emoji:"⌨️", req:false, hint:"如 罗技 K845（可选）"},
+  {id:"mouse",  name:"鼠标",          emoji:"🖱️", req:false, hint:"如 罗技 G102（可选）"},
+  {id:"bag",    name:"电脑包 / 支架", emoji:"🎒", req:false, hint:"如 绿联 笔记本支架（可选）"},
+]
+const LAPTOP_SPECS = [
+  {k:"cpu",    label:"CPU",  hint:"如 酷睿 Ultra 5 125H"},
+  {k:"ram",    label:"内存", hint:"如 32G LPDDR5X"},
+  {k:"ssd",    label:"硬盘", hint:"如 1T 固态"},
+  {k:"gpu",    label:"显卡", hint:"如 集成显卡 / RTX 4060"},
+  {k:"screen", label:"屏幕", hint:"如 14寸 2.8K 120Hz"},
+]
+const MODE_LABEL = {desktop:"台式机组装", laptop:"笔记本整机", either:"学生自选"}
+const metasFor = mode => mode==="laptop"?LAPTOP_PARTS:PARTS
+const ALL_IDS = [...new Set([...PARTS,...LAPTOP_PARTS].map(p=>p.id))]
 
 
-const emptyParts = () => PARTS.map(p=>({id:p.id, model:"", price:"", img:"", link:""}))
+const emptyParts = () => ALL_IDS.map(id=>({id, model:"", price:"", img:"", link:"", ...(id==="laptop"?{specs:{}}:{})}))
 const extractUrl = t => { const m=String(t||"").match(/https?:\/\/[^\s"'<>，。）】]+/); return m?m[0]:"" }
 const num = v => { const n=parseFloat(v); return isNaN(n)?0:n }
-const calcTotal = parts => parts.reduce((s,p)=>s+num(p.price),0)
+const calcTotal = (parts,mode="desktop") => { const ids=metasFor(mode).map(m=>m.id); return parts.filter(p=>ids.includes(p.id)).reduce((s,p)=>s+num(p.price),0) }
 
-function scoreBuild(parts, budget){
+function scoreBuild(parts, budget, mode="desktop"){
+  if(mode==="laptop"){
+    const lp=parts.find(p=>p.id==="laptop")||{model:"",price:"",img:"",link:"",specs:{}}
+    const specN=LAPTOP_SPECS.filter(s=>String(lp.specs?.[s.k]||"").trim()).length
+    const total=calcTotal(parts,"laptop")
+    const inBudget=total>0&&total<=budget
+    const detail=[
+      {desc:"填写整机品牌型号",         got:lp.model.trim()?1:0, of:1, pts:lp.model.trim()?20:0, max:20},
+      {desc:"整机有图片或商品链接",     got:(lp.img||extractUrl(lp.link))?1:0, of:1, pts:(lp.img||extractUrl(lp.link))?20:0, max:20},
+      {desc:"填写主要配置参数",         got:specN, of:5, pts:Math.round(specN/5*20), max:20},
+      {desc:"填写整机价格",             got:num(lp.price)>0?1:0, of:1, pts:num(lp.price)>0?20:0, max:20},
+      {desc:`总价控制在预算 ¥${budget} 内`, got:inBudget?1:0, of:1, pts:inBudget?20:0, max:20},
+    ]
+    return {score:detail.reduce((s,d)=>s+d.pts,0), detail, total}
+  }
   const req = parts.filter(p=>REQ_IDS.includes(p.id))
   const models = req.filter(p=>p.model.trim()).length
   const imgs = req.filter(p=>p.img||extractUrl(p.link)).length
   const prices = req.filter(p=>p.price!==""&&num(p.price)>=0&&(p.id==="gpu"||num(p.price)>0)).length
-  const total = calcTotal(parts)
+  const total = calcTotal(parts,"desktop")
   const inBudget = total>0 && total<=budget
   const detail = [
     {desc:"必选硬件填写型号", got:models, of:8, pts:Math.round(models/8*40), max:40},
@@ -124,11 +155,12 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
   }
   return(
     <div onMouseDown={()=>!readOnly&&onActivate&&onActivate()} style={{background:"#fff",borderRadius:12,overflow:"hidden",
+      gridColumn:meta.wide?"1 / -1":undefined,
       border:`2px solid ${active?C.accent:filled?"#6ee7b7":meta.req?C.border:"#f1f5f9"}`,
       boxShadow:active?"0 0 0 3px #cffafe":"none",transition:"box-shadow .15s"}}>
       <div onDragOver={e=>{if(readOnly)return;e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
         onDrop={readOnly?undefined:drop}
-        style={{height:120,background:drag?"#cffafe":"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",
+        style={{height:meta.wide?180:120,background:drag?"#cffafe":"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",
           position:"relative",borderBottom:`1px solid ${C.border}`}}>
         {part.img
           ? <img src={part.img} alt={meta.name} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",padding:6}}/>
@@ -161,6 +193,14 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
         {readOnly
           ? <>
               <div style={{fontSize:12,color:part.model?C.text:"#94a3b8",minHeight:18}}>{part.model||"未填写型号"}</div>
+              {meta.id==="laptop"&&(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:4,margin:"6px 0",fontSize:12}}>
+                  {LAPTOP_SPECS.map(s=>(
+                    <div key={s.k}><span style={{color:C.muted}}>{s.label}：</span>
+                      <span style={{color:part.specs?.[s.k]?C.text:"#cbd5e1"}}>{part.specs?.[s.k]||"未填"}</span></div>
+                  ))}
+                </div>
+              )}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
                 <span style={{fontSize:15,fontWeight:900,color:C.accent,fontFamily:FM}}>
                   {part.price!==""?`¥${num(part.price).toLocaleString()}`:"—"}</span>
@@ -172,6 +212,18 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
               <input value={part.model} maxLength={40} placeholder={meta.hint}
                 onChange={e=>onChange({...part,model:e.target.value})}
                 style={inp({padding:"7px 9px",fontSize:12,marginBottom:6})}/>
+              {meta.id==="laptop"&&(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:6,marginBottom:6}}>
+                  {LAPTOP_SPECS.map(s=>(
+                    <div key={s.k} style={{display:"flex",alignItems:"center",gap:4}}>
+                      <span style={{fontSize:11,color:C.muted,minWidth:28}}>{s.label}</span>
+                      <input value={part.specs?.[s.k]||""} maxLength={30} placeholder={s.hint}
+                        onChange={e=>onChange({...part,specs:{...(part.specs||{}),[s.k]:e.target.value}})}
+                        style={inp({padding:"6px 8px",fontSize:12})}/>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
                 <span style={{fontSize:13,color:C.muted}}>¥</span>
                 <input type="number" min="0" value={part.price} placeholder="参考价格"
@@ -190,11 +242,11 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
   )
 }
 
-function BuildGrid({parts,readOnly,onPart}){
+function BuildGrid({parts,readOnly,onPart,mode="desktop"}){
   const [activeId,setActiveId]=useState(null)
   const partsRef=useRef(parts); partsRef.current=parts
   const onPartRef=useRef(onPart); onPartRef.current=onPart
-  const getPart=id=>partsRef.current.find(p=>p.id===id)||{id,model:"",price:"",img:"",link:""}
+  const getPart=id=>partsRef.current.find(p=>p.id===id)||{id,model:"",price:"",img:"",link:"",specs:{}}
 
   async function addFile(id,file){
     try{ const d=await compressImage(file); onPartRef.current&&onPartRef.current({...getPart(id),img:d}) }
@@ -219,8 +271,8 @@ function BuildGrid({parts,readOnly,onPart}){
 
   return(
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12}}>
-      {PARTS.map(meta=>{
-        const part={link:"",...(parts.find(p=>p.id===meta.id)||{id:meta.id,model:"",price:"",img:""})}
+      {metasFor(mode).map(meta=>{
+        const part={link:"",specs:{},...(parts.find(p=>p.id===meta.id)||{id:meta.id,model:"",price:"",img:""})}
         return <PartCard key={meta.id} part={part} meta={meta} readOnly={readOnly}
           active={!readOnly&&activeId===meta.id} onActivate={()=>setActiveId(meta.id)}
           onFile={f=>addFile(meta.id,f)} onChange={np=>onPart&&onPart(np)}/>
@@ -294,11 +346,12 @@ function TaskForm({task,onSaved,onCancel}){
   const [title,setTitle]=useState(task?.title||"")
   const [scenario,setScenario]=useState(task?.scenario||"")
   const [budget,setBudget]=useState(task?.budget_limit||5000)
+  const [dtype,setDtype]=useState(task?.device_type||"desktop")
   const [saving,setSaving]=useState(false)
   async function save(){
     if(!title.trim()||!scenario.trim()||!(budget>0)){ alert("请填写任务名称、场景说明和预算"); return }
     setSaving(true)
-    const payload={title:title.trim(),scenario:scenario.trim(),budget_limit:budget}
+    const payload={title:title.trim(),scenario:scenario.trim(),budget_limit:budget,device_type:dtype}
     const {error}=task
       ? await sb.from("pei_tasks").update(payload).eq("id",task.id)
       : await sb.from("pei_tasks").insert(payload)
@@ -310,6 +363,12 @@ function TaskForm({task,onSaved,onCancel}){
       <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="任务名称，如 学生游戏主机" style={inp({marginBottom:8,fontWeight:700})}/>
       <textarea value={scenario} onChange={e=>setScenario(e.target.value)} rows={3} placeholder="描述客户需求，学生据此选配硬件"
         style={inp({resize:"vertical",lineHeight:1.7,marginBottom:8})}/>
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        {Object.entries(MODE_LABEL).map(([k,l])=>(
+          <button key={k} onClick={()=>setDtype(k)} style={{flex:1,padding:"6px 4px",borderRadius:7,cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:700,
+            border:`1.5px solid ${dtype===k?C.accent:C.border}`,background:dtype===k?"#ecfeff":"#fff",color:dtype===k?C.accentDark:C.muted}}>{l}</button>
+        ))}
+      </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <span style={{fontSize:12,color:C.muted}}>预算 ¥</span>
         <input type="number" min={500} value={budget} onChange={e=>setBudget(Number(e.target.value))}
@@ -348,7 +407,7 @@ function TAdmin({onLogout}){
     if(!selId) return
     setOpenId(null)
     const load=()=>sb.from("pei_submissions")
-      .select("id,class_name,student_name,total_price,submitted,auto_score,auto_detail,teacher_score,teacher_note,updated_at")
+      .select("id,class_name,student_name,total_price,submitted,auto_score,auto_detail,teacher_score,teacher_note,updated_at,build_mode")
       .eq("task_id",selId).then(({data})=>data&&setSubs(data))
     load(); const t=setInterval(load,6000)
     return()=>clearInterval(t)
@@ -412,7 +471,7 @@ function TAdmin({onLogout}){
                     background:t.is_open?"#d1fae5":"#f1f5f9",color:t.is_open?C.green:C.muted}}>{t.is_open?"开放中":"已关闭"}</span>
                 </div>
                 <div style={{fontSize:12,color:C.muted,marginTop:4}}>
-                  预算 ¥{num(t.budget_limit).toLocaleString()} · {counts[t.id]?.done||0}/{counts[t.id]?.n||0} 人已提交
+                  {MODE_LABEL[t.device_type||"desktop"]} · 预算 ¥{num(t.budget_limit).toLocaleString()} · {counts[t.id]?.done||0}/{counts[t.id]?.n||0} 人已提交
                 </div>
                 {selId===t.id&&(
                   <div style={{display:"flex",gap:6,marginTop:10}} onClick={e=>e.stopPropagation()}>
@@ -453,6 +512,7 @@ function TAdmin({onLogout}){
                           <Card key={s.id} style={{marginBottom:8,padding:"12px 16px"}}>
                             <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>openSub(s)}>
                               <span style={{fontSize:11,color:C.muted,minWidth:60}}>{s.class_name}</span>
+                              <span title={MODE_LABEL[s.build_mode||"desktop"]} style={{fontSize:16}}>{s.build_mode==="laptop"?"💻":"🖥️"}</span>
                               <span style={{fontSize:15,fontWeight:700,minWidth:80}}>{s.student_name}</span>
                               <span style={{fontSize:11,padding:"2px 8px",borderRadius:5,fontWeight:700,
                                 background:s.submitted?"#d1fae5":"#f1f5f9",color:s.submitted?C.green:C.muted}}>{s.submitted?"已提交":"配机中"}</span>
@@ -467,7 +527,7 @@ function TAdmin({onLogout}){
                                 {openParts===null
                                   ? <div style={{color:C.muted,fontSize:13}}>加载中…</div>
                                   : <>
-                                      <BuildGrid parts={openParts} readOnly/>
+                                      <BuildGrid parts={openParts} readOnly mode={s.build_mode||"desktop"}/>
                                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:14}}>
                                         <div>
                                           <div style={{fontSize:12,color:C.muted,marginBottom:8}}>自动评分</div>
@@ -574,7 +634,8 @@ function STasks({me,onPick,onBack}){
               <div onClick={()=>onPick(t)} style={{display:"flex",alignItems:"center",gap:14}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:16,fontWeight:900}}>{t.title}
-                    <span style={{fontSize:13,color:C.accent,fontFamily:FM,marginLeft:10}}>预算 ¥{num(t.budget_limit).toLocaleString()}</span></div>
+                    <span style={{fontSize:13,color:C.accent,fontFamily:FM,marginLeft:10}}>预算 ¥{num(t.budget_limit).toLocaleString()}</span>
+                    <span style={{fontSize:11,marginLeft:8,padding:"2px 8px",borderRadius:5,background:"#f1f5f9",color:C.muted,fontWeight:700}}>{MODE_LABEL[t.device_type||"desktop"]}</span></div>
                   <div style={{fontSize:13,color:C.muted,lineHeight:1.7,marginTop:4}}>{t.scenario}</div>
                 </div>
                 <div style={{textAlign:"right",minWidth:90}}>
@@ -599,14 +660,17 @@ function SBuild({me,task,onBack}){
   const [saving,setSaving]=useState("")
   const saveTimer=useRef(null)
   const budget=num(task.budget_limit)
+  const dtype=task.device_type||"desktop"
+  const [mode,setMode]=useState(dtype==="laptop"?"laptop":"desktop")
+  const modeRef=useRef(mode); modeRef.current=mode
   const key={task_id:task.id,class_name:me.cls,student_name:me.name}
 
   useEffect(()=>{
-    const load=(first)=>sb.from("pei_submissions").select("parts,submitted,auto_score,auto_detail,teacher_score,teacher_note")
+    const load=(first)=>sb.from("pei_submissions").select("parts,submitted,auto_score,auto_detail,teacher_score,teacher_note,build_mode")
       .eq("task_id",task.id).eq("class_name",me.cls).eq("student_name",me.name).maybeSingle()
       .then(({data})=>{
         if(data){
-          if(first){ const saved=data.parts||[]; setParts(emptyParts().map(e=>({...e,...(saved.find(s=>s.id===e.id)||{})}))) }
+          if(first){ const saved=data.parts||[]; setParts(emptyParts().map(e=>({...e,...(saved.find(s=>s.id===e.id)||{})}))); if(dtype==="either"&&data.build_mode) setMode(data.build_mode) }
           setSub({...data,parts:undefined})
         }
         if(first) setLoaded(true)
@@ -616,10 +680,10 @@ function SBuild({me,task,onBack}){
     return()=>{ clearInterval(t); clearTimeout(saveTimer.current) }
   },[])
 
-  async function persist(next,submit=false){
-    const {score,detail,total}=scoreBuild(next,budget)
+  async function persist(next,submit=false,m=modeRef.current){
+    const {score,detail,total}=scoreBuild(next,budget,m)
     setSaving("保存中…")
-    const {error}=await sb.from("pei_submissions").upsert({...key,parts:next,total_price:total,auto_score:score,auto_detail:detail,
+    const {error}=await sb.from("pei_submissions").upsert({...key,parts:next,build_mode:m,total_price:total,auto_score:score,auto_detail:detail,
       updated_at:new Date().toISOString(),...(submit?{submitted:true}:{})},{onConflict:"task_id,class_name,student_name"})
     setSaving(error?"保存失败，请检查网络":"已自动保存")
     if(!error) setSub(s=>({...(s||{}),auto_score:score,auto_detail:detail,...(submit?{submitted:true}:{})}))
@@ -634,8 +698,8 @@ function SBuild({me,task,onBack}){
     saveTimer.current=setTimeout(()=>persist(next),1200)
   }
   async function submit(){
-    const missing=REQ_IDS.filter(id=>!parts.find(p=>p.id===id).model.trim()).length
-    if(missing&&!confirm(`还有 ${missing} 个必选硬件没填型号，确定提交吗？`)) return
+    const missing=metasFor(mode).filter(m=>m.req).filter(m=>!(parts.find(p=>p.id===m.id)?.model||"").trim()).length
+    if(missing&&!confirm(mode==="laptop"?"还没填笔记本整机型号，确定提交吗？":`还有 ${missing} 个必选硬件没填型号，确定提交吗？`)) return
     clearTimeout(saveTimer.current)
     await persist(parts,true)
   }
@@ -645,7 +709,11 @@ function SBuild({me,task,onBack}){
     setSub(s=>({...s,submitted:false}))
   }
 
-  const {score,detail,total}=scoreBuild(parts,budget)
+  function switchMode(m){
+    if(locked||m===mode) return
+    setMode(m); clearTimeout(saveTimer.current); persist(parts,false,m)
+  }
+  const {score,detail,total}=scoreBuild(parts,budget,mode)
   const over=total>budget
   const pct=Math.min(100,budget?total/budget*100:0)
   const final=sub?.teacher_score??(locked?sub?.auto_score:score)
@@ -679,6 +747,17 @@ function SBuild({me,task,onBack}){
       <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
         <Card style={{marginBottom:16,background:"#ecfeff",border:"1px solid #a5f3fc",padding:"14px 18px"}}>
           <div style={{fontSize:13,lineHeight:1.7}}>{task.scenario}</div>
+          {dtype==="either"&&(
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}>
+              <span style={{fontSize:12,color:C.muted}}>方案类型</span>
+              {["desktop","laptop"].map(m=>(
+                <button key={m} onClick={()=>switchMode(m)} disabled={locked} style={{padding:"6px 14px",borderRadius:8,fontFamily:F,fontSize:12,fontWeight:700,
+                  cursor:locked?"not-allowed":"pointer",border:`1.5px solid ${mode===m?C.accent:C.border}`,
+                  background:mode===m?"#fff":"transparent",color:mode===m?C.accentDark:C.muted}}>{m==="laptop"?"💻 笔记本整机":"🖥️ 台式机组装"}</button>
+              ))}
+              <span style={{fontSize:11,color:C.muted}}>切换后两边填的内容都会保留，按当前选中的方案计分</span>
+            </div>
+          )}
           <div style={{fontSize:12,color:C.muted,marginTop:6}}>在电商平台搜索硬件，填写型号和当前售价。图片可截图后点选卡片按 Ctrl+V 粘贴，也可直接粘贴商品分享链接代替图片。内容自动保存。</div>
         </Card>
         {locked&&(
@@ -689,7 +768,7 @@ function SBuild({me,task,onBack}){
             {sub?.teacher_note&&<div style={{marginTop:8,padding:"10px 12px",background:"#f5f3ff",borderRadius:8,fontSize:13}}>💬 {sub.teacher_note}</div>}
           </Card>
         )}
-        <BuildGrid parts={parts} readOnly={locked} onPart={onPart}/>
+        <BuildGrid parts={parts} readOnly={locked} onPart={onPart} mode={mode}/>
       </div>
     </Page>
   )
