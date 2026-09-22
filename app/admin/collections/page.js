@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useAdminList } from '@/components/admin/useAdminList'
 
 export default function AdminCollectionsPage() {
   const [collections, setCollections] = useState([])
@@ -55,6 +56,15 @@ export default function AdminCollectionsPage() {
     setCollections(collections || [])
     setLoading(false)
   }
+
+  const { shown, bar } = useAdminList(collections, {
+    searchKeys: ['title', 'title_en', 'description', 'artists.display_name', 'category'],
+    filters: [
+      { key: 'status', label: '状态', options: [{ v: 'published', l: '已发布' }, { v: 'draft', l: '草稿' }] },
+      { key: 'show_on_homepage', label: '首页', options: [{ v: 'true', l: '展示' }, { v: 'false', l: '不展示' }] },
+    ],
+    pageSize: 20,
+  })
 
   if (loading) {
     return (
@@ -113,11 +123,13 @@ export default function AdminCollectionsPage() {
         勾选「首页」后，该作品集才会出现在网站首页的作品集区。默认不展示，由你手动挑选。排序数字越小越靠前。
       </div>
 
+      {bar}
+
       {/* 作品集列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <div className="grid md:grid-cols-2 gap-6">
-            {collections.map((collection) => (
+            {shown.map((collection) => (
               <div
                 key={collection.id}
                 className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
