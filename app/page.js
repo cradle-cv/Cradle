@@ -4,6 +4,8 @@ import HorizontalRail from '@/components/HorizontalRail'
 import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
 import CurationHero from '@/components/CurationHero'
 import ParticipationBlock from '@/components/ParticipationBlock'
+import ResponsiveRail from '@/components/ResponsiveRail'
+import { imgUrl, imgSrcSet } from '@/lib/img'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -154,19 +156,21 @@ export default async function Home() {
 
                 <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
                   <div className="grid md:grid-cols-2 gap-0">
-                    <div className="relative">
+                    {/* 图：手机上固定 4:3；电脑上撑满整行高度，随右侧文字多少自动裁切，不留空 */}
+                    <div className="relative aspect-[4/3] md:aspect-auto md:min-h-[420px]">
                       <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
-                      <div className="aspect-[4/3]">
-                        <img loading="lazy" src={exhibition.cover_image || '/images/mryz.jpg'} alt={exhibition.title} className="w-full h-full object-cover" />
-                      </div>
+                      <img loading="lazy" src={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
+                        srcSet={imgSrcSet(exhibition.cover_image)} sizes="(max-width: 768px) 100vw, 50vw"
+                        alt={exhibition.title} className="absolute inset-0 w-full h-full object-cover" />
                     </div>
-                    <div className="p-6 md:p-10 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4">{exhibition.title}</h3>
+                    {/* 文字：自然流下，按钮跟在内容后面，不再被推到底部留空 */}
+                    <div className="p-6 md:p-10 flex flex-col">
+                      <div className="flex-1">
+                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4 line-clamp-2">{exhibition.title}</h3>
                         <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                          <span>{exhibition.curator_name}</span><span>·</span><span>{exhibition.location}</span>
+                          <span className="truncate">{exhibition.curator_name}</span><span>·</span><span className="truncate">{exhibition.location}</span>
                         </div>
-                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base">{exhibition.description}</p>
+                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base line-clamp-4">{exhibition.description}</p>
                         <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                           {exhibition.start_date && (
                             <div className="flex items-start gap-3">
@@ -237,12 +241,12 @@ export default async function Home() {
               <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">杂志社</h2>
               <p className="text-gray-600 text-sm md:text-base">沉浸式图文导读 · 用户原创精选</p>
             </div>
-            <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+            <ResponsiveRail mobileWidth="85%" desktopCols={2} gap={16}>
               {homepageDaily ? (
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
                     <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageDaily.cover_image ? (<img loading="lazy" src={homepageDaily.cover_image} alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
+                      {homepageDaily.cover_image ? (<img loading="lazy" src={imgUrl(homepageDaily.cover_image, 800)} srcSet={imgSrcSet(homepageDaily.cover_image)} sizes="(max-width: 768px) 85vw, 50vw" alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>📖 摇篮 Daily</div>
                       <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
@@ -261,7 +265,7 @@ export default async function Home() {
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
                     <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageSelect.cover_image ? (<img loading="lazy" src={homepageSelect.cover_image} alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>)}
+                      {homepageSelect.cover_image ? (<img loading="lazy" src={imgUrl(homepageSelect.cover_image, 800)} srcSet={imgSrcSet(homepageSelect.cover_image)} sizes="(max-width: 768px) 85vw, 50vw" alt={homepageSelect.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FCD34D)' }}><span className="text-5xl">⭐</span></div>)}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F59E0B', color: '#FFFFFF' }}>⭐ 摇篮 Select</div>
                       <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
@@ -280,7 +284,7 @@ export default async function Home() {
                   </div>
                 </a>
               ) : (<a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}><div className="text-center py-12"><div className="text-4xl mb-3">⭐</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Select</p><p className="text-sm" style={{ color: '#9CA3AF' }}>用户原创杂志精选即将上线</p></div></a>)}
-            </div>
+            </ResponsiveRail>
             <div className="text-center mt-8 md:mt-10">
               <a href="/magazine" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">进入杂志社 →</a>
             </div>
@@ -297,11 +301,11 @@ export default async function Home() {
               <p className="text-gray-600 text-sm md:text-base">浏览精选艺术作品集</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <ResponsiveRail mobileWidth="44%" desktopCols={4} gap={12}>
             {collections.map((collection) => (
               <a key={collection.id} href={`/collections/${collection.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group">
                 <div className="aspect-square bg-gray-100">
-                  {collection.cover_image ? (<img loading="lazy" src={collection.cover_image} alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
+                  {collection.cover_image ? (<img loading="lazy" src={imgUrl(collection.cover_image, 500)} srcSet={imgSrcSet(collection.cover_image, [300, 500, 800])} sizes="(max-width: 768px) 44vw, 25vw" alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
                 </div>
                 <div className="p-3 md:p-4">
                   <h3 className="font-bold text-gray-900 mb-1 line-clamp-1 text-sm md:text-base">{collection.title}</h3>
@@ -310,7 +314,7 @@ export default async function Home() {
                 </div>
               </a>
             ))}
-          </div>
+          </ResponsiveRail>
           <div className="text-center mt-8 md:mt-10">
             <a href="/collections" className="inline-block px-6 md:px-8 py-3 border-2 border-gray-900 text-gray-900 text-sm md:text-base font-medium rounded-lg hover:bg-gray-900 hover:text-white transition-colors">查看所有作品集 →</a>
           </div>
