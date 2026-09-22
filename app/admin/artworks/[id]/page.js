@@ -17,6 +17,11 @@ export default function EditArtworkPage({ params }) {
   const [tags, setTags] = useState([])
   const [selectedTags, setSelectedTags] = useState([])
   const fileInputRef = useRef(null)
+  const noteRef = useRef(null)
+  const [notes, setNotes] = useState([])
+  const [noteUploading, setNoteUploading] = useState(false)
+  const [noteForm, setNoteForm] = useState({ collector_name: '', collected_at: '', message: '' })
+  const [pendingNoteImage, setPendingNoteImage] = useState('')
   
   const [formData, setFormData] = useState({
     title: '',
@@ -38,6 +43,10 @@ export default function EditArtworkPage({ params }) {
       
       const { id } = await params
       setArtworkId(id)
+      // 收藏回馈
+      const { data: cn } = await supabase.from('artwork_collections').select('*')
+        .eq('artwork_id', id).order('display_order').order('created_at')
+      setNotes(cn || [])
       
       await Promise.all([
         loadArtwork(id),
@@ -164,6 +173,48 @@ export default function EditArtworkPage({ params }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  // ── 收藏回馈 ──
+  async function handleNoteImage(e) {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    setNoteUploading(true)
+    try {
+      const { url } = await uploadImage(file, 'collections')
+      setPendingNoteImage(url)
+    } catch (err) { alert('上传失败: ' + err.message) }
+    finally { setNoteUploading(false) }
+  }
+
+  async function addNote() {
+    if (!pendingNoteImage) { alert('先上传感谢便签的图片'); return }
+    const { data: { session } } = await supabase.auth.getSession()
+    let userId = null
+    if (session) {
+      const { data: u } = await supabase.from('users').select('id').eq('auth_id', session.user.id).maybeSingle()
+      userId = u?.id || null
+    }
+    const { data, error } = await supabase.from('artwork_collections').insert({
+      artwork_id: artworkId,
+      created_by: userId,
+      note_image: pendingNoteImage,
+      collector_name: noteForm.collector_name.trim() || null,
+      collected_at: noteForm.collected_at || null,
+      message: noteForm.message.trim() || null,
+      display_order: notes.length,
+    }).select().single()
+    if (error) { alert('保存失败: ' + error.message); return }
+    setNotes(prev => [...prev, data])
+    setPendingNoteImage('')
+    setNoteForm({ collector_name: '', collected_at: '', message: '' })
+  }
+
+  async function removeNote(id) {
+    if (!confirm('删除这条收藏回馈？')) return
+    const { error } = await supabase.from('artwork_collections').delete().eq('id', id)
+    if (error) { alert('删除失败: ' + error.message); return }
+    setNotes(prev => prev.filter(n => n.id !== id))
   }
 
   const handleSubmit = async (e) => {
@@ -404,6 +455,57 @@ export default function EditArtworkPage({ params }) {
                     {tag.name}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* 收藏回馈 */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">🎁 收藏回馈</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                作品被收藏之后，传一张感谢便签，记下收藏者的名字或留空表示匿名。不记金额，摇篮不经手交易。
+              </p>
+
+              {notes.length > 0 && (
+                <div className="space-y-3 mb-5">
+                  {notes.map((n) => (
+                    <div key={n.id} className="flex gap-3 items-start border rounded-lg p-3" style={{ borderColor: '#E5E7EB' }}>
+                      <img src={n.note_image} alt="" className="w-24 h-24 object-contain rounded flex-shrink-0" style={{ backgroundColor: '#FAF7F1' }} />
+                      <div className="flex-1 min-w-0 text-sm">
+                        <p className="text-gray-900">{n.collector_name || <span className="text-gray-400">匿名</span>}</p>
+                        {n.collected_at && <p className="text-gray-400 text-xs mt-0.5">{n.collected_at}</p>}
+                        {n.message && <p className="text-gray-500 mt-1">{n.message}</p>}
+                      </div>
+                      <button type="button" onClick={() => removeNote(n.id)} className="text-sm px-2 py-1" style={{ color: '#DC2626' }}>删除</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t pt-4 space-y-3" style={{ borderColor: '#F3F4F6' }}>
+                <input ref={noteRef} type="file" accept="image/*" onChange={handleNoteImage} className="hidden" />
+                <button type="button" disabled={noteUploading} onClick={() => noteRef.current?.click()}
+                  className="w-full px-4 py-3 border-2 border-dashed rounded-lg text-center transition-colors hover:border-blue-500 hover:bg-blue-50 disabled:opacity-50"
+                  style={{ borderColor: '#D1D5DB' }}>
+                  <div className="text-sm font-medium text-gray-900">
+                    {noteUploading ? '上传中…' : (pendingNoteImage ? '更换便签图片' : '上传感谢便签')}
+                  </div>
+                </button>
+                {pendingNoteImage && (
+                  <img src={pendingNoteImage} alt="" className="rounded-lg w-full max-w-xs object-contain" style={{ backgroundColor: '#FAF7F1', maxHeight: 220 }} />
+                )}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input type="text" value={noteForm.collector_name} onChange={e => setNoteForm(p => ({ ...p, collector_name: e.target.value }))}
+                    placeholder="收藏者（留空则匿名）" className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                  <input type="date" value={noteForm.collected_at} onChange={e => setNoteForm(p => ({ ...p, collected_at: e.target.value }))}
+                    className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                </div>
+                <input type="text" value={noteForm.message} onChange={e => setNoteForm(p => ({ ...p, message: e.target.value }))}
+                  placeholder="想附一句话（选填）" className="w-full px-4 py-2.5 border rounded-lg text-sm" style={{ borderColor: '#D1D5DB' }} />
+                <button type="button" onClick={addNote} disabled={!pendingNoteImage}
+                  className="px-5 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                  style={{ backgroundColor: '#111827' }}>
+                  添加这条回馈
+                </button>
               </div>
             </div>
           </div>
