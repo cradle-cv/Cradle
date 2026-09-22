@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useAdminList } from '@/components/admin/useAdminList'
 
 export default function AdminArtworksPage() {
   const [artworks, setArtworks] = useState([])
@@ -57,6 +58,14 @@ export default function AdminArtworksPage() {
     setLoading(false)
   }
 
+  const { shown, bar } = useAdminList(artworks, {
+    searchKeys: ['title', 'description', 'artists.display_name', 'category'],
+    filters: [
+      { key: 'status', label: '状态', options: [{ v: 'published', l: '已发布' }, { v: 'draft', l: '草稿' }, { v: 'archived', l: '已归档' }] },
+    ],
+    pageSize: 30,
+  })
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -109,11 +118,13 @@ export default function AdminArtworksPage() {
         />
       </div>
 
+      {bar}
+
       {/* 作品列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <div className="space-y-4">
-            {artworks.map((artwork) => (
+            {shown.map((artwork) => (
               <div
                 key={artwork.id}
                 className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
