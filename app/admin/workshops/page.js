@@ -47,7 +47,7 @@ export default function AdminWorkshopsPage() {
 
       setWorkshops(list.map(w => ({ ...w, signed: counts[w.id] || 0 })))
     } catch (err) {
-      console.error('加载工坊失败:', err)
+      console.error('加载工作坊失败:', err)
     } finally {
       setLoading(false)
     }
@@ -86,7 +86,7 @@ export default function AdminWorkshopsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">工坊管理</h1>
+            <h1 className="text-2xl font-bold text-gray-900">工作坊管理</h1>
             <p className="text-sm text-gray-500 mt-1">
               艺术家自建后提交待审，你放行才会出现在网站上。摇篮不经手收款，报名后由主办方自行联系。
             </p>
@@ -94,14 +94,14 @@ export default function AdminWorkshopsPage() {
           <Link href="/admin/workshops/new"
             className="px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: '#111827' }}>
-            ＋ 新建工坊
+            ＋ 新建工作坊
           </Link>
         </div>
 
         {pendingCount > 0 && (
           <div className="mt-4 px-4 py-3 rounded-lg"
             style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
-            有 {pendingCount} 场工坊等待审核
+            有 {pendingCount} 场工作坊等待审核
           </div>
         )}
       </div>
@@ -127,7 +127,7 @@ export default function AdminWorkshopsPage() {
       {shown.length === 0 ? (
         <div className="bg-white rounded-xl p-16 text-center shadow-sm">
           <div className="text-4xl mb-3">🛠️</div>
-          <p className="text-gray-500">这一类还没有工坊</p>
+          <p className="text-gray-500">这一类还没有工作坊</p>
         </div>
       ) : (
         <div className="space-y-3">
