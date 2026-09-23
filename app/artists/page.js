@@ -231,17 +231,6 @@ export default async function ArtistsPage() {
                     </p>
                   )}
 
-                  {/* 统计 */}
-                  <div className="flex items-center justify-center gap-4 text-xs text-gray-500 mt-4">
-                    <span className="inline-flex items-center gap-1">
-                      <IconPalette />
-                      {artist.artworks_count || 0} 作品
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <IconHeart />
-                      {artist.followers_count || 0} 关注
-                    </span>
-                  </div>
                 </a>
               ))}
             </div>
