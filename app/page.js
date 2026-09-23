@@ -121,7 +121,7 @@ function ExhibitionActionButton({ exhibition }) {
     return (
       <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base"
         style={{ backgroundColor: '#FEF3C7', color: '#B45309', cursor: 'default' }}>
-        📅 即将开展
+        即将开展
       </div>
     )
   }
@@ -130,7 +130,7 @@ function ExhibitionActionButton({ exhibition }) {
   return (
     <div className="px-6 md:px-8 py-3 md:py-4 font-medium rounded-lg self-start inline-block text-sm md:text-base"
       style={{ backgroundColor: '#D1D5DB', color: '#FFFFFF', cursor: 'default' }}>
-      🔨 布展中,敬请期待
+      布展中,敬请期待
     </div>
   )
 }
@@ -245,9 +245,9 @@ export default async function Home() {
                 <a href={`/magazine/view/${homepageDaily.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
                     <div className="relative h-48 md:h-80 overflow-hidden">
-                      {homepageDaily.cover_image ? (<img loading="lazy" src={imgUrl(homepageDaily.cover_image, 800)} srcSet={imgSrcSet(homepageDaily.cover_image)} sizes="(max-width: 768px) 85vw, 50vw" alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl">📖</span></div>)}
+                      {homepageDaily.cover_image ? (<img loading="lazy" src={imgUrl(homepageDaily.cover_image, 800)} srcSet={imgSrcSet(homepageDaily.cover_image)} sizes="(max-width: 768px) 85vw, 50vw" alt={homepageDaily.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />) : (<div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #E8D5F5, #C4A8E8)' }}><span className="text-5xl"></span></div>)}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>📖 摇篮 Daily</div>
+                      <div className="absolute top-3 md:top-4 left-3 md:left-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}>摇篮 Daily</div>
                       <div className="absolute bottom-3 md:bottom-4 left-4 md:left-5 right-4 md:right-5">
                         <h3 className="text-lg md:text-xl font-bold text-white mb-1 line-clamp-2">{homepageDaily.title}</h3>
                         {homepageDaily.subtitle && <p className="text-xs md:text-sm text-white/70 hidden md:block">{homepageDaily.subtitle}</p>}
@@ -259,7 +259,7 @@ export default async function Home() {
                     </div>
                   </div>
                 </a>
-              ) : (<a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}><div className="text-center py-12"><div className="text-4xl mb-3">📖</div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p><p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p></div></a>)}
+              ) : (<a href="/magazine" className="flex items-center justify-center bg-white rounded-2xl shadow-sm border-2 border-dashed hover:bg-gray-50 transition" style={{ borderColor: '#E5E7EB', minHeight: '280px' }}><div className="text-center py-12"><div className="text-4xl mb-3"></div><p className="font-bold mb-1" style={{ color: '#111827' }}>摇篮 Daily</p><p className="text-sm" style={{ color: '#9CA3AF' }}>官方日课杂志即将上线</p></div></a>)}
               {homepageSelect ? (
                 <a href={`/magazine/view/${homepageSelect.id}`} className="group">
                   <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full">
@@ -274,7 +274,7 @@ export default async function Home() {
                     </div>
                     <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {homepageSelect.users?.avatar_url ? (<img loading="lazy" src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}>👤</div>)}
+                        {homepageSelect.users?.avatar_url ? (<img loading="lazy" src={homepageSelect.users.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />) : (<div className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#F3F4F6' }}></div>)}
                         <span className="text-xs" style={{ color: '#6B7280' }}>{homepageSelect.users?.username || '用户原创'}</span>
                         {homepageSelect.pages_count > 0 && <span className="text-xs" style={{ color: '#9CA3AF' }}>· {homepageSelect.pages_count} 页</span>}
                       </div>
@@ -304,7 +304,7 @@ export default async function Home() {
             {collections.map((collection) => (
               <a key={collection.id} href={`/collections/${collection.id}`} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group">
                 <div className="aspect-square bg-gray-100">
-                  {collection.cover_image ? (<img loading="lazy" src={imgUrl(collection.cover_image, 500)} srcSet={imgSrcSet(collection.cover_image, [300, 500, 800])} sizes="(max-width: 768px) 44vw, 25vw" alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl">📚</div>)}
+                  {collection.cover_image ? (<img loading="lazy" src={imgUrl(collection.cover_image, 500)} srcSet={imgSrcSet(collection.cover_image, [300, 500, 800])} sizes="(max-width: 768px) 44vw, 25vw" alt={collection.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />) : (<div className="w-full h-full flex items-center justify-center text-4xl"></div>)}
                 </div>
                 <div className="p-3 md:p-4">
                   <h3 className="font-bold text-gray-900 mb-1 line-clamp-1 text-sm md:text-base">{collection.title}</h3>
@@ -334,7 +334,7 @@ export default async function Home() {
                   {(artist.avatar_url || artist.users?.avatar_url) ? (
                     <img loading="lazy" src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl md:text-4xl">👤</div>
+                    <div className="w-full h-full" style={{ backgroundColor: '#F3F4F6' }} />
                   )}
                 </div>
                 <h3 className="text-base md:text-xl font-bold text-gray-900 mb-1">{artist.display_name}</h3>
@@ -362,13 +362,13 @@ export default async function Home() {
             {partners.map((partner) => (
               <a key={partner.id} href={`/partners/${partner.id}`} className="bg-white rounded-lg p-4 md:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <div className="w-14 h-14 md:w-20 md:h-20 mb-3 md:mb-4 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center" style={{ flexShrink: 0 }}>
-                  {partner.logo_url ? <img loading="lazy" src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="text-2xl md:text-3xl">🏛️</div>}
+                  {partner.logo_url ? <img loading="lazy" src={partner.logo_url} alt={partner.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-sm font-medium" style={{ color: '#9CA3AF' }}>{partner.name?.slice(0, 1)}</div>}
                 </div>
                 <h3 className="text-sm md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-[#F59E0B] transition-colors">{partner.name}</h3>
                 {partner.name_en && <p className="text-xs text-gray-500 mb-2 md:mb-3 hidden md:block">{partner.name_en}</p>}
                 <p className="text-xs text-gray-600 hidden md:block" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{partner.description}</p>
                 <div style={{ flex: 1 }} />
-                {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full" style={{ marginTop: '12px' }}>📍 {partner.city}</div>}
+                {partner.city && <div className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full" style={{ marginTop: '12px' }}>{partner.city}</div>}
               </a>
             ))}
           </div>
