@@ -39,13 +39,22 @@ export async function POST(req) {
     if (!prompt || typeof prompt !== 'string') return NextResponse.json({ error: '缺少内容' }, { status: 400 })
     const p = prompt.slice(0, MAX_PROMPT)
 
+    // 免费模型高峰期常报「访问量过大」，按顺序换模型再试
+    const tryModels = async (models, content, temperature) => {
+      let last = null
+      for (const m of models) {
+        try { return await zhipu(m, content, temperature) } catch (err) { last = err }
+      }
+      throw last || new Error('翻译失败')
+    }
     let text
     if (image && typeof image === 'string' && image.startsWith('data:image/')) {
       if (image.length > 6e6) return NextResponse.json({ error: '图片太大，换一张再试' }, { status: 413 })
       const b64 = image.replace(/^data:image\/\w+;base64,/, '')
-      text = await zhipu(VISION_MODEL, [{ type: 'image_url', image_url: { url: b64 } }, { type: 'text', text: p }], 0.2)
+      const content = [{ type: 'image_url', image_url: { url: b64 } }, { type: 'text', text: p }]
+      text = await tryModels([VISION_MODEL, 'glm-4.1v-thinking-flash', 'glm-4v-plus'], content, 0.2)
     } else {
-      text = await zhipu(TEXT_MODEL, p, 0.3)
+      text = await tryModels([TEXT_MODEL, 'glm-4.5-flash', 'glm-4-flash-250414', 'glm-4-air'], p, 0.3)
     }
     return NextResponse.json({ text })
   } catch (e) {
