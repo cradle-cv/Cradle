@@ -97,6 +97,16 @@ const SECTIONS = [
     ],
   },
   {
+    key: 'trip',
+    icon: '',
+    label: '同行手账',
+    sub: '多人出游 · 独立子站',
+    prefixes: ['/admin/trip'],
+    links: [
+      { href: '/admin/trip', icon: '', label: '行程管理' },
+    ],
+  },
+  {
     key: 'users',
     icon: '👥',
     label: '用户管理',
