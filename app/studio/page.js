@@ -200,7 +200,7 @@ export default function StudioPage() {
         })
       }
       setWorkshops(list.map(w => ({ ...w, signed: counts[w.id] || 0 })))
-    } catch (e) { console.error('工坊:', e) }
+    } catch (e) { console.error('工作坊:', e) }
   }
 
   async function loadMagazines(userId) {
@@ -649,7 +649,7 @@ function ArtistModule({ user, isAdmin, artistRecord, artworks, collections, exhi
           { key: 'artworks', label: '🎨 我的作品', count: stats.artworks },
           { key: 'collections', label: '📚 我的作品集', count: stats.collections },
           { key: 'exhibitions', label: '🏛️ 观展邀请' },
-          { key: 'workshops', label: '🛠️ 我的工坊', count: workshops.length },
+          { key: 'workshops', label: '🛠️ 我的工作坊', count: workshops.length },
           { key: 'magazines', label: '📖 自制杂志', count: magazines.length },
           { key: 'mytools', label: '📋 我的待办' },
         ]}
@@ -906,7 +906,7 @@ function WorkshopsTab({ workshops, artistRecord, isAdmin }) {
     <div>
       <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: '#F9FAFB' }}>
         <p className="text-sm" style={{ color: '#374151', lineHeight: 1.9 }}>
-          工坊由你自己发起：定题目、定时间地点、定人数与费用。
+          工作坊由你自己发起：定题目、定时间地点、定人数与费用。
           <strong>摇篮不经手收款</strong>，有人报名之后，你会在这里看到他的称呼与联系方式，由你直接与他联系。
         </p>
         <p className="text-sm mt-2" style={{ color: '#6B7280', lineHeight: 1.9 }}>
@@ -917,7 +917,7 @@ function WorkshopsTab({ workshops, artistRecord, isAdmin }) {
       {!verified && (
         <div className="rounded-xl px-5 py-4 mb-5" style={{ backgroundColor: '#FEF3C7' }}>
           <p className="text-sm" style={{ color: '#92400E' }}>
-            发起工坊需要先通过艺术家认证。
+            发起工作坊需要先通过艺术家认证。
             <Link href="/profile/apply" className="underline ml-1">去申请认证</Link>
           </p>
         </div>
@@ -931,7 +931,7 @@ function WorkshopsTab({ workshops, artistRecord, isAdmin }) {
           <Link href="/studio/workshops/new"
             className="px-5 py-2.5 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: '#111827' }}>
-            ＋ 发起工坊
+            ＋ 发起工作坊
           </Link>
         )}
       </div>
@@ -939,7 +939,7 @@ function WorkshopsTab({ workshops, artistRecord, isAdmin }) {
       {workshops.length === 0 ? (
         <div className="bg-white rounded-xl p-14 text-center shadow-sm">
           <div className="text-4xl mb-3">🛠️</div>
-          <p className="text-gray-500 mb-1">你还没有发起过工坊</p>
+          <p className="text-gray-500 mb-1">你还没有发起过工作坊</p>
           <p className="text-sm text-gray-400">
             想教什么就开什么，一次几个人也可以
           </p>
