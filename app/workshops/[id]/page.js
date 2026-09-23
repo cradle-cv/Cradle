@@ -38,15 +38,15 @@ export async function generateMetadata({ params }) {
   const { id } = await params
   const { data: w } = await supabase
     .from('workshops').select('title, summary, cover_image, city, venue').eq('id', id).maybeSingle()
-  if (!w) return { title: '工坊' }
-  const desc = w.summary || `${w.city ? w.city + '｜' : ''}摇篮工坊《${w.title}》`
+  if (!w) return { title: '工作坊' }
+  const desc = w.summary || `${w.city ? w.city + '｜' : ''}摇篮工作坊《${w.title}》`
   return {
     title: w.title,
     description: desc,
     alternates: { canonical: `/workshops/${id}` },
     openGraph: {
       type: 'article',
-      title: `${w.title} · Cradle 摇篮工坊`,
+      title: `${w.title} · Cradle 摇篮工作坊`,
       description: desc,
       url: `https://www.cradle.art/workshops/${id}`,
       images: w.cover_image ? [{ url: w.cover_image }] : undefined,
@@ -80,7 +80,7 @@ export default async function WorkshopDetailPage({ params }) {
       <div className="max-w-3xl mx-auto px-6 pt-6 pb-14">
 
         <Link href="/workshops" className="text-sm" style={{ color: '#6B7280' }}>
-          ← 全部工坊
+          ← 全部工作坊
         </Link>
 
         {/* 主视觉：有现场照片用现场照片，没有用封面 */}
