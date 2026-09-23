@@ -12,11 +12,37 @@ async function getArtists() {
     .from('artists')
     .select('*, users:owner_user_id(id, username, avatar_url)')
 
+  // 每人第一件已发布作品的图，没头像时拿它当头像；顺带数一数各人有几件
+  const ids = (artists || []).map(a => a.id)
+  const firstWork = {}
+  const workCount = {}
+  if (ids.length > 0) {
+    const { data: works } = await supabase
+      .from('artworks')
+      .select('artist_id, image_url, created_at')
+      .in('artist_id', ids)
+      .eq('status', 'published')
+      .not('image_url', 'is', null)
+      .order('created_at', { ascending: true })
+    for (const w of works || []) {
+      workCount[w.artist_id] = (workCount[w.artist_id] || 0) + 1
+      if (!firstWork[w.artist_id]) firstWork[w.artist_id] = w.image_url
+    }
+  }
+  for (const a of artists || []) {
+    a._firstWork = firstWork[a.id] || null
+    a._workCount = workCount[a.id] || 0
+  }
+
   // 排序:名家(is_master)在前,其余在后;组内按 display_order 升序,再按加入时间倒序
   return (artists || []).sort((a, b) => {
     const av = a.is_master ? 0 : 1
     const bv = b.is_master ? 0 : 1
     if (av !== bv) return av - bv
+    // 有头像或有作品的排前面，两样都没有的垫底
+    const ac = (a.avatar_url || a.users?.avatar_url || a._firstWork) ? 0 : 1
+    const bc = (b.avatar_url || b.users?.avatar_url || b._firstWork) ? 0 : 1
+    if (ac !== bc) return ac - bc
     const ao = a.display_order ?? 0
     const bo = b.display_order ?? 0
     if (ao !== bo) return ao - bo
@@ -160,16 +186,25 @@ export default async function ArtistsPage() {
                   className="text-center group"
                 >
                   {/* 头像 */}
-                  <div className="w-36 h-36 rounded-full mx-auto mb-5 overflow-hidden bg-gray-50 border-3 border-transparent group-hover:border-[#F59E0B] transition-all shadow-md group-hover:shadow-xl flex items-center justify-center text-gray-400">
-                    {artist.avatar_url || artist.users?.avatar_url ? (
-                      <img
-                        src={artist.avatar_url || artist.users?.avatar_url}
-                        alt={artist.display_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <IconUser size={56} stroke={1.2} />
-                    )}
+                  <div className="w-36 h-36 rounded-full mx-auto mb-5 overflow-hidden border-3 border-transparent group-hover:border-[#F59E0B] transition-all shadow-md group-hover:shadow-xl flex items-center justify-center"
+                    style={{ backgroundColor: '#F3F4F6' }}>
+                    {(() => {
+                      const pic = artist.avatar_url || artist.users?.avatar_url || artist._firstWork
+                      if (pic) {
+                        return <img src={pic} alt={artist.display_name} className="w-full h-full object-cover" />
+                      }
+                      // 什么图都没有：名字首字，底色由名字算出，每个人固定一色
+                      const name = artist.display_name || '?'
+                      let h = 0
+                      for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+                      const hue = h % 360
+                      return (
+                        <div className="w-full h-full flex items-center justify-center"
+                          style={{ backgroundColor: `hsl(${hue} 28% 88%)`, color: `hsl(${hue} 30% 38%)`, fontSize: '44px', fontWeight: 500 }}>
+                          {name.slice(0, 1)}
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* 名称 */}
