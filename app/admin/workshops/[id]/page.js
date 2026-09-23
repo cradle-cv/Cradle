@@ -166,7 +166,7 @@ export default function EditWorkshopPage({ params }) {
   }
 
   async function save() {
-    if (!form.title.trim()) { alert('请填写工坊名称'); return }
+    if (!form.title.trim()) { alert('请填写工作坊名称'); return }
     setSaving(true)
     try {
       const payload = {
@@ -212,7 +212,7 @@ export default function EditWorkshopPage({ params }) {
           <button onClick={() => router.back()} className="text-sm mb-2" style={{ color: '#6B7280' }}>
             ← 返回
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">编辑工坊</h1>
+          <h1 className="text-2xl font-bold text-gray-900">编辑工作坊</h1>
         </div>
         <button onClick={save} disabled={saving}
           className="px-6 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
@@ -228,7 +228,7 @@ export default function EditWorkshopPage({ params }) {
           <h2 className="text-lg font-bold text-gray-900">📝 基本信息</h2>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">工坊名称</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">工作坊名称</label>
             <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
               className={inputCls} style={inputStyle} placeholder="如：肖不像画音乐工作坊" />
           </div>
@@ -443,7 +443,7 @@ export default function EditWorkshopPage({ params }) {
         {/* 现场照片 */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-1">📷 现场照片</h2>
-          <p className="text-sm text-gray-500 mb-4">办完之后传上来，会显示在这场工坊的页面上。</p>
+          <p className="text-sm text-gray-500 mb-4">办完之后传上来，会显示在这场工作坊的页面上。</p>
 
           <input ref={photoRef} type="file" accept="image/*" multiple onChange={handlePhotos} className="hidden" />
           <button type="button" disabled={photoUploading}
