@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 /**
- * 工坊报名：只登记姓名与联系方式，不收款。
+ * 工作坊报名：只登记姓名与联系方式，不收款。
  * 报名之后由主持人与报名者直接联系。
  */
 export default function WorkshopSignup({ workshopId, contactNote, full, closed }) {
