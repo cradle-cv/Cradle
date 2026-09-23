@@ -50,6 +50,6 @@ export async function POST(req) {
     return NextResponse.json({ text })
   } catch (e) {
     console.error('[trip/translate]', e)
-    return NextResponse.json({ error: '翻译没有完成，请再试一次' }, { status: 500 })
+    return NextResponse.json({ error: '翻译没有完成，请再试一次', detail: String((e && e.message) || e).slice(0, 200) }, { status: 500 })
   }
 }
