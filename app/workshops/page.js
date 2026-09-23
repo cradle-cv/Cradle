@@ -7,13 +7,13 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export const metadata = {
-  title: '工坊',
-  description: '跟着艺术家动手做一件东西。摇篮的工坊在南昌与台中都有。',
+  title: '工作坊',
+  description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
   alternates: { canonical: '/workshops' },
   openGraph: {
     type: 'website',
-    title: '工坊 · Cradle 摇篮',
-    description: '跟着艺术家动手做一件东西。摇篮的工坊在南昌与台中都有。',
+    title: '工作坊 · Cradle 摇篮',
+    description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
     url: 'https://www.cradle.art/workshops',
   },
 }
@@ -90,14 +90,14 @@ export default async function WorkshopsPage() {
           <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
             <div className="flex items-center justify-between">
               <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>
-                Cradle · 工坊
+                Cradle · 工作坊
               </span>
               <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
             </div>
           </div>
 
           <p className="text-sm mt-6 mb-10" style={{ color: '#6B7280', lineHeight: 2 }}>
-            跟着艺术家动手做一件东西。工坊由艺术家自己发起，摇篮不经手收款，报名之后由主持人与你直接联系。
+            跟着艺术家动手做一件东西。工作坊由艺术家自己发起，摇篮不经手收款，报名之后由主持人与你直接联系。
           </p>
 
           {/* ── 正在招募 ── */}
@@ -193,7 +193,7 @@ export default async function WorkshopsPage() {
           {workshops.length === 0 && (
             <div className="py-20 text-center">
               <div className="text-4xl mb-3">🛠️</div>
-              <p style={{ color: '#9CA3AF' }}>还没有工坊，敬请期待</p>
+              <p style={{ color: '#9CA3AF' }}>还没有工作坊，敬请期待</p>
             </div>
           )}
         </div>
