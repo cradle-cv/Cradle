@@ -139,6 +139,7 @@ export default function CurationHero({ curations }) {
             <p style={{
               fontSize: '13px', lineHeight: 2, color: '#6B7280', whiteSpace: 'pre-wrap',
               display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              textWrap: 'pretty',          // 末行不留孤字
             }}>
               {quote}
             </p>
