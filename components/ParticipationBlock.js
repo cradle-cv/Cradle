@@ -3,9 +3,13 @@ import ResponsiveRail from '@/components/ResponsiveRail'
 import { imgUrl, imgSrcSet } from '@/lib/img'
 
 /**
- * 首页「工坊」「参展邀请」。
- * 标题与首页其他模块同一规格；内容是一排卡片，手机横滑、电脑网格，和别的模块一致。
+ * 首页「工作坊 · 参展邀请」：两种参与方式并在同一排。
+ *
+ * 排序：招募中的工作坊 → 收稿中的邀请 → 办过的工作坊，最多六张。
+ * 眼下能参与的永远在前，超出的进各自的「全部」页。
  */
+
+const MAX = 6
 
 function fmtShort(d) {
   if (!d) return ''
@@ -18,17 +22,6 @@ function daysLeft(deadline) {
   const diff = new Date(deadline) - new Date()
   if (diff < 0) return null
   return Math.ceil(diff / 86400000)
-}
-
-function Head({ title, href, more }) {
-  return (
-    <div className="flex items-end justify-between mb-4 md:mb-6">
-      <h2 className="text-2xl md:text-4xl font-bold text-gray-900">{title}</h2>
-      <Link href={href} className="text-gray-600 hover:text-gray-900 text-xs md:text-sm mb-1">
-        {more} →
-      </Link>
-    </div>
-  )
 }
 
 function Card({ href, image, label, labelColor, title, meta, foot, footColor }) {
@@ -59,20 +52,38 @@ export default function ParticipationBlock({ workshops, invitations }) {
   const iList = invitations || []
   if (wList.length === 0 && iList.length === 0) return null
 
+  // 三档排序，取前六
+  const openW = wList.filter(w => w.is_open)
+  const pastW = wList.filter(w => !w.is_open)
+  const items = [
+    ...openW.map(w => ({ kind: 'workshop', data: w })),
+    ...iList.map(inv => ({ kind: 'invitation', data: inv })),
+    ...pastW.map(w => ({ kind: 'workshop', data: w })),
+  ].slice(0, MAX)
+
   return (
     <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
-      <div className="max-w-6xl mx-auto space-y-12 md:space-y-16">
+      <div className="max-w-6xl mx-auto">
 
-        {/* ── 工坊 ── */}
-        {wList.length > 0 && (
-          <div>
-            <Head title="工坊" href="/workshops" more="全部工坊" />
-            <ResponsiveRail mobileWidth="85%" desktopCols={3} gap={12}>
-              {wList.map(w => (
-                <Card key={w.id}
+        <div className="flex items-end justify-between mb-4 md:mb-6">
+          <h2 className="text-2xl md:text-4xl font-bold text-gray-900">
+            工作坊 <span className="text-gray-300 font-normal mx-1">·</span> 参展邀请
+          </h2>
+          <div className="flex gap-4 mb-1 text-xs md:text-sm">
+            <Link href="/workshops" className="text-gray-600 hover:text-gray-900">全部工作坊 →</Link>
+            <Link href="/invitations" className="text-gray-600 hover:text-gray-900">全部邀请 →</Link>
+          </div>
+        </div>
+
+        <ResponsiveRail mobileWidth="85%" desktopCols={3} gap={12}>
+          {items.map(({ kind, data }) => {
+            if (kind === 'workshop') {
+              const w = data
+              return (
+                <Card key={`w-${w.id}`}
                   href={`/workshops/${w.id}`}
                   image={w.cover_image || w.first_photo}
-                  label={w.is_open ? '招 募 中' : '办 过 的'}
+                  label={w.is_open ? '工 作 坊 · 招 募 中' : '工 作 坊 · 办 过 的'}
                   labelColor={w.is_open ? '#059669' : '#9CA3AF'}
                   title={w.title}
                   meta={[w.starts_at ? fmtShort(w.starts_at) : null, w.artist_name, w.venue].filter(Boolean).join(' · ')}
@@ -80,33 +91,23 @@ export default function ParticipationBlock({ workshops, invitations }) {
                     ? (w.capacity ? `余 ${Math.max(0, w.capacity - (w.signed || 0))} 位 →` : '正在招募 →')
                     : '看看当时的现场 →'}
                   footColor={w.is_open ? '#059669' : '#9CA3AF'} />
-              ))}
-            </ResponsiveRail>
-          </div>
-        )}
-
-        {/* ── 参展邀请 ── */}
-        {iList.length > 0 && (
-          <div>
-            <Head title="参展邀请" href="/invitations" more="全部邀请" />
-            <ResponsiveRail mobileWidth="85%" desktopCols={3} gap={12}>
-              {iList.map(inv => {
-                const left = daysLeft(inv.deadline)
-                return (
-                  <Card key={inv.id}
-                    href={`/invitations/${inv.id}`}
-                    image={inv.cover_image}
-                    label="正 在 收 稿"
-                    labelColor="#B45309"
-                    title={inv.title}
-                    meta={inv.description ? inv.description.replace(/\s+/g, ' ') : null}
-                    foot={left !== null ? `还剩 ${left} 天 →` : '收稿中 →'}
-                    footColor="#B45309" />
-                )
-              })}
-            </ResponsiveRail>
-          </div>
-        )}
+              )
+            }
+            const inv = data
+            const left = daysLeft(inv.deadline)
+            return (
+              <Card key={`i-${inv.id}`}
+                href={`/invitations/${inv.id}`}
+                image={inv.cover_image}
+                label="参 展 邀 请 · 收 稿 中"
+                labelColor="#B45309"
+                title={inv.title}
+                meta={inv.description ? inv.description.replace(/\s+/g, ' ') : null}
+                foot={left !== null ? `还剩 ${left} 天 →` : '收稿中 →'}
+                footColor="#B45309" />
+            )
+          })}
+        </ResponsiveRail>
 
       </div>
     </section>
