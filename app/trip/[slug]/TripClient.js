@@ -205,25 +205,29 @@ export function makeAdapter(sb, trip) {
 
 export default function TripClient({ slug }) {
   const rootRef = useRef(null)
+  const [trip, setTrip] = useState(null)
   const [state, setState] = useState('loading') // loading | ready | missing
 
+  // 第一步：查这趟行程是否存在
   useEffect(() => {
-    let unmount = null, adapter = null, cancelled = false
+    let cancelled = false
     const sb = createClient(SB_URL, SB_KEY)
-    ;(async () => {
-      const { data: trip } = await sb.from('trip_trips').select('*').eq('slug', slug).maybeSingle()
+    sb.from('trip_trips').select('*').eq('slug', slug).maybeSingle().then(({ data }) => {
       if (cancelled) return
-      if (!trip || !trip.is_published) { setState('missing'); return }
-      setState('ready')
-      // 等 markup 挂到 DOM 再启动引擎
-      requestAnimationFrame(() => {
-        if (cancelled || !rootRef.current) return
-        adapter = makeAdapter(sb, trip)
-        unmount = mountTrip(rootRef.current, adapter)
-      })
-    })()
-    return () => { cancelled = true; if (unmount) unmount(); if (adapter) adapter.destroy() }
+      if (!data || !data.is_published) { setState('missing'); return }
+      setTrip(data); setState('ready')
+    })
+    return () => { cancelled = true }
   }, [slug])
+
+  // 第二步：markup 已经 commit 到 DOM 之后再启动引擎（不能用 rAF，React 的提交可能晚于它）
+  useEffect(() => {
+    if (state !== 'ready' || !trip || !rootRef.current) return
+    const sb = createClient(SB_URL, SB_KEY)
+    const adapter = makeAdapter(sb, trip)
+    const unmount = mountTrip(rootRef.current, adapter)
+    return () => { try { unmount() } catch (e) {} adapter.destroy() }
+  }, [state, trip])
 
   if (state === 'missing') {
     return (
