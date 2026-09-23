@@ -1038,7 +1038,7 @@ root.querySelector("#app").addEventListener("input", e => {
 /* ---------- render scheduling ---------- */
 function renderCurrent(){ if(S.tab==="trip") renderTrip(); else if(S.tab==="journal") renderJournal(); else renderTools(); }
 function renderAll(){ renderCurrent(); }
-let raf = 0; function schedule(){ if(raf) return; raf = requestAnimationFrame(()=>{ raf=0; renderCurrent(); }); }
+let raf = 0; function schedule(){ if(raf) return; raf = 1; setTimeout(()=>{ raf=0; renderCurrent(); }, 0); }
 
 /* ---------- boot ---------- */
 setTab(S.tab);
