@@ -164,30 +164,29 @@ export default async function Home() {
                         alt={exhibition.title} className="absolute inset-0 w-full h-full object-cover" />
                     </div>
                     {/* 文字：自然流下，按钮跟在内容后面，不再被推到底部留空 */}
-                    <div className="p-6 md:p-10 flex flex-col">
+                    <div className="p-5 md:p-10 flex flex-col">
                       <div className="flex-1">
-                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-3 md:mb-4 line-clamp-2">{exhibition.title}</h3>
-                        <div className="flex items-center gap-3 text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                          <span className="truncate">{exhibition.curator_name}</span><span>·</span><span className="truncate">{exhibition.location}</span>
-                        </div>
-                        <p className="text-gray-700 leading-relaxed mb-6 md:mb-8 text-sm md:text-base line-clamp-4">{exhibition.description}</p>
-                        <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
+                        {/* 标题：手机上用 balance 让两行长度均匀，不会末行只剩一个字 */}
+                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-1.5 md:mb-3 line-clamp-2"
+                          style={{ textWrap: 'balance' }}>{exhibition.title}</h3>
+                        {exhibition.title_en && (
+                          <p className="text-sm md:text-base italic text-gray-400 mb-3 md:mb-5">{exhibition.title_en}</p>
+                        )}
+                        {/* 描述：没有就不占位；有就最多两行 */}
+                        {exhibition.description && (
+                          <p className="text-gray-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base line-clamp-2">{exhibition.description}</p>
+                        )}
+                        <div className="text-sm md:text-base mb-5 md:mb-8" style={{ lineHeight: 1.9 }}>
                           {exhibition.start_date && (
-                            <div className="flex items-start gap-3">
-                              <span className="text-[#F59E0B]">📅</span>
-                              <div>
-                                <div className="text-xs md:text-sm text-gray-500">展期</div>
-                                <div className="font-medium text-gray-900 text-sm md:text-base">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</div>
-                              </div>
+                            <div className="flex gap-3">
+                              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>展期</span>
+                              <span className="text-gray-800">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</span>
                             </div>
                           )}
                           {exhibition.location && (
-                            <div className="flex items-start gap-3">
-                              <span className="text-[#F59E0B]">📍</span>
-                              <div>
-                                <div className="text-xs md:text-sm text-gray-500">地点</div>
-                                <div className="font-medium text-gray-900 text-sm md:text-base">{exhibition.location}</div>
-                              </div>
+                            <div className="flex gap-3">
+                              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>地点</span>
+                              <span className="text-gray-800">{exhibition.location}</span>
                             </div>
                           )}
                         </div>
