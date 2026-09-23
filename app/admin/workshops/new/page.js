@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
 /**
- * 新建工坊：只收最少的几项，建完直接进编辑页补其余内容。
+ * 新建工作坊：只收最少的几项，建完直接进编辑页补其余内容。
  * 这样不必在一个长表单里填完所有东西才能保存。
  */
 export default function NewWorkshopPage() {
@@ -19,7 +19,7 @@ export default function NewWorkshopPage() {
   function set(f, v) { setForm(prev => ({ ...prev, [f]: v })) }
 
   async function create() {
-    if (!form.title.trim()) { alert('请填写工坊名称'); return }
+    if (!form.title.trim()) { alert('请填写工作坊名称'); return }
     setSaving(true)
     try {
       const { data, error } = await supabase.from('workshops').insert({
@@ -48,14 +48,14 @@ export default function NewWorkshopPage() {
       <button onClick={() => router.back()} className="text-sm mb-2" style={{ color: '#6B7280' }}>
         ← 返回
       </button>
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">新建工坊</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">新建工作坊</h1>
       <p className="text-sm text-gray-500 mb-6">
-        先填几项建起来，建完进编辑页补介绍、封面、名额与费用。新建的工坊是草稿状态，不会出现在网站上。
+        先填几项建起来，建完进编辑页补介绍、封面、名额与费用。新建的工作坊是草稿状态，不会出现在网站上。
       </p>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">工坊名称</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">工作坊名称</label>
           <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
             className={inputCls} style={inputStyle} placeholder="如：肖不像画音乐工作坊" autoFocus />
         </div>
