@@ -227,7 +227,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 参与：工坊与参展邀请 */}
+      {/* 参与：工作坊与参展邀请 */}
       <ParticipationBlock
         workshops={homeWorkshops}
         invitations={homepageInvitations} />
