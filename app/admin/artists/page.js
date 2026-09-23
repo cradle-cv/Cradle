@@ -45,7 +45,25 @@ export default function AdminArtistsPage() {
         users:owner_user_id(id, email, username, role)
       `)
       .order('display_order', { ascending: true })
-    setArtists(data || [])
+
+    // 作品数从 artworks 表现算，不依赖 artworks_count 那个早期手填的字段
+    const list = data || []
+    const ids = list.map(a => a.id)
+    const counts = {}
+    if (ids.length > 0) {
+      const { data: works } = await supabase.from('artworks')
+        .select('artist_id, status').in('artist_id', ids)
+      for (const w of works || []) {
+        if (!counts[w.artist_id]) counts[w.artist_id] = { all: 0, published: 0 }
+        counts[w.artist_id].all++
+        if (w.status === 'published') counts[w.artist_id].published++
+      }
+    }
+    setArtists(list.map(a => ({
+      ...a,
+      _works: counts[a.id]?.all || 0,
+      _published: counts[a.id]?.published || 0,
+    })))
     setLoading(false)
   }
 
@@ -83,11 +101,11 @@ export default function AdminArtistsPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-3 gap-6 mb-8">
         <StatCard
           label="总艺术家数"
           value={artists.length}
-          icon="👤"
+          icon="人"
           color="blue"
         />
         <StatCard
@@ -98,15 +116,9 @@ export default function AdminArtistsPage() {
         />
         <StatCard
           label="作品总数"
-          value={artists.reduce((sum, a) => sum + (a.artworks_count || 0), 0)}
-          icon="🎨"
+          value={artists.reduce((sum, a) => sum + (a._published || 0), 0)}
+          icon="作"
           color="purple"
-        />
-        <StatCard
-          label="关注总数"
-          value={artists.reduce((sum, a) => sum + (a.followers_count || 0), 0)}
-          icon="❤️"
-          color="red"
         />
       </div>
 
@@ -156,8 +168,7 @@ export default function AdminArtistsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                     <span>📧 {artist.users?.email || '—'}</span>
                     <span>🎨 {artist.specialty || '未设置专长'}</span>
-                    <span>📚 {artist.artworks_count || 0} 件作品</span>
-                    <span>❤️ {artist.followers_count || 0} 关注者</span>
+                    <span>{artist._published} 件已发布{artist._works > artist._published ? `，另有 ${artist._works - artist._published} 件草稿` : ''}</span>
                   </div>
                   {artist.intro && (
                     <p className="text-sm text-gray-500 mt-2 line-clamp-1">
