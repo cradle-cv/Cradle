@@ -80,7 +80,7 @@ export default function BookletPage({ params, searchParams }) {
 
       {/* ── 1 封面 ── */}
       <section className="pg cover">
-        {/* 三条画带上下拼接、无缝，各取原画中段，轻微模糊 */}
+        {/* 三条画带上下无缝拼接，各取原画中段，与 IG 封面同一套 */}
         <div className="bands">
           {works.map((w, i) => (
             <div key={i} className="band">
@@ -88,12 +88,14 @@ export default function BookletPage({ params, searchParams }) {
             </div>
           ))}
         </div>
-        {/* 标题压在中间那条画带上，一块 50% 白的区域，水平垂直都居中 */}
+        <div className="scrim" />
+        <div className="cover-top">Cradle 摇篮 · 艺术阅览室</div>
+        {/* 毛玻璃圆角框，绝对居中于中间那条画带 */}
         <div className="panel">
-          <div className="cover-top">艺 术 阅 览 室 · {label}</div>
-          <div className="t-zh">{c.theme_zh}</div>
+          <div className="t-zh">《{c.theme_zh}》</div>
           {c.theme_en && <div className="t-en">{c.theme_en}</div>}
         </div>
+        <div className="cover-bot">cradle.art</div>
       </section>
 
       {/* ── 2 引言 ── */}
@@ -217,18 +219,24 @@ const CSS = `
 .foot { position: absolute; left: 14mm; bottom: 10mm; font-size: 7pt; color: #b8b2a8; letter-spacing: 0.08em; }
 .foot.right { left: auto; right: 14mm; }
 
-/* ── 封面：三画中段上下无缝拼接、轻模糊 + 中带 50% 白面板 ── */
+/* ── 封面：与 IG 封面同一套——三画无缝平铺、上浅下深的蒙版、毛玻璃圆角框 ── */
 .cover { background: #2a2a2e; }
 .bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .band { flex: 1; overflow: hidden; position: relative; }
-.band img { position: absolute; left: -3%; top: -3%; width: 106%; height: 106%; object-fit: cover; filter: blur(2.5px); }
-/* 面板占满中间那条画带的宽，垂直落在它正中 */
-.panel { position: absolute; left: 0; right: 0; top: 33.333%; height: 33.333%;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.5); text-align: center; padding: 0 12mm; }
-.cover-top { font-size: 7.5pt; letter-spacing: 0.35em; color: #4b5563; margin-bottom: 4mm; }
-.t-zh { font-size: 28pt; font-weight: 600; color: #26221e; letter-spacing: 0.08em; line-height: 1.2; }
-.t-en { font-size: 11pt; color: #3a342c; font-style: italic; margin-top: 3mm; }
+.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; min-height: 100%; object-fit: cover; }
+.scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,.30), rgba(18,18,20,.46)); }
+.cover-top { position: absolute; top: 12mm; left: 0; right: 0; text-align: center;
+  color: rgba(247,245,240,.72); font-size: 8pt; letter-spacing: 0.06em; }
+/* 圆角框：横向留边 10mm；纵向以中带中心（页高 50%）为准，正负各半，绝对居中 */
+.panel { position: absolute; left: 10mm; right: 10mm; top: 50%; transform: translateY(-50%);
+  padding: 11mm 8mm; border-radius: 5mm;
+  background: rgba(255,255,255,.16); border: 0.4mm solid rgba(255,255,255,.34);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.t-zh { font-size: 24pt; font-weight: 600; color: #F7F5F0; letter-spacing: 0.06em; line-height: 1.3; }
+.t-en { font-size: 11pt; color: rgba(247,245,240,.78); font-style: italic; margin-top: 3mm; font-family: Georgia, "Noto Serif SC", serif; }
+.cover-bot { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center;
+  color: rgba(247,245,240,.72); font-size: 8pt; font-style: italic; font-family: Georgia, serif; }
 
 /* ── 引言 ── */
 .intro-logo { position: absolute; left: 50%; top: 26mm; transform: translateX(-50%); width: 34mm; opacity: .85; }
