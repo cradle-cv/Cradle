@@ -14,7 +14,7 @@ const SECTIONS = [
     icon: '📚',
     label: '艺术阅览室',
     sub: '大师经典 · 馆长的领地',
-    prefixes: ['/admin/gallery', '/admin/curations', '/admin/articles', '/admin/museums', '/admin/gallery-artists', '/admin/batch', '/admin/ig-kit'],
+    prefixes: ['/admin/gallery', '/admin/curations', '/admin/articles', '/admin/museums', '/admin/gallery-artists', '/admin/batch', '/admin/ig-kit', '/admin/booklet'],
     links: [
       { href: '/admin/gallery', icon: '🖼️', label: '作品管理', matchExact: (p) => p.startsWith('/admin/gallery') && !p.startsWith('/admin/gallery-artists') },
       { href: '/admin/curations', icon: '📰', label: '本期精选排期' },
@@ -23,6 +23,7 @@ const SECTIONS = [
       { href: '/admin/gallery-artists', icon: '🎭', label: '阅览室艺术家' },
       { href: '/admin/batch', icon: '⚡', label: '批量管理', matchExact: (p) => p === '/admin/batch' },
       { href: '/admin/ig-kit', icon: '📸', label: 'IG 打包器' },
+      { href: '/admin/booklet/20', icon: '📖', label: '单期册子' },
     ],
   },
   {
@@ -94,16 +95,6 @@ const SECTIONS = [
       { href: '/admin/seewayphoto', icon: '🗂️', label: '系列管理', matchExact: (p) => p === '/admin/seewayphoto' || (p.startsWith('/admin/seewayphoto/') && !p.startsWith('/admin/seewayphoto/settings') && !p.startsWith('/admin/seewayphoto/messages')) },
       { href: '/admin/seewayphoto/settings', icon: '📝', label: '站点设置' },
       { href: '/admin/seewayphoto/messages', icon: '✉️', label: '留言' },
-    ],
-  },
-  {
-    key: 'trip',
-    icon: '',
-    label: '同行手账',
-    sub: '多人出游 · 独立子站',
-    prefixes: ['/admin/trip'],
-    links: [
-      { href: '/admin/trip', icon: '', label: '行程管理' },
     ],
   },
   {
