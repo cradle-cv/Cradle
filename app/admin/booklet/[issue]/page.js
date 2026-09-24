@@ -80,7 +80,7 @@ export default function BookletPage({ params, searchParams }) {
 
       {/* ── 1 封面 ── */}
       <section className="pg cover">
-        {/* 三条画带各取原画中段，几乎不模糊，画看得清；带与带之间留一线米白 */}
+        {/* 三条画带上下拼接、无缝，各取原画中段，轻微模糊 */}
         <div className="bands">
           {works.map((w, i) => (
             <div key={i} className="band">
@@ -88,7 +88,7 @@ export default function BookletPage({ params, searchParams }) {
             </div>
           ))}
         </div>
-        {/* 标题放在一块几乎不透明的米白卡片上，字用墨色，压在画带偏下的位置 */}
+        {/* 标题压在中间那条画带上，一块 50% 白的区域，水平垂直都居中 */}
         <div className="panel">
           <div className="cover-top">艺 术 阅 览 室 · {label}</div>
           <div className="t-zh">{c.theme_zh}</div>
@@ -217,17 +217,18 @@ const CSS = `
 .foot { position: absolute; left: 14mm; bottom: 10mm; font-size: 7pt; color: #b8b2a8; letter-spacing: 0.08em; }
 .foot.right { left: auto; right: 14mm; }
 
-/* ── 封面：三画中段清晰平铺 + 米白标题卡 ── */
-.cover { background: #faf7f1; }
-.bands { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 1.2mm; background: #faf7f1; }
+/* ── 封面：三画中段上下无缝拼接、轻模糊 + 中带 50% 白面板 ── */
+.cover { background: #2a2a2e; }
+.bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .band { flex: 1; overflow: hidden; position: relative; }
-.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: auto; min-height: 100%; object-fit: cover; }
-.panel { position: absolute; left: 14mm; right: 14mm; bottom: 22mm;
-  background: rgba(250,247,241,.96); border-radius: 3mm; padding: 9mm 10mm 10mm; text-align: center;
-  box-shadow: 0 1mm 6mm rgba(0,0,0,.10); }
-.cover-top { font-size: 7.5pt; letter-spacing: 0.35em; color: #9CA3AF; margin-bottom: 4mm; }
-.t-zh { font-size: 26pt; font-weight: 600; color: #26221e; letter-spacing: 0.08em; line-height: 1.2; }
-.t-en { font-size: 10.5pt; color: #7a736b; font-style: italic; margin-top: 3mm; }
+.band img { position: absolute; left: -3%; top: -3%; width: 106%; height: 106%; object-fit: cover; filter: blur(2.5px); }
+/* 面板占满中间那条画带的宽，垂直落在它正中 */
+.panel { position: absolute; left: 0; right: 0; top: 33.333%; height: 33.333%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.5); text-align: center; padding: 0 12mm; }
+.cover-top { font-size: 7.5pt; letter-spacing: 0.35em; color: #4b5563; margin-bottom: 4mm; }
+.t-zh { font-size: 28pt; font-weight: 600; color: #26221e; letter-spacing: 0.08em; line-height: 1.2; }
+.t-en { font-size: 11pt; color: #3a342c; font-style: italic; margin-top: 3mm; }
 
 /* ── 引言 ── */
 .intro-logo { position: absolute; left: 50%; top: 26mm; transform: translateX(-50%); width: 34mm; opacity: .85; }
