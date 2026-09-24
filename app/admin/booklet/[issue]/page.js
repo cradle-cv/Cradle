@@ -64,6 +64,9 @@ export default function BookletPage({ params, searchParams }) {
   const foot = `${c.theme_zh} · ${label}`
   const date = c.published_at ? new Date(c.published_at) : new Date()
   const dateStr = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月`
+  // 封面钩子：当期 ig_hooks 的第一条；没有就取引言的第一句
+  const hooks = Array.isArray(c.ig_hooks) ? c.ig_hooks : []
+  const hook = hooks[0] || (c.quote || '').split(/[。\n]/).filter(Boolean)[0] || c.theme_zh
 
   return (
     <div className="bk">
@@ -90,12 +93,15 @@ export default function BookletPage({ params, searchParams }) {
         </div>
         <div className="scrim" />
         <div className="cover-top">Cradle 摇篮 · 艺术阅览室</div>
-        {/* 毛玻璃圆角框，绝对居中于中间那条画带 */}
+        {/* 毛玻璃圆角框，绝对居中于中间那条画带，里面是当期的钩子 */}
         <div className="panel">
+          <div className="hook">{hook}</div>
+        </div>
+        <div className="cover-bot">
           <div className="t-zh">《{c.theme_zh}》</div>
           {c.theme_en && <div className="t-en">{c.theme_en}</div>}
+          <div className="site">cradle.art</div>
         </div>
-        <div className="cover-bot">cradle.art</div>
       </section>
 
       {/* ── 2 引言 ── */}
@@ -224,25 +230,29 @@ const CSS = `
 .bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .band { flex: 1; overflow: hidden; position: relative; }
 .band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; min-height: 100%; object-fit: cover; }
+.band img { filter: blur(4px); }
 .scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,.30), rgba(18,18,20,.46)); }
-.cover-top { position: absolute; top: 12mm; left: 0; right: 0; text-align: center;
-  color: rgba(247,245,240,.72); font-size: 8pt; letter-spacing: 0.06em; }
-/* 圆角框：横向留边 10mm；纵向以中带中心（页高 50%）为准，正负各半，绝对居中 */
-.panel { position: absolute; left: 10mm; right: 10mm; top: 50%; transform: translateY(-50%);
-  padding: 11mm 8mm; border-radius: 5mm;
-  background: rgba(255,255,255,.16); border: 0.4mm solid rgba(255,255,255,.34);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.t-zh { font-size: 24pt; font-weight: 600; color: #F7F5F0; letter-spacing: 0.06em; line-height: 1.3; }
-.t-en { font-size: 11pt; color: rgba(247,245,240,.78); font-style: italic; margin-top: 3mm; font-family: Georgia, "Noto Serif SC", serif; }
-.cover-bot { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center;
-  color: rgba(247,245,240,.72); font-size: 8pt; font-style: italic; font-family: Georgia, serif; }
+/* 字号按 IG 画布（1080 宽）换算到 A5（148mm）：28px→11pt，66px→25pt，34px→13pt，24px→9.5pt */
+.cover-top { position: absolute; top: 11mm; left: 0; right: 0; text-align: center;
+  color: rgba(247,245,240,.72); font-size: 11pt; letter-spacing: 0.04em; }
+/* 圆角框：横向留边 9mm；纵向以中带中心（页高 50%）为准，绝对居中；毛玻璃靠 backdrop 模糊 */
+.panel { position: absolute; left: 9mm; right: 9mm; top: 50%; transform: translateY(-50%);
+  padding: 10mm 9mm; border-radius: 5mm;
+  background: rgba(255,255,255,.16); border: 0.5mm solid rgba(255,255,255,.34);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; align-items: center; justify-content: center; text-align: center; }
+.hook { font-size: 25pt; font-weight: 600; color: #F7F5F0; line-height: 1.45; letter-spacing: 0.02em; text-wrap: balance; }
+.cover-bot { position: absolute; bottom: 12mm; left: 0; right: 0; text-align: center; }
+.t-zh { font-size: 13pt; color: #F7F5F0; letter-spacing: 0.04em; }
+.t-en { font-size: 11pt; color: rgba(247,245,240,.72); font-style: italic; margin-top: 2mm; font-family: Georgia, "Noto Serif SC", serif; }
+.site { font-size: 9.5pt; color: rgba(247,245,240,.72); font-style: italic; margin-top: 3mm; font-family: Georgia, serif; }
 
 /* ── 引言 ── */
-.intro-logo { position: absolute; left: 50%; top: 26mm; transform: translateX(-50%); width: 34mm; opacity: .85; }
-.intro-body { position: absolute; left: 22mm; right: 22mm; top: 50%; transform: translateY(-46%); }
-.intro-body p { font-size: 10.5pt; line-height: 2.1; margin: 0 0 4mm; color: #3a342c;
-  text-wrap: balance; text-align: justify; text-align-last: left; }
+.intro-logo { position: absolute; left: 50%; top: 24mm; transform: translateX(-50%); width: 32mm; opacity: .85; }
+/* 正文从固定位置起、自然往下流，每段等距；不用 justify，字距才会一致 */
+.intro-body { position: absolute; left: 22mm; right: 22mm; top: 64mm; }
+.intro-body p { font-size: 10.5pt; line-height: 2; margin: 0 0 5mm; color: #3a342c;
+  text-align: left; text-wrap: pretty; }
 .intro-body .by { text-align: right; color: #9CA3AF; font-size: 9pt; margin-top: 8mm; }
 
 /* ── 扉页 ── */
