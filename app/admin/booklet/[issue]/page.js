@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, use } from 'react'
 import { supabase } from '@/lib/supabase'
+import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 
 /**
  * 阅览室单期册子。
@@ -79,6 +80,7 @@ export default function BookletPage({ params, searchParams }) {
 
       {/* ── 1 封面 ── */}
       <section className="pg cover">
+        {/* 三条画带各取原画中段，几乎不模糊，画看得清；带与带之间留一线米白 */}
         <div className="bands">
           {works.map((w, i) => (
             <div key={i} className="band">
@@ -86,20 +88,17 @@ export default function BookletPage({ params, searchParams }) {
             </div>
           ))}
         </div>
-        <div className="scrim" />
-        <div className="cover-top">艺 术 阅 览 室</div>
+        {/* 标题放在一块几乎不透明的米白卡片上，字用墨色，压在画带偏下的位置 */}
         <div className="panel">
+          <div className="cover-top">艺 术 阅 览 室 · {label}</div>
           <div className="t-zh">{c.theme_zh}</div>
           {c.theme_en && <div className="t-en">{c.theme_en}</div>}
-        </div>
-        <div className="cover-bot">
-          <div>CRADLE</div>
-          <div className="dim">{label}</div>
         </div>
       </section>
 
       {/* ── 2 引言 ── */}
       <section className="pg intro">
+        <img src="/image/logo.png" alt="Cradle" className="intro-logo" />
         <div className="intro-body">
           {(c.quote || '').split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
           {c.quote_author && <p className="by">—— {c.quote_author}</p>}
@@ -107,23 +106,22 @@ export default function BookletPage({ params, searchParams }) {
         <div className="foot">{foot}</div>
       </section>
 
-      {/* ── 3 扉页 ── */}
+      {/* ── 3 档案页：三幅画的档案 ── */}
       <section className="pg half">
         <div className="half-body">
           <div className="half-label">本 期 三 幅</div>
-          <ol className="half-list">
+          <div className="archive">
             {works.map((w, i) => (
-              <li key={i}>
-                <span className="n">{['一', '二', '三'][i]}</span>
-                <span className="wt">{w.title}</span>
-                <span className="wa">{w.artist_name}{w.year ? `，${w.year}` : ''}</span>
-              </li>
+              <div key={i} className="arc">
+                <div className="arc-n">{['一', '二', '三'][i]}</div>
+                <div className="arc-t">{w.title}{w.title_en ? <span className="arc-en"> {w.title_en}</span> : null}</div>
+                <div className="arc-m">
+                  {[w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · ')}
+                </div>
+              </div>
             ))}
-          </ol>
-          <div className="half-label" style={{ marginTop: '14mm' }}>三 个 问 题</div>
-          <ol className="half-list q">
-            {works.map((w, i) => <li key={i}><span className="n">{['一', '二', '三'][i]}</span><span>{w.open}</span></li>)}
-          </ol>
+          </div>
+          <div className="pd">本册所收作品均为公有领域</div>
         </div>
         <div className="foot">{foot}</div>
       </section>
@@ -173,28 +171,27 @@ export default function BookletPage({ params, searchParams }) {
         </div>
       ))}
 
-      {/* ── 16 封底 ── */}
+      {/* ── 16 封底：二维码 + 两行字 ── */}
       <section className="pg back">
-        <div className="back-body">
-          <div className="half-label">三 幅 画 的 档 案</div>
-          <div className="archive">
-            {works.map((w, i) => (
-              <div key={i} className="arc">
-                <div className="arc-t">{w.title}{w.title_en ? <span className="arc-en"> {w.title_en}</span> : null}</div>
-                <div className="arc-m">
-                  {[w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · ')}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="pd">本册所收作品均为公有领域</div>
-        </div>
-        <div className="back-foot">
-          <div>写好了，画好了，欢迎发到 cradle.art</div>
-          <div className="brand">CRADLE 摇篮 · 艺术阅览室 {label} · {dateStr}</div>
+        <div className="back-center">
+          <QR text="https://cradle.art" size="26mm" />
+          <div className="back-l1">艺术阅览室 · {label}</div>
+          <div className="back-l2">cradle.art · {dateStr}</div>
         </div>
       </section>
     </div>
+  )
+}
+
+function QR({ text, size }) {
+  const m = qrMatrix(text)
+  const n = m.length
+  const q = 2
+  return (
+    <svg viewBox={`${-q} ${-q} ${n + q * 2} ${n + q * 2}`} width={size} height={size}
+      shapeRendering="crispEdges" style={{ display: 'block', margin: '0 auto' }}>
+      <path d={qrSvgPath(m)} fill="#26221e" />
+    </svg>
   )
 }
 
@@ -220,26 +217,23 @@ const CSS = `
 .foot { position: absolute; left: 14mm; bottom: 10mm; font-size: 7pt; color: #b8b2a8; letter-spacing: 0.08em; }
 .foot.right { left: auto; right: 14mm; }
 
-/* ── 封面：三画中段模糊平铺 + 毛玻璃面板 ── */
-.cover { background: #2a2a2e; }
-.bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
+/* ── 封面：三画中段清晰平铺 + 米白标题卡 ── */
+.cover { background: #faf7f1; }
+.bands { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 1.2mm; background: #faf7f1; }
 .band { flex: 1; overflow: hidden; position: relative; }
-.band img { position: absolute; left: -6%; top: -6%; width: 112%; height: 112%; object-fit: cover; filter: blur(14px); }
-.scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(20,20,24,.35), rgba(20,20,24,.62)); }
-.cover-top { position: absolute; top: 16mm; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.72);
-  font-size: 8pt; letter-spacing: 0.5em; }
-.panel { position: absolute; left: 16mm; right: 16mm; top: 50%; transform: translateY(-58%);
-  background: rgba(255,255,255,.12); border: 0.5px solid rgba(255,255,255,.35); border-radius: 4mm;
-  padding: 12mm 10mm; text-align: center; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.t-zh { font-size: 26pt; font-weight: 600; color: #fff; letter-spacing: 0.08em; }
-.t-en { font-size: 11pt; color: rgba(255,255,255,.8); font-style: italic; margin-top: 4mm; }
-.cover-bot { position: absolute; bottom: 14mm; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.85);
-  font-size: 9pt; letter-spacing: 0.35em; }
-.cover-bot .dim { color: rgba(255,255,255,.55); font-size: 7.5pt; margin-top: 2mm; letter-spacing: 0.15em; }
+.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: auto; min-height: 100%; object-fit: cover; }
+.panel { position: absolute; left: 14mm; right: 14mm; bottom: 22mm;
+  background: rgba(250,247,241,.96); border-radius: 3mm; padding: 9mm 10mm 10mm; text-align: center;
+  box-shadow: 0 1mm 6mm rgba(0,0,0,.10); }
+.cover-top { font-size: 7.5pt; letter-spacing: 0.35em; color: #9CA3AF; margin-bottom: 4mm; }
+.t-zh { font-size: 26pt; font-weight: 600; color: #26221e; letter-spacing: 0.08em; line-height: 1.2; }
+.t-en { font-size: 10.5pt; color: #7a736b; font-style: italic; margin-top: 3mm; }
 
 /* ── 引言 ── */
-.intro-body { position: absolute; left: 20mm; right: 20mm; top: 50%; transform: translateY(-55%); }
-.intro-body p { font-size: 10.5pt; line-height: 2.1; margin: 0 0 4mm; color: #3a342c; }
+.intro-logo { position: absolute; left: 50%; top: 26mm; transform: translateX(-50%); width: 34mm; opacity: .85; }
+.intro-body { position: absolute; left: 22mm; right: 22mm; top: 50%; transform: translateY(-46%); }
+.intro-body p { font-size: 10.5pt; line-height: 2.1; margin: 0 0 4mm; color: #3a342c;
+  text-wrap: balance; text-align: justify; text-align-last: left; }
 .intro-body .by { text-align: right; color: #9CA3AF; font-size: 9pt; margin-top: 8mm; }
 
 /* ── 扉页 ── */
@@ -279,13 +273,14 @@ const CSS = `
 .blank { background: #fff; }
 
 /* ── 封底 ── */
-.back-body { position: absolute; left: 20mm; right: 20mm; top: 30mm; }
-.archive { margin-top: 2mm; }
-.arc { margin-bottom: 5mm; }
-.arc-t { font-size: 9.5pt; font-weight: 600; }
+.archive { margin-top: 4mm; }
+.arc { margin-bottom: 7mm; }
+.arc-n { font-size: 7.5pt; color: #b8b2a8; margin-bottom: 1.5mm; }
+.arc-t { font-size: 10.5pt; font-weight: 600; }
 .arc-en { font-weight: 400; color: #9CA3AF; font-size: 8pt; font-style: italic; }
-.arc-m { font-size: 8pt; color: #7a736b; line-height: 1.7; margin-top: 1mm; }
-.pd { font-size: 7.5pt; color: #b8b2a8; margin-top: 10mm; }
-.back-foot { position: absolute; left: 20mm; right: 20mm; bottom: 16mm; font-size: 8.5pt; color: #4b5563; line-height: 2; }
-.back-foot .brand { font-size: 7pt; color: #b8b2a8; letter-spacing: 0.12em; margin-top: 3mm; }
+.arc-m { font-size: 8.5pt; color: #7a736b; line-height: 1.8; margin-top: 1.5mm; }
+.pd { font-size: 7.5pt; color: #b8b2a8; margin-top: 12mm; }
+.back-center { position: absolute; left: 0; right: 0; bottom: 24mm; text-align: center; }
+.back-l1 { font-size: 8.5pt; color: #4b5563; margin-top: 6mm; letter-spacing: 0.06em; }
+.back-l2 { font-size: 7.5pt; color: #9CA3AF; margin-top: 1.5mm; letter-spacing: 0.06em; }
 `
