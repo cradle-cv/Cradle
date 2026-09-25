@@ -48,7 +48,6 @@ const DEFAULTS = {
   footSize: 7,
 }
 
-const STORE = 'cradle_booklet_settings_v1'
 
 export default function BookletPage({ params, searchParams }) {
   const { issue } = use(params)
@@ -61,23 +60,22 @@ export default function BookletPage({ params, searchParams }) {
   const [open, setOpen] = useState(true)
   const [t, setT] = useState(null)           // 页面上所有可改的文字
   const [pdfBusy, setPdfBusy] = useState('')  // 生成 PDF 时的进度文字
+  const [loaded, setLoaded] = useState(false)  // 库里的设置已读到
+  const saveTimer = useRef(null)
   const natRef = useRef({})                    // 画带图片的原始尺寸缓存
-  const TSTORE = `cradle_booklet_text_${issue}_${isSpecial ? 's' : 'r'}`
 
-  // 读本地参数
+  // 版式与文字一有改动就存进库，1.2 秒内的连续改动合并成一次
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORE)
-      if (raw) setS({ ...DEFAULTS, ...JSON.parse(raw) })
-    } catch {}
-  }, [])
-  // 写本地参数
-  useEffect(() => {
-    try { localStorage.setItem(STORE, JSON.stringify(s)) } catch {}
-  }, [s])
-  useEffect(() => {
-    if (t) try { localStorage.setItem(TSTORE, JSON.stringify(t)) } catch {}
-  }, [t, TSTORE])
+    if (!loaded || !t) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      await supabase.from('booklet_settings').upsert({
+        issue_number: Number(issue), is_special: isSpecial,
+        layout: s, text: t, updated_at: new Date().toISOString(),
+      })
+    }, 1200)
+    return () => clearTimeout(saveTimer.current)
+  }, [s, t, loaded, issue, isSpecial])
 
   useEffect(() => {
     (async () => {
@@ -119,9 +117,11 @@ export default function BookletPage({ params, searchParams }) {
             rike: w.rike, open: w.open,
           })),
         }
-        let saved = null
-        try { saved = JSON.parse(localStorage.getItem(`cradle_booklet_text_${issue}_${isSpecial ? 's' : 'r'}`) || 'null') } catch {}
-        setT(saved ? deepMerge(base, saved) : base)
+        const { data: bs } = await supabase.from('booklet_settings')
+          .select('layout, text').eq('issue_number', Number(issue)).eq('is_special', isSpecial).maybeSingle()
+        if (bs?.layout && Object.keys(bs.layout).length) setS({ ...DEFAULTS, ...bs.layout })
+        setT(bs?.text && Object.keys(bs.text).length ? deepMerge(base, bs.text) : base)
+        setLoaded(true)
       } catch (e) { setErr(e.message) }
     })()
   }, [issue, isSpecial])
@@ -134,7 +134,11 @@ export default function BookletPage({ params, searchParams }) {
   const set = (k) => (e) => setS(p => ({ ...p, [k]: e.target.type === 'range' || e.target.type === 'number' ? Number(e.target.value) : e.target.value }))
   // 改一处文字：路径如 'coverTop' 或 'works.1.rike'
   const edit = (path) => (val) => setT(prev => setPath(prev, path, val))
-  const resetText = () => { try { localStorage.removeItem(TSTORE) } catch {}; window.location.reload() }
+  const resetText = async () => {
+    if (!confirm('把这一期改过的文字和画带位置都恢复成数据库原文？')) return
+    await supabase.from('booklet_settings').update({ text: {} }).eq('issue_number', Number(issue)).eq('is_special', isSpecial)
+    window.location.reload()
+  }
 
   // ── 拖动画带，决定露出画的哪一段 ──
   // 画用 background-size: cover 铺满画带，多出来的那一截靠 background-position 挪。
@@ -216,6 +220,10 @@ export default function BookletPage({ params, searchParams }) {
       }
       const name = `摇篮阅览室_${label.replace(/\s/g, '')}_${c.theme_zh}.pdf`
       pdf.save(name)
+      await supabase.from('booklet_settings').upsert({
+        issue_number: Number(issue), is_special: isSpecial, layout: s, text: t,
+        exported_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      })
       setPdfBusy('')
     } catch (e) {
       console.error(e)
@@ -250,6 +258,7 @@ export default function BookletPage({ params, searchParams }) {
       {/* ── 参数面板（打印时隐藏）── */}
       <div className={`bk-side${open ? '' : ' closed'}`}>
         <div className="side-head">
+          <a href="/admin/booklet" className="back">← 全部册子</a>
           <strong>{c.theme_zh} · {label}</strong>
           <div className="side-btns">
             <button onClick={() => setS(DEFAULTS)}>恢复版式</button>
@@ -258,7 +267,7 @@ export default function BookletPage({ params, searchParams }) {
           <button className="primary big" disabled={!!pdfBusy} onClick={makePdf}>
             {pdfBusy || '生成 PDF 文件'}
           </button>
-          <p className="hint">页面上的字都能点了直接改，改完点别处就存。版式和文字自动存在这台电脑上，不写回数据库。生成的 PDF 是十六页 A5、300dpi，可以直接交印厂。</p>
+          <p className="hint">页面上的字能点了直接改，改完点别处就存。版式、文字、画带位置都自动存进数据库，换台电脑也在。生成的 PDF 是十六页 A5、300dpi，可以直接交印厂。</p>
         </div>
 
         <Group title="封面">
@@ -526,7 +535,8 @@ const CSS = `
   overflow-y: auto; z-index: 20; font-family: -apple-system, "PingFang SC", sans-serif; font-size: 12px; }
 .bk-side.closed { display: none; }
 .side-head { padding: 16px; border-bottom: 0.5px solid #eee; position: sticky; top: 0; background: #fff; z-index: 1; }
-.side-head strong { font-size: 14px; }
+.side-head strong { font-size: 14px; display: block; }
+.side-head .back { font-size: 12px; color: #9CA3AF; text-decoration: none; display: block; margin-bottom: 6px; }
 .side-btns { display: flex; gap: 8px; margin-top: 10px; }
 .side-btns button { flex: 1; padding: 8px; border-radius: 8px; border: 0.5px solid #ddd; background: #fff; cursor: pointer; font-family: inherit; font-size: 12px; }
 .side-btns button.primary { background: #111827; color: #fff; border-color: #111827; }
