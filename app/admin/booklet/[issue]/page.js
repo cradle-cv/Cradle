@@ -402,11 +402,15 @@ function QR({ text }) {
 const CSS = `
 @page { size: A5; margin: 0; }
 @media print {
+  /* 藏掉后台整体的侧边栏，放开主区域的内边距和滚动，否则会把它们一起印出来 */
+  aside { display: none !important; }
+  main { padding: 0 !important; overflow: visible !important; }
   .bk-side, .bk-toggle { display: none !important; }
-  .bk-pages { margin: 0 !important; }
+  .bk { background: #fff !important; min-height: auto !important; }
+  .bk-pages { margin: 0 !important; padding: 0 !important; }
   .pg { page-break-after: always; break-after: page; margin: 0 !important; }
   .pg:last-child { page-break-after: auto; }
-  body { margin: 0; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
 }
 
 .bk { background: #e8e4dc; font-family: "Noto Serif SC", "Source Han Serif SC", "思源宋体", serif; color: #26221e; min-height: 100vh; }
