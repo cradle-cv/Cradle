@@ -4,15 +4,48 @@ import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 
 /**
- * 阅览室单期册子。
+ * 阅览室单期册子 · 可编辑版。
  *
- * 打开 /admin/booklet/[期号]（特刊加 ?special=1），页面本身就是排好版的十六页 A5，
- * 用浏览器「打印 → 存为 PDF」直接得到成品，交给印厂即可。
- *
- * 十六页正好一个印张对折两次，骑马钉。页序：
- *   1 封面 · 2 引言 · 3 扉页 · 4–9 三个对页（画在左、日课在右）
- *   10–15 三个对页（左页下三分之一是题和四行线、右页全空）· 16 封底
+ * 打开 /admin/booklet/[期号]（特刊加 ?special=1）。
+ * 右侧是参数面板，拖滑块立刻看到效果；调好了点「打印 / 存为 PDF」。
+ * 参数存在浏览器本地，下次打开还在；「恢复默认」一键回到出厂值。
  */
+
+// ── 默认参数（所有单位如注释所示）──
+const DEFAULTS = {
+  // 封面
+  coverBlur: 0,          // px  三张画的模糊
+  scrimTop: 30,          // %   蒙版上端不透明度
+  scrimBot: 46,          // %   蒙版下端
+  panelFill: 8,          // %   框的白底
+  panelEdge: 34,         // %   框描边
+  panelSide: 9,          // mm  框左右留边
+  panelPadY: 12,         // mm  框上下内边
+  panelShift: 0,         // mm  框垂直偏移（正往下，负往上）
+  coverTopSize: 11,      // pt  顶上题签
+  coverTopY: 11,         // mm
+  titleZhSize: 25,       // pt  中文标题
+  titleEnSize: 12,       // pt  英文标题
+  coverBotSize: 9.5,     // pt  底部 cradle.art
+  coverBotY: 12,         // mm
+  coverMode: 'title',    // 'title' 框里放标题 / 'hook' 框里放钩子、标题在底
+  // 引言
+  logoW: 32, logoY: 24,  // mm
+  introTop: 64, introSide: 22,  // mm
+  introSize: 10.5, introLH: 2.0, introGap: 5,  // pt / 倍 / mm
+  // 画页
+  artSide: 12, artTop: 16, artBottom: 36, capSize: 11,  // mm mm mm pt
+  // 日课页
+  rikeSide: 16, rikeTop: 30, rikeSize: 9.2, rikeLH: 1.95, rikeGap: 3.2,
+  // 问题页
+  askTop: 58, askSize: 10, askGap: 12, lineN: 3, lineH: 11,  // % pt mm 条 mm
+  // 封底
+  qrSize: 26, backY: 24,  // mm
+  // 页脚
+  footSize: 7,
+}
+
+const STORE = 'cradle_booklet_settings_v1'
 
 export default function BookletPage({ params, searchParams }) {
   const { issue } = use(params)
@@ -21,6 +54,20 @@ export default function BookletPage({ params, searchParams }) {
 
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
+  const [s, setS] = useState(DEFAULTS)
+  const [open, setOpen] = useState(true)
+
+  // 读本地参数
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORE)
+      if (raw) setS({ ...DEFAULTS, ...JSON.parse(raw) })
+    } catch {}
+  }, [])
+  // 写本地参数
+  useEffect(() => {
+    try { localStorage.setItem(STORE, JSON.stringify(s)) } catch {}
+  }, [s])
 
   useEffect(() => {
     (async () => {
@@ -28,29 +75,20 @@ export default function BookletPage({ params, searchParams }) {
         const { data: c } = await supabase.from('gallery_curations')
           .select('*').eq('issue_number', Number(issue)).eq('is_special', isSpecial).maybeSingle()
         if (!c) { setErr('没有这一期'); return }
-
         const { data: works } = await supabase.from('gallery_works')
           .select('*').in('id', c.work_ids || []).order('display_order')
-
         const rikeIds = (works || []).map(w => w.rike_article_id).filter(Boolean)
         const puzzleIds = (works || []).map(w => w.puzzle_article_id).filter(Boolean)
-
         const [{ data: rikes }, { data: qs }] = await Promise.all([
           supabase.from('articles').select('id, content').in('id', rikeIds),
           supabase.from('article_questions').select('article_id, question_text')
             .in('article_id', puzzleIds).eq('question_type_v2', 'open'),
         ])
-
         const rikeMap = Object.fromEntries((rikes || []).map(r => [r.id, r.content]))
         const qMap = Object.fromEntries((qs || []).map(q => [q.article_id, q.question_text]))
-
         setData({
           curation: c,
-          works: (works || []).map(w => ({
-            ...w,
-            rike: rikeMap[w.rike_article_id] || '',
-            open: qMap[w.puzzle_article_id] || '',
-          })),
+          works: (works || []).map(w => ({ ...w, rike: rikeMap[w.rike_article_id] || '', open: qMap[w.puzzle_article_id] || '' })),
         })
       } catch (e) { setErr(e.message) }
     })()
@@ -64,136 +102,236 @@ export default function BookletPage({ params, searchParams }) {
   const foot = `${c.theme_zh} · ${label}`
   const date = c.published_at ? new Date(c.published_at) : new Date()
   const dateStr = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月`
+  const hooks = Array.isArray(c.ig_hooks) ? c.ig_hooks : []
+  const hook = hooks[0] || (c.quote || '').split(/[。\n]/).filter(Boolean)[0] || c.theme_zh
+  const set = (k) => (e) => setS(p => ({ ...p, [k]: e.target.type === 'range' || e.target.type === 'number' ? Number(e.target.value) : e.target.value }))
+
+  // 所有参数变成 CSS 变量，页面样式引用它们
+  const vars = {
+    '--cover-blur': `${s.coverBlur}px`,
+    '--scrim-top': s.scrimTop / 100, '--scrim-bot': s.scrimBot / 100,
+    '--panel-fill': s.panelFill / 100, '--panel-edge': s.panelEdge / 100,
+    '--panel-side': `${s.panelSide}mm`, '--panel-pady': `${s.panelPadY}mm`, '--panel-shift': `${s.panelShift}mm`,
+    '--cover-top-size': `${s.coverTopSize}pt`, '--cover-top-y': `${s.coverTopY}mm`,
+    '--title-zh': `${s.titleZhSize}pt`, '--title-en': `${s.titleEnSize}pt`,
+    '--cover-bot-size': `${s.coverBotSize}pt`, '--cover-bot-y': `${s.coverBotY}mm`,
+    '--logo-w': `${s.logoW}mm`, '--logo-y': `${s.logoY}mm`,
+    '--intro-top': `${s.introTop}mm`, '--intro-side': `${s.introSide}mm`,
+    '--intro-size': `${s.introSize}pt`, '--intro-lh': s.introLH, '--intro-gap': `${s.introGap}mm`,
+    '--art-side': `${s.artSide}mm`, '--art-top': `${s.artTop}mm`, '--art-bottom': `${s.artBottom}mm`, '--cap-size': `${s.capSize}pt`,
+    '--rike-side': `${s.rikeSide}mm`, '--rike-top': `${s.rikeTop}mm`, '--rike-size': `${s.rikeSize}pt`, '--rike-lh': s.rikeLH, '--rike-gap': `${s.rikeGap}mm`,
+    '--ask-top': `${s.askTop}%`, '--ask-size': `${s.askSize}pt`, '--ask-gap': `${s.askGap}mm`, '--line-h': `${s.lineH}mm`,
+    '--qr-size': `${s.qrSize}mm`, '--back-y': `${s.backY}mm`,
+    '--foot-size': `${s.footSize}pt`,
+  }
 
   return (
-    <div className="bk">
+    <div className="bk" style={vars}>
       <style>{CSS}</style>
 
-      {/* 屏幕上的工具条，打印时隐藏 */}
-      <div className="bk-toolbar">
-        <div>
-          <strong>{c.theme_zh}</strong> · {label} · 十六页 A5
+      {/* ── 参数面板（打印时隐藏）── */}
+      <div className={`bk-side${open ? '' : ' closed'}`}>
+        <div className="side-head">
+          <strong>{c.theme_zh} · {label}</strong>
+          <div className="side-btns">
+            <button onClick={() => setS(DEFAULTS)}>恢复默认</button>
+            <button className="primary" onClick={() => window.print()}>打印 / 存为 PDF</button>
+          </div>
+          <p className="hint">打印设置：A5、无边距、勾上「背景图形」。参数自动保存在这台电脑上。</p>
         </div>
-        <button onClick={() => window.print()}>打印 / 存为 PDF</button>
-        <span className="hint">打印设置里选 A5、无边距、背景图形勾上</span>
+
+        <Group title="封面">
+          <Sel label="框里放" value={s.coverMode} onChange={set('coverMode')} opts={[['title', '中英文标题'], ['hook', '钩子（标题在底）']]} />
+          <R label="三张画模糊" v={s.coverBlur} u="px" min={0} max={20} step={0.5} on={set('coverBlur')} />
+          <R label="蒙版·上端" v={s.scrimTop} u="%" min={0} max={80} on={set('scrimTop')} />
+          <R label="蒙版·下端" v={s.scrimBot} u="%" min={0} max={80} on={set('scrimBot')} />
+          <R label="框白底" v={s.panelFill} u="%" min={0} max={60} on={set('panelFill')} />
+          <R label="框描边" v={s.panelEdge} u="%" min={0} max={100} on={set('panelEdge')} />
+          <R label="框左右留边" v={s.panelSide} u="mm" min={0} max={30} on={set('panelSide')} />
+          <R label="框上下内边" v={s.panelPadY} u="mm" min={4} max={30} on={set('panelPadY')} />
+          <R label="框上下偏移" v={s.panelShift} u="mm" min={-40} max={40} on={set('panelShift')} />
+          <R label="中文标题字号" v={s.titleZhSize} u="pt" min={12} max={40} step={0.5} on={set('titleZhSize')} />
+          <R label="英文标题字号" v={s.titleEnSize} u="pt" min={7} max={20} step={0.5} on={set('titleEnSize')} />
+          <R label="顶上题签字号" v={s.coverTopSize} u="pt" min={6} max={16} step={0.5} on={set('coverTopSize')} />
+          <R label="顶上题签位置" v={s.coverTopY} u="mm" min={4} max={30} on={set('coverTopY')} />
+          <R label="底部文字字号" v={s.coverBotSize} u="pt" min={6} max={16} step={0.5} on={set('coverBotSize')} />
+          <R label="底部文字位置" v={s.coverBotY} u="mm" min={4} max={30} on={set('coverBotY')} />
+        </Group>
+
+        <Group title="引言">
+          <R label="Logo 宽" v={s.logoW} u="mm" min={16} max={60} on={set('logoW')} />
+          <R label="Logo 位置" v={s.logoY} u="mm" min={10} max={60} on={set('logoY')} />
+          <R label="正文起点" v={s.introTop} u="mm" min={40} max={110} on={set('introTop')} />
+          <R label="正文左右留边" v={s.introSide} u="mm" min={12} max={36} on={set('introSide')} />
+          <R label="字号" v={s.introSize} u="pt" min={8} max={14} step={0.5} on={set('introSize')} />
+          <R label="行距" v={s.introLH} u="倍" min={1.4} max={2.6} step={0.05} on={set('introLH')} />
+          <R label="段间距" v={s.introGap} u="mm" min={0} max={12} step={0.5} on={set('introGap')} />
+        </Group>
+
+        <Group title="画页">
+          <R label="左右留边" v={s.artSide} u="mm" min={4} max={30} on={set('artSide')} />
+          <R label="上留边" v={s.artTop} u="mm" min={4} max={40} on={set('artTop')} />
+          <R label="下留边（放说明）" v={s.artBottom} u="mm" min={16} max={60} on={set('artBottom')} />
+          <R label="说明字号" v={s.capSize} u="pt" min={7} max={16} step={0.5} on={set('capSize')} />
+        </Group>
+
+        <Group title="日课页">
+          <R label="左右留边" v={s.rikeSide} u="mm" min={10} max={30} on={set('rikeSide')} />
+          <R label="正文起点" v={s.rikeTop} u="mm" min={20} max={50} on={set('rikeTop')} />
+          <R label="字号" v={s.rikeSize} u="pt" min={7} max={12} step={0.1} on={set('rikeSize')} />
+          <R label="行距" v={s.rikeLH} u="倍" min={1.4} max={2.4} step={0.05} on={set('rikeLH')} />
+          <R label="段间距" v={s.rikeGap} u="mm" min={0} max={8} step={0.2} on={set('rikeGap')} />
+        </Group>
+
+        <Group title="问题页">
+          <R label="题目起点" v={s.askTop} u="%" min={30} max={75} on={set('askTop')} />
+          <R label="题目字号" v={s.askSize} u="pt" min={8} max={14} step={0.5} on={set('askSize')} />
+          <R label="题与线的间距" v={s.askGap} u="mm" min={2} max={30} on={set('askGap')} />
+          <R label="横线条数" v={s.lineN} u="条" min={0} max={8} on={set('lineN')} />
+          <R label="横线行距" v={s.lineH} u="mm" min={6} max={18} on={set('lineH')} />
+        </Group>
+
+        <Group title="封底与页脚">
+          <R label="二维码大小" v={s.qrSize} u="mm" min={14} max={50} on={set('qrSize')} />
+          <R label="封底内容距底" v={s.backY} u="mm" min={8} max={80} on={set('backY')} />
+          <R label="页脚字号" v={s.footSize} u="pt" min={5} max={10} step={0.5} on={set('footSize')} />
+        </Group>
       </div>
 
-      {/* ── 1 封面 ── */}
-      <section className="pg cover">
-        {/* 三条画带上下无缝拼接，各取原画中段，与 IG 封面同一套 */}
-        <div className="bands">
-          {works.map((w, i) => (
-            <div key={i} className="band">
-              {w.cover_image && <img src={w.cover_image} alt="" />}
-            </div>
-          ))}
-        </div>
-        <div className="scrim" />
-        <div className="cover-top">Cradle 摇篮 · 艺术阅览室</div>
-        {/* 毛玻璃圆角框，绝对居中于中间那条画带，里面是当期的钩子 */}
-        <div className="panel">
-          <div className="t-zh">《{c.theme_zh}》</div>
-          {c.theme_en && <div className="t-en">{c.theme_en}</div>}
-        </div>
-        <div className="cover-bot">
-          <div className="site">cradle.art</div>
-        </div>
-      </section>
+      <button className="bk-toggle" onClick={() => setOpen(v => !v)}>{open ? '收起面板' : '打开面板'}</button>
 
-      {/* ── 2 引言 ── */}
-      <section className="pg intro">
-        <img src="/image/logo.png" alt="Cradle" className="intro-logo" />
-        <div className="intro-body">
-          {(c.quote || '').split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
-          {c.quote_author && <p className="by">—— {c.quote_author}</p>}
-        </div>
-        <div className="foot">{foot}</div>
-      </section>
+      {/* ══ 十六页 ══ */}
+      <div className={`bk-pages${open ? '' : ' full'}`}>
 
-      {/* ── 3 档案页：三幅画的档案 ── */}
-      <section className="pg half">
-        <div className="half-body">
-          <div className="half-label">本 期 三 幅</div>
-          <div className="archive">
-            {works.map((w, i) => (
-              <div key={i} className="arc">
-                <div className="arc-n">{['一', '二', '三'][i]}</div>
-                <div className="arc-t">{w.title}{w.title_en ? <span className="arc-en"> {w.title_en}</span> : null}</div>
-                <div className="arc-m">
-                  {[w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · ')}
-                </div>
-              </div>
-            ))}
+        {/* 1 封面 */}
+        <section className="pg cover">
+          <div className="bands">
+            {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={w.cover_image} alt="" />}</div>)}
           </div>
-          <div className="pd">本册所收作品均为公有领域</div>
-        </div>
-        <div className="foot">{foot}</div>
-      </section>
+          <div className="scrim" />
+          <div className="cover-top">Cradle 摇篮 · 艺术阅览室</div>
+          <div className="panel">
+            {s.coverMode === 'hook'
+              ? <div className="hook">{hook}</div>
+              : <><div className="t-zh">《{c.theme_zh}》</div>{c.theme_en && <div className="t-en">{c.theme_en}</div>}</>}
+          </div>
+          <div className="cover-bot">
+            {s.coverMode === 'hook' && <><div className="bt-zh">《{c.theme_zh}》</div>{c.theme_en && <div className="bt-en">{c.theme_en}</div>}</>}
+            <div className="site">cradle.art</div>
+          </div>
+        </section>
 
-      {/* ── 4–9 三个对页：画 | 日课 ── */}
-      {works.map((w, i) => (
-        <div key={`s${i}`} style={{ display: 'contents' }}>
-          <section className="pg art">
-            <div className="art-frame">
-              {w.cover_image && <img src={w.cover_image} alt={w.title} />}
-            </div>
-            <div className="art-cap">
-              <div className="cap-t">{w.title}</div>
-              <div className="cap-a">{w.artist_name}{w.year ? ` · ${w.year}` : ''}</div>
-            </div>
-          </section>
-          <section className="pg rike">
-            <div className="rike-head">
-              <span className="rike-n">{['一', '二', '三'][i]}</span>
-              <span className="rike-t">{w.title}</span>
-              {w.title_en && <span className="rike-en">{w.title_en}</span>}
-            </div>
-            <div className="rike-body">
-              {(w.rike || '').split('\n').filter(s => s.trim()).map((p, j) => <p key={j}>{p}</p>)}
-            </div>
-            <div className="foot">{foot}</div>
-          </section>
-        </div>
-      ))}
+        {/* 2 引言 */}
+        <section className="pg intro">
+          <img src="/image/logo.png" alt="Cradle" className="intro-logo" />
+          <div className="intro-body">
+            {(c.quote || '').split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+            {c.quote_author && <p className="by">—— {c.quote_author}</p>}
+          </div>
+          <div className="foot">{foot}</div>
+        </section>
 
-      {/* ── 10–15 三个对页：题+线 | 空白 ── */}
-      {works.map((w, i) => (
-        <div key={`q${i}`} style={{ display: 'contents' }}>
-          <section className="pg ask">
-            <div className="ask-body">
-              <div className="ask-n">{['一', '二', '三'][i]}</div>
-              <div className="ask-q">{w.open}</div>
-              <div className="lines">
-                {[0, 1, 2].map(k => <div key={k} className="ln" />)}
+        {/* 3 档案页 */}
+        <section className="pg half">
+          <div className="half-body">
+            <div className="half-label">本 期 三 幅</div>
+            <div className="archive">
+              {works.map((w, i) => (
+                <div key={i} className="arc">
+                  <div className="arc-n">{['一', '二', '三'][i]}</div>
+                  <div className="arc-t">{w.title}{w.title_en ? <span className="arc-en"> {w.title_en}</span> : null}</div>
+                  <div className="arc-m">{[w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · ')}</div>
+                </div>
+              ))}
+            </div>
+            <div className="pd">本册所收作品均为公有领域</div>
+          </div>
+          <div className="foot">{foot}</div>
+        </section>
+
+        {/* 4–9 画 | 日课 */}
+        {works.map((w, i) => (
+          <div key={`s${i}`} style={{ display: 'contents' }}>
+            <section className="pg art">
+              <div className="art-frame">{w.cover_image && <img src={w.cover_image} alt={w.title} />}</div>
+              <div className="art-cap">
+                <div className="cap-t">{w.title}</div>
+                <div className="cap-a">{w.artist_name}{w.year ? ` · ${w.year}` : ''}</div>
               </div>
-            </div>
-            <div className="foot">{foot}</div>
-          </section>
-          <section className="pg blank">
-            <div className="foot right">{foot}</div>
-          </section>
-        </div>
-      ))}
+            </section>
+            <section className="pg rike">
+              <div className="rike-head">
+                <span className="rike-n">{['一', '二', '三'][i]}</span>
+                <span className="rike-t">{w.title}</span>
+                {w.title_en && <span className="rike-en">{w.title_en}</span>}
+              </div>
+              <div className="rike-body">
+                {(w.rike || '').split('\n').filter(x => x.trim()).map((p, j) => <p key={j}>{p}</p>)}
+              </div>
+              <div className="foot">{foot}</div>
+            </section>
+          </div>
+        ))}
 
-      {/* ── 16 封底：二维码 + 两行字 ── */}
-      <section className="pg back">
-        <div className="back-center">
-          <QR text="https://cradle.art" size="26mm" />
-          <div className="back-l1">艺术阅览室 · {label}</div>
-          <div className="back-l2">cradle.art · {dateStr}</div>
-        </div>
-      </section>
+        {/* 10–15 题 | 空白 */}
+        {works.map((w, i) => (
+          <div key={`q${i}`} style={{ display: 'contents' }}>
+            <section className="pg ask">
+              <div className="ask-body">
+                <div className="ask-n">{['一', '二', '三'][i]}</div>
+                <div className="ask-q">{w.open}</div>
+                <div className="lines">{Array.from({ length: s.lineN }).map((_, k) => <div key={k} className="ln" />)}</div>
+              </div>
+              <div className="foot">{foot}</div>
+            </section>
+            <section className="pg blank"><div className="foot right">{foot}</div></section>
+          </div>
+        ))}
+
+        {/* 16 封底 */}
+        <section className="pg back">
+          <div className="back-center">
+            <QR text="https://cradle.art" />
+            <div className="back-l1">艺术阅览室 · {label}</div>
+            <div className="back-l2">cradle.art · {dateStr}</div>
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
 
-function QR({ text, size }) {
-  const m = qrMatrix(text)
-  const n = m.length
-  const q = 2
+// ── 面板小部件 ──
+function Group({ title, children }) {
+  const [o, setO] = useState(true)
   return (
-    <svg viewBox={`${-q} ${-q} ${n + q * 2} ${n + q * 2}`} width={size} height={size}
-      shapeRendering="crispEdges" style={{ display: 'block', margin: '0 auto' }}>
+    <div className="grp">
+      <div className="grp-t" onClick={() => setO(v => !v)}>{title} <span>{o ? '−' : '+'}</span></div>
+      {o && <div className="grp-b">{children}</div>}
+    </div>
+  )
+}
+function R({ label, v, u, min, max, step = 1, on }) {
+  return (
+    <label className="row">
+      <span className="lbl">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={v} onChange={on} />
+      <span className="val">{v}{u}</span>
+    </label>
+  )
+}
+function Sel({ label, value, onChange, opts }) {
+  return (
+    <label className="row">
+      <span className="lbl">{label}</span>
+      <select value={value} onChange={onChange}>{opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+    </label>
+  )
+}
+function QR({ text }) {
+  const m = qrMatrix(text); const n = m.length; const q = 2
+  return (
+    <svg viewBox={`${-q} ${-q} ${n + q * 2} ${n + q * 2}`} className="qr" shapeRendering="crispEdges">
       <path d={qrSvgPath(m)} fill="#26221e" />
     </svg>
   )
@@ -202,89 +340,74 @@ function QR({ text, size }) {
 const CSS = `
 @page { size: A5; margin: 0; }
 @media print {
-  .bk-toolbar { display: none !important; }
-  .pg { page-break-after: always; break-after: page; }
+  .bk-side, .bk-toggle { display: none !important; }
+  .bk-pages { margin: 0 !important; }
+  .pg { page-break-after: always; break-after: page; margin: 0 !important; }
   .pg:last-child { page-break-after: auto; }
   body { margin: 0; }
 }
 
-.bk { background: #e8e4dc; font-family: "Noto Serif SC", "Source Han Serif SC", "思源宋体", serif; color: #26221e; }
-.bk-toolbar { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 0.5px solid #ddd;
-  padding: 12px 20px; display: flex; align-items: center; gap: 16px; font-size: 14px; }
-.bk-toolbar button { padding: 8px 18px; border-radius: 8px; border: none; background: #111827; color: #fff; cursor: pointer; font-family: inherit; }
-.bk-toolbar .hint { font-size: 12px; color: #9CA3AF; }
+.bk { background: #e8e4dc; font-family: "Noto Serif SC", "Source Han Serif SC", "思源宋体", serif; color: #26221e; min-height: 100vh; }
 
-.pg { width: 148mm; height: 210mm; background: #fff; margin: 10mm auto; position: relative;
-  overflow: hidden; box-sizing: border-box; }
-@media print { .pg { margin: 0; } }
+/* 面板 */
+.bk-side { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; background: #fff; border-left: 0.5px solid #ddd;
+  overflow-y: auto; z-index: 20; font-family: -apple-system, "PingFang SC", sans-serif; font-size: 12px; }
+.bk-side.closed { display: none; }
+.side-head { padding: 16px; border-bottom: 0.5px solid #eee; position: sticky; top: 0; background: #fff; z-index: 1; }
+.side-head strong { font-size: 14px; }
+.side-btns { display: flex; gap: 8px; margin-top: 10px; }
+.side-btns button { flex: 1; padding: 8px; border-radius: 8px; border: 0.5px solid #ddd; background: #fff; cursor: pointer; font-family: inherit; font-size: 12px; }
+.side-btns button.primary { background: #111827; color: #fff; border-color: #111827; }
+.hint { font-size: 11px; color: #9CA3AF; margin: 10px 0 0; line-height: 1.6; }
+.grp { border-bottom: 0.5px solid #eee; }
+.grp-t { padding: 12px 16px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; user-select: none; }
+.grp-t span { color: #9CA3AF; font-weight: 400; }
+.grp-b { padding: 4px 16px 12px; }
+.row { display: grid; grid-template-columns: 96px 1fr 52px; align-items: center; gap: 8px; margin: 6px 0; }
+.lbl { color: #4b5563; }
+.val { color: #9CA3AF; text-align: right; font-variant-numeric: tabular-nums; }
+.row input[type=range] { width: 100%; }
+.row select { font-size: 12px; padding: 4px; grid-column: 2 / 4; }
+.bk-toggle { position: fixed; top: 12px; right: 12px; z-index: 30; padding: 8px 14px; border-radius: 8px; border: 0.5px solid #ddd;
+  background: #fff; cursor: pointer; font-size: 12px; font-family: -apple-system, sans-serif; }
+.bk-side:not(.closed) ~ .bk-toggle { right: 332px; }
 
-.foot { position: absolute; left: 14mm; bottom: 10mm; font-size: 7pt; color: #b8b2a8; letter-spacing: 0.08em; }
+/* 页 */
+.bk-pages { margin-right: 320px; padding: 10mm 0; }
+.bk-pages.full { margin-right: 0; }
+.pg { width: 148mm; height: 210mm; background: #fff; margin: 0 auto 10mm; position: relative; overflow: hidden; box-sizing: border-box; }
+
+.foot { position: absolute; left: 14mm; bottom: 10mm; font-size: var(--foot-size); color: #b8b2a8; letter-spacing: 0.08em; }
 .foot.right { left: auto; right: 14mm; }
 
-/* ── 封面：与 IG 封面同一套——三画无缝平铺、上浅下深的蒙版、毛玻璃圆角框 ── */
+/* 封面 */
 .cover { background: #2a2a2e; }
 .bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .band { flex: 1; overflow: hidden; position: relative; }
-.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; min-height: 100%; object-fit: cover; }
-.scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,.30), rgba(18,18,20,.46)); }
-/* 字号按 IG 画布（1080 宽）换算到 A5（148mm）：28px→11pt，66px→25pt，34px→13pt，24px→9.5pt */
-.cover-top { position: absolute; top: 11mm; left: 0; right: 0; text-align: center;
-  color: rgba(247,245,240,.72); font-size: 11pt; letter-spacing: 0.04em; }
-/* 圆角框：横向留边 9mm；纵向以中带中心（页高 50%）为准，绝对居中；毛玻璃靠 backdrop 模糊 */
-.panel { position: absolute; left: 9mm; right: 9mm; top: 50%; transform: translateY(-50%);
-  padding: 12mm 9mm; border-radius: 5mm;
-  background: rgba(255,255,255,.08); border: 0.5mm solid rgba(255,255,255,.34);
+.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; min-height: 100%; object-fit: cover; filter: blur(var(--cover-blur)); }
+.scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,var(--scrim-top)), rgba(18,18,20,var(--scrim-bot))); }
+.cover-top { position: absolute; top: var(--cover-top-y); left: 0; right: 0; text-align: center; color: rgba(247,245,240,.72); font-size: var(--cover-top-size); letter-spacing: 0.04em; }
+.panel { position: absolute; left: var(--panel-side); right: var(--panel-side); top: calc(50% + var(--panel-shift)); transform: translateY(-50%);
+  padding: var(--panel-pady) 9mm; border-radius: 5mm;
+  background: rgba(255,255,255,var(--panel-fill)); border: 0.5mm solid rgba(255,255,255,var(--panel-edge));
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.t-zh { font-size: 25pt; font-weight: 600; color: #F7F5F0; letter-spacing: 0.06em; line-height: 1.3; }
-.t-en { font-size: 12pt; color: rgba(247,245,240,.78); font-style: italic; margin-top: 3mm; font-family: Georgia, "Noto Serif SC", serif; }
-.cover-bot { position: absolute; bottom: 12mm; left: 0; right: 0; text-align: center; }
-.site { font-size: 9.5pt; color: rgba(247,245,240,.72); font-style: italic; font-family: Georgia, serif; }
+.t-zh { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; letter-spacing: 0.06em; line-height: 1.3; }
+.t-en { font-size: var(--title-en); color: rgba(247,245,240,.78); font-style: italic; margin-top: 3mm; font-family: Georgia, "Noto Serif SC", serif; }
+.hook { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; line-height: 1.45; letter-spacing: 0.02em; text-wrap: balance; }
+.cover-bot { position: absolute; bottom: var(--cover-bot-y); left: 0; right: 0; text-align: center; }
+.bt-zh { font-size: calc(var(--cover-bot-size) * 1.35); color: #F7F5F0; letter-spacing: 0.04em; }
+.bt-en { font-size: calc(var(--cover-bot-size) * 1.15); color: rgba(247,245,240,.72); font-style: italic; margin-top: 2mm; font-family: Georgia, serif; }
+.site { font-size: var(--cover-bot-size); color: rgba(247,245,240,.72); font-style: italic; margin-top: 3mm; font-family: Georgia, serif; }
 
-/* ── 引言 ── */
-.intro-logo { position: absolute; left: 50%; top: 24mm; transform: translateX(-50%); width: 32mm; opacity: .85; }
-/* 正文从固定位置起、自然往下流，每段等距；不用 justify，字距才会一致 */
-.intro-body { position: absolute; left: 22mm; right: 22mm; top: 64mm; }
-.intro-body p { font-size: 10.5pt; line-height: 2; margin: 0 0 5mm; color: #3a342c;
-  text-align: left; text-wrap: pretty; }
+/* 引言 */
+.intro-logo { position: absolute; left: 50%; top: var(--logo-y); transform: translateX(-50%); width: var(--logo-w); opacity: .85; }
+.intro-body { position: absolute; left: var(--intro-side); right: var(--intro-side); top: var(--intro-top); }
+.intro-body p { font-size: var(--intro-size); line-height: var(--intro-lh); margin: 0 0 var(--intro-gap); color: #3a342c; text-align: left; text-wrap: pretty; }
 .intro-body .by { text-align: right; color: #9CA3AF; font-size: 9pt; margin-top: 8mm; }
 
-/* ── 扉页 ── */
+/* 档案页 */
 .half-body { position: absolute; left: 20mm; right: 20mm; top: 34mm; }
 .half-label { font-size: 7.5pt; letter-spacing: 0.4em; color: #9CA3AF; margin-bottom: 6mm; }
-.half-list { list-style: none; margin: 0; padding: 0; }
-.half-list li { display: flex; gap: 4mm; align-items: baseline; margin-bottom: 4mm; font-size: 10pt; line-height: 1.8; }
-.half-list .n { color: #b8b2a8; font-size: 8pt; flex-shrink: 0; width: 5mm; }
-.half-list .wt { font-weight: 600; }
-.half-list .wa { color: #7a736b; font-size: 8.5pt; margin-left: 2mm; }
-.half-list.q li { font-size: 9pt; color: #4b5563; }
-
-/* ── 画页 ── */
-.art { background: #faf7f1; }
-.art-frame { position: absolute; left: 12mm; right: 12mm; top: 16mm; bottom: 36mm;
-  display: flex; align-items: center; justify-content: center; }
-.art-frame img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 2mm 8mm rgba(0,0,0,.12); }
-.art-cap { position: absolute; left: 14mm; right: 14mm; bottom: 14mm; }
-.cap-t { font-size: 11pt; font-weight: 600; }
-.cap-a { font-size: 8.5pt; color: #7a736b; margin-top: 1.5mm; }
-
-/* ── 日课页 ── */
-.rike-head { position: absolute; left: 16mm; right: 16mm; top: 16mm; display: flex; align-items: baseline; gap: 3mm; flex-wrap: wrap; }
-.rike-n { font-size: 8pt; color: #b8b2a8; }
-.rike-t { font-size: 12pt; font-weight: 600; }
-.rike-en { font-size: 8.5pt; color: #9CA3AF; font-style: italic; }
-.rike-body { position: absolute; left: 16mm; right: 16mm; top: 30mm; bottom: 20mm; overflow: hidden; }
-.rike-body p { font-size: 9.2pt; line-height: 1.95; margin: 0 0 3.2mm; text-align: justify; color: #3a342c; }
-
-/* ── 问题页：题在下三分之一，四行线 ── */
-.ask-body { position: absolute; left: 16mm; right: 16mm; top: 58%; }
-.ask-n { font-size: 8pt; color: #b8b2a8; margin-bottom: 3mm; }
-.ask-q { font-size: 10pt; line-height: 1.8; color: #26221e; margin-bottom: 12mm; }
-.lines .ln { height: 11mm; border-bottom: 0.4pt solid #d6d0c6; }
-
-/* ── 空白页：只有页脚 ── */
-.blank { background: #fff; }
-
-/* ── 封底 ── */
 .archive { margin-top: 4mm; }
 .arc { margin-bottom: 7mm; }
 .arc-n { font-size: 7.5pt; color: #b8b2a8; margin-bottom: 1.5mm; }
@@ -292,7 +415,34 @@ const CSS = `
 .arc-en { font-weight: 400; color: #9CA3AF; font-size: 8pt; font-style: italic; }
 .arc-m { font-size: 8.5pt; color: #7a736b; line-height: 1.8; margin-top: 1.5mm; }
 .pd { font-size: 7.5pt; color: #b8b2a8; margin-top: 12mm; }
-.back-center { position: absolute; left: 0; right: 0; bottom: 24mm; text-align: center; }
+
+/* 画页 */
+.art { background: #faf7f1; }
+.art-frame { position: absolute; left: var(--art-side); right: var(--art-side); top: var(--art-top); bottom: var(--art-bottom);
+  display: flex; align-items: center; justify-content: center; }
+.art-frame img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 2mm 8mm rgba(0,0,0,.12); }
+.art-cap { position: absolute; left: 14mm; right: 14mm; bottom: 14mm; }
+.cap-t { font-size: var(--cap-size); font-weight: 600; }
+.cap-a { font-size: calc(var(--cap-size) * 0.78); color: #7a736b; margin-top: 1.5mm; }
+
+/* 日课页 */
+.rike-head { position: absolute; left: var(--rike-side); right: var(--rike-side); top: 16mm; display: flex; align-items: baseline; gap: 3mm; flex-wrap: wrap; }
+.rike-n { font-size: 8pt; color: #b8b2a8; }
+.rike-t { font-size: 12pt; font-weight: 600; }
+.rike-en { font-size: 8.5pt; color: #9CA3AF; font-style: italic; }
+.rike-body { position: absolute; left: var(--rike-side); right: var(--rike-side); top: var(--rike-top); bottom: 20mm; overflow: hidden; }
+.rike-body p { font-size: var(--rike-size); line-height: var(--rike-lh); margin: 0 0 var(--rike-gap); text-align: justify; color: #3a342c; }
+
+/* 问题页 */
+.ask-body { position: absolute; left: 16mm; right: 16mm; top: var(--ask-top); }
+.ask-n { font-size: 8pt; color: #b8b2a8; margin-bottom: 3mm; }
+.ask-q { font-size: var(--ask-size); line-height: 1.8; color: #26221e; margin-bottom: var(--ask-gap); }
+.lines .ln { height: var(--line-h); border-bottom: 0.4pt solid #d6d0c6; }
+.blank { background: #fff; }
+
+/* 封底 */
+.back-center { position: absolute; left: 0; right: 0; bottom: var(--back-y); text-align: center; }
+.qr { width: var(--qr-size); height: var(--qr-size); display: block; margin: 0 auto; }
 .back-l1 { font-size: 8.5pt; color: #4b5563; margin-top: 6mm; letter-spacing: 0.06em; }
 .back-l2 { font-size: 7.5pt; color: #9CA3AF; margin-top: 1.5mm; letter-spacing: 0.06em; }
 `
