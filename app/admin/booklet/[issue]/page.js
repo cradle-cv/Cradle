@@ -2,7 +2,6 @@
 import { useEffect, useState, use } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
-import html2canvas from 'html2canvas'
 
 // 图片走站内代理，截图时才不会被跨域拦住（与 IG 打包器同一个接口）
 const proxied = (url) => url ? `/api/proxy-image?url=${encodeURIComponent(url)}` : ''
@@ -61,6 +60,7 @@ export default function BookletPage({ params, searchParams }) {
   const [s, setS] = useState(DEFAULTS)
   const [open, setOpen] = useState(true)
   const [t, setT] = useState(null)           // 页面上所有可改的文字
+  const [pdfBusy, setPdfBusy] = useState('')  // 生成 PDF 时的进度文字
   const TSTORE = `cradle_booklet_text_${issue}_${isSpecial ? 's' : 'r'}`
 
   // 读本地参数
@@ -135,7 +135,6 @@ export default function BookletPage({ params, searchParams }) {
   const resetText = () => { try { localStorage.removeItem(TSTORE) } catch {}; window.location.reload() }
 
   // 逐页截成高清图，拼进一个 A5 的 PDF，直接下载。不走浏览器打印，所以侧边栏、猫都不会进去。
-  const [pdfBusy, setPdfBusy] = useState('')
   async function makePdf() {
     setPdfBusy('准备中…')
     try {
@@ -149,6 +148,8 @@ export default function BookletPage({ params, searchParams }) {
         })
       }
       const { jsPDF } = window.jspdf
+      // html2canvas 也在这里才加载，不在页面打开时引入，避开服务端预渲染
+      const html2canvas = (await import('html2canvas')).default
       const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait', compress: true })
       const pages = Array.from(document.querySelectorAll('.bk-pages .pg'))
       // 先让所有正在编辑的字失焦，把改动存下来
@@ -285,7 +286,7 @@ export default function BookletPage({ params, searchParams }) {
         {/* 1 封面 */}
         <section className="pg cover">
           <div className="bands">
-            {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={proxied(w.cover_image)} alt="" crossOrigin="anonymous" />}</div>)}
+            {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={proxied(w.cover_image)} alt="" />}</div>)}
           </div>
           <div className="scrim" />
           <E as="div" className="cover-top" v={t.coverTop} on={edit('coverTop')} />
@@ -332,7 +333,7 @@ export default function BookletPage({ params, searchParams }) {
         {works.map((w, i) => (
           <div key={`s${i}`} style={{ display: 'contents' }}>
             <section className="pg art">
-              <div className="art-frame">{w.cover_image && <img src={proxied(w.cover_image)} alt={w.title} crossOrigin="anonymous" />}</div>
+              <div className="art-frame">{w.cover_image && <img src={proxied(w.cover_image)} alt={w.title} />}</div>
               <div className="art-cap">
                 <E as="div" className="cap-t" v={t.works[i].title} on={edit(`works.${i}.title`)} />
                 <E as="div" className="cap-a" v={t.works[i].artist} on={edit(`works.${i}.artist`)} />
