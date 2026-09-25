@@ -20,15 +20,20 @@ const DEFAULTS = {
   coverBlur: 0,          // px  三张画的模糊
   scrimTop: 30,          // %   蒙版上端不透明度
   scrimBot: 46,          // %   蒙版下端
-  panelFill: 8,          // %   框的白底
-  panelEdge: 34,         // %   框描边
+  panelFill: 0,          // %   框的白底（默认关，改用辉光）
+  panelEdge: 0,          // %   框描边（默认关）
   panelSide: 9,          // mm  框左右留边
-  panelPadY: 12,         // mm  框上下内边
+  panelPadY: 14,         // mm  框上下内边
   panelShift: 0,         // mm  框垂直偏移（正往下，负往上）
+  glowOp: 30,            // %   标题后面的辉光：中心不透明度
+  glowW: 62, glowH: 78,  // %   辉光的横向、纵向范围（相对框）
+  titleShadow: 45,       // %   白字投影的浓度（0 关）
+  titleSpacing: 12,      // 百分之一 em 中文字距
+  titleGap: 5,           // mm  中英文之间
   coverTopSize: 11,      // pt  顶上题签
   coverTopY: 11,         // mm
-  titleZhSize: 25,       // pt  中文标题
-  titleEnSize: 12,       // pt  英文标题
+  titleZhSize: 29,       // pt  中文标题
+  titleEnSize: 10,       // pt  英文标题
   coverBotSize: 9.5,     // pt  底部 cradle.art
   coverBotY: 12,         // mm
   coverMode: 'title',    // 'title' 框里放标题 / 'hook' 框里放钩子、标题在底
@@ -112,6 +117,7 @@ export default function BookletPage({ params, searchParams }) {
           foot: `${c.theme_zh} · ${label0}`,
           back1: `艺术阅览室 · ${label0}`, back2: `cradle.art · ${d0.getFullYear()} 年 ${d0.getMonth() + 1} 月`,
           bandPos: [[50, 50], [50, 50], [50, 50]],   // 三条画带各自显示的位置（x%, y%），50 是正中
+          glowColor: '#141a17',                         // 标题后面辉光的颜色，从画里挑一个深色
           works: ws.map(w => ({
             title: w.title, titleEn: w.title_en || '', artist: `${w.artist_name}${w.year ? ` · ${w.year}` : ''}`,
             meta: [w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · '),
@@ -241,6 +247,10 @@ export default function BookletPage({ params, searchParams }) {
     '--panel-side': `${s.panelSide}mm`, '--panel-pady': `${s.panelPadY}mm`, '--panel-shift': `${s.panelShift}mm`,
     '--cover-top-size': `${s.coverTopSize}pt`, '--cover-top-y': `${s.coverTopY}mm`,
     '--title-zh': `${s.titleZhSize}pt`, '--title-en': `${s.titleEnSize}pt`,
+    '--title-spacing': `${s.titleSpacing / 100}em`, '--title-gap': `${s.titleGap}mm`,
+    '--title-shadow': s.titleShadow / 100,
+    '--glow-rgb': hexToRgb(t?.glowColor || '#141a17'), '--glow-op': s.glowOp / 100,
+    '--glow-w': `${s.glowW}%`, '--glow-h': `${s.glowH}%`,
     '--cover-bot-size': `${s.coverBotSize}pt`, '--cover-bot-y': `${s.coverBotY}mm`,
     '--logo-w': `${s.logoW}mm`, '--logo-y': `${s.logoY}mm`,
     '--intro-top': `${s.introTop}mm`, '--intro-side': `${s.introSide}mm`,
@@ -278,8 +288,16 @@ export default function BookletPage({ params, searchParams }) {
           <R label="三张画模糊" v={s.coverBlur} u="px" min={0} max={20} step={0.5} on={set('coverBlur')} />
           <R label="蒙版·上端" v={s.scrimTop} u="%" min={0} max={80} on={set('scrimTop')} />
           <R label="蒙版·下端" v={s.scrimBot} u="%" min={0} max={80} on={set('scrimBot')} />
-          <R label="框白底" v={s.panelFill} u="%" min={0} max={60} on={set('panelFill')} />
-          <R label="框描边" v={s.panelEdge} u="%" min={0} max={100} on={set('panelEdge')} />
+          <label className="row"><span className="lbl">辉光颜色</span>
+            <input type="color" value={t.glowColor || '#141a17'} onChange={e => edit('glowColor')(e.target.value)} style={{ gridColumn: '2 / 4', height: 28, cursor: 'pointer' }} /></label>
+          <R label="辉光·中心浓度" v={s.glowOp} u="%" min={0} max={80} on={set('glowOp')} />
+          <R label="辉光·横向范围" v={s.glowW} u="%" min={20} max={100} on={set('glowW')} />
+          <R label="辉光·纵向范围" v={s.glowH} u="%" min={20} max={100} on={set('glowH')} />
+          <R label="白字投影" v={s.titleShadow} u="%" min={0} max={90} on={set('titleShadow')} />
+          <R label="中文字距" v={s.titleSpacing} u="" min={0} max={40} on={set('titleSpacing')} />
+          <R label="中英间距" v={s.titleGap} u="mm" min={0} max={14} step={0.5} on={set('titleGap')} />
+          <R label="框白底（旧式）" v={s.panelFill} u="%" min={0} max={60} on={set('panelFill')} />
+          <R label="框描边（旧式）" v={s.panelEdge} u="%" min={0} max={100} on={set('panelEdge')} />
           <R label="框左右留边" v={s.panelSide} u="mm" min={0} max={30} on={set('panelSide')} />
           <R label="框上下内边" v={s.panelPadY} u="mm" min={4} max={30} on={set('panelPadY')} />
           <R label="框上下偏移" v={s.panelShift} u="mm" min={-40} max={40} on={set('panelShift')} />
@@ -458,6 +476,11 @@ function E({ as: Tag = 'div', className = '', v = '', on, multi = false }) {
       }} />
   )
 }
+function hexToRgb(hex) {
+  const h = (hex || '#141a17').replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
 function setPath(obj, path, val) {
   const keys = path.split('.')
   const out = Array.isArray(obj) ? [...obj] : { ...obj }
@@ -593,13 +616,24 @@ const CSS = `
 .cover-top.ed, .cover-bot .ed { pointer-events: auto; }
 .scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,var(--scrim-top)), rgba(18,18,20,var(--scrim-bot))); }
 .cover-top { position: absolute; top: var(--cover-top-y); left: 0; right: 0; text-align: center; color: rgba(247,245,240,.72); font-size: var(--cover-top-size); letter-spacing: 0.04em; }
+/* 标题后面是一团柔和的深色辉光：中心最浓、四周羽化到透明，看不出矩形。旧式的白底与描边默认为 0 */
 .panel { position: absolute; left: var(--panel-side); right: var(--panel-side); top: calc(50% + var(--panel-shift)); transform: translateY(-50%);
   padding: var(--panel-pady) 9mm; border-radius: 5mm;
-  background: rgba(255,255,255,var(--panel-fill)); border: 0.5mm solid rgba(255,255,255,var(--panel-edge));
+  background:
+    radial-gradient(ellipse var(--glow-w) var(--glow-h) at 50% 50%,
+      rgba(var(--glow-rgb), var(--glow-op)) 0%,
+      rgba(var(--glow-rgb), calc(var(--glow-op) * 0.55)) 40%,
+      rgba(var(--glow-rgb), calc(var(--glow-op) * 0.18)) 70%,
+      rgba(var(--glow-rgb), 0) 100%),
+    rgba(255,255,255,var(--panel-fill));
+  border: 0.5mm solid rgba(255,255,255,var(--panel-edge));
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.t-zh { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; letter-spacing: 0.06em; line-height: 1.3; }
-.t-en { font-size: var(--title-en); color: rgba(247,245,240,.78); font-style: italic; margin-top: 3mm; font-family: Georgia, "Noto Serif SC", serif; }
-.hook { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; line-height: 1.45; letter-spacing: 0.02em; text-wrap: balance; }
+.t-zh { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; letter-spacing: var(--title-spacing); line-height: 1.3;
+  text-shadow: 0 0.7mm 2.5mm rgba(0,0,0,var(--title-shadow)); }
+.t-en { font-size: var(--title-en); color: rgba(247,245,240,.82); font-style: italic; margin-top: var(--title-gap); font-family: Georgia, "Noto Serif SC", serif;
+  text-shadow: 0 0.5mm 2mm rgba(0,0,0,calc(var(--title-shadow) * 0.8)); }
+.hook { font-size: var(--title-zh); font-weight: 600; color: #F7F5F0; line-height: 1.45; letter-spacing: 0.02em; text-wrap: balance;
+  text-shadow: 0 0.7mm 2.5mm rgba(0,0,0,var(--title-shadow)); }
 .cover-bot { position: absolute; bottom: var(--cover-bot-y); left: 0; right: 0; text-align: center; }
 .bt-zh { font-size: calc(var(--cover-bot-size) * 1.35); color: #F7F5F0; letter-spacing: 0.04em; }
 .bt-en { font-size: calc(var(--cover-bot-size) * 1.15); color: rgba(247,245,240,.72); font-style: italic; margin-top: 2mm; font-family: Georgia, serif; }
