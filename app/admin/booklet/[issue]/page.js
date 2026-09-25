@@ -56,6 +56,8 @@ export default function BookletPage({ params, searchParams }) {
   const [err, setErr] = useState(null)
   const [s, setS] = useState(DEFAULTS)
   const [open, setOpen] = useState(true)
+  const [t, setT] = useState(null)           // 页面上所有可改的文字
+  const TSTORE = `cradle_booklet_text_${issue}_${isSpecial ? 's' : 'r'}`
 
   // 读本地参数
   useEffect(() => {
@@ -68,6 +70,9 @@ export default function BookletPage({ params, searchParams }) {
   useEffect(() => {
     try { localStorage.setItem(STORE, JSON.stringify(s)) } catch {}
   }, [s])
+  useEffect(() => {
+    if (t) try { localStorage.setItem(TSTORE, JSON.stringify(t)) } catch {}
+  }, [t, TSTORE])
 
   useEffect(() => {
     (async () => {
@@ -86,25 +91,44 @@ export default function BookletPage({ params, searchParams }) {
         ])
         const rikeMap = Object.fromEntries((rikes || []).map(r => [r.id, r.content]))
         const qMap = Object.fromEntries((qs || []).map(q => [q.article_id, q.question_text]))
-        setData({
-          curation: c,
-          works: (works || []).map(w => ({ ...w, rike: rikeMap[w.rike_article_id] || '', open: qMap[w.puzzle_article_id] || '' })),
-        })
+        const ws = (works || []).map(w => ({ ...w, rike: rikeMap[w.rike_article_id] || '', open: qMap[w.puzzle_article_id] || '' }))
+        setData({ curation: c, works: ws })
+
+        // 文字：库里的内容 + 固定字样，再盖上这台电脑上改过的
+        const label0 = c.is_special ? `特刊 ${c.issue_number}` : `第 ${c.issue_number} 期`
+        const d0 = c.published_at ? new Date(c.published_at) : new Date()
+        const hooks0 = Array.isArray(c.ig_hooks) ? c.ig_hooks : []
+        const base = {
+          coverTop: 'Cradle 摇篮 · 艺术阅览室',
+          titleZh: `《${c.theme_zh}》`, titleEn: c.theme_en || '',
+          hook: hooks0[0] || (c.quote || '').split(/[。\n]/).filter(Boolean)[0] || c.theme_zh,
+          site: 'cradle.art',
+          intro: c.quote || '', by: c.quote_author ? `—— ${c.quote_author}` : '',
+          archiveLabel: '本 期 三 幅', pd: '本册所收作品均为公有领域',
+          foot: `${c.theme_zh} · ${label0}`,
+          back1: `艺术阅览室 · ${label0}`, back2: `cradle.art · ${d0.getFullYear()} 年 ${d0.getMonth() + 1} 月`,
+          works: ws.map(w => ({
+            title: w.title, titleEn: w.title_en || '', artist: `${w.artist_name}${w.year ? ` · ${w.year}` : ''}`,
+            meta: [w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · '),
+            rike: w.rike, open: w.open,
+          })),
+        }
+        let saved = null
+        try { saved = JSON.parse(localStorage.getItem(`cradle_booklet_text_${issue}_${isSpecial ? 's' : 'r'}`) || 'null') } catch {}
+        setT(saved ? deepMerge(base, saved) : base)
       } catch (e) { setErr(e.message) }
     })()
   }, [issue, isSpecial])
 
   if (err) return <div style={{ padding: 40 }}>{err}</div>
-  if (!data) return <div style={{ padding: 40, color: '#9CA3AF' }}>排版中…</div>
+  if (!data || !t) return <div style={{ padding: 40, color: '#9CA3AF' }}>排版中…</div>
 
   const { curation: c, works } = data
   const label = c.is_special ? `特刊 ${c.issue_number}` : `第 ${c.issue_number} 期`
-  const foot = `${c.theme_zh} · ${label}`
-  const date = c.published_at ? new Date(c.published_at) : new Date()
-  const dateStr = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月`
-  const hooks = Array.isArray(c.ig_hooks) ? c.ig_hooks : []
-  const hook = hooks[0] || (c.quote || '').split(/[。\n]/).filter(Boolean)[0] || c.theme_zh
   const set = (k) => (e) => setS(p => ({ ...p, [k]: e.target.type === 'range' || e.target.type === 'number' ? Number(e.target.value) : e.target.value }))
+  // 改一处文字：路径如 'coverTop' 或 'works.1.rike'
+  const edit = (path) => (val) => setT(prev => setPath(prev, path, val))
+  const resetText = () => { try { localStorage.removeItem(TSTORE) } catch {}; window.location.reload() }
 
   // 所有参数变成 CSS 变量，页面样式引用它们
   const vars = {
@@ -134,10 +158,11 @@ export default function BookletPage({ params, searchParams }) {
         <div className="side-head">
           <strong>{c.theme_zh} · {label}</strong>
           <div className="side-btns">
-            <button onClick={() => setS(DEFAULTS)}>恢复默认</button>
-            <button className="primary" onClick={() => window.print()}>打印 / 存为 PDF</button>
+            <button onClick={() => setS(DEFAULTS)}>恢复版式</button>
+            <button onClick={resetText}>重置文字</button>
+            <button className="primary" onClick={() => window.print()}>打印 / PDF</button>
           </div>
-          <p className="hint">打印设置：A5、无边距、勾上「背景图形」。参数自动保存在这台电脑上。</p>
+          <p className="hint">页面上的字都能点了直接改，改完点别处就存。版式和文字都自动存在这台电脑上，不写回数据库。打印设置：A5、无边距、勾「背景图形」。</p>
         </div>
 
         <Group title="封面">
@@ -209,15 +234,15 @@ export default function BookletPage({ params, searchParams }) {
             {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={w.cover_image} alt="" />}</div>)}
           </div>
           <div className="scrim" />
-          <div className="cover-top">Cradle 摇篮 · 艺术阅览室</div>
+          <E as="div" className="cover-top" v={t.coverTop} on={edit('coverTop')} />
           <div className="panel">
             {s.coverMode === 'hook'
-              ? <div className="hook">{hook}</div>
-              : <><div className="t-zh">《{c.theme_zh}》</div>{c.theme_en && <div className="t-en">{c.theme_en}</div>}</>}
+              ? <E as="div" className="hook" v={t.hook} on={edit('hook')} />
+              : <><E as="div" className="t-zh" v={t.titleZh} on={edit('titleZh')} />{t.titleEn && <E as="div" className="t-en" v={t.titleEn} on={edit('titleEn')} />}</>}
           </div>
           <div className="cover-bot">
-            {s.coverMode === 'hook' && <><div className="bt-zh">《{c.theme_zh}》</div>{c.theme_en && <div className="bt-en">{c.theme_en}</div>}</>}
-            <div className="site">cradle.art</div>
+            {s.coverMode === 'hook' && <><E as="div" className="bt-zh" v={t.titleZh} on={edit('titleZh')} />{t.titleEn && <E as="div" className="bt-en" v={t.titleEn} on={edit('titleEn')} />}</>}
+            <E as="div" className="site" v={t.site} on={edit('site')} />
           </div>
         </section>
 
@@ -225,28 +250,28 @@ export default function BookletPage({ params, searchParams }) {
         <section className="pg intro">
           <img src="/image/logo.png" alt="Cradle" className="intro-logo" />
           <div className="intro-body">
-            {(c.quote || '').split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
-            {c.quote_author && <p className="by">—— {c.quote_author}</p>}
+            <E as="div" multi v={t.intro} on={edit('intro')} />
+            {t.by && <E as="p" className="by" v={t.by} on={edit('by')} />}
           </div>
-          <div className="foot">{foot}</div>
+          <E as="div" className="foot" v={t.foot} on={edit('foot')} />
         </section>
 
         {/* 3 档案页 */}
         <section className="pg half">
           <div className="half-body">
-            <div className="half-label">本 期 三 幅</div>
+            <E as="div" className="half-label" v={t.archiveLabel} on={edit('archiveLabel')} />
             <div className="archive">
               {works.map((w, i) => (
                 <div key={i} className="arc">
                   <div className="arc-n">{['一', '二', '三'][i]}</div>
-                  <div className="arc-t">{w.title}{w.title_en ? <span className="arc-en"> {w.title_en}</span> : null}</div>
-                  <div className="arc-m">{[w.artist_name, w.year, w.medium, w.dimensions, w.collection_location].filter(Boolean).join(' · ')}</div>
+                  <div className="arc-t"><E as="span" v={t.works[i].title} on={edit(`works.${i}.title`)} />{t.works[i].titleEn ? <E as="span" className="arc-en" v={' ' + t.works[i].titleEn} on={v => edit(`works.${i}.titleEn`)(v.trim())} /> : null}</div>
+                  <E as="div" className="arc-m" v={t.works[i].meta} on={edit(`works.${i}.meta`)} />
                 </div>
               ))}
             </div>
-            <div className="pd">本册所收作品均为公有领域</div>
+            <E as="div" className="pd" v={t.pd} on={edit('pd')} />
           </div>
-          <div className="foot">{foot}</div>
+          <E as="div" className="foot" v={t.foot} on={edit('foot')} />
         </section>
 
         {/* 4–9 画 | 日课 */}
@@ -255,20 +280,18 @@ export default function BookletPage({ params, searchParams }) {
             <section className="pg art">
               <div className="art-frame">{w.cover_image && <img src={w.cover_image} alt={w.title} />}</div>
               <div className="art-cap">
-                <div className="cap-t">{w.title}</div>
-                <div className="cap-a">{w.artist_name}{w.year ? ` · ${w.year}` : ''}</div>
+                <E as="div" className="cap-t" v={t.works[i].title} on={edit(`works.${i}.title`)} />
+                <E as="div" className="cap-a" v={t.works[i].artist} on={edit(`works.${i}.artist`)} />
               </div>
             </section>
             <section className="pg rike">
               <div className="rike-head">
                 <span className="rike-n">{['一', '二', '三'][i]}</span>
-                <span className="rike-t">{w.title}</span>
-                {w.title_en && <span className="rike-en">{w.title_en}</span>}
+                <E as="span" className="rike-t" v={t.works[i].title} on={edit(`works.${i}.title`)} />
+                {t.works[i].titleEn && <E as="span" className="rike-en" v={t.works[i].titleEn} on={edit(`works.${i}.titleEn`)} />}
               </div>
-              <div className="rike-body">
-                {(w.rike || '').split('\n').filter(x => x.trim()).map((p, j) => <p key={j}>{p}</p>)}
-              </div>
-              <div className="foot">{foot}</div>
+              <E as="div" className="rike-body" multi v={t.works[i].rike} on={edit(`works.${i}.rike`)} />
+              <E as="div" className="foot" v={t.foot} on={edit('foot')} />
             </section>
           </div>
         ))}
@@ -279,12 +302,12 @@ export default function BookletPage({ params, searchParams }) {
             <section className="pg ask">
               <div className="ask-body">
                 <div className="ask-n">{['一', '二', '三'][i]}</div>
-                <div className="ask-q">{w.open}</div>
+                <E as="div" className="ask-q" v={t.works[i].open} on={edit(`works.${i}.open`)} />
                 <div className="lines">{Array.from({ length: s.lineN }).map((_, k) => <div key={k} className="ln" />)}</div>
               </div>
-              <div className="foot">{foot}</div>
+              <E as="div" className="foot" v={t.foot} on={edit('foot')} />
             </section>
-            <section className="pg blank"><div className="foot right">{foot}</div></section>
+            <section className="pg blank"><E as="div" className="foot right" v={t.foot} on={edit('foot')} /></section>
           </div>
         ))}
 
@@ -292,13 +315,52 @@ export default function BookletPage({ params, searchParams }) {
         <section className="pg back">
           <div className="back-center">
             <QR text="https://cradle.art" />
-            <div className="back-l1">艺术阅览室 · {label}</div>
-            <div className="back-l2">cradle.art · {dateStr}</div>
+            <E as="div" className="back-l1" v={t.back1} on={edit('back1')} />
+            <E as="div" className="back-l2" v={t.back2} on={edit('back2')} />
           </div>
         </section>
       </div>
     </div>
   )
+}
+
+// ── 可编辑文字 ──
+// 点了直接改，点别处（blur）时存。multi 表示多段：回车分段，存成用换行分开的一段文字。
+// 用 dangerouslySetInnerHTML 而不是 children，这样拖滑块引起的重渲染不会把正在改的字冲掉。
+function E({ as: Tag = 'div', className = '', v = '', on, multi = false }) {
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const html = multi
+    ? String(v).split('\n').filter(x => x.trim()).map(p => `<p>${esc(p)}</p>`).join('')
+    : esc(v)
+  return (
+    <Tag className={`${className} ed`} contentEditable suppressContentEditableWarning spellCheck={false}
+      dangerouslySetInnerHTML={{ __html: html }}
+      onBlur={e => {
+        const raw = e.currentTarget.innerText || ''
+        on(multi ? raw.split('\n').map(x => x.trim()).filter(Boolean).join('\n') : raw.replace(/\n+/g, ' ').trim())
+      }} />
+  )
+}
+function setPath(obj, path, val) {
+  const keys = path.split('.')
+  const out = Array.isArray(obj) ? [...obj] : { ...obj }
+  let cur = out
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i]
+    cur[k] = Array.isArray(cur[k]) ? [...cur[k]] : { ...cur[k] }
+    cur = cur[k]
+  }
+  cur[keys[keys.length - 1]] = val
+  return out
+}
+function deepMerge(base, over) {
+  if (Array.isArray(base)) return base.map((b, i) => (over && over[i] !== undefined) ? deepMerge(b, over[i]) : b)
+  if (base && typeof base === 'object') {
+    const out = { ...base }
+    for (const k of Object.keys(over || {})) out[k] = (base[k] && typeof base[k] === 'object') ? deepMerge(base[k], over[k]) : over[k]
+    return out
+  }
+  return over !== undefined ? over : base
 }
 
 // ── 面板小部件 ──
@@ -371,6 +433,14 @@ const CSS = `
 .bk-toggle { position: fixed; top: 12px; right: 12px; z-index: 30; padding: 8px 14px; border-radius: 8px; border: 0.5px solid #ddd;
   background: #fff; cursor: pointer; font-size: 12px; font-family: -apple-system, sans-serif; }
 .bk-side:not(.closed) ~ .bk-toggle { right: 332px; }
+
+/* 可编辑文字：屏幕上悬停显示虚线框，打印时干干净净 */
+.ed { outline: none; cursor: text; border-radius: 1mm; transition: box-shadow .15s; }
+.ed:hover { box-shadow: 0 0 0 0.4mm rgba(180,83,9,.35); }
+.ed:focus { box-shadow: 0 0 0 0.4mm rgba(180,83,9,.7); background: rgba(255,255,255,.04); }
+.ed p { margin: 0 0 var(--intro-gap); }
+.rike-body.ed p { margin: 0 0 var(--rike-gap); font-size: var(--rike-size); line-height: var(--rike-lh); text-align: justify; color: #3a342c; }
+@media print { .ed:hover, .ed:focus { box-shadow: none; background: transparent; } }
 
 /* 页 */
 .bk-pages { margin-right: 320px; padding: 10mm 0; }
