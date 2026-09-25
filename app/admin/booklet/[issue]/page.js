@@ -2,6 +2,10 @@
 import { useEffect, useState, use } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
+import html2canvas from 'html2canvas'
+
+// 图片走站内代理，截图时才不会被跨域拦住（与 IG 打包器同一个接口）
+const proxied = (url) => url ? `/api/proxy-image?url=${encodeURIComponent(url)}` : ''
 
 /**
  * 阅览室单期册子 · 可编辑版。
@@ -130,6 +134,54 @@ export default function BookletPage({ params, searchParams }) {
   const edit = (path) => (val) => setT(prev => setPath(prev, path, val))
   const resetText = () => { try { localStorage.removeItem(TSTORE) } catch {}; window.location.reload() }
 
+  // 逐页截成高清图，拼进一个 A5 的 PDF，直接下载。不走浏览器打印，所以侧边栏、猫都不会进去。
+  const [pdfBusy, setPdfBusy] = useState('')
+  async function makePdf() {
+    setPdfBusy('准备中…')
+    try {
+      // jsPDF 从 CDN 动态加载，不用往项目里装包
+      if (!window.jspdf) {
+        await new Promise((ok, no) => {
+          const sc = document.createElement('script')
+          sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+          sc.onload = ok; sc.onerror = () => no(new Error('jsPDF 加载失败'))
+          document.head.appendChild(sc)
+        })
+      }
+      const { jsPDF } = window.jspdf
+      const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait', compress: true })
+      const pages = Array.from(document.querySelectorAll('.bk-pages .pg'))
+      // 先让所有正在编辑的字失焦，把改动存下来
+      document.activeElement?.blur?.()
+
+      for (let i = 0; i < pages.length; i++) {
+        setPdfBusy(`第 ${i + 1} / ${pages.length} 页…`)
+        const el = pages[i]
+        const canvas = await html2canvas(el, {
+          scale: 3,                 // 148mm 宽 × 3 ≈ 1680px，够 300dpi 印刷
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (doc) => {
+            // 截图副本里去掉编辑态的虚线框
+            doc.querySelectorAll('.ed').forEach(n => { n.style.boxShadow = 'none'; n.style.background = 'transparent' })
+          },
+        })
+        const img = canvas.toDataURL('image/jpeg', 0.92)
+        if (i > 0) pdf.addPage('a5', 'portrait')
+        pdf.addImage(img, 'JPEG', 0, 0, 148, 210, undefined, 'FAST')
+      }
+      const name = `摇篮阅览室_${label.replace(/\s/g, '')}_${c.theme_zh}.pdf`
+      pdf.save(name)
+      setPdfBusy('')
+    } catch (e) {
+      console.error(e)
+      setPdfBusy('')
+      alert('生成失败：' + e.message + '\n若提示跨域，确认 /api/proxy-image 已部署')
+    }
+  }
+
   // 所有参数变成 CSS 变量，页面样式引用它们
   const vars = {
     '--cover-blur': `${s.coverBlur}px`,
@@ -160,9 +212,11 @@ export default function BookletPage({ params, searchParams }) {
           <div className="side-btns">
             <button onClick={() => setS(DEFAULTS)}>恢复版式</button>
             <button onClick={resetText}>重置文字</button>
-            <button className="primary" onClick={() => window.print()}>打印 / PDF</button>
           </div>
-          <p className="hint">页面上的字都能点了直接改，改完点别处就存。版式和文字都自动存在这台电脑上，不写回数据库。打印设置：A5、无边距、勾「背景图形」。</p>
+          <button className="primary big" disabled={!!pdfBusy} onClick={makePdf}>
+            {pdfBusy || '生成 PDF 文件'}
+          </button>
+          <p className="hint">页面上的字都能点了直接改，改完点别处就存。版式和文字自动存在这台电脑上，不写回数据库。生成的 PDF 是十六页 A5、300dpi，可以直接交印厂。</p>
         </div>
 
         <Group title="封面">
@@ -231,7 +285,7 @@ export default function BookletPage({ params, searchParams }) {
         {/* 1 封面 */}
         <section className="pg cover">
           <div className="bands">
-            {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={w.cover_image} alt="" />}</div>)}
+            {works.map((w, i) => <div key={i} className="band">{w.cover_image && <img src={proxied(w.cover_image)} alt="" crossOrigin="anonymous" />}</div>)}
           </div>
           <div className="scrim" />
           <E as="div" className="cover-top" v={t.coverTop} on={edit('coverTop')} />
@@ -278,7 +332,7 @@ export default function BookletPage({ params, searchParams }) {
         {works.map((w, i) => (
           <div key={`s${i}`} style={{ display: 'contents' }}>
             <section className="pg art">
-              <div className="art-frame">{w.cover_image && <img src={w.cover_image} alt={w.title} />}</div>
+              <div className="art-frame">{w.cover_image && <img src={proxied(w.cover_image)} alt={w.title} crossOrigin="anonymous" />}</div>
               <div className="art-cap">
                 <E as="div" className="cap-t" v={t.works[i].title} on={edit(`works.${i}.title`)} />
                 <E as="div" className="cap-a" v={t.works[i].artist} on={edit(`works.${i}.artist`)} />
@@ -424,6 +478,8 @@ const CSS = `
 .side-btns { display: flex; gap: 8px; margin-top: 10px; }
 .side-btns button { flex: 1; padding: 8px; border-radius: 8px; border: 0.5px solid #ddd; background: #fff; cursor: pointer; font-family: inherit; font-size: 12px; }
 .side-btns button.primary { background: #111827; color: #fff; border-color: #111827; }
+.side-head .big { width: 100%; margin-top: 8px; padding: 11px; border-radius: 8px; border: none; background: #111827; color: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
+.side-head .big:disabled { opacity: .6; cursor: default; }
 .hint { font-size: 11px; color: #9CA3AF; margin: 10px 0 0; line-height: 1.6; }
 .grp { border-bottom: 0.5px solid #eee; }
 .grp-t { padding: 12px 16px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; user-select: none; }
@@ -456,9 +512,10 @@ const CSS = `
 
 /* 封面 */
 .cover { background: #2a2a2e; }
-.bands { position: absolute; inset: 0; display: flex; flex-direction: column; }
-.band { flex: 1; overflow: hidden; position: relative; }
-.band img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; min-height: 100%; object-fit: cover; filter: blur(var(--cover-blur)); }
+.bands { position: absolute; left: 0; top: 0; width: 148mm; height: 210mm; }
+.band { position: absolute; left: 0; width: 148mm; height: 70mm; overflow: hidden; }
+.band:nth-child(1) { top: 0; } .band:nth-child(2) { top: 70mm; } .band:nth-child(3) { top: 140mm; }
+.band img { position: absolute; left: 0; top: 0; width: 148mm; height: 70mm; object-fit: cover; object-position: center; filter: blur(var(--cover-blur)); }
 .scrim { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18,18,20,var(--scrim-top)), rgba(18,18,20,var(--scrim-bot))); }
 .cover-top { position: absolute; top: var(--cover-top-y); left: 0; right: 0; text-align: center; color: rgba(247,245,240,.72); font-size: var(--cover-top-size); letter-spacing: 0.04em; }
 .panel { position: absolute; left: var(--panel-side); right: var(--panel-side); top: calc(50% + var(--panel-shift)); transform: translateY(-50%);
