@@ -103,8 +103,9 @@ export default function BookletPage({ params, searchParams }) {
         const hooks0 = Array.isArray(c.ig_hooks) ? c.ig_hooks : []
         const base = {
           coverTop: 'Cradle 摇篮 · 艺术阅览室',
-          titleZh: `《${c.theme_zh}》`, titleEn: c.theme_en || '',
+          titleZh: c.theme_zh, titleEn: c.theme_en || '',
           hook: hooks0[0] || (c.quote || '').split(/[。\n]/).filter(Boolean)[0] || c.theme_zh,
+          issueLine: `${label0} · ${d0.getFullYear()} 年 ${d0.getMonth() + 1} 月`,
           site: 'cradle.art',
           intro: c.quote || '', by: c.quote_author ? `—— ${c.quote_author}` : '',
           archiveLabel: '本 期 三 幅', pd: '本册所收作品均为公有领域',
@@ -357,6 +358,7 @@ export default function BookletPage({ params, searchParams }) {
           </div>
           <div className="cover-bot">
             {s.coverMode === 'hook' && <><E as="div" className="bt-zh" v={t.titleZh} on={edit('titleZh')} />{t.titleEn && <E as="div" className="bt-en" v={t.titleEn} on={edit('titleEn')} />}</>}
+            <E as="div" className="issue-line" v={t.issueLine || ''} on={edit('issueLine')} />
             <E as="div" className="site" v={t.site} on={edit('site')} />
           </div>
         </section>
@@ -601,7 +603,8 @@ const CSS = `
 .cover-bot { position: absolute; bottom: var(--cover-bot-y); left: 0; right: 0; text-align: center; }
 .bt-zh { font-size: calc(var(--cover-bot-size) * 1.35); color: #F7F5F0; letter-spacing: 0.04em; }
 .bt-en { font-size: calc(var(--cover-bot-size) * 1.15); color: rgba(247,245,240,.72); font-style: italic; margin-top: 2mm; font-family: Georgia, serif; }
-.site { font-size: var(--cover-bot-size); color: rgba(247,245,240,.72); font-style: italic; margin-top: 3mm; font-family: Georgia, serif; }
+.issue-line { font-size: var(--cover-bot-size); color: rgba(247,245,240,.85); letter-spacing: 0.08em; margin-top: 3mm; }
+.site { font-size: calc(var(--cover-bot-size) * 0.9); color: rgba(247,245,240,.6); font-style: italic; margin-top: 1.5mm; font-family: Georgia, serif; }
 
 /* 引言 */
 .intro-logo { position: absolute; left: 50%; top: var(--logo-y); transform: translateX(-50%); width: var(--logo-w); opacity: .85; }
