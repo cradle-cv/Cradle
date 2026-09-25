@@ -127,7 +127,12 @@ export default function BookletPage({ params, searchParams }) {
         const { data: bs } = await supabase.from('booklet_settings')
           .select('layout, text').eq('issue_number', Number(issue)).eq('is_special', isSpecial).maybeSingle()
         if (bs?.layout && Object.keys(bs.layout).length) setS({ ...DEFAULTS, ...bs.layout })
-        setT(bs?.text && Object.keys(bs.text).length ? deepMerge(base, bs.text) : base)
+        const merged = bs?.text && Object.keys(bs.text).length ? deepMerge(base, bs.text) : base
+        // 没存过辉光色：从中间那幅画里取一个深色
+        if (!bs?.text?.glowColor && ws[1]?.cover_image) {
+          try { merged.glowColor = await sampleDark(proxied(ws[1].cover_image)) } catch {}
+        }
+        setT(merged)
         setLoaded(true)
       } catch (e) { setErr(e.message) }
     })()
@@ -289,7 +294,10 @@ export default function BookletPage({ params, searchParams }) {
           <R label="蒙版·上端" v={s.scrimTop} u="%" min={0} max={80} on={set('scrimTop')} />
           <R label="蒙版·下端" v={s.scrimBot} u="%" min={0} max={80} on={set('scrimBot')} />
           <label className="row"><span className="lbl">辉光颜色</span>
-            <input type="color" value={t.glowColor || '#141a17'} onChange={e => edit('glowColor')(e.target.value)} style={{ gridColumn: '2 / 4', height: 28, cursor: 'pointer' }} /></label>
+            <input type="color" value={t.glowColor || '#141a17'} onChange={e => edit('glowColor')(e.target.value)} style={{ height: 28, cursor: 'pointer' }} />
+            <button type="button" className="mini" style={{ margin: 0, padding: '4px 8px' }}
+              onClick={async () => { try { edit('glowColor')(await sampleDark(proxied(works[1]?.cover_image))) } catch { alert('取色失败') } }}>
+              从画取</button></label>
           <R label="辉光·中心浓度" v={s.glowOp} u="%" min={0} max={80} on={set('glowOp')} />
           <R label="辉光·横向范围" v={s.glowW} u="%" min={20} max={100} on={set('glowW')} />
           <R label="辉光·纵向范围" v={s.glowH} u="%" min={20} max={100} on={set('glowH')} />
@@ -475,6 +483,36 @@ function E({ as: Tag = 'div', className = '', v = '', on, multi = false }) {
         on(multi ? raw.split('\n').map(x => x.trim()).filter(Boolean).join('\n') : raw.replace(/\n+/g, ' ').trim())
       }} />
   )
+}
+// 从一幅画里取一个深色：缩到 48 像素宽读像素，按明度排序取最暗的四分之一求平均，再压暗一点
+function sampleDark(url) {
+  return new Promise((resolve, reject) => {
+    if (!url) return reject(new Error('no url'))
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const w = 48, h = Math.max(1, Math.round(48 * img.naturalHeight / img.naturalWidth))
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h
+        const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, w, h)
+        const d = ctx.getImageData(0, 0, w, h).data
+        const px = []
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2]
+          px.push({ r, g, b, l: 0.2126 * r + 0.7152 * g + 0.0722 * b })
+        }
+        px.sort((a, b) => a.l - b.l)
+        const dark = px.slice(0, Math.max(1, Math.floor(px.length * 0.25)))
+        let r = 0, g = 0, b = 0
+        for (const p of dark) { r += p.r; g += p.g; b += p.b }
+        r = Math.round(r / dark.length * 0.85); g = Math.round(g / dark.length * 0.85); b = Math.round(b / dark.length * 0.85)
+        const hex = '#' + [r, g, b].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')
+        resolve(hex)
+      } catch (e) { reject(e) }
+    }
+    img.onerror = () => reject(new Error('load failed'))
+    img.src = url
+  })
 }
 function hexToRgb(hex) {
   const h = (hex || '#141a17').replace('#', '')
