@@ -23,7 +23,7 @@ const SECTIONS = [
       { href: '/admin/gallery-artists', icon: '🎭', label: '阅览室艺术家' },
       { href: '/admin/batch', icon: '⚡', label: '批量管理', matchExact: (p) => p === '/admin/batch' },
       { href: '/admin/ig-kit', icon: '📸', label: 'IG 打包器' },
-      { href: '/admin/booklet/20', icon: '📖', label: '单期册子' },
+      { href: '/admin/booklet', icon: '📖', label: '单期册子', matchExact: (p) => p.startsWith('/admin/booklet') },
     ],
   },
   {
