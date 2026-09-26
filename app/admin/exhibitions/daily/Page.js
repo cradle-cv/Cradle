@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { LAYOUTS, ALL_GALLERY_STYLES } from '@/lib/galleryStyles'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 
@@ -323,8 +324,11 @@ function ReviewPanel({ detail, onClose, onDone }) {
                 <label className="block text-xs mb-1 text-gray-500">展厅风格</label>
                 <select value={galleryStyle} onChange={e => setGalleryStyle(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg text-sm text-gray-900" style={{ border: '0.5px solid #D1D5DB' }}>
-                  <option value="whitebox">whitebox</option>
-                  <option value="classic">classic</option>
+                  {LAYOUTS.map(l => (
+                    <optgroup key={l.id} label={l.name}>
+                      {ALL_GALLERY_STYLES.filter(o => o.layout === l.id).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
             </div>
