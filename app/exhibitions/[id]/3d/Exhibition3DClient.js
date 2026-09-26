@@ -1,396 +1,376 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+// ================================================================
+// 3D 展厅 · 界面层
+// 路径: app/exhibitions/[id]/3d/Exhibition3DClient.js
+// 场景本身在同目录的 galleryEngine.js
+// ================================================================
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import * as THREE from 'three'
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
+import { supabase } from '@/lib/supabase'
+import { createGallery, preloadImages } from './galleryEngine'
 
-// ================================================================
-// 核心修复：fetch(cache:'no-store') → blob → blobURL → canvas → texture
-//
-// 原因：其他页面 <img src="url"> 不带 crossOrigin 先加载了图片，
-// CDN/浏览器 缓存了不含 CORS 头的响应。
-// 3D展厅再用 crossOrigin='anonymous' 请求同一URL → 命中缓存 → 无CORS头 → 被拒绝
-//
-// 解决：fetch(cache:'no-store') 强制跳过浏览器缓存，发新请求拿到CORS头，
-// 转成 blob URL（同源），canvas绘制不再受CORS限制
-// ================================================================
-async function loadTexture(url, maxSize = 1024) {
-  try {
-    const resp = await fetch(url, {
-      mode: 'cors',
-      cache: 'no-store',     // 关键：跳过浏览器HTTP缓存
-      credentials: 'omit',
-    })
-    if (!resp.ok) throw new Error('HTTP ' + resp.status)
-    const blob = await resp.blob()
-    const blobUrl = URL.createObjectURL(blob)
+const STYLE_NAME = { classic: '经典长廊', whitebox: '白盒子', lshape: 'L 型转角', circular: '环形展厅' }
+const GOLD = '#c9a96e'
 
-    return await new Promise((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        let w = img.naturalWidth, h = img.naturalHeight
-        if (w > maxSize || h > maxSize) {
-          const s = maxSize / Math.max(w, h)
-          w = Math.round(w * s); h = Math.round(h * s)
-        }
-        const c = document.createElement('canvas')
-        c.width = w; c.height = h
-        c.getContext('2d').drawImage(img, 0, 0, w, h)
-        URL.revokeObjectURL(blobUrl)
-        const tex = new THREE.CanvasTexture(c)
-        tex.colorSpace = THREE.SRGBColorSpace
-        tex.needsUpdate = true
-        resolve(tex)
-      }
-      img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null) }
-      img.src = blobUrl   // blob: URL 是同源的，canvas不会被taint
-    })
-  } catch (err) {
-    console.warn('[3D] loadTexture failed:', url, err.message)
-    return null
-  }
+function detectMobile() {
+  if (typeof window === 'undefined') return false
+  return /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ||
+    window.matchMedia?.('(pointer: coarse)').matches
 }
 
-export default function Exhibition3DPage() {
+// 按作品数量分配贴图分辨率，避免手机显存吃紧
+function textureSize(n, mobile) {
+  const budget = mobile ? 26e6 : 95e6
+  const s = Math.sqrt(budget / Math.max(1, n))
+  return Math.round(Math.min(mobile ? 1280 : 2048, Math.max(mobile ? 768 : 1024, s)))
+}
+
+export default function Exhibition3DClient() {
   const { id } = useParams()
   const mountRef = useRef(null)
+  const mapRef = useRef(null)
+  const engineRef = useRef(null)
+  const imagesRef = useRef(null)
+  const preloadPromiseRef = useRef(null)
+
   const [exhibition, setExhibition] = useState(null)
-  const [artworks, setArtworks] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [phase, setPhase] = useState('loading')
-  const [preloadStatus, setPreloadStatus] = useState('')
-  const [viewingArtwork, setViewingArtwork] = useState(null)
+  const [works, setWorks] = useState([])
+  const [phase, setPhase] = useState('loading') // loading | intro | entering | scene | empty
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [isMobile, setIsMobile] = useState(false)
+  const [focus, setFocus] = useState({ idx: -1, work: null })
+  const [count, setCount] = useState(0)
+  const [touring, setTouring] = useState(false)
+  const [showMap, setShowMap] = useState(true)
+  const [showHint, setShowHint] = useState(true)
+  const [lightbox, setLightbox] = useState(null)
+  const [cardOpen, setCardOpen] = useState(true)
 
-  const artworksRef = useRef([])
-  const exhibitionRef = useRef(null)
-  const textureMapRef = useRef({})
-  const moveState = useRef({ forward: false, backward: false, left: false, right: false })
-  const velocity = useRef(new THREE.Vector3())
-  const direction = useRef(new THREE.Vector3())
-  const raycasterRef = useRef(new THREE.Raycaster())
-  const clockRef = useRef(new THREE.Clock())
-  const animFrameRef = useRef(null)
-  const boundsRef = useRef({ minX: -5, maxX: 5, minZ: -10, maxZ: 10 })
-  const touchRef = useRef({ startX: 0, startY: 0, lastX: 0, lastY: 0, moving: false })
-  const sceneInitRef = useRef(false)
-  const clickTargetsRef = useRef([])
-
+  // ---------- 数据 ----------
   useEffect(() => {
-    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
-    loadData()
-    return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); sceneInitRef.current = false }
+    let cancelled = false
+    const mobile = detectMobile()
+    setIsMobile(mobile)
+    setShowMap(!mobile)
+    ;(async () => {
+      try {
+        const { data: ex } = await supabase.from('exhibitions').select('*').eq('id', id).single()
+        if (cancelled) return
+        setExhibition(ex || null)
+
+        const { data: rows } = await supabase
+          .from('exhibition_artworks')
+          .select('wall_side, wall_position, display_order, order_num, is_featured, created_at, artworks(*, artists(display_name))')
+          .eq('exhibition_id', id)
+
+        let list = (rows || [])
+          .filter(r => r.artworks && r.artworks.id)
+          .map(r => ({
+            ...r.artworks,
+            wall_side: r.wall_side || 'left',
+            wall_position: r.wall_position || 0,
+            _order: r.display_order || r.order_num || 0,
+            _created: r.created_at || '',
+            is_featured: r.is_featured,
+          }))
+
+        // 排序：排过墙位的按墙位；否则按布展顺序，再按加入时间
+        const explicit = list.some(w => w.wall_position > 0)
+        list.sort((a, b) => {
+          if (explicit) {
+            if (a.wall_side !== b.wall_side) return a.wall_side === 'right' ? 1 : -1
+            const pa = a.wall_position || 9999, pb = b.wall_position || 9999
+            if (pa !== pb) return pa - pb
+          }
+          if (a._order !== b._order) return a._order - b._order
+          return a._created < b._created ? -1 : a._created > b._created ? 1 : 0
+        })
+
+        if (!list.length) {
+          const { data: fb } = await supabase.from('artworks').select('*, artists(display_name)')
+            .eq('status', 'published').order('created_at', { ascending: false }).limit(16)
+          list = (fb || []).map(a => ({ ...a, wall_side: 'left', wall_position: 0 }))
+        }
+        if (cancelled) return
+        setWorks(list)
+        if (!list.length) { setPhase('empty'); return }
+        setPhase('intro')
+
+        // 进入介绍页就开始在后台下载图片，用户读标题的时间也用上
+        preloadPromiseRef.current = preloadImages(list, {
+          maxSize: textureSize(list.length, mobile),
+          limit: mobile ? 4 : 6,
+          onProgress: (done, total) => !cancelled && setProgress({ done, total }),
+          isCancelled: () => cancelled,
+        }).then(imgs => { imagesRef.current = imgs; return imgs })
+      } catch (e) {
+        console.error('[3D] 数据加载失败', e)
+        if (!cancelled) setPhase('empty')
+      }
+    })()
+    return () => { cancelled = true }
   }, [id])
 
-  async function loadData() {
-    try {
-      const { data: ex } = await supabase.from('exhibitions').select('*').eq('id', id).single()
-      if (ex) { setExhibition(ex); exhibitionRef.current = ex }
-
-      const { data: exArtworks } = await supabase
-        .from('exhibition_artworks')
-        .select('*, artworks(*, artists(display_name))')
-        .eq('exhibition_id', id)
-        .order('wall_side', { ascending: true })
-        .order('wall_position', { ascending: true })
-
-      let works = (exArtworks || [])
-        .filter(ea => ea.artworks && ea.artworks.id)
-        .map(ea => ({ ...ea.artworks, wall_side: ea.wall_side || 'left', wall_position: ea.wall_position || 0 }))
-
-      if (works.length === 0) {
-        const { data: fb } = await supabase.from('artworks').select('*, artists(display_name)')
-          .eq('status', 'published').order('created_at', { ascending: false }).limit(20)
-        works = (fb || []).map((a, i) => ({ ...a, wall_side: i % 2 === 0 ? 'left' : 'right', wall_position: Math.floor(i / 2) + 1 }))
-      }
-
-      setArtworks(works)
-      artworksRef.current = works
-      setPhase('ready')
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
-  async function startExperience() {
-    setPhase('preloading')
-    const arts = artworksRef.current
-    const texMap = {}
-    let ok = 0, fail = 0
-
-    for (let i = 0; i < arts.length; i++) {
-      const work = arts[i]
-      if (work.image_url) {
-        setPreloadStatus(`加载 ${i + 1}/${arts.length}：${work.title || ''}`)
-        const tex = await loadTexture(work.image_url)
-        if (tex) { texMap[work.id] = tex; ok++; console.log(`[3D] ✅ ${i+1}/${arts.length}: ${work.title}`) }
-        else { fail++; console.warn(`[3D] ❌ ${i+1}/${arts.length}: ${work.title}`) }
-      }
-    }
-
-    textureMapRef.current = texMap
-    console.log(`[3D] 预加载完成: 成功${ok} 失败${fail}`)
+  // ---------- 进入 ----------
+  const enter = useCallback(async () => {
+    setPhase('entering')
+    const imgs = imagesRef.current || await preloadPromiseRef.current
+    if (document.fonts?.ready) { try { await document.fonts.ready } catch (e) {} }
     setPhase('scene')
-    requestAnimationFrame(() => requestAnimationFrame(() => initThreeJS()))
-  }
-
-  function initThreeJS() {
-    if (!mountRef.current || sceneInitRef.current) return
-    sceneInitRef.current = true
-
-    const W = mountRef.current.clientWidth, H = mountRef.current.clientHeight
-    const arts = artworksRef.current, ex = exhibitionRef.current
-    const style = ex?.gallery_style || 'classic', isWB = style === 'whitebox'
-    const texMap = textureMapRef.current
-
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(70, W / H, 0.1, 200)
-    camera.position.set(0, 1.6, 2)
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setSize(W, H)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = false
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.0
-    mountRef.current.appendChild(renderer.domElement)
-
-    let controls = null
-    if (!isMobile) controls = new PointerLockControls(camera, renderer.domElement)
-
-    // === helpers ===
-    function addPlane(w, h, mat, pos, rot) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat)
-      m.position.set(...pos); m.rotation.set(...rot); scene.add(m)
-    }
-    function addLight(T, args, x, y, z) { const l = new T(...args); l.position.set(x, y, z); scene.add(l) }
-    function addBench(pos, color) {
-      const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color, roughness: 0.7 })
-      const s = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.5), m); s.position.set(0, 0.45, 0); g.add(s)
-      ;[[-0.65,-0.18],[0.65,-0.18],[-0.65,0.18],[0.65,0.18]].forEach(([x,z]) => {
-        const l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), m); l.position.set(x, 0.225, z); g.add(l)
+    requestAnimationFrame(() => {
+      if (!mountRef.current || engineRef.current) return
+      engineRef.current = createGallery({
+        container: mountRef.current,
+        exhibition,
+        works,
+        images: imgs || {},
+        isMobile,
+        onFocus: (idx, work) => { setFocus({ idx, work }); if (idx >= 0) setCardOpen(true); else setTouring(false) },
+        onReady: ({ count }) => setCount(count),
       })
-      g.position.set(...pos); scene.add(g)
+      if (mapRef.current) engineRef.current.setMapCanvas(mapRef.current)
+    })
+  }, [exhibition, works, isMobile])
+
+  // 卸载时释放显存
+  useEffect(() => () => { engineRef.current?.dispose(); engineRef.current = null }, [])
+
+  useEffect(() => {
+    engineRef.current?.setMapCanvas(showMap ? mapRef.current : null)
+  }, [showMap, phase])
+
+  // 卡片打开时让画面让位
+  useEffect(() => {
+    const open = !!focus.work && cardOpen
+    engineRef.current?.setViewShift(open && !isMobile ? 185 : 0, open && isMobile ? 120 : 0)
+  }, [focus.work, cardOpen, isMobile])
+
+  useEffect(() => {
+    if (phase !== 'scene') return
+    const t = setTimeout(() => setShowHint(false), 7000)
+    return () => clearTimeout(t)
+  }, [phase])
+
+  // 自动导览：每件停留 9 秒
+  useEffect(() => {
+    if (!touring) return
+    const eng = engineRef.current
+    if (!eng) return
+    if (focus.idx < 0) eng.focus(0)
+    const t = setInterval(() => engineRef.current?.next(), 9000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touring])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code === 'Escape') { if (lightbox) setLightbox(null); else engineRef.current?.clearFocus() }
+      if (e.code === 'KeyM' && !isMobile) setShowMap(v => !v)
+      if (e.code === 'BracketRight' || e.code === 'KeyE') engineRef.current?.next()
+      if (e.code === 'BracketLeft' || e.code === 'KeyQ') engineRef.current?.prev()
     }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox, isMobile])
 
-    const clickTargets = []
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0
+  const styleName = STYLE_NAME[exhibition?.gallery_style] || '经典长廊'
+  const fw = focus.work
 
-    function makePainting(work) {
-      const pW = 2.0, pH = 1.5, fW = 0.08, fD = 0.05
-      const group = new THREE.Group()
-      const fm = new THREE.MeshStandardMaterial({ color: isWB ? 0x222222 : 0xc9a96e, metalness: 0.3, roughness: 0.5 })
-
-      ;[[pW+fW*2,fW,fD,0,pH/2+fW/2,0],[pW+fW*2,fW,fD,0,-pH/2-fW/2,0],[fW,pH,fD,-pW/2-fW/2,0,0],[fW,pH,fD,pW/2+fW/2,0,0]].forEach(([gw,gh,gd,px,py,pz]) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(gw,gh,gd), fm); m.position.set(px,py,pz); group.add(m)
-      })
-
-      const preTex = texMap[work.id]
-      const cMat = preTex ? new THREE.MeshBasicMaterial({ map: preTex }) : new THREE.MeshBasicMaterial({ color: 0x444444 })
-      const cMesh = new THREE.Mesh(new THREE.PlaneGeometry(pW, pH), cMat)
-      cMesh.position.set(0, 0, fD/2-0.005)
-      cMesh.userData = { artworkId: work.id, artworkData: work }
-      group.add(cMesh)
-      clickTargets.push(cMesh)
-
-      const lc = document.createElement('canvas'); lc.width = 512; lc.height = 128
-      const ctx = lc.getContext('2d')
-      ctx.fillStyle = isWB?'#f5f5f5':'#1a1a2e'; ctx.fillRect(0,0,512,128)
-      ctx.fillStyle = isWB?'#222':'#c9a96e'; ctx.fillRect(0,0,512,2)
-      ctx.font = 'bold 28px serif'; ctx.fillStyle = isWB?'#333':'#fff'; ctx.textAlign = 'center'
-      ctx.fillText(work.title||'无题',256,48)
-      ctx.font = '20px serif'; ctx.fillStyle = isWB?'#888':'#aac'
-      ctx.fillText((work.artists?.display_name||'')+(work.year?` · ${work.year}`:''),256,82)
-      const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.2), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lc)}))
-      lbl.position.set(0,-(pH/2+0.25),fD/2); group.add(lbl)
-      return group
-    }
-
-    const leftW = arts.filter(w=>w.wall_side==='left').sort((a,b)=>a.wall_position-b.wall_position)
-    const rightW = arts.filter(w=>w.wall_side==='right').sort((a,b)=>a.wall_position-b.wall_position)
-
-    // ==================== BUILDERS ====================
-    function buildClassic() {
-      const sp=4.5,rW=12,rH=5,mx=Math.max(leftW.length,rightW.length,2),rL=mx*sp+6
-      scene.background = new THREE.Color(0x1a1a2e); scene.fog = new THREE.Fog(0x1a1a2e,1,Math.max(rL,30))
-      boundsRef.current = {minX:-rW/2+0.5,maxX:rW/2-0.5,minZ:-rL/2+0.5,maxZ:rL/2-0.5}
-      const wM=new THREE.MeshStandardMaterial({color:0x2d2d3d,roughness:0.8})
-      const fM=new THREE.MeshStandardMaterial({color:0x2a2a3a,roughness:0.4})
-      addPlane(rW,rL,fM,[0,0,0],[-Math.PI/2,0,0])
-      addPlane(rW,rL,new THREE.MeshStandardMaterial({color:0x222233}),[0,rH,0],[Math.PI/2,0,0])
-      addPlane(rL,rH,wM,[-rW/2,rH/2,0],[0,Math.PI/2,0])
-      addPlane(rL,rH,wM,[rW/2,rH/2,0],[0,-Math.PI/2,0])
-      addPlane(rW,rH,wM,[0,rH/2,-rL/2],[0,0,0])
-      addPlane(rW,rH,wM,[0,rH/2,rL/2],[0,Math.PI,0])
-      scene.add(new THREE.AmbientLight(0x404060,0.7))
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.6],-rW/3,rH-0.5,-rL/4)
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.6],rW/3,rH-0.5,rL/4)
-      const lc=Math.min(4,Math.max(2,Math.ceil(rL/15)))
-      for(let i=0;i<lc;i++) addLight(THREE.PointLight,[0xfff5e6,0.5,rL/lc*2,1.5],0,rH-0.3,-rL/2+rL*(i+0.5)/lc)
-      leftW.forEach((w,i)=>{const g=makePainting(w);g.position.set(-rW/2+0.06,1.7,-rL/2+3+i*sp);g.rotation.y=Math.PI/2;scene.add(g)})
-      rightW.forEach((w,i)=>{const g=makePainting(w);g.position.set(rW/2-0.06,1.7,-rL/2+3+i*sp);g.rotation.y=-Math.PI/2;scene.add(g)})
-      for(let z=-rL/2+6;z<rL/2-3;z+=sp*2) addBench([0,0,z],0x3a3a4a)
-    }
-
-    function buildWhitebox() {
-      const sp=5.0,rW=14,rH=6,mx=Math.max(leftW.length,rightW.length,2),rL=mx*sp+8
-      scene.background = new THREE.Color(0xf5f5f5); scene.fog = new THREE.Fog(0xf5f5f5,1,Math.max(rL,40))
-      boundsRef.current = {minX:-rW/2+0.5,maxX:rW/2-0.5,minZ:-rL/2+0.5,maxZ:rL/2-0.5}
-      const wM=new THREE.MeshStandardMaterial({color:0xfafafa,roughness:0.95})
-      const fM=new THREE.MeshStandardMaterial({color:0xe8e8e8,roughness:0.3,metalness:0.05})
-      addPlane(rW,rL,fM,[0,0,0],[-Math.PI/2,0,0])
-      addPlane(rW,rL,new THREE.MeshStandardMaterial({color:0xffffff}),[0,rH,0],[Math.PI/2,0,0])
-      addPlane(rL,rH,wM,[-rW/2,rH/2,0],[0,Math.PI/2,0])
-      addPlane(rL,rH,wM,[rW/2,rH/2,0],[0,-Math.PI/2,0])
-      addPlane(rW,rH,wM,[0,rH/2,-rL/2],[0,0,0])
-      addPlane(rW,rH,wM,[0,rH/2,rL/2],[0,Math.PI,0])
-      scene.add(new THREE.AmbientLight(0xffffff,0.9))
-      addLight(THREE.DirectionalLight,[0xffffff,0.5],0,rH-0.2,0)
-      addLight(THREE.DirectionalLight,[0xffffff,0.3],-rW/2,rH-0.5,0)
-      addLight(THREE.DirectionalLight,[0xffffff,0.3],rW/2,rH-0.5,0)
-      leftW.forEach((w,i)=>{const g=makePainting(w);g.position.set(-rW/2+0.06,1.8,-rL/2+4+i*sp);g.rotation.y=Math.PI/2;scene.add(g)})
-      rightW.forEach((w,i)=>{const g=makePainting(w);g.position.set(rW/2-0.06,1.8,-rL/2+4+i*sp);g.rotation.y=-Math.PI/2;scene.add(g)})
-      for(let z=-rL/2+8;z<rL/2-3;z+=sp*2) addBench([0,0,z],0xcccccc)
-    }
-
-    function buildLShape() {
-      const sp=4.5,rW=12,rH=5,all=[...leftW,...rightW],half=Math.ceil(all.length/2)
-      const seg1=all.slice(0,half),seg2=all.slice(half)
-      const s1l=seg1.filter((_,i)=>i%2===0),s1r=seg1.filter((_,i)=>i%2===1)
-      const s2t=seg2.filter((_,i)=>i%2===0),s2b=seg2.filter((_,i)=>i%2===1)
-      const len1=Math.max(s1l.length,s1r.length,2)*sp+6,len2=Math.max(s2t.length,s2b.length,2)*sp+6
-      scene.background = new THREE.Color(0x1a1a2e); scene.fog = new THREE.Fog(0x1a1a2e,1,60)
-      boundsRef.current = {minX:-rW/2+0.5,maxX:len2+rW/2-0.5,minZ:-len1+rW/2+0.5,maxZ:rW/2-0.5}
-      const wM=new THREE.MeshStandardMaterial({color:0x2d2d3d,roughness:0.8})
-      const fM=new THREE.MeshStandardMaterial({color:0x2a2a3a,roughness:0.4})
-      const cM=new THREE.MeshStandardMaterial({color:0x222233})
-      addPlane(rW,len1,fM,[0,0,-len1/2+rW/2],[-Math.PI/2,0,0])
-      addPlane(rW,len1,cM,[0,rH,-len1/2+rW/2],[Math.PI/2,0,0])
-      addPlane(len1,rH,wM,[-rW/2,rH/2,-len1/2+rW/2],[0,Math.PI/2,0])
-      addPlane(rW,rH,wM,[0,rH/2,-len1+rW/2],[0,0,0])
-      addPlane(len2,rW,fM,[len2/2,0,0],[-Math.PI/2,0,0])
-      addPlane(len2,rW,cM,[len2/2,rH,0],[Math.PI/2,0,0])
-      addPlane(len2,rH,wM,[len2/2,rH/2,rW/2],[0,Math.PI,0])
-      addPlane(len2,rH,wM,[len2/2,rH/2,-rW/2],[0,0,0])
-      addPlane(rW,rH,wM,[len2,rH/2,0],[0,-Math.PI/2,0])
-      scene.add(new THREE.AmbientLight(0x404060,0.7))
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.5],0,rH-0.5,-len1/3)
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.5],len2/2,rH-0.5,0)
-      addLight(THREE.PointLight,[0xfff5e6,0.6,len1,1.5],0,rH-0.3,-len1/3)
-      addLight(THREE.PointLight,[0xfff5e6,0.6,len2,1.5],len2/2,rH-0.3,0)
-      s1l.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w);g.position.set(-rW/2+0.06,1.7,z);g.rotation.y=Math.PI/2;scene.add(g)})
-      s1r.forEach((w,i)=>{const z=-len1+rW/2+3+i*sp;const g=makePainting(w);g.position.set(rW/2-0.06,1.7,z);g.rotation.y=-Math.PI/2;scene.add(g)})
-      s2t.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w);g.position.set(x,1.7,-rW/2+0.06);g.rotation.y=0;scene.add(g)})
-      s2b.forEach((w,i)=>{const x=3+i*sp;const g=makePainting(w);g.position.set(x,1.7,rW/2-0.06);g.rotation.y=Math.PI;scene.add(g)})
-    }
-
-    function buildCircular() {
-      const allW=[...leftW,...rightW],count=allW.length||1,radius=Math.max(count*1.2,8),rH=5
-      scene.background = new THREE.Color(0x12121e); scene.fog = new THREE.Fog(0x12121e,1,radius*2.5)
-      boundsRef.current = {minX:-radius,maxX:radius,minZ:-radius,maxZ:radius}
-      const wm=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,rH,64,1,true),new THREE.MeshStandardMaterial({color:0x28283a,roughness:0.8,side:THREE.BackSide}))
-      wm.position.set(0,rH/2,0);scene.add(wm)
-      const fl=new THREE.Mesh(new THREE.CircleGeometry(radius,64),new THREE.MeshStandardMaterial({color:0x2a2a3a,roughness:0.4}));fl.rotation.x=-Math.PI/2;scene.add(fl)
-      const cl=new THREE.Mesh(new THREE.CircleGeometry(radius,64),new THREE.MeshStandardMaterial({color:0x222233}));cl.rotation.x=Math.PI/2;cl.position.set(0,rH,0);scene.add(cl)
-      scene.add(new THREE.AmbientLight(0x404060,0.7))
-      addLight(THREE.PointLight,[0xfff5e6,1.0,radius*2,1],0,rH-0.5,0)
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.4],radius/2,rH-0.5,0)
-      addLight(THREE.DirectionalLight,[0xfff5e6,0.4],-radius/2,rH-0.5,0)
-      allW.forEach((w,i)=>{const a=(i/count)*Math.PI*2-Math.PI/2;const g=makePainting(w);g.position.set(Math.cos(a)*(radius-0.06),1.7,Math.sin(a)*(radius-0.06));g.rotation.y=-a+Math.PI;scene.add(g)})
-      const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,0.8,16),new THREE.MeshStandardMaterial({color:0x3a3a4a,roughness:0.6}));ped.position.set(0,0.4,0);scene.add(ped)
-    }
-
-    if (style==='whitebox') buildWhitebox()
-    else if (style==='lshape') buildLShape()
-    else if (style==='circular') buildCircular()
-    else buildClassic()
-
-    clickTargetsRef.current = clickTargets
-
-    // ==================== EVENTS ====================
-    const onKD = (e) => { const m=moveState.current; if(e.code==='KeyW'||e.code==='ArrowUp')m.forward=true; if(e.code==='KeyS'||e.code==='ArrowDown')m.backward=true; if(e.code==='KeyA'||e.code==='ArrowLeft')m.left=true; if(e.code==='KeyD'||e.code==='ArrowRight')m.right=true }
-    const onKU = (e) => { const m=moveState.current; if(e.code==='KeyW'||e.code==='ArrowUp')m.forward=false; if(e.code==='KeyS'||e.code==='ArrowDown')m.backward=false; if(e.code==='KeyA'||e.code==='ArrowLeft')m.left=false; if(e.code==='KeyD'||e.code==='ArrowRight')m.right=false }
-    function checkPainting() { raycasterRef.current.setFromCamera(new THREE.Vector2(0,0),camera); const h=raycasterRef.current.intersectObjects(clickTargetsRef.current); if(h.length>0&&h[0].distance<4)setViewingArtwork(h[0].object.userData.artworkData) }
-    const onClick = () => { if(!isMobile&&controls&&!controls.isLocked){controls.lock();return}; checkPainting() }
-    const onTS = (e) => { const t=e.touches[0]; touchRef.current={startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastY:t.clientY,moving:false} }
-    const onTM = (e) => { e.preventDefault(); const t=e.touches[0]; const dx=t.clientX-touchRef.current.lastX,dy=t.clientY-touchRef.current.lastY; touchRef.current.lastX=t.clientX;touchRef.current.lastY=t.clientY;touchRef.current.moving=true; if(touchRef.current.startX>W/2){camera.rotation.y-=dx*0.005;camera.rotation.x=Math.max(-Math.PI/3,Math.min(Math.PI/3,camera.rotation.x-dy*0.005))}else{moveState.current.forward=dy<-2;moveState.current.backward=dy>2;moveState.current.left=dx<-2;moveState.current.right=dx>2} }
-    const onTE = () => { moveState.current.forward=moveState.current.backward=moveState.current.left=moveState.current.right=false; if(!touchRef.current.moving)checkPainting() }
-    document.addEventListener('keydown',onKD); document.addEventListener('keyup',onKU)
-    renderer.domElement.addEventListener('click',onClick)
-    if(isMobile){renderer.domElement.addEventListener('touchstart',onTS,{passive:false});renderer.domElement.addEventListener('touchmove',onTM,{passive:false});renderer.domElement.addEventListener('touchend',onTE)}
-    window.addEventListener('resize',()=>{if(!mountRef.current)return;camera.aspect=mountRef.current.clientWidth/mountRef.current.clientHeight;camera.updateProjectionMatrix();renderer.setSize(mountRef.current.clientWidth,mountRef.current.clientHeight)})
-
-    // ==================== ANIMATE ====================
-    const spd=4.0, curStyle=style
-    function animate() {
-      animFrameRef.current = requestAnimationFrame(animate)
-      const dt=Math.min(clockRef.current.getDelta(),0.1), b=boundsRef.current
-      if(!isMobile&&controls&&controls.isLocked){velocity.current.x-=velocity.current.x*8*dt;velocity.current.z-=velocity.current.z*8*dt;direction.current.z=Number(moveState.current.forward)-Number(moveState.current.backward);direction.current.x=Number(moveState.current.right)-Number(moveState.current.left);direction.current.normalize();if(moveState.current.forward||moveState.current.backward)velocity.current.z-=direction.current.z*spd*dt;if(moveState.current.left||moveState.current.right)velocity.current.x-=direction.current.x*spd*dt;controls.moveRight(-velocity.current.x);controls.moveForward(-velocity.current.z)}
-      if(isMobile){const ms=spd*dt;if(moveState.current.forward)camera.translateZ(-ms);if(moveState.current.backward)camera.translateZ(ms);if(moveState.current.left)camera.translateX(-ms);if(moveState.current.right)camera.translateX(ms)}
-      if(curStyle==='circular'){const r=b.maxX-0.5,d=Math.sqrt(camera.position.x**2+camera.position.z**2);if(d>r){camera.position.x*=r/d;camera.position.z*=r/d}}
-      else{camera.position.x=Math.max(b.minX,Math.min(b.maxX,camera.position.x));camera.position.z=Math.max(b.minZ,Math.min(b.maxZ,camera.position.z))}
-      camera.position.y=1.6; renderer.render(scene,camera)
-    }
-    animate()
-  }
-
-  // ===================================================================
-  if(loading) return <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center"><div className="text-4xl animate-pulse">🏛️</div></div>
-  const sn={classic:'经典长廊',whitebox:'白盒子',lshape:'L型转角',circular:'环形展厅'}
-
+  // ================================================================
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#1a1a2e]" style={{fontFamily:'"Noto Serif SC",serif'}}>
-      <div ref={mountRef} className="absolute inset-0"/>
-      {phase!=='scene'&&(
-        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)'}}>
-          <div className="text-center max-w-lg px-8">
-            <div className="text-6xl mb-6">🏛️</div>
-            <h1 className="text-3xl font-bold text-white mb-3">{exhibition?.title||'每日一展'}</h1>
-            <p className="text-white/50 mb-1 text-sm">{exhibition?.description||'走进三维艺术空间，沉浸式欣赏作品'}</p>
-            <p className="text-white/30 text-xs mb-2">{artworks.length} 件作品 · {sn[exhibition?.gallery_style]||'经典长廊'}</p>
-            {phase==='ready'&&(
+    <div className="relative w-screen overflow-hidden select-none" style={{ height: '100dvh', background: '#101117', fontFamily: '"Noto Serif SC",serif' }}>
+      <div ref={mountRef} className="absolute inset-0" />
+
+      {/* ---------- 介绍页 ---------- */}
+      {phase !== 'scene' && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-6"
+          style={{ background: 'radial-gradient(ellipse at 50% 35%, #23252f 0%, #121319 60%, #0b0c10 100%)' }}>
+          <div className="text-center max-w-xl w-full">
+            {phase === 'loading' && <p className="text-white/40 text-sm tracking-[0.3em]">展厅准备中</p>}
+            {phase === 'empty' && (
               <>
-                <button onClick={startExperience} className="mt-6 px-10 py-4 rounded-2xl text-lg font-bold text-white hover:scale-105 active:scale-95 transition-all"
-                  style={{background:'linear-gradient(135deg,#c9a96e,#b08d4f)',boxShadow:'0 8px 30px rgba(201,169,110,0.3)'}}>进入展厅</button>
-                <div className="mt-8 text-white/30 text-xs space-y-1">
-                  {isMobile?<><p>📱 左侧滑动移动 · 右侧滑动视角</p><p>点击画作查看详情</p></>:<><p>🖱️ 点击锁定鼠标 · W/A/S/D 移动 · 点击画作查看</p><p>ESC 退出锁定</p></>}
-                </div>
+                <p className="text-white/60 mb-6">这个展览还没有布置作品</p>
+                <Link href={`/exhibitions/${id}`} className="text-white/40 text-sm hover:text-white/70">返回展览</Link>
               </>
             )}
-            {phase==='preloading'&&(
-              <div className="mt-8">
-                <div className="w-64 mx-auto h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full" style={{animation:'pulse 1.5s ease-in-out infinite'}}/></div>
-                <p className="text-white/50 text-sm mt-4">{preloadStatus||'准备中...'}</p>
-              </div>
+            {(phase === 'intro' || phase === 'entering') && (
+              <>
+                <p className="text-[11px] tracking-[0.45em] mb-6" style={{ color: GOLD }}>CRADLE · 三维展厅</p>
+                <h1 className="text-3xl md:text-4xl text-white leading-snug mb-4" style={{ fontWeight: 600 }}>{exhibition?.title || '每日一展'}</h1>
+                {exhibition?.theme_zh && <p className="text-white/55 text-sm mb-2">{exhibition.theme_zh}</p>}
+                {exhibition?.description && <p className="text-white/40 text-sm leading-relaxed mb-2 line-clamp-3">{exhibition.description}</p>}
+                <p className="text-white/30 text-xs mt-3">{works.length} 件作品　·　{styleName}{exhibition?.curator_name ? `　·　策展 ${exhibition.curator_name}` : ''}</p>
+
+                <div className="mt-10 mx-auto w-64">
+                  <div className="h-[2px] bg-white/10 overflow-hidden rounded">
+                    <div className="h-full transition-all duration-300" style={{ width: `${pct}%`, background: GOLD }} />
+                  </div>
+                  <p className="text-white/35 text-[11px] mt-3 tabular-nums">
+                    {pct < 100 ? `作品加载中 ${progress.done} / ${progress.total}` : '作品已就绪'}
+                  </p>
+                </div>
+
+                <button onClick={enter} disabled={phase === 'entering'}
+                  className="mt-8 px-12 py-3.5 rounded-full text-base text-[#1a1408] transition-all hover:brightness-110 active:scale-95 disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, #d9bd86, ${GOLD} 55%, #a9884c)`, boxShadow: '0 10px 40px rgba(201,169,110,0.25)', fontWeight: 600 }}>
+                  {phase === 'entering' ? (pct < 100 ? `正在布展 ${pct}%` : '正在布展') : '进入展厅'}
+                </button>
+
+                <div className="mt-8 text-white/30 text-xs leading-6">
+                  {isMobile
+                    ? <><p>单指拖动看四周，左下角摇杆行走</p><p>点地面走过去，点画作走到画前细看</p></>
+                    : <><p>拖动鼠标看四周，WASD 或方向键行走，滚轮前后移动</p><p>点地面走过去，点画作走到画前细看，Q／E 切换上一件下一件</p></>}
+                </div>
+                <Link href={`/exhibitions/${id}`} className="inline-block mt-8 text-white/30 text-xs hover:text-white/60">返回展览</Link>
+              </>
             )}
-            <Link href={`/exhibitions/${id}`} className="inline-block mt-6 text-white/30 text-xs hover:text-white/60">← 返回展览</Link>
           </div>
         </div>
       )}
-      {phase==='scene'&&(
+
+      {/* ---------- 展厅内界面 ---------- */}
+      {phase === 'scene' && (
         <>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none"><div className="w-6 h-6 border-2 border-white/30 rounded-full flex items-center justify-center"><div className="w-1 h-1 bg-white/50 rounded-full"/></div></div>
-          <div className="absolute top-4 left-4 z-10"><Link href={`/exhibitions/${id}`} className="px-4 py-2 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/10">← 返回展览</Link></div>
-          <div className="absolute top-4 right-4 z-10 text-right"><p className="text-white/40 text-xs">{exhibition?.title}</p><p className="text-white/20 text-xs">{artworks.length} 件 · {sn[exhibition?.gallery_style]||'经典长廊'}</p></div>
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10"><p className="text-white/20 text-xs">{isMobile?'点击画作查看详情':'点击锁定视角 · 走近画作点击查看'}</p></div>
-        </>
-      )}
-      {viewingArtwork&&(
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={()=>setViewingArtwork(null)}>
-          <div className="bg-[#1e1e30] rounded-2xl overflow-hidden max-w-2xl w-full mx-4 shadow-2xl border border-white/10" onClick={e=>e.stopPropagation()}>
-            {viewingArtwork.image_url&&<div style={{maxHeight:'50vh',overflow:'hidden'}}><img src={viewingArtwork.image_url} alt={viewingArtwork.title} className="w-full h-auto object-contain" style={{maxHeight:'50vh'}}/></div>}
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-white mb-1">{viewingArtwork.title}</h2>
-              <p className="text-white/50 text-sm mb-3">{viewingArtwork.artists?.display_name}{viewingArtwork.year&&` · ${viewingArtwork.year}`}{viewingArtwork.medium&&` · ${viewingArtwork.medium}`}</p>
-              {viewingArtwork.description&&<p className="text-white/40 text-sm leading-relaxed mb-4 line-clamp-3">{viewingArtwork.description}</p>}
-              <div className="flex gap-3">
-                <Link href={`/artworks/${viewingArtwork.id}`} className="flex-1 py-2.5 rounded-xl text-center text-sm font-medium text-white" style={{backgroundColor:'#c9a96e'}}>查看完整作品</Link>
-                <button onClick={()=>setViewingArtwork(null)} className="px-6 py-2.5 rounded-xl text-sm text-white/60 border border-white/20 hover:bg-white/5">继续看展</button>
-              </div>
+          <div className="absolute top-0 inset-x-0 z-10 flex items-start justify-between p-4 pointer-events-none">
+            <Link href={`/exhibitions/${id}`} className="pointer-events-auto px-4 py-2 rounded-full text-sm text-white/80 hover:text-white bg-black/30 backdrop-blur-md border border-white/10">
+              返回展览
+            </Link>
+            <div className="text-right max-w-[55%] px-3 py-1.5 rounded-xl bg-black/25 backdrop-blur-md">
+              <p className="text-white/85 text-xs truncate">{exhibition?.title}</p>
+              <p className="text-white/45 text-[11px]">{count} 件　·　{styleName}</p>
             </div>
           </div>
+
+          {showHint && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none px-4 py-2 rounded-full bg-black/45 backdrop-blur-md text-white/80 text-xs whitespace-nowrap transition-opacity">
+              {isMobile ? '拖动看四周　点地面行走　点画作细看' : '拖动看四周　点地面行走　点画作细看　M 平面图'}
+            </div>
+          )}
+
+          {/* 平面图 */}
+          {!isMobile && (
+            <div className="absolute left-4 bottom-4 z-10">
+              {showMap && (
+                <div className="mb-2 rounded-xl overflow-hidden bg-black/45 backdrop-blur-md border border-white/10">
+                  <canvas ref={mapRef} className="block cursor-crosshair" style={{ width: 200, height: 170 }} />
+                </div>
+              )}
+              <button onClick={() => setShowMap(v => !v)} className="px-3 py-1.5 rounded-full text-[11px] text-white/70 bg-black/35 backdrop-blur-md border border-white/10 hover:text-white">
+                {showMap ? '收起平面图' : '平面图'}
+              </button>
+            </div>
+          )}
+
+          {/* 手机摇杆 */}
+          {isMobile && <Joystick onChange={(x, y) => engineRef.current?.setJoystick(x, y)} />}
+
+          {/* 底部导览条 */}
+          <div className={`absolute z-10 ${isMobile ? 'right-4 bottom-12' : 'left-1/2 -translate-x-1/2 bottom-5'}`}>
+            <div className="flex items-center gap-1 p-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10">
+              <NavBtn onClick={() => engineRef.current?.prev()} label="上一件"><Arrow dir="left" /></NavBtn>
+              {!isMobile && (
+                <span className="px-3 text-white/70 text-xs tabular-nums min-w-[64px] text-center">
+                  {focus.idx >= 0 ? `${focus.idx + 1} / ${count}` : `共 ${count} 件`}
+                </span>
+              )}
+              <NavBtn onClick={() => engineRef.current?.next()} label="下一件"><Arrow dir="right" /></NavBtn>
+              <button onClick={() => setTouring(v => !v)}
+                className="ml-1 px-4 h-9 rounded-full text-xs transition-colors"
+                style={touring ? { background: GOLD, color: '#1a1408' } : { color: 'rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.08)' }}>
+                {touring ? '停止导览' : '自动导览'}
+              </button>
+            </div>
+          </div>
+
+          {/* 作品卡片 */}
+          {fw && cardOpen && (
+            <div className={`absolute z-20 ${isMobile ? 'left-3 right-3 bottom-24' : 'right-5 top-1/2 -translate-y-1/2 w-[340px]'}`}>
+              <div className="rounded-2xl bg-[#15161d]/85 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[11px] tracking-[0.25em] tabular-nums" style={{ color: GOLD }}>{String(focus.idx + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}</p>
+                    <button onClick={() => setCardOpen(false)} className="text-white/40 hover:text-white/80 text-xs -mt-0.5">收起</button>
+                  </div>
+                  <h2 className="text-xl text-white mt-2 leading-snug" style={{ fontWeight: 600 }}>{fw.title || '无题'}</h2>
+                  <p className="text-white/55 text-sm mt-1">{[fw.artists?.display_name, fw.year].filter(Boolean).join('，')}</p>
+                  {(fw.medium || fw.size) && <p className="text-white/35 text-xs mt-1">{[fw.medium, fw.size].filter(Boolean).join('　')}</p>}
+                  {(fw.curator_note || fw.description) && (
+                    <p className={`text-white/55 text-[13px] leading-relaxed mt-3 ${isMobile ? 'line-clamp-3' : 'line-clamp-6'}`}>{fw.curator_note || fw.description}</p>
+                  )}
+                  <div className="flex gap-2 mt-4">
+                    {fw.image_url && (
+                      <button onClick={() => setLightbox(fw)} className="flex-1 py-2.5 rounded-xl text-sm text-white/85 border border-white/15 hover:bg-white/5">细看</button>
+                    )}
+                    <Link href={`/artworks/${fw.id}`} className="flex-1 py-2.5 rounded-xl text-center text-sm text-[#1a1408]" style={{ background: GOLD, fontWeight: 600 }}>作品详情</Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {fw && !cardOpen && (
+            <button onClick={() => setCardOpen(true)}
+              className={`absolute z-20 px-4 py-2 rounded-full text-xs text-white/85 bg-black/45 backdrop-blur-md border border-white/10 ${isMobile ? 'left-3 bottom-24' : 'right-5 top-1/2'}`}>
+              {fw.title || '无题'}
+            </button>
+          )}
+        </>
+      )}
+
+      {/* 细看 */}
+      {lightbox && (
+        <div className="absolute inset-0 z-40 bg-black/92 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox.image_url} alt={lightbox.title || ''} className="max-w-full max-h-full object-contain" />
+          <p className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/50 text-xs">{lightbox.title}　点击任意处返回展厅</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function NavBtn({ onClick, label, children }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 active:scale-95">
+      {children}
+    </button>
+  )
+}
+
+function Arrow({ dir }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      {dir === 'left' ? <path d="M10 3 5 8l5 5" /> : <path d="m6 3 5 5-5 5" />}
+    </svg>
+  )
+}
+
+// 手机虚拟摇杆
+function Joystick({ onChange }) {
+  const baseRef = useRef(null)
+  const [knob, setKnob] = useState({ x: 0, y: 0, active: false })
+  const R = 46
+  const handle = (e) => {
+    const r = baseRef.current.getBoundingClientRect()
+    let x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2)
+    const d = Math.hypot(x, y)
+    if (d > R) { x = x / d * R; y = y / d * R }
+    setKnob({ x, y, active: true })
+    const dz = (v) => Math.abs(v) < 0.12 ? 0 : v
+    onChange(dz(x / R), dz(y / R))
+  }
+  const end = () => { setKnob({ x: 0, y: 0, active: false }); onChange(0, 0) }
+  return (
+    <div ref={baseRef}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handle(e) }}
+      onPointerMove={e => knob.active && handle(e)}
+      onPointerUp={end} onPointerCancel={end}
+      className="absolute z-10 left-6 bottom-8 w-32 h-32 rounded-full border border-white/15 bg-white/5 backdrop-blur-sm"
+      style={{ touchAction: 'none' }}>
+      <div className="absolute left-1/2 top-1/2 w-14 h-14 -ml-7 -mt-7 rounded-full bg-white/25 border border-white/30"
+        style={{ transform: `translate(${knob.x}px, ${knob.y}px)`, transition: knob.active ? 'none' : 'transform 0.15s' }} />
     </div>
   )
 }
