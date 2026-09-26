@@ -1,5 +1,5 @@
 // 目标路径：app/aistudy/kb.js
-// 小信的知识库：课件知识点、陪练题库、课堂工具。主页（app/aistudy/page.js）和对话接口（app/api/aistudy/chat/route.js）共用。
+// 小信的知识库：课件知识点、陪练题库、课堂工具。主页（app/aistudy/page.js）和对话接口（app/aistudy/chat/route.js）共用。
 // 课件新增内容时，在 LABS 里加一条即可，小信的推荐和回答会一起更新。
 
 export const TASKS = [
@@ -139,3 +139,21 @@ ${kb}
 课堂工具（id｜名称｜用途）：
 ${tools}`
 }
+
+/* ============================== 许愿池（主页和扫码页共用） ============================== */
+export const WISH_CATS = {
+  learn: { name: '想学的', color: '#4DA3FF', ph: '比如：想学怎么用 AI 做短视频' },
+  tool: { name: '想要的工具', color: '#37D99E', ph: '比如：想要一个自动排课表的小工具' },
+  teacher: { name: '想对老师说', color: '#FF7ACB', ph: '比如：希望实验课能多一点时间' },
+  wish: { name: '小心愿', color: '#FFC34D', ph: '比如：期末不挂科，考上专升本' },
+}
+const BANNED = ['傻逼', '傻b', 'sb', '操你', '妈的', '他妈', '去死', '垃圾老师', '滚']
+export function wishProblem(t) {
+  const s = (t || '').trim()
+  if (!s) return '先写下你的心愿'
+  if (/https?:|www\.|\.com|\.cn/i.test(s)) return '心愿里不要放网址'
+  if (/\d{7,}/.test(s)) return '心愿里不要写电话号码这类个人信息'
+  if (BANNED.some(w => s.toLowerCase().includes(w))) return '换一种友善的说法吧'
+  return ''
+}
+export const WISH_PATH = '/aistudy/wish'
