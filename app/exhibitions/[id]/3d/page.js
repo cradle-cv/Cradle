@@ -6,11 +6,8 @@ import Exhibition3DTracker from '@/components/Exhibition3DTracker'
 const Exhibition3D = dynamic(() => import('./Exhibition3DClient'), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-4xl mb-4 animate-pulse">🏛️</div>
-        <p className="text-white/70 text-lg">展厅加载中...</p>
-      </div>
+    <div className="w-screen flex items-center justify-center" style={{ height: '100dvh', background: '#101117' }}>
+      <p className="text-white/40 text-sm tracking-[0.3em]" style={{ fontFamily: '"Noto Serif SC",serif' }}>展厅准备中</p>
     </div>
   )
 })
