@@ -4,7 +4,7 @@
 // 小信 · 信息技术基础课程智能体主页（cradle.art/aistudy）
 // 形象：原创动画角色，有待机、倾听、思考、说话、开心、担心六种状态，眼睛跟着鼠标转
 // 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 录录 / 理理）、按知识点推荐实验、语音朗读
-// 依赖：app/aistudy/kb.js（知识库）、app/api/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
+// 依赖：app/aistudy/kb.js（知识库）、app/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -412,7 +412,7 @@ export default function XiaoXinHome() {
       return say(`好的，${TOOLS[tool].name}准备好了。${TOOLS[tool].code ? '老师先在里面开一场活动，把活动码填进卡片，二维码就会变成学生入口。' : '学生扫码就能进入。'}`, { tools: [tool] }, 'happy')
     }
     try {
-      const res = await fetch('/api/aistudy/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: apiMode, messages: [...history(), { role: 'user', content: text }] }) })
+      const res = await fetch('/aistudy/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: apiMode, messages: [...history(), { role: 'user', content: text }] }) })
       const data = await res.json()
       if (!res.ok || !data.text) throw new Error(data.error || '接口出错')
       const r = parseReply(data.text)
