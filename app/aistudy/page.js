@@ -31,7 +31,7 @@ function parseReply(raw) {
   return { text, labs: labs.slice(0, 2), tools: tools.slice(0, 1) }
 }
 
-const WELCOME = '你好，我是小信，信息技术基础课的助教。课上的知识点随时问我；想检验一下，就切到「陪练」让我出题；老师上课要开纸条、迷宫、配配，切到「课堂」跟我说一声就行。'
+const WELCOME = '你好，我是小信，信息技术基础课的助教。课上的知识点、课外的问题都可以问我；想检验一下，就切到「陪练」让我出题；老师上课要开纸条、迷宫、配配，切到「课堂」跟我说一声就行。'
 const CHAT_CHIPS = ['冯·诺依曼结构是什么？', '为什么 1TB 硬盘只显示 931GB？', '怎样识破伪装成图片的病毒？', 'CPU、GPU、NPU 有什么区别？', 'Vibe Coding 是什么？', '本地跑大模型要多大显存？']
 const HELLO = ['你好呀！有什么想问的？', '我在呢，今天学到哪一节了？', '点我干嘛～要不要让我出道题考考你？', '信息技术，一问就懂，这是我的目标。']
 
@@ -414,21 +414,48 @@ export default function XiaoXinHome() {
   async function ask(text, apiMode = 'chat', display = text) {
     userSay(display); setBusy(true); mood('think')
     const tool = apiMode === 'chat' ? matchTool(text) : null
-    if (tool && /开|打开|来一场|发|用|启动|组织|玩/.test(text)) {
+    if (tool && (mode === 'class' || text.includes(TOOLS[tool].name)) && /打开|开一|开个|开场|来一|启动|组织|发起|发布|布置|怎么开/.test(text)) {
       setBusy(false)
       return say(`好的，${TOOLS[tool].name}准备好了。${TOOLS[tool].code ? '老师先在里面开一场活动，把活动码填进卡片，二维码就会变成学生入口。' : '学生扫码就能进入。'}`, { tools: [tool] }, 'happy')
     }
+    let id = null, raw = ''
     try {
       const res = await fetch('/aistudy/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: apiMode, messages: [...history(), { role: 'user', content: text }] }) })
-      const data = await res.json()
-      if (!res.ok || !data.text) throw new Error(data.error || '接口出错')
-      const r = parseReply(data.text)
-      if (!r.labs.length) r.labs = matchLabs(text, 1).map(l => l.id)
-      say(r.text || '这个问题我想了想，还是去课件里看看对应的实验更清楚。', { labs: r.labs, tools: r.tools })
+      if (!res.ok || !res.body || (res.headers.get('content-type') || '').includes('json')) {
+        let err = '接口出错'; try { err = (await res.json()).error || err } catch (e) {}
+        throw new Error(err)
+      }
+      // 流式：边收边显示，[[标签]] 先藏起来，收完再变成实验卡片
+      const reader = res.body.getReader(), dec = new TextDecoder()
+      const visible = r => parseReply(r.replace(/\[\[[^\]]*$/, '').replace(/\[$/, '')).text
+      id = idRef.current++
+      setMsgs(m => [...m, { id, role: 'bot', text: '', shown: 0, streaming: true }])
+      mood('talk')
+      let lastPaint = 0
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        raw += dec.decode(value, { stream: true })
+        const now = Date.now()
+        if (now - lastPaint > 40) { lastPaint = now; const v = visible(raw); setMsgs(m => m.map(x => x.id === id ? { ...x, text: v, shown: v.length } : x)) }
+      }
+      const r = parseReply(raw)
+      if (!r.text) throw new Error('空回答')
+      const final = r.text
+      if (!r.labs.length) { const q = matchLabs(text, 1)[0]; if (q && matchLabs(final, 3).some(l => l.id === q.id)) r.labs = [q.id] }
+      setMsgs(m => m.map(x => x.id === id ? { ...x, text: final, shown: final.length, streaming: false, labs: r.labs, tools: r.tools } : x))
+      if (!speak(final)) mood('idle')
     } catch (e) {
-      const hits = matchLabs(text, 2)
-      if (hits.length) say(`我现在连不上大脑（网络或接口有点问题），先按课件回答你：${hits[0].sum}`, { labs: hits.map(h => h.id) })
-      else { mood('sad', 1800); say(String(e.message || '').includes('太快') ? e.message : '我现在连不上大脑，稍等一下再问我，或者先去课件里看看。', {}, 'sad') }
+      if (id != null && parseReply(raw).text) {
+        // 说到一半断了：保留已经说出的部分
+        const t = parseReply(raw).text + '……（网络断了一下，没说完，再问我一次吧）'
+        setMsgs(m => m.map(x => x.id === id ? { ...x, text: t, shown: t.length, streaming: false } : x)); mood('idle')
+      } else {
+        if (id != null) setMsgs(m => m.filter(x => x.id !== id))
+        const hits = matchLabs(text, 2)
+        if (hits.length) say(`我现在连不上大脑（网络或接口有点问题），先按课件回答你：${hits[0].sum}`, { labs: hits.map(h => h.id) })
+        else { mood('sad', 1800); say(String(e.message || '').includes('太快') ? e.message : '我现在连不上大脑，稍等一下再问我，或者先去课件里看看。', {}, 'sad') }
+      }
     } finally { setBusy(false) }
   }
 
@@ -476,7 +503,7 @@ export default function XiaoXinHome() {
   function send() {
     const t = input.trim(); if (!t || busy) return
     setInput('')
-    if (/考考我|出题|做题|测验|练一练/.test(t)) { setMode('coach'); return startQuiz('all') }
+    if (t.length <= 12 && /考考我|出题|出道题|测验|练一练/.test(t)) { setMode('coach'); return startQuiz('all') }
     ask(t)
   }
   function onWish(w) { mood('happy', 2400); say(`收到你的心愿了：「${w.content}」。${{ learn: '想学的我记下了，老师会看到。', tool: '说不定下一个小工具就是它。', teacher: '这句话老师会看到的。', wish: '愿它成真！' }[w.category] || ''}`, {}, 'happy') }
@@ -532,7 +559,7 @@ export default function XiaoXinHome() {
                 <div key={m.id} className={`xx-msg ${m.role}`}>
                   {m.role === 'bot' && <div className="xx-ava" aria-hidden="true">信</div>}
                   <div className="xx-bub-wrap">
-                    <div className="xx-bub">{m.text.slice(0, m.shown)}{m.shown < m.text.length && <span className="xx-caret" />}</div>
+                    <div className="xx-bub">{m.text.slice(0, m.shown)}{(m.shown < m.text.length || m.streaming) && <span className="xx-caret" />}</div>
                     {m.shown >= m.text.length && m.quiz && (
                       <div className="xx-opts">
                         {QUIZ[m.quiz.qi].o.map((o, i) => {
@@ -548,7 +575,7 @@ export default function XiaoXinHome() {
                   </div>
                 </div>
               ))}
-              {busy && <div className="xx-msg bot"><div className="xx-ava">信</div><div className="xx-bub xx-typing"><i /><i /><i /></div></div>}
+              {busy && !msgs.some(m => m.streaming) && <div className="xx-msg bot"><div className="xx-ava">信</div><div className="xx-bub xx-typing"><i /><i /><i /></div></div>}
             </div>
 
             <div className="xx-chips">
@@ -567,7 +594,7 @@ export default function XiaoXinHome() {
             </div>
 
             <form className="xx-input-row" onSubmit={e => { e.preventDefault(); send() }}>
-              <input className="xx-input" value={input} onChange={e => { setInput(e.target.value); if (state === 'idle' || state === 'listen') mood('listen', 1500) }} placeholder={mode === 'coach' ? '说「考考我」开始，或者直接问问题' : mode === 'class' ? '比如：开一场纸条' : '问小信任何课上的问题'} maxLength={500} aria-label="输入问题" />
+              <input className="xx-input" value={input} onChange={e => { setInput(e.target.value); if (state === 'idle' || state === 'listen') mood('listen', 1500) }} placeholder={mode === 'coach' ? '说「考考我」开始，或者直接问问题' : mode === 'class' ? '比如：开一场纸条' : '问小信任何问题，课上的、课外的都行'} maxLength={500} aria-label="输入问题" />
               <button className="xx-btn" type="submit" disabled={busy || !input.trim()}>发送</button>
             </form>
           </div>
