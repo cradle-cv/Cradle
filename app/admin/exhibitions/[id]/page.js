@@ -3,13 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
+import GalleryStylePicker from '@/components/GalleryStylePicker'
 
-const GALLERY_STYLES = [
-  { id: 'classic', name: '🏛️ 经典长廊', desc: '深色墙壁 + 金色画框 + 射灯' },
-  { id: 'whitebox', name: '⬜ 白盒子', desc: '现代美术馆,白墙 + 大空间' },
-  { id: 'lshape', name: '↰ L型转角', desc: '走到尽头转弯,两段展廊' },
-  { id: 'circular', name: '⭕ 环形展厅', desc: '圆形空间,画挂在四周' },
-]
 
 const ROMAN = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI','XXII','XXIII','XXIV','XXV']
 
@@ -469,7 +464,6 @@ export default function EditExhibitionPage({ params }) {
   }
 
   const isDialogue = formData.exhibition_type === 'dialogue'
-  const currentStyle = GALLERY_STYLES.find(s => s.id === galleryStyle)
 
   // 场地类型决定显示哪些区块
   const venueType = formData.venue_type || 'online'
@@ -945,27 +939,7 @@ export default function EditExhibitionPage({ params }) {
                 {ownerType === 'platform' && !isDialogue && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">3D展厅风格</label>
-                    <div className="space-y-2">
-                      {GALLERY_STYLES.map(style => (
-                        <label key={style.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            galleryStyle === style.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                          }`}>
-                          <input type="radio" name="gallery_style" value={style.id}
-                            checked={galleryStyle === style.id}
-                            onChange={() => setGalleryStyle(style.id)} className="hidden" />
-                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                            galleryStyle === style.id ? 'border-blue-500' : 'border-gray-300'
-                          }`}>
-                            {galleryStyle === style.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">{style.name}</p>
-                            <p className="text-xs text-gray-500">{style.desc}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
+                    <GalleryStylePicker value={galleryStyle} onChange={setGalleryStyle} dense />
                   </div>
                 )}
 
