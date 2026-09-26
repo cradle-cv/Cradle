@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
-import { TASKS, LABS, TOOLS, QUIZ, matchLabs, matchTool } from './kb'
+import { TASKS, LABS, TOOLS, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
 
 const COURSE = '/aistudy/course'
 const labById = id => LABS.find(l => l.id === id)
@@ -164,21 +164,6 @@ function LabCard({ id }) {
 
 /* ============================== 主页 ============================== */
 /* ============================== 许愿池 ============================== */
-const WISH_CATS = {
-  learn: { name: '想学的', color: '#4DA3FF' },
-  tool: { name: '想要的工具', color: '#37D99E' },
-  teacher: { name: '想对老师说', color: '#FF7ACB' },
-  wish: { name: '小心愿', color: '#FFC34D' },
-}
-const BANNED = ['傻逼', '傻b', 'sb', '操你', '妈的', '他妈', '去死', '垃圾老师', '滚']
-function wishProblem(t) {
-  const s = t.trim()
-  if (!s) return '先写下你的心愿'
-  if (/https?:|www\.|\.com|\.cn/i.test(s)) return '心愿里不要放网址'
-  if (/\d{7,}/.test(s)) return '心愿里不要写电话号码这类个人信息'
-  if (BANNED.some(w => s.toLowerCase().includes(w))) return '换一种友善的说法吧'
-  return ''
-}
 const ago = ts => { const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); return m < 1 ? '刚刚' : m < 60 ? m + ' 分钟前' : m < 1440 ? Math.floor(m / 60) + ' 小时前' : Math.floor(m / 1440) + ' 天前' }
 
 function WishPool({ onWish }) {
@@ -193,6 +178,8 @@ function WishPool({ onWish }) {
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [liked, setLiked] = useState([])
+  const [wishUrl, setWishUrl] = useState('https://www.cradle.art' + WISH_PATH)
+  const [bigQR, setBigQR] = useState(false)
   const wishesRef = useRef([])
   wishesRef.current = wishes
 
@@ -211,6 +198,7 @@ function WishPool({ onWish }) {
       .then(({ data }) => { if (off) return; const d = data || []; setWishes(d); d.forEach(w => addOrb(w, false)); setLoaded(true) })
       .catch(() => setLoaded(true))
     setLiked(store.get('liked', []))
+    setWishUrl(window.location.origin + WISH_PATH)
     const ch = supabase.channel('aistudy-wishes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'aistudy_wishes' }, p => {
         const w = p.new; if (!w || w.hidden) return
@@ -329,9 +317,17 @@ function WishPool({ onWish }) {
           ) : <div className="xx-poolhint">点一盏灯，看看同学许了什么愿</div>}
         </div>
         <div className="xx-wishside">
+          <div className="xx-scan">
+            <button type="button" className="xx-scan-qr" onClick={() => setBigQR(true)} aria-label="放大二维码"><QR text={wishUrl} size={112} /></button>
+            <div>
+              <div className="xx-k" style={{ color: '#FFC34D' }}>手机扫码许愿</div>
+              <b>扫一扫，在手机上投心愿</b>
+              <div className="xx-muted">投进来的心愿会实时落进这个池子。上课投屏时点二维码放大。</div>
+            </div>
+          </div>
           <form className="xx-wishform" onSubmit={throwWish}>
             <div className="xx-cats">{Object.entries(WISH_CATS).map(([k, c]) => <button type="button" key={k} className={cat === k ? 'on' : ''} style={{ '--c': c.color }} onClick={() => setCat(k)}>{c.name}</button>)}</div>
-            <textarea className="xx-input" rows={3} maxLength={60} value={text} onChange={e => { setText(e.target.value); setMsg('') }} placeholder={{ learn: '比如：想学怎么用 AI 做短视频', tool: '比如：想要一个自动排课表的小工具', teacher: '比如：希望实验课能多一点时间', wish: '比如：期末不挂科，考上专升本' }[cat]} aria-label="心愿内容" />
+            <textarea className="xx-input" rows={3} maxLength={60} value={text} onChange={e => { setText(e.target.value); setMsg('') }} placeholder={WISH_CATS[cat].ph} aria-label="心愿内容" />
             <div className="xx-row" style={{ justifyContent: 'space-between' }}>
               <input className="xx-input" style={{ flex: 1, minWidth: 0 }} maxLength={12} value={nick} onChange={e => setNick(e.target.value)} placeholder="署名（可不填，默认匿名）" aria-label="署名" />
               <span className="xx-muted" style={{ fontFamily: 'var(--xx-mono)' }}>{text.length}/60</span>
@@ -351,6 +347,17 @@ function WishPool({ onWish }) {
           </div>
         </div>
       </div>
+      {bigQR && (
+        <div className="xx-qrbig" onClick={() => setBigQR(false)} role="dialog" aria-label="扫码许愿">
+          <div className="xx-qrbig-in" onClick={e => e.stopPropagation()}>
+            <div className="xx-k" style={{ color: '#FFC34D' }}>小信的许愿池</div>
+            <b>拿出手机，扫码许个愿</b>
+            <QR text={wishUrl} size={320} />
+            <span className="xx-muted">{wishUrl.replace(/^https?:\/\//, '')} · 已有 {wishes.length} 个心愿</span>
+            <button className="xx-btn" onClick={() => setBigQR(false)}>关闭</button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -776,6 +783,14 @@ body{background:#06080F!important}
 .xx-hotrow:last-child{border-bottom:0}
 .xx-hotrow .n{font-family:var(--xx-mono);color:var(--c);font-weight:800}
 .xx-hotrow .t{border:0;background:none;text-align:left;font-size:.9rem;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.xx-scan{display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:20px;border:1px solid rgba(255,195,77,.35);background:linear-gradient(120deg,rgba(255,195,77,.12),rgba(255,122,203,.06) 60%,transparent)}
+.xx-scan b{display:block;font-size:1.02rem;margin:2px 0}
+.xx-scan-qr{flex:0 0 auto;border:0;padding:6px;background:#fff;border-radius:12px;cursor:zoom-in;box-shadow:0 0 30px -8px #FFC34D}
+.xx-qrbig{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:xxin .25s ease-out}
+.xx-qrbig-in{display:grid;justify-items:center;gap:10px;text-align:center;padding:24px 28px;border-radius:24px;border:1px solid rgba(255,195,77,.4);background:#0B1020;box-shadow:0 0 80px -20px #FFC34D;max-width:100%}
+.xx-qrbig-in b{font-size:1.5rem}
+.xx-qrbig-in svg{width:min(320px,70vw);height:auto;padding:4px;background:#fff}
+@media (max-width:600px){.xx-scan{display:none}}
 @media (max-width:900px){.xx-wish{grid-template-columns:1fr}.xx-pool-cv{height:300px}}
 .xx-foot{max-width:1240px;margin:40px auto 0;padding:18px 16px 40px;border-top:1px solid var(--line);font-size:.8rem;color:var(--faint)}
 @media (max-width:900px){
