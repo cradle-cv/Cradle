@@ -1,5 +1,5 @@
 // 目标路径：app/api/residency/xinxiang/route.js
-// 驻地 · 心象山水：把访客写的一句话读成一份「画面乐谱」JSON，前端据此重画驻地的山水。
+// 驻地 · 后院花园 · 心象山水：把访客写的一句话读成一份「画面乐谱」JSON，前端据此画出一幅水墨长卷。
 // 走智谱 GLM 文本模型，不需要登录，按 IP 限速。环境变量：ZHIPU_API_KEY（已配置），可选 ZHIPU_TEXT_MODEL
 import { NextResponse } from 'next/server'
 
@@ -17,8 +17,8 @@ function limited(ip) {
 }
 
 function promptFor(text) {
-  return `你是一位精通中国山水画与古典诗词的画师，也是一个实时水墨动画的导演。这幅画是一处艺术驻地：水边与山间坐落着书斋、小楼、篝火、草亭、梅墙、楼阁和石窟，它们固定不动；你要决定的是它们周围的山水、时令、天气与点景。
-访客写下了一句话（可能是心情、回忆、孩子的奇想，或任何语言），请把它转化为一份"画面乐谱"。
+  return `你是一位精通中国山水画与古典诗词的画师，也是一个实时水墨动画的导演。
+访客在艺术驻地的后院花园里写下了一句话（可能是心情、回忆、孩子的奇想，或任何语言），请把它转化为一份"画面乐谱"。
 
 只输出一个 JSON 对象，不要解释，不要代码块标记。字段：
 - title：画题，2到4个汉字，以"图"结尾更佳
@@ -32,12 +32,12 @@ function promptFor(text) {
 - ink：0到1，墨色浓淡
 - mood："serene"|"lonely"|"joyful"|"melancholy"|"majestic"|"mysterious"|"playful"
 - tempo：0到1，画卷流动与琴声的快慢
-- elements：数组，从下列中选1到5个最贴切的：boat, waterfall, crane, birds, whale, lanterns, kite, fireflies, koi
+- elements：数组，从下列中选2到6个最贴切的：boat, pavilion, pagoda, waterfall, crane, birds, whale, lanterns, kite, fireflies, koi, plum, pine, bamboo
 - note：一句话，不超过45个汉字，用"你"称呼对方，温和地说你怎样理解了这句话、为什么这样画
 
-规则：访客提到的事物只要列表里有就必须出现（鲸鱼→whale，灯→lanterns，鱼→koi，鸟→birds 或 crane，船→boat，风筝→kite，萤火虫→fireflies，瀑布→waterfall）。说到夜、月、星、梦时 time 用 night。孩子气或奇幻的想法要大胆画出来。所有内容保持温和、适合所有年龄。
+规则：访客提到的事物只要列表里有就必须出现（鲸鱼→whale，灯→lanterns，鱼→koi，鸟→birds 或 crane，船→boat，塔或寺→pagoda，风筝→kite，萤火虫→fireflies，梅→plum，竹→bamboo，松→pine，瀑布→waterfall，家或亭→pavilion）。说到夜、月、星、梦时 time 用 night。孩子气或奇幻的想法要大胆画出来。所有内容保持温和、适合所有年龄。
 
-示例输出：{"title":"寒江图","poem":["千峰收鸟迹","一水白茫茫","独坐蓑衣冷","心随雪意长"],"seal":"寒江","season":"winter","time":"day","weather":"snow","palette":"ink","mountains":0.7,"ink":0.5,"mood":"lonely","tempo":0.25,"elements":["boat","crane"],"note":"你只写了五个字，所以我也留下大片的白，只放一只船和一只鹤。"}
+示例输出：{"title":"寒江图","poem":["千峰收鸟迹","一水白茫茫","独坐蓑衣冷","心随雪意长"],"seal":"寒江","season":"winter","time":"day","weather":"snow","palette":"ink","mountains":0.7,"ink":0.5,"mood":"lonely","tempo":0.25,"elements":["boat","pine","crane"],"note":"你只写了五个字，所以我也留下大片的白，只放一只船和一只鹤。"}
 
 访客的话：「${text}」`
 }
