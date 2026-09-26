@@ -2,15 +2,15 @@
 // ================================================================
 // 3D 展厅 · 界面层
 // 路径: app/exhibitions/[id]/3d/Exhibition3DClient.js
-// 场景本身在同目录的 galleryEngine.js
+// 场景本身在 lib/galleryEngine.js
 // ================================================================
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { createGallery, preloadImages } from './galleryEngine'
+import { createGallery, preloadImages } from '@/lib/galleryEngine'
+import { galleryStyleName } from '@/lib/galleryStyles'
 
-const STYLE_NAME = { classic: '经典长廊', whitebox: '白盒子', lshape: 'L 型转角', circular: '环形展厅' }
 const GOLD = '#c9a96e'
 
 function detectMobile() {
@@ -176,7 +176,7 @@ export default function Exhibition3DClient() {
   }, [lightbox, isMobile])
 
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0
-  const styleName = STYLE_NAME[exhibition?.gallery_style] || '经典长廊'
+  const styleName = galleryStyleName(exhibition?.gallery_style)
   const fw = focus.work
 
   // ================================================================
