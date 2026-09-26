@@ -163,6 +163,198 @@ function LabCard({ id }) {
 }
 
 /* ============================== 主页 ============================== */
+/* ============================== 许愿池 ============================== */
+const WISH_CATS = {
+  learn: { name: '想学的', color: '#4DA3FF' },
+  tool: { name: '想要的工具', color: '#37D99E' },
+  teacher: { name: '想对老师说', color: '#FF7ACB' },
+  wish: { name: '小心愿', color: '#FFC34D' },
+}
+const BANNED = ['傻逼', '傻b', 'sb', '操你', '妈的', '他妈', '去死', '垃圾老师', '滚']
+function wishProblem(t) {
+  const s = t.trim()
+  if (!s) return '先写下你的心愿'
+  if (/https?:|www\.|\.com|\.cn/i.test(s)) return '心愿里不要放网址'
+  if (/\d{7,}/.test(s)) return '心愿里不要写电话号码这类个人信息'
+  if (BANNED.some(w => s.toLowerCase().includes(w))) return '换一种友善的说法吧'
+  return ''
+}
+const ago = ts => { const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); return m < 1 ? '刚刚' : m < 60 ? m + ' 分钟前' : m < 1440 ? Math.floor(m / 60) + ' 小时前' : Math.floor(m / 1440) + ' 天前' }
+
+function WishPool({ onWish }) {
+  const cvRef = useRef(null), boxRef = useRef(null), sim = useRef({ orbs: [], ripples: [], coins: [], W: 0, H: 0 })
+  const [wishes, setWishes] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const [sel, setSel] = useState(null)
+  const [hover, setHover] = useState(null)
+  const [cat, setCat] = useState('learn')
+  const [text, setText] = useState('')
+  const [nick, setNick] = useState('')
+  const [msg, setMsg] = useState('')
+  const [sending, setSending] = useState(false)
+  const [liked, setLiked] = useState([])
+  const wishesRef = useRef([])
+  wishesRef.current = wishes
+
+  // 心愿灯：在椭圆水面上漂
+  const addOrb = (w, drop) => {
+    const S = sim.current, a = Math.random() * Math.PI * 2, r = 0.15 + Math.random() * 0.75
+    const o = { id: w.id, a, r, va: (Math.random() < .5 ? -1 : 1) * (0.0006 + Math.random() * 0.0012), ph: Math.random() * 6.28, born: drop ? performance.now() : 0 }
+    S.orbs = S.orbs.filter(x => x.id !== w.id).concat(o)
+    if (drop) { const p = pos(o); S.ripples.push({ x: p.x, y: p.y, t: performance.now(), c: WISH_CATS[w.category]?.color || '#FFC34D' }) }
+  }
+  const pos = o => { const S = sim.current, cx = S.W / 2, cy = S.H / 2 + 6, rx = S.W * 0.44, ry = S.H * 0.36; return { x: cx + Math.cos(o.a) * rx * o.r, y: cy + Math.sin(o.a) * ry * o.r } }
+
+  useEffect(() => {
+    let off = false
+    supabase.from('aistudy_wishes').select('id,content,category,nickname,likes,created_at').order('created_at', { ascending: false }).limit(150)
+      .then(({ data }) => { if (off) return; const d = data || []; setWishes(d); d.forEach(w => addOrb(w, false)); setLoaded(true) })
+      .catch(() => setLoaded(true))
+    setLiked(store.get('liked', []))
+    const ch = supabase.channel('aistudy-wishes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'aistudy_wishes' }, p => {
+        const w = p.new; if (!w || w.hidden) return
+        setWishes(list => list.some(x => x.id === w.id) ? list : [w, ...list]); addOrb(w, true)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'aistudy_wishes' }, p => {
+        const w = p.new; if (!w) return
+        if (w.hidden) { setWishes(list => list.filter(x => x.id !== w.id)); sim.current.orbs = sim.current.orbs.filter(o => o.id !== w.id); return }
+        setWishes(list => list.map(x => x.id === w.id ? { ...x, likes: w.likes } : x))
+      })
+      .subscribe()
+    return () => { off = true; supabase.removeChannel && supabase.removeChannel(ch) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 画水面
+  useEffect(() => {
+    const cv = cvRef.current; if (!cv) return
+    const g = cv.getContext('2d'); let raf = 0, vis = true
+    const size = () => { const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); sim.current.W = W; sim.current.H = H }
+    size()
+    const ro = new ResizeObserver(size); ro.observe(cv)
+    const io = new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame) } }); io.observe(cv)
+    function frame(now) {
+      if (!vis) return
+      const S = sim.current, W = S.W, H = S.H, cx = W / 2, cy = H / 2 + 6, rx = W * 0.47, ry = H * 0.4
+      g.clearRect(0, 0, W, H)
+      // 池沿与水面
+      g.save(); g.beginPath(); g.ellipse(cx, cy, rx + 10, ry + 10, 0, 0, 7); g.fillStyle = 'rgba(140,160,210,.08)'; g.fill(); g.restore()
+      const wg = g.createRadialGradient(cx, cy - ry * 0.3, 10, cx, cy, rx); wg.addColorStop(0, '#12305A'); wg.addColorStop(.6, '#0B1D3C'); wg.addColorStop(1, '#070F22')
+      g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 7); g.fillStyle = wg; g.fill(); g.clip()
+      // 波光
+      g.strokeStyle = 'rgba(111,231,255,.07)'; g.lineWidth = 1.5
+      for (let i = 0; i < 9; i++) { g.beginPath(); const y0 = cy - ry + (i + 0.5) * (2 * ry / 9); for (let x = cx - rx; x <= cx + rx; x += 8) { const y = y0 + Math.sin(x / 38 + now / 1400 + i) * 4; x === cx - rx ? g.moveTo(x, y) : g.lineTo(x, y) } g.stroke() }
+      // 涟漪
+      S.ripples = S.ripples.filter(r => now - r.t < 2200)
+      S.ripples.forEach(r => { const k = (now - r.t) / 2200; for (let j = 0; j < 3; j++) { const kk = Math.max(0, k - j * 0.12); g.beginPath(); g.ellipse(r.x, r.y, 8 + kk * 90, (8 + kk * 90) * 0.4, 0, 0, 7); g.strokeStyle = r.c; g.globalAlpha = (1 - kk) * 0.6; g.lineWidth = 2; g.stroke() } g.globalAlpha = 1 })
+      // 心愿灯
+      const list = wishesRef.current, byId = {}; list.forEach(w => byId[w.id] = w)
+      S.orbs.forEach(o => {
+        const w = byId[o.id]; if (!w) return
+        o.a += o.va; const p = pos(o), bob = Math.sin(now / 900 + o.ph) * 3
+        const grow = o.born ? Math.min(1, (now - o.born) / 700) : 1
+        const r = (6 + Math.min(w.likes, 20) * 0.7) * grow, c = WISH_CATS[w.category]?.color || '#FFC34D'
+        const isSel = sel && sel.id === w.id, isHov = hover === w.id
+        const glow = g.createRadialGradient(p.x, p.y + bob, 0, p.x, p.y + bob, r * 3.2); glow.addColorStop(0, c); glow.addColorStop(1, 'transparent')
+        g.globalAlpha = isSel || isHov ? 0.9 : 0.55; g.fillStyle = glow; g.beginPath(); g.arc(p.x, p.y + bob, r * 3.2, 0, 7); g.fill()
+        g.globalAlpha = 1; g.fillStyle = '#fff'; g.beginPath(); g.arc(p.x, p.y + bob, r * 0.45, 0, 7); g.fill()
+        g.globalAlpha = .35; g.fillStyle = c; g.beginPath(); g.ellipse(p.x, p.y + r * 1.6 + bob * 0.4, r * 1.2, r * 0.35, 0, 0, 7); g.fill(); g.globalAlpha = 1
+        if (isSel || isHov) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(p.x, p.y + bob, r * 1.6, 0, 7); g.stroke() }
+        o.hit = { x: p.x, y: p.y + bob, r: Math.max(20, r * 2.2) }
+      })
+      g.restore()
+      // 投币动画
+      S.coins = S.coins.filter(k => !k.done)
+      S.coins.forEach(k => {
+        const u = Math.min(1, (now - k.t) / 900), x = k.x0 + (k.x1 - k.x0) * u, y = k.y0 + (k.y1 - k.y0) * u - Math.sin(u * Math.PI) * H * 0.45
+        g.save(); g.translate(x, y); g.scale(Math.abs(Math.cos(u * 12)) * 0.8 + 0.2, 1); g.fillStyle = '#FFC34D'; g.shadowColor = '#FFC34D'; g.shadowBlur = 16; g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill(); g.restore()
+        if (u >= 1) { k.done = true; k.land && k.land() }
+      })
+      if (!list.length && loaded) { g.fillStyle = 'rgba(234,240,255,.45)'; g.font = '15px ' + getComputedStyle(cv).fontFamily; g.textAlign = 'center'; g.fillText('池子还是空的，投下第一个心愿吧', cx, cy + 5) }
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect() }
+  }, [sel, hover, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hitAt = e => { const r = cvRef.current.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; let best = null, bd = 1e9; sim.current.orbs.forEach(o => { if (!o.hit) return; const d = Math.hypot(o.hit.x - x, o.hit.y - y); if (d < o.hit.r && d < bd) { bd = d; best = o.id } }); return best }
+  const pick = e => { const id = hitAt(e); setSel(id ? wishes.find(w => w.id === id) || null : null) }
+  const move = e => { const id = hitAt(e); setHover(id); cvRef.current.style.cursor = id ? 'pointer' : 'default' }
+
+  async function like(w) {
+    if (liked.includes(w.id)) return
+    const l = [...liked, w.id]; setLiked(l); store.set('liked', l)
+    setWishes(list => list.map(x => x.id === w.id ? { ...x, likes: x.likes + 1 } : x))
+    if (sel && sel.id === w.id) setSel({ ...w, likes: w.likes + 1 })
+    const o = sim.current.orbs.find(o => o.id === w.id); if (o && o.hit) sim.current.ripples.push({ x: o.hit.x, y: o.hit.y, t: performance.now(), c: WISH_CATS[w.category]?.color })
+    try { await supabase.rpc('aistudy_wish_like', { wish_id: w.id }) } catch (e) {}
+  }
+
+  async function throwWish(e) {
+    e.preventDefault()
+    const p = wishProblem(text); if (p) return setMsg(p)
+    const last = store.get('lastWish', 0); if (Date.now() - last < 20000) return setMsg('心愿投得太快了，过一会儿再投吧')
+    setSending(true); setMsg('')
+    const row = { content: text.trim().slice(0, 60), category: cat, nickname: nick.trim().slice(0, 12) || null }
+    const S = sim.current, target = { a: Math.random() * 6.28, r: 0.2 + Math.random() * 0.5 }, tp = pos(target)
+    const land = (w) => { S.ripples.push({ x: tp.x, y: tp.y, t: performance.now(), c: WISH_CATS[cat].color }); if (w) { setWishes(list => list.some(x => x.id === w.id) ? list : [w, ...list]); const o = { id: w.id, a: target.a, r: target.r, va: 0.001, ph: 0, born: performance.now() }; S.orbs = S.orbs.filter(x => x.id !== w.id).concat(o); setSel(w) } }
+    let saved = null, arrived = false
+    S.coins.push({ x0: S.W * 0.9, y0: S.H, x1: tp.x, y1: tp.y, t: performance.now(), land: () => { arrived = true; if (saved) land(saved) } })
+    try {
+      const { data, error } = await supabase.from('aistudy_wishes').insert(row).select('id,content,category,nickname,likes,created_at').single()
+      if (error) throw error
+      saved = data; if (arrived) land(saved)
+      store.set('lastWish', Date.now()); setText(''); setMsg('心愿已经投进池子里了')
+      onWish && onWish(data)
+    } catch (err) { setMsg('没投进去，网络好像有点问题，再试一次') } finally { setSending(false) }
+  }
+
+  const hot = [...wishes].sort((a, b) => b.likes - a.likes || new Date(b.created_at) - new Date(a.created_at)).slice(0, 6)
+  return (
+    <section className="xx-sec" id="wish">
+      <div className="xx-sec-h"><div className="xx-k">许愿池</div><h2>把你的心愿投进池子里</h2><span className="xx-muted">已有 {wishes.length} 个心愿 · 点亮的灯越大，想要的人越多</span></div>
+      <div className="xx-wish">
+        <div className="xx-pool" ref={boxRef}>
+          <canvas ref={cvRef} className="xx-pool-cv" onClick={pick} onPointerMove={move} onPointerLeave={() => setHover(null)} aria-label="许愿池，点一盏灯看心愿" role="img" />
+          <div className="xx-legend">{Object.entries(WISH_CATS).map(([k, c]) => <span key={k}><i style={{ background: c.color }} />{c.name}</span>)}</div>
+          {sel ? (
+            <div className="xx-wishcard" style={{ '--c': WISH_CATS[sel.category]?.color }}>
+              <div className="xx-row" style={{ justifyContent: 'space-between' }}><span className="xx-wtag">{WISH_CATS[sel.category]?.name}</span><button className="xx-x" onClick={() => setSel(null)} aria-label="关闭">×</button></div>
+              <div className="xx-wtext">{sel.content}</div>
+              <div className="xx-row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
+                <span className="xx-muted">{sel.nickname || '匿名同学'} · {ago(sel.created_at)}</span>
+                <button className="xx-like" disabled={liked.includes(sel.id)} onClick={() => like(sel)}>{liked.includes(sel.id) ? '已 +1' : '我也想 +1'} · {sel.likes}</button>
+              </div>
+            </div>
+          ) : <div className="xx-poolhint">点一盏灯，看看同学许了什么愿</div>}
+        </div>
+        <div className="xx-wishside">
+          <form className="xx-wishform" onSubmit={throwWish}>
+            <div className="xx-cats">{Object.entries(WISH_CATS).map(([k, c]) => <button type="button" key={k} className={cat === k ? 'on' : ''} style={{ '--c': c.color }} onClick={() => setCat(k)}>{c.name}</button>)}</div>
+            <textarea className="xx-input" rows={3} maxLength={60} value={text} onChange={e => { setText(e.target.value); setMsg('') }} placeholder={{ learn: '比如：想学怎么用 AI 做短视频', tool: '比如：想要一个自动排课表的小工具', teacher: '比如：希望实验课能多一点时间', wish: '比如：期末不挂科，考上专升本' }[cat]} aria-label="心愿内容" />
+            <div className="xx-row" style={{ justifyContent: 'space-between' }}>
+              <input className="xx-input" style={{ flex: 1, minWidth: 0 }} maxLength={12} value={nick} onChange={e => setNick(e.target.value)} placeholder="署名（可不填，默认匿名）" aria-label="署名" />
+              <span className="xx-muted" style={{ fontFamily: 'var(--xx-mono)' }}>{text.length}/60</span>
+            </div>
+            <button className="xx-btn xx-throw" type="submit" disabled={sending || !text.trim()}>{sending ? '投掷中…' : '投进许愿池'}</button>
+            <div className="xx-muted" style={{ minHeight: '1.4em' }}>{msg}</div>
+          </form>
+          <div className="xx-hot">
+            <div className="xx-k" style={{ marginBottom: 6 }}>最多人想要</div>
+            {hot.length ? hot.map((w, i) => (
+              <div key={w.id} className="xx-hotrow" style={{ '--c': WISH_CATS[w.category]?.color }}>
+                <span className="n">{i + 1}</span>
+                <button className="t" onClick={() => setSel(w)}>{w.content}</button>
+                <button className="xx-like sm" disabled={liked.includes(w.id)} onClick={() => like(w)}>+{w.likes}</button>
+              </div>
+            )) : <div className="xx-muted">{loaded ? '还没有心愿' : '正在打开许愿池…'}</div>}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function XiaoXinHome() {
   const [mode, setMode] = useState('chat')
   const [state, setState] = useState('idle')
@@ -280,6 +472,7 @@ export default function XiaoXinHome() {
     if (/考考我|出题|做题|测验|练一练/.test(t)) { setMode('coach'); return startQuiz('all') }
     ask(t)
   }
+  function onWish(w) { mood('happy', 2400); say(`收到你的心愿了：「${w.content}」。${{ learn: '想学的我记下了，老师会看到。', tool: '说不定下一个小工具就是它。', teacher: '这句话老师会看到的。', wish: '愿它成真！' }[w.category] || ''}`, {}, 'happy') }
   function poke() { if (busy) return; mood('happy', 1600); say(HELLO[Math.floor(Math.random() * HELLO.length)], {}, 'happy') }
   function toggleVoice() { const v = !voice; setVoice(v); store.set('voice', v); if (!v && typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel() }
 
@@ -294,6 +487,7 @@ export default function XiaoXinHome() {
           <nav className="xx-nav">
             <a href={COURSE}>课件</a>
             <a href="#map">课件地图</a>
+            <a href="#wish">许愿池</a>
             <a href="#tools">课堂工具</a>
           </nav>
           <button className={`xx-ghost${voice ? ' on' : ''}`} onClick={toggleVoice} aria-pressed={voice}>
@@ -371,6 +565,8 @@ export default function XiaoXinHome() {
             </form>
           </div>
         </section>
+
+        <WishPool onWish={onWish} />
 
         <section className="xx-sec" id="map">
           <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>四个任务，{LABS.length} 个知识点，每个都能动手</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
@@ -553,6 +749,34 @@ body{background:#06080F!important}
 .xx-task a:hover{background:rgba(255,255,255,.05);color:var(--ink)}
 .xx-task a .n{font-family:var(--xx-mono);font-size:.76rem;color:var(--c);min-width:2.4em;padding-top:2px}
 .xx-toolgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+
+/* ---- 许愿池 ---- */
+.xx-wish{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.xx-pool{position:relative;border-radius:24px;border:1px solid var(--line);background:radial-gradient(80% 70% at 50% 45%,rgba(63,213,255,.08),transparent 70%),rgba(6,10,22,.6);overflow:hidden}
+.xx-pool-cv{display:block;width:100%;height:400px;touch-action:manipulation}
+.xx-legend{pointer-events:none;position:absolute;top:12px;left:14px;display:flex;gap:12px;flex-wrap:wrap;font-size:.76rem;color:var(--muted)}
+.xx-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;box-shadow:0 0 8px currentColor}
+.xx-poolhint{text-align:center;font-size:.84rem;color:var(--faint);padding:0 14px 16px}
+.xx-wishcard{position:relative;margin:0 14px 14px;border-radius:14px;padding:12px 14px;background:rgba(10,14,26,.92);border:1px solid var(--c);box-shadow:0 0 30px -10px var(--c);animation:xxin .3s ease-out}
+.xx-wtag{font-size:.74rem;color:var(--c);border:1px solid var(--c);border-radius:999px;padding:0 8px}
+.xx-wtext{font-size:1.15rem;font-weight:700;margin-top:6px;word-break:break-word}
+.xx-x{border:0;background:none;font-size:1.3rem;line-height:1;color:var(--muted)}
+.xx-like{border:1px solid var(--c,#FFC34D);background:transparent;border-radius:999px;padding:4px 12px;font-size:.84rem;color:var(--c,#FFC34D);font-weight:700}
+.xx-like:disabled{opacity:.55;cursor:default}
+.xx-like.sm{padding:1px 9px;font-size:.78rem;font-family:var(--xx-mono)}
+.xx-wishside{display:grid;gap:14px}
+.xx-wishform{display:grid;gap:10px;padding:16px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
+.xx-wishform textarea{resize:none;line-height:1.6}
+.xx-cats{display:flex;gap:6px;flex-wrap:wrap}
+.xx-cats button{border:1px solid var(--line2);background:none;border-radius:999px;padding:4px 12px;font-size:.84rem;color:var(--muted)}
+.xx-cats button.on{border-color:var(--c);color:#06080F;background:var(--c);font-weight:800;box-shadow:0 0 16px -4px var(--c)}
+.xx-throw{justify-content:center;background:linear-gradient(100deg,#FFC34D,#FF7ACB);box-shadow:0 8px 24px -12px #FFC34D}
+.xx-hot{padding:14px 16px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
+.xx-hotrow{display:grid;grid-template-columns:1.6em 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.xx-hotrow:last-child{border-bottom:0}
+.xx-hotrow .n{font-family:var(--xx-mono);color:var(--c);font-weight:800}
+.xx-hotrow .t{border:0;background:none;text-align:left;font-size:.9rem;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+@media (max-width:900px){.xx-wish{grid-template-columns:1fr}.xx-pool-cv{height:300px}}
 .xx-foot{max-width:1240px;margin:40px auto 0;padding:18px 16px 40px;border-top:1px solid var(--line);font-size:.8rem;color:var(--faint)}
 @media (max-width:900px){
   .xx-hero{grid-template-columns:1fr;padding-top:14px;gap:14px}
