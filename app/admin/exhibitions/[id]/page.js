@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { uploadImage } from '@/lib/upload'
+import { uploadImage, uploadFile } from '@/lib/upload'
 import GalleryStylePicker from '@/components/GalleryStylePicker'
 
 
@@ -28,6 +28,8 @@ export default function EditExhibitionPage({ params }) {
   const [galleryStyle, setGalleryStyle] = useState('classic')
   const [curations, setCurations] = useState([])
   const fileInputRef = useRef(null)
+  const previewRef = useRef(null)
+  const [previewUploading, setPreviewUploading] = useState(false)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -43,6 +45,7 @@ export default function EditExhibitionPage({ params }) {
     is_open: false,                    // ★ 新增:布展是否完成
     exhibition_type: 'special',
     medium: 'painting',
+    preview_video: '',
     theme_en: '',
     theme_zh: '',
     quote: '',
@@ -95,6 +98,7 @@ export default function EditExhibitionPage({ params }) {
           is_open: platformExhibition.is_open || false,    // ★ 新增
           exhibition_type: platformExhibition.exhibition_type || 'special',
           medium: platformExhibition.medium || 'painting',
+          preview_video: platformExhibition.preview_video || '',
           theme_en: platformExhibition.theme_en || '',
           theme_zh: platformExhibition.theme_zh || '',
           quote: platformExhibition.quote || '',
@@ -142,6 +146,7 @@ export default function EditExhibitionPage({ params }) {
           is_open: partnerExhibition.is_open || false,    // ★ 新增
           exhibition_type: 'special',
           medium: 'painting',
+          preview_video: '',
           theme_en: '',
           theme_zh: '',
           quote: '',
@@ -174,6 +179,24 @@ export default function EditExhibitionPage({ params }) {
       .eq('exhibition_id', exId).order('display_order', { ascending: true }).order('created_at', { ascending: true })
     setSitePhotos(data || [])
   }
+  // 3D 预览视频：走直传，不经过 Vercel 的 4.5MB 上限
+  async function handlePreviewVideo(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      alert(`视频 ${(file.size / 1024 / 1024).toFixed(1)}MB，超过 4MB。导出时把码率调到 3 Mbps、720P。`)
+      return
+    }
+    setPreviewUploading(true)
+    try {
+      const { url } = await uploadFile(file, 'exhibition-preview')
+      setFormData(prev => ({ ...prev, preview_video: url }))
+      alert('预览视频上传成功，记得点保存')
+    } catch (err) { alert('上传失败: ' + err.message) }
+    finally { setPreviewUploading(false) }
+  }
+
   async function handleSitePhotoUpload(e) {
     const files = Array.from(e.target.files || []); e.target.value = ''
     if (!files.length || !exhibitionId) return
@@ -361,6 +384,7 @@ export default function EditExhibitionPage({ params }) {
             gallery_style: galleryStyle,
             exhibition_type: formData.exhibition_type || 'special',
             medium: formData.medium || 'painting',
+            preview_video: formData.preview_video || null,
             theme_en: formData.exhibition_type === 'dialogue' ? (formData.theme_en || null) : null,
             theme_zh: formData.exhibition_type === 'dialogue' ? (formData.theme_zh || null) : null,
             quote: formData.exhibition_type === 'dialogue' ? (formData.quote || null) : null,
@@ -904,6 +928,27 @@ export default function EditExhibitionPage({ params }) {
                       <option value="mixed">综合</option>
                     </select>
                     <p className="text-xs text-gray-400 mt-1">首页每日一展左边放画展、右边放摄影展；综合的算在画展那边</p>
+                  </div>
+                )}
+
+                {ownerType === 'platform' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">3D 预览视频</label>
+                    <p className="text-xs text-gray-400 mb-2">
+                      录一段 3D 展的漫游（十几秒、MP4、4MB 以内）。首页卡片鼠标悬停时播它，移开回封面。留空只显示封面。
+                    </p>
+                    <input ref={previewRef} type="file" accept="video/mp4,video/webm" onChange={handlePreviewVideo} className="hidden" />
+                    <button type="button" disabled={previewUploading} onClick={() => previewRef.current?.click()}
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50 text-sm">
+                      {previewUploading ? '上传中…' : (formData.preview_video ? '更换预览视频' : '上传预览视频')}
+                    </button>
+                    {formData.preview_video && (
+                      <div className="mt-3">
+                        <video src={formData.preview_video} className="rounded-lg w-full max-w-xs" controls muted playsInline preload="metadata" />
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, preview_video: '' }))}
+                          className="text-xs mt-2" style={{ color: '#DC2626' }}>移除</button>
+                      </div>
+                    )}
                   </div>
                 )}
 

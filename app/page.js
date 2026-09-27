@@ -5,6 +5,7 @@ import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
 import CurationHero from '@/components/CurationHero'
 import ParticipationBlock from '@/components/ParticipationBlock'
 import ResponsiveRail from '@/components/ResponsiveRail'
+import MotionCover from '@/components/MotionCover'
 import { imgUrl, imgSrcSet } from '@/lib/img'
 
 export const dynamic = 'force-dynamic'
@@ -115,9 +116,11 @@ function DailyExhibitionCard({ exhibition, badge, stacked = false }) {
   const pic = (
     <div className={stacked ? 'relative aspect-[4/3]' : 'relative aspect-[4/3] md:aspect-auto md:min-h-[420px]'}>
       <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">{badge}</div>
-      <img loading="lazy" src={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
-        srcSet={imgSrcSet(exhibition.cover_image)} sizes={stacked ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 100vw, 50vw'}
-        alt={exhibition.title} className="absolute inset-0 w-full h-full object-cover" />
+      {/* 不悬停显示封面；悬停播 3D 漫游的预览视频，循环，移开回封面 */}
+      <div className="absolute inset-0">
+        <MotionCover cover={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
+          motion={exhibition.preview_video} alt={exhibition.title} hoverScale={false} loop />
+      </div>
     </div>
   )
   const text = (
