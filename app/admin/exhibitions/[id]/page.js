@@ -961,13 +961,23 @@ export default function EditExhibitionPage({ params }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">发布状态</label>
-                  <select name="status" value={formData.status} onChange={handleChange}
+                  <select name="status" value={formData.status}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      // 切到「进行中」时自动打开观展，免得忘了下面那个开关；要布展就再取消勾选
+                      setFormData(prev => ({ ...prev, status: v, is_open: v === 'active' ? true : prev.is_open }))
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="draft">草稿</option>
                     <option value="upcoming">即将开始</option>
                     <option value="active">进行中</option>
                     <option value="ended">已结束</option>
                   </select>
+                  {formData.status === 'active' && !formData.is_open && (
+                    <p className="text-xs mt-2" style={{ color: '#DC2626' }}>
+                      状态是进行中，但下面的观展开关没开——首页会显示「布展中」，观众进不去。确定是要这样吗？
+                    </p>
+                  )}
                 </div>
 
                 {/* ★★★ 新增:布展完成开关 ★★★ */}
