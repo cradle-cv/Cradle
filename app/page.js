@@ -131,7 +131,7 @@ function DailyExhibitionCard({ exhibition, badge, stacked = false }) {
         style={{ backgroundColor: badge === '摄影展' ? '#475569' : '#F59E0B' }}>{badge}</div>
       {/* 不悬停显示封面；悬停淡入一间挂着这个展作品的 CSS 展厅 */}
       <Gallery3DPreview cover={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
-        works={exhibition._works || []} alt={exhibition.title} />
+        works={exhibition._works || []} alt={exhibition.title} galleryStyle={exhibition.gallery_style} />
     </div>
   )
   const text = (
