@@ -24,8 +24,29 @@ async function getData() {
     exhibition = dailyExhibitions[Math.abs(hash) % dailyExhibitions.length]
   }
 
-  const { data: collections } = await supabase.from('collections').select('*, artists(*)').eq('status', 'published').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(8)
-  const { data: artists } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
+  // 作品集：从勾了「上首页」的里面随机取 8 个，每次刷新都不一样；再补上作者
+  const { data: collRaw } = await supabase.rpc('get_home_collections', { p_limit: 8 })
+  let collections = collRaw || []
+  if (collections.length > 0) {
+    const artistIds = [...new Set(collections.map(c => c.artist_id).filter(Boolean))]
+    const { data: arts } = artistIds.length
+      ? await supabase.from('artists').select('*').in('id', artistIds)
+      : { data: [] }
+    const am = Object.fromEntries((arts || []).map(a => [a.id, a]))
+    collections = collections.map(c => ({ ...c, artists: am[c.artist_id] || null }))
+  }
+  const { data: artistsRaw } = await supabase.from('artists').select('*, users:owner_user_id(id, username, avatar_url)').eq('show_on_homepage', true).order('display_order', { ascending: true }).limit(6)
+  // 没头像的用第一件作品当头像
+  const artists = artistsRaw || []
+  const noAvatar = artists.filter(a => !a.avatar_url && !a.users?.avatar_url).map(a => a.id)
+  if (noAvatar.length > 0) {
+    const { data: fw } = await supabase.from('artworks').select('artist_id, image_url')
+      .in('artist_id', noAvatar).eq('status', 'published').not('image_url', 'is', null)
+      .order('created_at', { ascending: true })
+    const first = {}
+    for (const w of fw || []) if (!first[w.artist_id]) first[w.artist_id] = w.image_url
+    for (const a of artists) a._firstWork = first[a.id] || null
+  }
   const { data: partners } = await supabase.from('partners').select('*').eq('status', 'active').eq('featured_on_homepage', true).order('display_order', { ascending: true }).limit(4)
   // 首页 Hero：当期加往前两期，右侧期号可切换
   let homeCurations = []
@@ -330,12 +351,21 @@ export default async function Home() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
             {artists.map((artist) => (
               <div key={artist.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-gray-300 mb-3 md:mb-4 overflow-hidden" style={{ flexShrink: 0 }}>
-                  {(artist.avatar_url || artist.users?.avatar_url) ? (
-                    <img loading="lazy" src={artist.avatar_url || artist.users?.avatar_url} alt={artist.display_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full" style={{ backgroundColor: '#F3F4F6' }} />
-                  )}
+                <div className="w-20 h-20 md:w-32 md:h-32 rounded-full mb-3 md:mb-4 overflow-hidden" style={{ flexShrink: 0, backgroundColor: '#F3F4F6' }}>
+                  {(() => {
+                    const pic = artist.avatar_url || artist.users?.avatar_url || artist._firstWork
+                    if (pic) return <img loading="lazy" src={imgUrl(pic, 300)} alt={artist.display_name} className="w-full h-full object-cover" />
+                    const name = artist.display_name || '?'
+                    let h = 0
+                    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+                    const hue = h % 360
+                    return (
+                      <div className="w-full h-full flex items-center justify-center text-2xl md:text-4xl"
+                        style={{ backgroundColor: `hsl(${hue} 28% 88%)`, color: `hsl(${hue} 30% 38%)`, fontWeight: 500 }}>
+                        {name.slice(0, 1)}
+                      </div>
+                    )
+                  })()}
                 </div>
                 <h3 className="text-base md:text-xl font-bold text-gray-900 mb-1">{artist.display_name}</h3>
                 <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">{artist.specialty}</p>

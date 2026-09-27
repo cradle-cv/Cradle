@@ -63,7 +63,7 @@ export default function AdminCollectionsPage() {
       { key: 'status', label: '状态', options: [{ v: 'published', l: '已发布' }, { v: 'draft', l: '草稿' }] },
       { key: 'show_on_homepage', label: '首页', options: [{ v: 'true', l: '展示' }, { v: 'false', l: '不展示' }] },
     ],
-    pageSize: 20,
+    pageSize: 40,
   })
 
   if (loading) {
@@ -128,94 +128,54 @@ export default function AdminCollectionsPage() {
       {/* 作品集列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-2">
             {shown.map((collection) => (
-              <div
-                key={collection.id}
-                className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
-              >
-                {/* 封面图 */}
-                <div className="aspect-video bg-gray-100 relative">
-                  {collection.cover_image ? (
-                    <img
-                      src={collection.cover_image}
-                      alt={collection.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl">
-                      📚
-                    </div>
-                  )}
-                  {collection.show_on_homepage && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'rgba(5,150,105,0.95)', color: '#FFFFFF' }}>
-                      🏠 首页
-                    </span>
-                  )}
-                  {!collection.cover_image && (
-                    <span className="absolute top-2 right-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'rgba(220,38,38,0.9)', color: '#FFFFFF' }}>
-                      无封面
-                    </span>
-                  )}
+              <div key={collection.id}
+                className="flex items-center gap-4 border rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                style={{ borderColor: '#E5E7EB' }}>
+                {/* 缩略 */}
+                <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0 relative" style={{ backgroundColor: '#F3F4F6' }}>
+                  {collection.cover_image && <img src={collection.cover_image} alt="" className="w-full h-full object-cover" />}
+                  {!collection.cover_image && <span className="absolute inset-0 flex items-center justify-center text-[10px]" style={{ color: '#DC2626' }}>无封面</span>}
                 </div>
 
                 {/* 信息 */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">
-                        {collection.title}
-                      </h3>
-                      {collection.title_en && (
-                        <p className="text-sm text-gray-500 mb-2">
-                          {collection.title_en}
-                        </p>
-                      )}
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 truncate">{collection.title}</span>
+                    {collection.title_en && <span className="text-xs text-gray-400 truncate">{collection.title_en}</span>}
                     <StatusBadge status={collection.status} />
                   </div>
-
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                    <span>👤 {collection.artists?.display_name || '未知艺术家'}</span>
-                    <span>🎨 {collection.artworks_count || 0} 件作品</span>
-                    <span>📁 {getCategoryLabel(collection.category)}</span>
-                  </div>
-
-                  {collection.description && (
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                      {collection.description}
-                    </p>
-                  )}
-
-                  {/* 首页展示开关 + 排序 + 编辑 */}
-                  <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
-                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                      <input type="checkbox" checked={collection.show_on_homepage || false}
-                        onChange={async (e) => {
-                          const checked = e.target.checked
-                          await supabase.from('collections').update({ show_on_homepage: checked }).eq('id', collection.id)
-                          setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, show_on_homepage: checked } : c))
-                        }}
-                        className="w-4 h-4 rounded" />
-                      <span className="text-xs" style={{ color: collection.show_on_homepage ? '#059669' : '#9CA3AF' }}>首页</span>
-                    </label>
-                    <input type="number" value={collection.display_order || 0}
-                      onChange={async (e) => {
-                        const val = parseInt(e.target.value) || 0
-                        await supabase.from('collections').update({ display_order: val }).eq('id', collection.id)
-                        setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, display_order: val } : c))
-                      }}
-                      className="w-14 px-2 py-1.5 border rounded-lg text-xs text-center text-gray-900"
-                      style={{ borderColor: '#D1D5DB' }}
-                      title="排序权重（数字越小越靠前）" />
-                    <Link
-                      href={`/admin/collections/${collection.id}`}
-                      className="flex-1 px-4 py-2 text-sm text-center bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      编辑
-                    </Link>
+                  <div className="text-xs text-gray-500 mt-0.5 truncate">
+                    {collection.artists?.display_name || '未知作者'}
+                    {collection.category ? ` · ${collection.category}` : ''}
+                    {collection.description ? ` · ${collection.description}` : ''}
                   </div>
                 </div>
+
+                {/* 操作 */}
+                <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
+                  <input type="checkbox" checked={collection.show_on_homepage || false}
+                    onChange={async (e) => {
+                      const checked = e.target.checked
+                      await supabase.from('collections').update({ show_on_homepage: checked }).eq('id', collection.id)
+                      setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, show_on_homepage: checked } : c))
+                    }}
+                    className="w-4 h-4 rounded" />
+                  <span className="text-xs" style={{ color: collection.show_on_homepage ? '#059669' : '#9CA3AF' }}>首页</span>
+                </label>
+                <input type="number" value={collection.display_order || 0}
+                  onChange={async (e) => {
+                    const val = parseInt(e.target.value) || 0
+                    await supabase.from('collections').update({ display_order: val }).eq('id', collection.id)
+                    setCollections(prev => prev.map(c => c.id === collection.id ? { ...c, display_order: val } : c))
+                  }}
+                  className="w-14 px-2 py-1 border rounded text-xs text-center text-gray-900 flex-shrink-0"
+                  style={{ borderColor: '#D1D5DB' }} title="排序" />
+                <Link href={`/admin/collections/${collection.id}`}
+                  className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex-shrink-0">
+                  编辑
+                </Link>
               </div>
             ))}
           </div>
