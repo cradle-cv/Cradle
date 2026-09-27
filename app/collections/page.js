@@ -28,7 +28,8 @@ async function getData() {
     })
   )
 
-  return collectionsWithArt
+  // 一件作品都没有的集子不列出来
+  return collectionsWithArt.filter(c => c.preview_artworks.length > 0)
 }
 
 export default async function CollectionsPage() {
