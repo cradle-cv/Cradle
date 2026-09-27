@@ -126,7 +126,9 @@ function DailyExhibitionCard({ exhibition, badge, stacked = false }) {
   const fmt = (d) => new Date(d).toLocaleDateString('zh-CN')
   const pic = (
     <div className={stacked ? 'relative aspect-[4/3]' : 'relative aspect-[4/3] md:aspect-auto md:min-h-[420px]'}>
-      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">{badge}</div>
+      {/* 角标：画展琥珀、摄影展石板蓝、今日推荐沿用琥珀 */}
+      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 text-white text-xs md:text-sm font-medium rounded-full z-10"
+        style={{ backgroundColor: badge === '摄影展' ? '#475569' : '#F59E0B' }}>{badge}</div>
       {/* 不悬停显示封面；悬停淡入一间挂着这个展作品的 CSS 展厅 */}
       <Gallery3DPreview cover={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
         works={exhibition._works || []} alt={exhibition.title} />
