@@ -12,17 +12,11 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 async function getData() {
-  const { data: dailyExhibitions } = await supabase
-    .from('exhibitions').select('*').eq('type', 'daily').eq('status', 'active')
-
-  let exhibition = null
-  if (dailyExhibitions && dailyExhibitions.length > 0) {
-    const today = new Date()
-    const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
-    let hash = 0
-    for (let i = 0; i < dateString.length; i++) { hash = ((hash << 5) - hash) + dateString.charCodeAt(i); hash = hash & hash }
-    exhibition = dailyExhibitions[Math.abs(hash) % dailyExhibitions.length]
-  }
+  // 每日一展：左画展、右摄影展，各取正在展的最新一个；只有一边有就单栏
+  const { data: homeEx } = await supabase.rpc('get_home_exhibitions')
+  const dailyPainting = (homeEx || []).find(r => r.medium === 'painting')?.exhibition || null
+  const dailyPhoto = (homeEx || []).find(r => r.medium === 'photography')?.exhibition || null
+  const exhibition = dailyPainting || dailyPhoto   // 兼容旧引用
 
   // 作品集：从勾了「上首页」的里面随机取 8 个，每次刷新都不一样；再补上作者
   const { data: collRaw } = await supabase.rpc('get_home_collections', { p_limit: 8 })
@@ -107,12 +101,59 @@ async function getData() {
   }
 
   return {
-    exhibition, collections: collections || [], artists: artists || [],
+    exhibition, dailyPainting, dailyPhoto, collections: collections || [], artists: artists || [],
     partners: partners || [], homeCurations,
     homepageDaily, homepageSelect, offlineExhibitions,
     homeWorkshops,
     homepageInvitations,
   }
+}
+
+// 每日一展的卡片。stacked=true 是图上文下（两栏并排用），否则图左文右（单栏用）
+function DailyExhibitionCard({ exhibition, badge, stacked = false }) {
+  const fmt = (d) => new Date(d).toLocaleDateString('zh-CN')
+  const pic = (
+    <div className={stacked ? 'relative aspect-[4/3]' : 'relative aspect-[4/3] md:aspect-auto md:min-h-[420px]'}>
+      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">{badge}</div>
+      <img loading="lazy" src={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
+        srcSet={imgSrcSet(exhibition.cover_image)} sizes={stacked ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 100vw, 50vw'}
+        alt={exhibition.title} className="absolute inset-0 w-full h-full object-cover" />
+    </div>
+  )
+  const text = (
+    <div className={stacked ? 'p-5 md:p-7 flex flex-col flex-1' : 'p-5 md:p-10 flex flex-col'}>
+      <div className="flex-1">
+        <h3 className={`font-bold text-gray-900 line-clamp-2 ${stacked ? 'text-lg md:text-2xl mb-1.5 md:mb-2' : 'text-xl md:text-3xl mb-1.5 md:mb-3'}`}
+          style={{ textWrap: 'balance' }}>{exhibition.title}</h3>
+        {exhibition.title_en && (
+          <p className={`italic text-gray-400 ${stacked ? 'text-xs md:text-sm mb-3' : 'text-sm md:text-base mb-3 md:mb-5'}`}>{exhibition.title_en}</p>
+        )}
+        {exhibition.description && (
+          <p className={`text-gray-600 leading-relaxed line-clamp-2 ${stacked ? 'text-sm mb-4' : 'text-sm md:text-base mb-4 md:mb-6'}`}>{exhibition.description}</p>
+        )}
+        <div className={`${stacked ? 'text-sm mb-5' : 'text-sm md:text-base mb-5 md:mb-8'}`} style={{ lineHeight: 1.9 }}>
+          {exhibition.start_date && (
+            <div className="flex gap-3">
+              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>展期</span>
+              <span className="text-gray-800">{fmt(exhibition.start_date)}{exhibition.end_date && ` — ${fmt(exhibition.end_date)}`}</span>
+            </div>
+          )}
+          {exhibition.location && (
+            <div className="flex gap-3">
+              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>地点</span>
+              <span className="text-gray-800">{exhibition.location}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <ExhibitionActionButton exhibition={exhibition} />
+    </div>
+  )
+  return (
+    <div className={`bg-white rounded-2xl overflow-hidden shadow-lg ${stacked ? 'flex flex-col h-full' : ''}`}>
+      {stacked ? <>{pic}{text}</> : <div className="grid md:grid-cols-2 gap-0">{pic}{text}</div>}
+    </div>
+  )
 }
 
 // ★ 展览状态按钮组件 — 统一的按钮逻辑
@@ -157,7 +198,7 @@ function ExhibitionActionButton({ exhibition }) {
 }
 
 export default async function Home() {
-  const { exhibition, collections, artists, partners, homeCurations, homepageDaily, homepageSelect, offlineExhibitions, homeWorkshops, homepageInvitations } = await getData()
+  const { exhibition, dailyPainting, dailyPhoto, collections, artists, partners, homeCurations, homepageDaily, homepageSelect, offlineExhibitions, homeWorkshops, homepageInvitations } = await getData()
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -170,56 +211,26 @@ export default async function Home() {
       {(exhibition || homepageInvitations.length > 0) && (
         <section id="daily" className="py-12 md:py-16 px-4 md:px-6 bg-white" style={{ scrollMarginTop: '80px' }}>
           <div className="max-w-6xl mx-auto">
-            {exhibition && (
-              <>
-                <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
-                <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览,感受艺术的魅力</p>
+            {exhibition && (() => {
+              const both = !!(dailyPainting && dailyPhoto)
+              return (
+                <>
+                  <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-3">每日一展</h2>
+                  <p className="text-gray-600 mb-8 md:mb-10 text-sm md:text-base">发现今日精选展览,感受艺术的魅力</p>
 
-                <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-                  <div className="grid md:grid-cols-2 gap-0">
-                    {/* 图：手机上固定 4:3；电脑上撑满整行高度，随右侧文字多少自动裁切，不留空 */}
-                    <div className="relative aspect-[4/3] md:aspect-auto md:min-h-[420px]">
-                      <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">今日推荐</div>
-                      <img loading="lazy" src={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
-                        srcSet={imgSrcSet(exhibition.cover_image)} sizes="(max-width: 768px) 100vw, 50vw"
-                        alt={exhibition.title} className="absolute inset-0 w-full h-full object-cover" />
+                  {both ? (
+                    /* 两栏：左画展、右摄影展，各自图上文下 */
+                    <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+                      <DailyExhibitionCard exhibition={dailyPainting} badge="画展" stacked />
+                      <DailyExhibitionCard exhibition={dailyPhoto} badge="摄影展" stacked />
                     </div>
-                    {/* 文字：自然流下，按钮跟在内容后面，不再被推到底部留空 */}
-                    <div className="p-5 md:p-10 flex flex-col">
-                      <div className="flex-1">
-                        {/* 标题：手机上用 balance 让两行长度均匀，不会末行只剩一个字 */}
-                        <h3 className="text-xl md:text-3xl font-bold text-gray-900 mb-1.5 md:mb-3 line-clamp-2"
-                          style={{ textWrap: 'balance' }}>{exhibition.title}</h3>
-                        {exhibition.title_en && (
-                          <p className="text-sm md:text-base italic text-gray-400 mb-3 md:mb-5">{exhibition.title_en}</p>
-                        )}
-                        {/* 描述：没有就不占位；有就最多两行 */}
-                        {exhibition.description && (
-                          <p className="text-gray-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base line-clamp-2">{exhibition.description}</p>
-                        )}
-                        <div className="text-sm md:text-base mb-5 md:mb-8" style={{ lineHeight: 1.9 }}>
-                          {exhibition.start_date && (
-                            <div className="flex gap-3">
-                              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>展期</span>
-                              <span className="text-gray-800">{new Date(exhibition.start_date).toLocaleDateString('zh-CN')}{exhibition.end_date && ` — ${new Date(exhibition.end_date).toLocaleDateString('zh-CN')}`}</span>
-                            </div>
-                          )}
-                          {exhibition.location && (
-                            <div className="flex gap-3">
-                              <span className="text-gray-400 flex-shrink-0" style={{ width: '3em' }}>地点</span>
-                              <span className="text-gray-800">{exhibition.location}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* ★ 改动:用 ExhibitionActionButton 组件代替写死的"布展中"按钮 */}
-                      <ExhibitionActionButton exhibition={exhibition} />
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+                  ) : (
+                    /* 单栏：图左文右，和原来一样 */
+                    <DailyExhibitionCard exhibition={exhibition} badge={dailyPhoto && !dailyPainting ? '摄影展' : '今日推荐'} />
+                  )}
+                </>
+              )
+            })()}
 
             {/* 被看见：作品真的挂上过墙的那些场次 */}
             {offlineExhibitions.length > 0 && (

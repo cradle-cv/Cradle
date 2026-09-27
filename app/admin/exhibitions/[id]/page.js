@@ -42,6 +42,7 @@ export default function EditExhibitionPage({ params }) {
     status: 'draft',
     is_open: false,                    // ★ 新增:布展是否完成
     exhibition_type: 'special',
+    medium: 'painting',
     theme_en: '',
     theme_zh: '',
     quote: '',
@@ -93,6 +94,7 @@ export default function EditExhibitionPage({ params }) {
           status: platformExhibition.status || 'draft',
           is_open: platformExhibition.is_open || false,    // ★ 新增
           exhibition_type: platformExhibition.exhibition_type || 'special',
+          medium: platformExhibition.medium || 'painting',
           theme_en: platformExhibition.theme_en || '',
           theme_zh: platformExhibition.theme_zh || '',
           quote: platformExhibition.quote || '',
@@ -139,6 +141,7 @@ export default function EditExhibitionPage({ params }) {
           status: partnerExhibition.status || 'draft',
           is_open: partnerExhibition.is_open || false,    // ★ 新增
           exhibition_type: 'special',
+          medium: 'painting',
           theme_en: '',
           theme_zh: '',
           quote: '',
@@ -357,6 +360,7 @@ export default function EditExhibitionPage({ params }) {
             is_open: formData.is_open,                    // ★ 新增
             gallery_style: galleryStyle,
             exhibition_type: formData.exhibition_type || 'special',
+            medium: formData.medium || 'painting',
             theme_en: formData.exhibition_type === 'dialogue' ? (formData.theme_en || null) : null,
             theme_zh: formData.exhibition_type === 'dialogue' ? (formData.theme_zh || null) : null,
             quote: formData.exhibition_type === 'dialogue' ? (formData.quote || null) : null,
@@ -887,6 +891,19 @@ export default function EditExhibitionPage({ params }) {
                       <option value="regular">常规展览</option>
                       <option value="daily">每日一展</option>
                     </select>
+                  </div>
+                )}
+
+                {ownerType === 'platform' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">媒介</label>
+                    <select name="medium" value={formData.medium || 'painting'} onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="painting">画展</option>
+                      <option value="photography">摄影展</option>
+                      <option value="mixed">综合</option>
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">首页每日一展左边放画展、右边放摄影展；综合的算在画展那边</p>
                   </div>
                 )}
 
