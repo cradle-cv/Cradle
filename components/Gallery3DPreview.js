@@ -37,13 +37,23 @@ export default function Gallery3DPreview({ cover, works = [], alt = '', galleryS
 
       {/* 封面 */}
       <img src={cover} alt={alt} loading="lazy"
-        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-        style={{ opacity: hover && hasRoom ? 0 : 1 }} />
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{
+          opacity: hover && hasRoom ? 0 : 1,
+          transform: hover && hasRoom ? 'scale(1.06)' : 'scale(1)',
+          transition: 'opacity .5s ease, transform 1.1s cubic-bezier(.22,.61,.36,1)',
+        }} />
 
       {/* 展厅 */}
       {hasRoom && (
-        <div className="absolute inset-0 transition-opacity duration-500"
-          style={{ opacity: hover ? 1 : 0, perspective: '520px', perspectiveOrigin: '50% 48%', background: c.bg }}>
+        <div className="absolute inset-0"
+          style={{
+            opacity: hover ? 1 : 0,
+            transform: hover ? 'scale(1)' : 'scale(0.86)',
+            transformOrigin: '50% 52%',
+            transition: 'opacity .55s ease, transform 1.1s cubic-bezier(.22,.61,.36,1)',
+            perspective: '520px', perspectiveOrigin: '50% 48%', background: c.bg,
+          }}>
 
           {/* 地板 */}
           <div className="absolute" style={{
