@@ -44,11 +44,22 @@ async function getCollection(id) {
     .limit(1)
     .maybeSingle()
 
+  // 这位艺术家的其他作品集（作品少的集子，靠这一块把页面填住）
+  let otherCollections = []
+  if (collection?.artist_id) {
+    const { data: oc } = await supabase.from('collections')
+      .select('id, title, title_en, cover_image')
+      .eq('artist_id', collection.artist_id).eq('status', 'published').neq('id', id)
+      .order('display_order').limit(4)
+    otherCollections = oc || []
+  }
+
   return {
     collection,
     artworks: artworks || [],
     prevCollection,
     nextCollection,
+    otherCollections,
   }
 }
 
@@ -82,7 +93,7 @@ export default async function CollectionDetailPage({ params }) {
 
   if (!data) notFound()
 
-  const { collection, artworks, prevCollection, nextCollection } = data
+  const { collection, artworks, prevCollection, nextCollection, otherCollections } = data
   const serif = '"Playfair Display", Georgia, "Times New Roman", serif'
   const hasTheme = collection.theme_en || collection.theme_zh
 
@@ -181,24 +192,30 @@ export default async function CollectionDetailPage({ params }) {
           </div>
         )}
 
-        {/* 作品网格 */}
+        {/* 作品区：按件数自适应。少于四件时每件单独一行、图放大，像一场小型个展；四件以上两列 */}
         {artworks.length > 0 ? (
           <div style={{ padding: '24px 0 40px' }}>
-            <div className="grid md:grid-cols-2 gap-10">
+            <div className={artworks.length >= 4 ? 'grid md:grid-cols-2 gap-10' : 'space-y-16'}>
               {artworks.map((artwork, idx) => (
                 <div key={artwork.id} className="group">
-                  {/* 作品图(点击进入作品详情页) */}
-                  <Link href={`/artworks/${artwork.id}`} className="block overflow-hidden rounded-sm mb-4 cursor-pointer" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
+                  {/* 作品图：少件时不裁切，按原比例完整展示，居中 */}
+                  <Link href={`/artworks/${artwork.id}`} className="block overflow-hidden rounded-sm mb-4 cursor-pointer"
+                    style={artworks.length >= 4
+                      ? { aspectRatio: '4/3', backgroundColor: '#F3F4F6' }
+                      : { backgroundColor: '#FAF7F1', maxWidth: '760px', margin: '0 auto 16px', padding: '24px' }}>
                     {artwork.image_url ? (
                       <img src={artwork.image_url} alt={artwork.title} loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        className={artworks.length >= 4
+                          ? 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-700'
+                          : 'w-full h-auto block'}
+                        style={artworks.length >= 4 ? {} : { maxHeight: '70vh', objectFit: 'contain', boxShadow: '0 8px 30px rgba(0,0,0,.10)' }} />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: '#D1D5DB' }}>🎨</div>
+                      <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '200px', color: '#D1D5DB' }} />
                     )}
                   </Link>
 
                   {/* 作品信息 */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3" style={artworks.length >= 4 ? {} : { maxWidth: '760px', margin: '0 auto' }}>
                     {/* 序号 */}
                     <span style={{ fontFamily: serif, fontSize: '28px', fontWeight: 300, color: '#D1D5DB', lineHeight: 1, flexShrink: 0, minWidth: '32px' }}>
                       {String(idx + 1).padStart(2, '0')}
@@ -241,7 +258,7 @@ export default async function CollectionDetailPage({ params }) {
                   </div>
 
                   {/* 分隔线 */}
-                  {idx < artworks.length - 1 && idx % 2 === 1 && (
+                  {artworks.length >= 4 && idx < artworks.length - 1 && idx % 2 === 1 && (
                     <div className="col-span-2" style={{ borderBottom: '0.5px solid #E5E7EB', margin: '0', gridColumn: '1 / -1' }}></div>
                   )}
                 </div>
@@ -250,8 +267,35 @@ export default async function CollectionDetailPage({ params }) {
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="text-5xl mb-4">🎨</div>
-            <p style={{ color: '#9CA3AF' }}>该作品集暂无作品</p>
+            <p style={{ color: '#9CA3AF' }}>这个作品集还没有放进作品</p>
+          </div>
+        )}
+
+        {/* 这位艺术家的其他作品集 */}
+        {otherCollections.length > 0 && (
+          <div style={{ borderTop: '0.5px solid #E5E7EB', padding: '40px 0' }}>
+            <div className="flex items-baseline justify-between mb-6">
+              <span style={{ fontSize: '11px', color: '#9CA3AF', letterSpacing: '2px' }}>
+                {collection.artists?.display_name ? `${collection.artists.display_name} 的其他作品集` : '其他作品集'}
+              </span>
+              {collection.artist_id && (
+                <Link href={`/artists/${collection.artist_id}`} className="text-sm hover:opacity-70" style={{ color: '#6B7280' }}>
+                  去艺术家主页 →
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {otherCollections.map(oc => (
+                <Link key={oc.id} href={`/collections/${oc.id}`} className="group block">
+                  <div className="overflow-hidden rounded-sm mb-3" style={{ aspectRatio: '4/3', backgroundColor: '#F3F4F6' }}>
+                    {oc.cover_image && <img src={oc.cover_image} alt={oc.title} loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
+                  </div>
+                  <div className="font-medium truncate" style={{ color: '#111827', fontSize: '14px' }}>{oc.title}</div>
+                  {oc.title_en && <div className="truncate" style={{ color: '#9CA3AF', fontSize: '12px' }}>{oc.title_en}</div>}
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 

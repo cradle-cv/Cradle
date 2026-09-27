@@ -120,7 +120,7 @@ export default async function CollectionsPage() {
                                 {collection.artists.avatar_url ? (
                                   <img src={collection.artists.avatar_url} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#9CA3AF' }}>👤</div>
+                                  <div className="w-full h-full" style={{ backgroundColor: '#E5E7EB' }} />
                                 )}
                               </div>
                               <span className="text-sm" style={{ color: '#6B7280' }}><T>{collection.artists.display_name}</T></span>
@@ -148,35 +148,39 @@ export default async function CollectionsPage() {
 
                           {/* 统计 */}
                           <div className="flex items-center gap-4 mt-4 pt-4" style={{ borderTop: '0.5px solid #E5E7EB' }}>
-                            <span className="text-xs" style={{ color: '#9CA3AF' }}>🎨 {collection.artworks_count || previews.length} 件作品</span>
+                            <span className="text-xs" style={{ color: '#9CA3AF' }}>{collection.artworks_count || previews.length} 件作品</span>
                             <span className="text-xs group-hover:translate-x-1 transition-transform" style={{ color: '#6B7280' }}>查看 →</span>
                           </div>
                         </div>
 
-                        {/* 右侧：作品预览 */}
-                        <div className="md:w-3/5 p-4">
-                          {previews.length > 0 ? (
-                            <div className="grid grid-cols-3 gap-2 h-full">
-                              {previews.slice(0, 6).map((art, i) => (
-                                <div key={art.id} className="overflow-hidden rounded-sm" style={{ aspectRatio: '1', backgroundColor: '#F3F4F6' }}>
-                                  {art.image_url ? (
-                                    <img src={art.image_url} alt={art.title} loading="lazy"
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: '#D1D5DB' }}>🎨</div>
-                                  )}
+                        {/* 右侧：作品预览。格子数跟着件数走，不补空位——
+                            一件铺满右侧，两件并排，三件一排，四件以上最多 3×2 */}
+                        <div className="md:w-3/5 p-4 flex items-center">
+                          {(() => {
+                            const n = previews.length
+                            if (n === 0) {
+                              return (
+                                <div className="w-full flex items-center justify-center rounded-sm" style={{ minHeight: '200px', backgroundColor: '#F3F4F6' }}>
+                                  <span className="text-xs" style={{ color: '#9CA3AF', letterSpacing: '2px' }}>还没有作品</span>
                                 </div>
-                              ))}
-                              {/* 不足 6 张时填充空位 */}
-                              {Array.from({ length: Math.max(0, 6 - previews.length) }).map((_, i) => (
-                                <div key={`empty-${i}`} className="rounded-sm" style={{ aspectRatio: '1', backgroundColor: '#F3F4F6' }}></div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="h-full flex items-center justify-center" style={{ minHeight: '200px', backgroundColor: '#F3F4F6' }}>
-                              <span className="text-4xl" style={{ color: '#D1D5DB' }}>📚</span>
-                            </div>
-                          )}
+                              )
+                            }
+                            const shown = previews.slice(0, 6)
+                            const cols = n === 1 ? 1 : n === 2 ? 2 : n === 4 ? 2 : 3
+                            const ratio = n === 1 ? '4 / 3' : n === 2 ? '3 / 4' : n === 4 ? '4 / 3' : '1'
+                            return (
+                              <div className="w-full grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+                                {shown.map((art) => (
+                                  <div key={art.id} className="overflow-hidden rounded-sm" style={{ aspectRatio: ratio, backgroundColor: '#F3F4F6' }}>
+                                    {art.image_url && (
+                                      <img src={art.image_url} alt={art.title} loading="lazy"
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -186,7 +190,6 @@ export default async function CollectionsPage() {
             </div>
           ) : (
             <div className="text-center py-20">
-              <div className="text-5xl mb-4">📚</div>
               <p className="text-lg" style={{ color: '#9CA3AF' }}>暂无作品集</p>
             </div>
           )}
