@@ -5,7 +5,7 @@ import OfflineExhibitionCard from '@/components/OfflineExhibitionCard'
 import CurationHero from '@/components/CurationHero'
 import ParticipationBlock from '@/components/ParticipationBlock'
 import ResponsiveRail from '@/components/ResponsiveRail'
-import MotionCover from '@/components/MotionCover'
+import Gallery3DPreview from '@/components/Gallery3DPreview'
 import { imgUrl, imgSrcSet } from '@/lib/img'
 
 export const dynamic = 'force-dynamic'
@@ -15,8 +15,19 @@ export const fetchCache = 'force-no-store'
 async function getData() {
   // 每日一展：左画展、右摄影展，各取正在展的最新一个；只有一边有就单栏
   const { data: homeEx } = await supabase.rpc('get_home_exhibitions')
-  const dailyPainting = (homeEx || []).find(r => r.medium === 'painting')?.exhibition || null
-  const dailyPhoto = (homeEx || []).find(r => r.medium === 'photography')?.exhibition || null
+  let dailyPainting = (homeEx || []).find(r => r.medium === 'painting')?.exhibition || null
+  let dailyPhoto = (homeEx || []).find(r => r.medium === 'photography')?.exhibition || null
+  // 各拉几幅作品，悬停时挂进 CSS 展厅里
+  for (const ex of [dailyPainting, dailyPhoto]) {
+    if (!ex) continue
+    const { data: links } = await supabase.from('exhibition_artworks')
+      .select('artwork_id, wall_side, display_order, order_num').eq('exhibition_id', ex.id)
+      .order('display_order').order('order_num').limit(5)
+    const ids = (links || []).map(l => l.artwork_id)
+    const { data: arts } = ids.length ? await supabase.from('artworks').select('id, image_url').in('id', ids) : { data: [] }
+    const am = Object.fromEntries((arts || []).map(a => [a.id, a]))
+    ex._works = (links || []).map(l => ({ image_url: am[l.artwork_id]?.image_url, wall_side: l.wall_side })).filter(w => w.image_url)
+  }
   const exhibition = dailyPainting || dailyPhoto   // 兼容旧引用
 
   // 作品集：从勾了「上首页」的里面随机取 8 个，每次刷新都不一样；再补上作者
@@ -116,11 +127,9 @@ function DailyExhibitionCard({ exhibition, badge, stacked = false }) {
   const pic = (
     <div className={stacked ? 'relative aspect-[4/3]' : 'relative aspect-[4/3] md:aspect-auto md:min-h-[420px]'}>
       <div className="absolute top-4 md:top-6 left-4 md:left-6 px-3 md:px-4 py-1.5 md:py-2 bg-[#F59E0B] text-white text-xs md:text-sm font-medium rounded-full z-10">{badge}</div>
-      {/* 不悬停显示封面；悬停播 3D 漫游的预览视频，循环，移开回封面 */}
-      <div className="absolute inset-0">
-        <MotionCover cover={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
-          motion={exhibition.preview_video} alt={exhibition.title} hoverScale={false} loop />
-      </div>
+      {/* 不悬停显示封面；悬停淡入一间挂着这个展作品的 CSS 展厅 */}
+      <Gallery3DPreview cover={imgUrl(exhibition.cover_image || '/images/mryz.jpg', 900)}
+        works={exhibition._works || []} alt={exhibition.title} />
     </div>
   )
   const text = (
