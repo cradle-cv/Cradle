@@ -85,7 +85,7 @@ function scoreBuild(parts, budget, mode="desktop"){
   return {score:detail.reduce((s,d)=>s+d.pts,0), detail, total}
 }
 
-function compressImage(file, maxSide=420){
+function compressImage(file, maxSide=420, quality=0.72){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader()
     reader.onerror=reject
@@ -99,12 +99,36 @@ function compressImage(file, maxSide=420){
         const ctx=cv.getContext("2d")
         ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height)
         ctx.drawImage(img,0,0,cv.width,cv.height)
-        resolve(cv.toDataURL("image/jpeg",0.72))
+        resolve(cv.toDataURL("image/jpeg",quality))
       }
       img.src=reader.result
     }
     reader.readAsDataURL(file)
   })
+}
+
+/* ── 图片识别：上传截图后自动认出型号和价格（智谱视觉模型，接口在 app/api/pei/recognize/route.js） ── */
+const KIND_NAME = {cpu:"CPU",mb:"主板",ram:"内存条",ssd:"固态硬盘",gpu:"显卡",cooler:"散热器",psu:"电源",case:"机箱",monitor:"显示器",kb:"键盘",mouse:"鼠标",hdd:"机械硬盘",laptop:"笔记本",bag:"电脑包 / 支架"}
+async function recognize(image, part, mode){
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),60000)
+  try{
+    const res=await fetch("/api/pei/recognize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image,part,mode}),signal:ctl.signal})
+    const d=await res.json().catch(()=>({}))
+    if(!res.ok) throw new Error(d.error||"识别失败")
+    return d
+  }finally{ clearTimeout(t) }
+}
+// 只填空着的格子，已经填了的不覆盖；返回新配件和填了哪些
+function applyRecog(part, r){
+  const next={...part}, got=[]
+  if(r.model&&!String(part.model||"").trim()){ next.model=r.model; got.push("型号") }
+  if(r.price&&(part.price===""||part.price==null)){ next.price=String(r.price); got.push("价格") }
+  if(r.specs&&part.id==="laptop"){
+    const sp={...(part.specs||{})}; let n=0
+    Object.entries(r.specs).forEach(([k,v])=>{ if(v&&!String(sp[k]||"").trim()){ sp[k]=v; n++ } })
+    if(n){ next.specs=sp; got.push("配置参数") }
+  }
+  return {next, got}
 }
 
 class ErrorBoundary extends Component {
@@ -142,7 +166,7 @@ const Page=({children,style={}})=>(
 )
 
 /* ── Build sheet (shared by student edit + teacher view) ── */
-function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
+function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile,recog,onUseSuggest}){
   const fileRef=useRef(null)
   const [drag,setDrag]=useState(false)
   const url=extractUrl(part.link)
@@ -183,7 +207,23 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
             padding:"2px 8px",borderRadius:6,border:"none",background:"rgba(0,0,0,.45)",color:"#fff",cursor:"pointer",fontSize:10}}>换图</button>
         )}
         <input ref={fileRef} type="file" accept="image/*" onChange={pick} style={{display:"none"}}/>
+        {recog?.status==="busy"&&(
+          <div style={{position:"absolute",left:0,right:0,bottom:0,padding:"5px 8px",background:"rgba(8,145,178,.92)",color:"#fff",fontSize:11,fontWeight:700,textAlign:"center"}}>
+            🔍 正在识别型号和价格…</div>
+        )}
       </div>
+      {!readOnly&&recog&&recog.status!=="busy"&&(
+        <div style={{padding:"6px 12px",fontSize:11,lineHeight:1.5,borderBottom:`1px solid ${C.border}`,
+          background:recog.warn?"#fef2f2":recog.status==="err"?"#f8fafc":"#ecfdf5",color:recog.warn?C.red:recog.status==="err"?C.muted:"#047857"}}>
+          {recog.warn&&<div style={{fontWeight:700}}>⚠️ {recog.warn}</div>}
+          <div>{recog.msg}</div>
+          {recog.suggest&&(
+            <div style={{marginTop:3,color:C.text}}>识别到：<b>{recog.suggest.model}</b>{recog.suggest.price?` · ¥${recog.suggest.price}`:""}
+              <button onClick={e=>{e.stopPropagation();onUseSuggest&&onUseSuggest()}} style={{marginLeft:6,padding:"1px 8px",borderRadius:5,border:`1px solid ${C.accent}`,
+                background:"#fff",color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:F}}>用这个</button></div>
+          )}
+        </div>
+      )}
       <div style={{padding:"10px 12px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
           <span style={{fontSize:13,fontWeight:700}}>{meta.emoji} {meta.name}</span>
@@ -244,13 +284,67 @@ function PartCard({part,meta,readOnly,active,onActivate,onChange,onFile}){
 
 function BuildGrid({parts,readOnly,onPart,mode="desktop"}){
   const [activeId,setActiveId]=useState(null)
+  const [recog,setRecog]=useState({})
+  const [bulk,setBulk]=useState(null)
+  const bulkRef=useRef(null)
+  const setR=(id,v)=>setRecog(r=>({...r,[id]:v}))
+  const modeRef=useRef(mode); modeRef.current=mode
   const partsRef=useRef(parts); partsRef.current=parts
   const onPartRef=useRef(onPart); onPartRef.current=onPart
   const getPart=id=>partsRef.current.find(p=>p.id===id)||{id,model:"",price:"",img:"",link:"",specs:{}}
 
   async function addFile(id,file){
-    try{ const d=await compressImage(file); onPartRef.current&&onPartRef.current({...getPart(id),img:d}) }
-    catch(_){ alert("图片读取失败，请换一张") }
+    let big
+    try{
+      const d=await compressImage(file)
+      big=await compressImage(file,1400,0.85)
+      onPartRef.current&&onPartRef.current({...getPart(id),img:d})
+    }catch(_){ alert("图片读取失败，请换一张"); return }
+    // 上传后自动识别型号和价格
+    setR(id,{status:"busy"})
+    try{
+      const m=modeRef.current
+      const r=await recognize(big,id,m)
+      const meta=metasFor(m).find(m=>m.id===id)
+      const warn=r.kind&&r.kind!=="other"&&r.kind!==id&&!(id==="laptop"&&r.kind==="laptop")&&KIND_NAME[r.kind]
+        ?`这张图看起来是「${KIND_NAME[r.kind]}」，不是「${meta?.name||id}」，检查一下有没有传错`:""
+      if(!r.model&&!r.price){ setR(id,{status:"err",warn,msg:"没从图里认出型号，请手动填写"}); return }
+      const cur=getPart(id)
+      // 图和格子对不上时不自动填，只给提示，让学生自己决定
+      if(warn){ setR(id,{status:"done",warn,msg:"没有自动填写。",suggest:r.model?{model:r.model,price:r.price}:null}); return }
+      const {next,got}=applyRecog(cur,r)
+      if(got.length) onPartRef.current&&onPartRef.current(next)
+      const differs=r.model&&String(cur.model||"").trim()&&String(cur.model).trim()!==r.model
+      setR(id,{status:"done",warn,
+        msg:got.length?`已自动填好${got.join("、")}，请核对是否和商品一致`:"识别完成，你已经填过了，没有覆盖",
+        suggest:differs?{model:r.model,price:r.price}:null})
+    }catch(e){ setR(id,{status:"err",msg:(e&&e.name==="AbortError")?"识别超时，请手动填写":(e?.message||"识别失败，请手动填写")}) }
+  }
+  function useSuggest(id){
+    const s=recog[id]?.suggest; if(!s) return
+    const cur=getPart(id)
+    onPartRef.current&&onPartRef.current({...cur,model:s.model,...(s.price?{price:String(s.price)}:{})})
+    setR(id,{status:"done",msg:"已换成识别结果，请核对"})
+  }
+  // 整单识别：一张配置单截图，一次填好所有配件（只填空着的）
+  async function addBulk(file){
+    let big
+    try{ big=await compressImage(file,1800,0.85) }catch(_){ alert("图片读取失败，请换一张"); return }
+    setBulk({status:"busy",msg:"正在识别整张配置单，大约需要 10 秒…"})
+    try{
+      const m=modeRef.current
+      const r=await recognize(big,"all",m)
+      const ids=metasFor(m).map(m=>m.id), used=new Set(), filled=[]
+      ;(r.items||[]).forEach(it=>{
+        const id=it.kind
+        if(!ids.includes(id)||used.has(id)) return
+        used.add(id)
+        const {next,got}=applyRecog(getPart(id),it)
+        if(got.length){ onPartRef.current&&onPartRef.current(next); filled.push(metasFor(m).find(x=>x.id===id).name) }
+      })
+      if(!(r.items||[]).length) setBulk({status:"err",msg:"没从这张图里认出配件，换一张清楚点的截图试试"})
+      else setBulk({status:"done",msg:filled.length?`识别到 ${r.items.length} 个配件，已填好：${filled.join("、")}。请逐个核对，已经填过的格子没有覆盖。`:`识别到 ${r.items.length} 个配件，但对应的格子你都填过了，没有覆盖。`})
+    }catch(e){ setBulk({status:"err",msg:(e&&e.name==="AbortError")?"识别超时，请再试一次":(e?.message||"识别失败")}) }
   }
 
   useEffect(()=>{
@@ -270,14 +364,26 @@ function BuildGrid({parts,readOnly,onPart,mode="desktop"}){
   },[activeId,readOnly])
 
   return(
+    <>
+    {!readOnly&&(
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12,padding:"10px 14px",borderRadius:12,
+        border:`1.5px dashed ${C.accent}`,background:"#f0fdff"}}>
+        <Btn small disabled={bulk?.status==="busy"} onClick={()=>bulkRef.current?.click()}>📋 整单识别</Btn>
+        <span style={{fontSize:12,color:bulk?.status==="err"?C.red:bulk?.status==="done"?"#047857":C.muted,flex:1,minWidth:200,lineHeight:1.6}}>
+          {bulk?.msg||"已经在购物车或装机页面配好了？截一张完整的配置单传上来，自动把型号和价格填进各个格子。"}</span>
+        <input ref={bulkRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0]; if(f) addBulk(f); e.target.value=""}}/>
+      </div>
+    )}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12}}>
       {metasFor(mode).map(meta=>{
         const part={link:"",specs:{},...(parts.find(p=>p.id===meta.id)||{id:meta.id,model:"",price:"",img:""})}
         return <PartCard key={meta.id} part={part} meta={meta} readOnly={readOnly}
           active={!readOnly&&activeId===meta.id} onActivate={()=>setActiveId(meta.id)}
+          recog={recog[meta.id]} onUseSuggest={()=>useSuggest(meta.id)}
           onFile={f=>addFile(meta.id,f)} onChange={np=>onPart&&onPart(np)}/>
       })}
     </div>
+    </>
   )
 }
 
@@ -654,7 +760,9 @@ function STasks({me,onPick,onBack}){
 }
 
 function SBuild({me,task,onBack}){
-  const [parts,setParts]=useState(emptyParts())
+  const [parts,setPartsState]=useState(emptyParts())
+  const partsRef=useRef(parts)
+  const setParts=v=>{ partsRef.current=v; setPartsState(v) }
   const [loaded,setLoaded]=useState(false)
   const [sub,setSub]=useState(null)
   const [saving,setSaving]=useState("")
@@ -692,7 +800,7 @@ function SBuild({me,task,onBack}){
   const locked=!!sub?.submitted
   function onPart(np){
     if(locked) return
-    const next=parts.map(p=>p.id===np.id?np:p)
+    const next=partsRef.current.map(p=>p.id===np.id?np:p)
     setParts(next)
     clearTimeout(saveTimer.current)
     saveTimer.current=setTimeout(()=>persist(next),1200)
@@ -758,7 +866,7 @@ function SBuild({me,task,onBack}){
               <span style={{fontSize:11,color:C.muted}}>切换后两边填的内容都会保留，按当前选中的方案计分</span>
             </div>
           )}
-          <div style={{fontSize:12,color:C.muted,marginTop:6}}>在电商平台搜索硬件，填写型号和当前售价。图片可截图后点选卡片按 Ctrl+V 粘贴，也可直接粘贴商品分享链接代替图片。内容自动保存。</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:6}}>在电商平台搜索硬件，填写型号和当前售价。图片可截图后点选卡片按 Ctrl+V 粘贴，也可直接粘贴商品分享链接代替图片。传图后会自动识别型号和价格，请核对后再提交。内容自动保存。</div>
         </Card>
         {locked&&(
           <Card style={{marginBottom:16,padding:"14px 18px"}}>
