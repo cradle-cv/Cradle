@@ -4,6 +4,24 @@
 import { supabase } from '@/lib/supabase'
 
 const KEY = 'xiaoxin:me'
+const ADMIN_KEY = 'xiaoxin:admin' // 和数据看板共用：老师在任一处登录，小信和课件都进入老师模式
+
+// 老师模式：不弹学生登记，提问和答题不计入学生数据
+export function isTeacher() {
+  try { return !!localStorage.getItem(ADMIN_KEY) } catch (e) { return false }
+}
+export async function teacherLogin(user, pass) {
+  const { data, error } = await supabase.rpc('aistudy_admin_login', { p_user: String(user || '').trim(), p_pass: String(pass || '') })
+  if (error) throw new Error('登录失败，请检查网络')
+  if (!data) throw new Error('用户名或密码不对')
+  try { localStorage.setItem(ADMIN_KEY, data) } catch (e) {}
+  return data
+}
+export function teacherLogout() {
+  let t = null
+  try { t = localStorage.getItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY) } catch (e) {}
+  if (t) supabase.rpc('aistudy_admin_logout', { p_token: t }).then(() => {}, () => {})
+}
 
 export function getMe() {
   try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); return v && v.id ? v : null } catch (e) { return null }
@@ -23,6 +41,7 @@ export function forgetMe() { try { localStorage.removeItem(KEY) } catch (e) {} }
 
 // 记一条使用事件：type 为 visit / chat / quiz / qc / kp / test；失败不影响页面
 export function logEvent(type, lab = null, ok = null, detail = null) {
+  if (isTeacher()) return
   const me = getMe(); if (!me) return
   try {
     supabase.rpc('aistudy_log', { p_student: me.id, p_type: type, p_lab: lab, p_ok: ok, p_detail: detail }).then(() => {}, () => {})
@@ -31,6 +50,7 @@ export function logEvent(type, lab = null, ok = null, detail = null) {
 
 // 同一页面每天只记一次访问
 export function logVisit(page) {
+  if (isTeacher()) return
   const me = getMe(); if (!me) return
   const k = 'xiaoxin:visit-' + page, today = new Date().toDateString()
   try { if (localStorage.getItem(k) === today) return; localStorage.setItem(k, today) } catch (e) {}

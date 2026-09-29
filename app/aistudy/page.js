@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 import { TASKS, LABS, TOOLS, TOOL_CATS, toolList, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
-import { getMe, register, logEvent, logVisit } from './track'
+import { getMe, register, logEvent, logVisit, isTeacher, teacherLogin, teacherLogout } from './track'
 
 const COURSE = '/aistudy/course'
 const labById = id => LABS.find(l => l.id === id)
@@ -227,31 +227,49 @@ function ToolLibrary() {
 }
 
 /* ============================== 学生身份登记 ============================== */
-function IdentityModal({ me, onDone, onClose }) {
+function IdentityModal({ me, onDone, onTeacher, onClose }) {
+  const [role, setRole] = useState('student')
   const [cls, setCls] = useState(me?.cls || '')
   const [name, setName] = useState(me?.name || '')
   const [sno, setSno] = useState(me?.sno || '')
+  const [user, setUser] = useState('')
+  const [pass, setPass] = useState('')
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   async function go(e) {
-    e.preventDefault()
+    e.preventDefault(); setErr('')
+    if (role === 'teacher') {
+      if (!user.trim() || !pass) return setErr('请填写用户名和密码')
+      setSaving(true)
+      try { await teacherLogin(user, pass); onTeacher() } catch (x) { setErr(x.message || '登录失败') } finally { setSaving(false) }
+      return
+    }
     if (!cls.trim() || !name.trim()) return setErr('请填写班级和姓名')
-    setSaving(true); setErr('')
+    setSaving(true)
     try { onDone(await register(cls, name, sno)) } catch (x) { setErr(x.message || '登记失败') } finally { setSaving(false) }
   }
   return (
     <div className="xx-modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="登记身份">
       <form className="xx-modal-in xx-id" onClick={e => e.stopPropagation()} onSubmit={go}>
-        <div className="xx-k">{me ? '切换身份' : '第一次来'}</div>
-        <h3>先告诉小信你是谁</h3>
-        <input className="xx-input" value={cls} onChange={e => setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={20} aria-label="班级" autoFocus />
-        <input className="xx-input" value={name} onChange={e => setName(e.target.value)} placeholder="姓名" maxLength={12} aria-label="姓名" />
-        <input className="xx-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} aria-label="学号" />
-        <div className="xx-privacy">你的提问和答题记录，任课老师能在数据看板里看到，用来了解大家哪里没学会；其他同学看不到。</div>
+        <div className="xx-roles" role="tablist" aria-label="身份">
+          {[['student', '我是学生'], ['teacher', '我是老师']].map(([k, n]) => <button key={k} type="button" role="tab" aria-selected={role === k} className={role === k ? 'on' : ''} onClick={() => { setRole(k); setErr('') }}>{n}</button>)}
+        </div>
+        {role === 'student' ? <>
+          <h3>先告诉小信你是谁</h3>
+          <input className="xx-input" value={cls} onChange={e => setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={20} aria-label="班级" autoFocus />
+          <input className="xx-input" value={name} onChange={e => setName(e.target.value)} placeholder="姓名" maxLength={12} aria-label="姓名" />
+          <input className="xx-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} aria-label="学号" />
+          <div className="xx-privacy">你的提问和答题记录，任课老师能在数据看板里看到，用来了解大家哪里没学会；其他同学看不到。</div>
+        </> : <>
+          <h3>老师登录</h3>
+          <input className="xx-input" value={user} onChange={e => setUser(e.target.value)} placeholder="用户名" autoComplete="username" aria-label="用户名" autoFocus />
+          <input className="xx-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="密码" autoComplete="current-password" aria-label="密码" />
+          <div className="xx-privacy">和数据看板是同一个账号。登录后进入老师模式：上课投屏时提问、出题都不会计入学生数据，数据看板也会自动登录。</div>
+        </>}
         {err && <div className="xx-err">{err}</div>}
         <div className="xx-row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
           <button type="button" className="xx-ghost" onClick={onClose}>稍后再说</button>
-          <button className="xx-btn" type="submit" disabled={saving}>{saving ? '登记中…' : '进入'}</button>
+          <button className="xx-btn" type="submit" disabled={saving}>{saving ? (role === 'teacher' ? '登录中…' : '登记中…') : (role === 'teacher' ? '登录' : '进入')}</button>
         </div>
       </form>
     </div>
@@ -505,19 +523,29 @@ export default function XiaoXinHome() {
   const [score, setScore] = useState({ right: 0, total: 0, streak: 0 })
   const [me, setMe] = useState(null)
   const [showId, setShowId] = useState(false)
+  const [teacher, setTeacher] = useState(false)
   const pendingRef = useRef(null)
   const listRef = useRef(null), idRef = useRef(1), quizRef = useRef({ queue: [], cur: null, tries: 0 }), stateTimer = useRef(null)
 
   useEffect(() => {
     document.title = '小信 · 信息技术基础智能体'; setVoice(store.get('voice', false)); setWrongBook(store.get('wrong', []))
     const m = getMe(); setMe(m)
+    const tc = isTeacher(); setTeacher(tc)
+    if (tc) return
     if (m) logVisit('home'); else { const t = setTimeout(() => setShowId(true), 1500); return () => clearTimeout(t) }
   }, [])
   // 问答和陪练要先登记身份，登记完自动继续刚才的操作
   function needMe(fn) {
-    if (getMe()) return true
+    if (isTeacher() || getMe()) return true
     pendingRef.current = fn; setShowId(true); return false
   }
+  function onTeacherIn() {
+    setTeacher(true); setShowId(false)
+    const fn = pendingRef.current; pendingRef.current = null
+    if (fn) setTimeout(fn, 50)
+    else say('老师好！已经进入老师模式，接下来的提问和出题都不会计入学生数据。要看学生的学习情况，点右上角「数据看板」。', {}, 'happy')
+  }
+  function outTeacher() { teacherLogout(); setTeacher(false) }
   function onRegistered(m) {
     setMe(m); setShowId(false); logVisit('home')
     const fn = pendingRef.current; pendingRef.current = null
@@ -703,7 +731,9 @@ export default function XiaoXinHome() {
               <div><b>{score.streak}</b><span>连对</span></div>
               <div><b>{wrongBook.length}</b><span>错题本</span></div>
             </div>
-            <button type="button" className="xx-me" onClick={() => setShowId(true)}>{me ? <>我是 {me.cls} · {me.name}<u>切换</u></> : <>还没登记身份<u>登记</u></>}</button>
+            {teacher
+              ? <div className="xx-me xx-me-t"><i>老师模式</i><a href="/aistudy/admin">数据看板</a><button type="button" onClick={outTeacher}>退出</button></div>
+              : <button type="button" className="xx-me" onClick={() => setShowId(true)}>{me ? <>我是 {me.cls} · {me.name}<u>切换</u></> : <>还没登记身份<u>登记</u></>}</button>}
           </div>
 
           <div className="xx-chat">
@@ -775,7 +805,7 @@ export default function XiaoXinHome() {
         <WishPool onWish={onWish} />
         <footer className="xx-foot">小信的回答由智谱 GLM 生成，仅供学习参考，重要信息以课件和老师讲解为准。点一下小信，它会跟你打招呼。</footer>
       </main>
-      {showId && <IdentityModal me={me} onDone={onRegistered} onClose={() => { setShowId(false); pendingRef.current = null }} />}
+      {showId && <IdentityModal me={me} onDone={onRegistered} onTeacher={onTeacherIn} onClose={() => { setShowId(false); pendingRef.current = null }} />}
     </div>
   )
 }
@@ -971,6 +1001,13 @@ body{background:#06080F!important}
 .xx button.xx-ghost{font-size:.8rem}
 .xx-me u{margin-left:8px;color:var(--a);text-decoration:none;border-bottom:1px dashed var(--a)}
 .xx-dash{white-space:nowrap}
+.xx-roles{display:flex;gap:4px;padding:4px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--line)}
+.xx .xx-roles button{flex:1;border:0;background:none;border-radius:9px;padding:7px;font-size:.9rem;color:var(--muted)}
+.xx .xx-roles button.on{background:linear-gradient(100deg,var(--a),var(--b));color:#06080F;font-weight:800}
+.xx-me-t{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:.8rem;color:var(--muted);position:relative}
+.xx-me-t i{font-style:normal;color:#FFC34D;border:1px solid rgba(255,195,77,.5);border-radius:999px;padding:1px 10px}
+.xx-me-t a{color:var(--a)!important;border-bottom:1px dashed var(--a)}
+.xx .xx-me-t button{border:0;background:none;padding:0;font-size:.8rem;color:var(--muted);border-bottom:1px dashed var(--muted)}
 
 /* ---- 许愿池 ---- */
 .xx-wish{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
