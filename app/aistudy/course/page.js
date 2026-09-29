@@ -1069,22 +1069,33 @@ const store={get(k,d){try{const v=localStorage.getItem('aistudy:'+k);return v==n
 const SB_URL='https://ghnrxnoqqteuxxtqlzfv.supabase.co',SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4';
 function sbRpc(fn,args){return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',keepalive:true,headers:{apikey:SB_ANON,Authorization:'Bearer '+SB_ANON,'Content-Type':'application/json'},body:JSON.stringify(args)}).then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))}
 function getMe(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:me')||'null');return v&&v.id?v:null}catch(e){return null}}
-function isTeacher(){try{return !!localStorage.getItem('xiaoxin:admin')}catch(e){return false}}
+function getTeacher(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:teacher')||'null');if(v&&v.tno)return v}catch(e){}try{if(localStorage.getItem('xiaoxin:admin'))return{tno:'admin',name:'管理员',admin:true}}catch(e){}return null}
+function isTeacher(){return !!getTeacher()}
+function tTitle(t){return t.admin?'管理员':(/老师$/.test(t.name)?t.name:t.name+'老师')}
 function track(type,lab=null,ok=null,detail=null){if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
 function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
 function initIdentity(){
   const pill=h('button',{class:'me-pill',type:'button'});document.body.append(pill);
-  function paint(){if(isTeacher()){pill.innerHTML='<span class="dot t"></span>老师模式 · 打开数据看板';pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
+  function paint(){const tc=getTeacher();if(tc){pill.innerHTML=`<span class="dot t"></span>老师模式 · ${tTitle(tc)}`;pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
   function open(){const me=getMe()||{};const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
-    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="/aistudy/admin" style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
+    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="#" data-t style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
     const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';
-    ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()});
+    ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove();if(e.target.hasAttribute('data-t')){e.preventDefault();ov.remove();openTeacher()}});
     f.onsubmit=async e=>{e.preventDefault();const c=f.cls.value.trim(),n=f.name.value.trim(),sn=f.sno.value.trim(),er=$('.err',f);
       if(!c||!n){er.hidden=false;er.textContent='请填写班级和姓名';return}
       try{const id=await sbRpc('aistudy_register',{p_cls:c,p_name:n,p_sno:sn||null});if(!id)throw 0;localStorage.setItem('xiaoxin:me',JSON.stringify({id,cls:c,name:n,sno:sn}));ov.remove();paint();trackVisit()}
       catch(x){er.hidden=false;er.textContent='登记失败，请检查网络后再试'}};
     document.body.append(ov);setTimeout(()=>f.cls.focus(),50)}
-  pill.onclick=()=>{if(isTeacher())location.href='/aistudy/admin';else open()};paint();if(isTeacher()){}else if(!getMe())setTimeout(()=>{if(!getMe()&&!isTeacher())open()},2500);else trackVisit();
+  function openTeacher(){const tc=getTeacher();const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
+    ov.innerHTML=tc?`<div class="me-box"><div class="k mono">老师模式</div><b>${tTitle(tc)}</b><p class="note">现在是老师模式：不弹学生登记，你在课件里的操作不计入学生数据。</p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="ghost" data-x>关闭</button><button type="button" class="btn" data-out>退出老师模式</button></div></div>`
+      :`<form class="me-box"><div class="k mono">老师模式</div><b>老师，您好</b><input name="tno" maxlength="20" placeholder="工号"><input name="tname" maxlength="12" placeholder="姓名"><p class="note">进入老师模式后，不再弹出学生登记；上课投屏时的操作不计入学生数据。</p><p class="err" hidden></p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="ghost" data-x>取消</button><button class="btn">进入</button></div></form>`;
+    ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove();if(e.target.hasAttribute('data-out')){try{localStorage.removeItem('xiaoxin:teacher');localStorage.removeItem('xiaoxin:admin')}catch(x){}ov.remove();paint()}});
+    const f=$('form',ov);if(f)f.onsubmit=async e=>{e.preventDefault();const t=f.tno.value.trim(),n=f.tname.value.trim(),er=$('.err',f);
+      if(!t||!n){er.hidden=false;er.textContent='请填写工号和姓名';return}
+      try{const id=await sbRpc('aistudy_teacher_register',{p_tno:t,p_name:n});if(!id)throw 0;localStorage.setItem('xiaoxin:teacher',JSON.stringify({id,tno:t,name:n}));ov.remove();paint()}
+      catch(x){er.hidden=false;er.textContent='进入失败，请检查网络后再试'}};
+    document.body.append(ov);if(f)setTimeout(()=>f.tno.focus(),50)}
+  pill.onclick=()=>{if(isTeacher())openTeacher();else open()};paint();if(isTeacher()){}else if(!getMe())setTimeout(()=>{if(!getMe()&&!isTeacher())open()},2500);else trackVisit();
   // 知识点浏览：一个知识点在屏幕中间停留满 5 秒记一次
   const seen=new Set(),timers=new Map();
   const io=new IntersectionObserver(es=>es.forEach(e=>{const id=e.target.id;if(seen.has(id))return;
