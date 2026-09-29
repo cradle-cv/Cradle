@@ -207,6 +207,22 @@ table.t th{font-size:.78rem;color:var(--muted);font-weight:600}
 .qr{background:#fff;padding:10px;border-radius:12px;display:grid;justify-items:center;gap:4px}
 .qr svg{display:block;width:150px;height:150px}
 .qr span{color:#222;font-size:.72rem;font-family:var(--f-mono)}
+.cta-open .qr svg{width:190px;height:190px}
+.me-pill{position:fixed;left:16px;bottom:16px;z-index:150;display:inline-flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:7px 14px;border-radius:999px;border:1px solid var(--line2,rgba(140,160,210,.3));background:rgba(8,12,24,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#C9D3EA;font:inherit;font-size:.8rem;cursor:pointer;box-shadow:0 10px 30px -12px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me-pill .dot{width:8px;height:8px;border-radius:50%;background:#37D99E;box-shadow:0 0 8px #37D99E;flex:0 0 auto}
+.me-pill .dot.off{background:#FFC34D;box-shadow:0 0 8px #FFC34D}
+.me-pill.need{border-color:rgba(255,195,77,.55);color:#FFE3A3}
+.me-modal{position:fixed;inset:0;z-index:220;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.me-box{display:grid;gap:10px;width:min(400px,100%);padding:22px;border-radius:20px;background:#0B1020;border:1px solid rgba(140,160,210,.3)}
+.me-box .k{color:#4DA3FF;font-size:.74rem;letter-spacing:.14em}
+.me-box b{font-size:1.3rem;color:#EAF0FF}
+.me-box input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(140,160,210,.3);background:rgba(0,0,0,.35);color:#EAF0FF!important;font:inherit;font-size:16px}
+.me-box .note{margin:0;font-size:.8rem;line-height:1.6}
+.me-box .err{margin:0;color:#FF8A95;font-size:.86rem}
+.qr-big{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:zoom-out}
+.qr-big-in{display:grid;justify-items:center;gap:10px;text-align:center;padding:26px 30px;border-radius:24px;background:#0B1020;border:1px solid #4DA3FF;max-width:100%}
+.qr-big-in b{font-size:clamp(1.3rem,3vw,2rem);color:#EAF0FF}
+.qr-big-in svg{width:min(360px,72vw);height:auto;display:block;border-radius:10px}
 
 .foot{max-width:var(--wide);margin:64px auto 0;padding:18px 0 40px;border-top:1px solid var(--line);font-size:.8rem;color:var(--faint)}
 .kbd{font-family:var(--f-mono);font-size:.72rem;border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px}
@@ -270,6 +286,23 @@ const HTML = String.raw`
     <p>情境：小赵刚到公司做行政助理，同事李姐问他电脑是怎么发展来的、机箱里都装了什么、买电脑该看哪些参数。这一节学完，你不但能回答她，还能亲手配一台电脑。</p>
     <div class="goals"><span>说出计算机的四个发展阶段</span><span>认识冯·诺依曼五大部件</span><span>看懂主板、CPU 与内存</span><span>完成一次装机实训</span></div>
   </div>
+
+  <section class="kp" id="k1-0">
+    <div class="col">
+      <p class="eyebrow">1.0 课堂开场 · 纸条</p>
+      <h3>先写一张纸条：你最想要一台怎样的电脑？</h3>
+      <p>拿出手机扫下方的二维码，匿名写下你最想要的电脑：想用它做什么，预算大概多少，最看重性能、续航、轻薄、颜值还是价格。提交后就能看到全班的纸条，大屏上按热度排出大家最想要的那几台。这一节学完，下节课我们就去配配里，把你写的这台电脑真正配出来。</p>
+    </div>
+    <div class="cta cta-open" data-w="live" data-app="zhitiao" data-code="C2KGTN">
+      <div>
+        <div class="k mono" style="color:var(--acc);font-size:.8rem;letter-spacing:.16em">课堂开场 · 纸条</div>
+        <h4>你最想要一台怎样的电脑？</h4>
+        <p>用途、预算、最看重什么，写得越具体，下节课越好配。写完就能看到别人的纸条。</p>
+        <div class="row live-row"></div>
+      </div>
+      <div class="qr" title="点击放大，方便投屏扫码"></div>
+    </div>
+  </section>
 
   <section class="kp" id="k1-1">
     <div class="col">
@@ -1031,6 +1064,31 @@ const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.quer
 const W={};
 const cssv=(n,el=document.documentElement)=>getComputedStyle(el).getPropertyValue(n).trim();
 const store={get(k,d){try{const v=localStorage.getItem('aistudy:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aistudy:'+k,JSON.stringify(v))}catch(e){}}};
+/* ---------- 学生身份与学习记录（和主页 app/aistudy/track.js 用同一个身份，存在 localStorage 的 xiaoxin:me） ---------- */
+const SB_URL='https://ghnrxnoqqteuxxtqlzfv.supabase.co',SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4';
+function sbRpc(fn,args){return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',keepalive:true,headers:{apikey:SB_ANON,Authorization:'Bearer '+SB_ANON,'Content-Type':'application/json'},body:JSON.stringify(args)}).then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))}
+function getMe(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:me')||'null');return v&&v.id?v:null}catch(e){return null}}
+function track(type,lab=null,ok=null,detail=null){const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
+function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
+function initIdentity(){
+  const pill=h('button',{class:'me-pill',type:'button'});document.body.append(pill);
+  function paint(){const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
+  function open(){const me=getMe()||{};const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
+    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></div></form>`;
+    const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';
+    ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()});
+    f.onsubmit=async e=>{e.preventDefault();const c=f.cls.value.trim(),n=f.name.value.trim(),sn=f.sno.value.trim(),er=$('.err',f);
+      if(!c||!n){er.hidden=false;er.textContent='请填写班级和姓名';return}
+      try{const id=await sbRpc('aistudy_register',{p_cls:c,p_name:n,p_sno:sn||null});if(!id)throw 0;localStorage.setItem('xiaoxin:me',JSON.stringify({id,cls:c,name:n,sno:sn}));ov.remove();paint();trackVisit()}
+      catch(x){er.hidden=false;er.textContent='登记失败，请检查网络后再试'}};
+    document.body.append(ov);setTimeout(()=>f.cls.focus(),50)}
+  pill.onclick=open;paint();if(!getMe())setTimeout(()=>{if(!getMe())open()},2500);else trackVisit();
+  // 知识点浏览：一个知识点在屏幕中间停留满 5 秒记一次
+  const seen=new Set(),timers=new Map();
+  const io=new IntersectionObserver(es=>es.forEach(e=>{const id=e.target.id;if(seen.has(id))return;
+    if(e.isIntersecting)timers.set(id,setTimeout(()=>{seen.add(id);track('kp',id)},5000));else{clearTimeout(timers.get(id));timers.delete(id)}}),{rootMargin:'-45% 0px -45% 0px',threshold:0});
+  $$('.kp[id]').forEach(el=>io.observe(el))}
+
 function h(tag,attrs={},...kids){const el=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k==='class')el.className=v;else if(k==='html')el.innerHTML=v;else if(k==='style'&&typeof v==='string')el.style.cssText=v;else if(k.startsWith('on'))el.addEventListener(k.slice(2),v);else el.setAttribute(k,v)}kids.flat().forEach(c=>c!=null&&c!==false&&el.append(c));return el}
 function seg(el,cb){const bs=$$('button',el);bs.forEach((b,i)=>b.addEventListener('click',()=>{bs.forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));cb(i,b)}));return()=>bs.findIndex(b=>b.getAttribute('aria-pressed')==='true')}
 function fmt(n,d=2){if(!isFinite(n))return'—';const s=Math.abs(n)>=100?n.toFixed(0):n.toFixed(d);return s.includes('.')?s.replace(/\.?0+$/,''):s}
@@ -1110,8 +1168,8 @@ const prog=$('#prog');addEventListener('scroll',()=>{const d=document.documentEl
 })();
 
 /* ---------- quick check ---------- */
-function initQC(qc){if(qc.dataset.inited)return;qc.dataset.inited='1';const ans=+qc.dataset.ans,opts=$$('.opt',qc);let why=null;
-  opts.forEach((o,i)=>o.addEventListener('click',()=>{if(i===ans){o.classList.add('right');opts.forEach(x=>x.disabled=true);if(!why){why=h('div',{class:'why'},'✓ '+qc.dataset.why);qc.append(why)}}else{o.classList.add('wrong');o.disabled=true}}))}
+function initQC(qc){if(qc.dataset.inited)return;qc.dataset.inited='1';const ans=+qc.dataset.ans,opts=$$('.opt',qc);let why=null,tried=false;const lab=(qc.closest('.kp')||{}).id||null;
+  opts.forEach((o,i)=>o.addEventListener('click',()=>{if(!tried){tried=true;track('qc',lab,i===ans,{first:true})}if(i===ans){o.classList.add('right');opts.forEach(x=>x.disabled=true);if(!why){why=h('div',{class:'why'},'✓ '+qc.dataset.why);qc.append(why)}}else{o.classList.add('wrong');o.disabled=true}}))}
 
 /* ---------- classify (tap to sort) ---------- */
 const SETS={};
@@ -1690,9 +1748,10 @@ function statCards(el,items){items.forEach(([num,suf,lab,sub])=>{const n=h('div'
 
 /* ---------- 纸条 / 迷宫 live QR ---------- */
 W.live=function(el){const app=el.dataset.app,base='https://cradle.art/'+app,q=$('.qr',el),row=$('.live-row',el);const nm=app==='zhitiao'?'纸条':'迷宫';
-  const inp=h('input',{type:'text',id:'code-'+app,placeholder:'活动码',maxlength:'8',class:'mono',style:'width:8.5em;text-transform:uppercase;letter-spacing:.12em'});inp.value=store.get('code-'+app,'');
+  const inp=h('input',{type:'text',id:'code-'+app,placeholder:'活动码',maxlength:'8',class:'mono',style:'width:8.5em;text-transform:uppercase;letter-spacing:.12em'});const fixed=(el.dataset.code||'').toUpperCase();inp.value=fixed||store.get('code-'+app,'');
   const info=h('span',{class:'note'});const host=h('a',{class:'ghost',target:'_blank',rel:'noopener',style:'text-decoration:none'},'老师控制台');
-  function upd(){const c=inp.value.trim().toUpperCase();store.set('code-'+app,c);const url=c?`${base}/${c}`:base;q.innerHTML=qrSvg(url)+`<span>${url.replace('https://','')}</span>`;host.href=c?`${base}/host/${c}`:base;host.hidden=!c;info.textContent=c?'二维码 = 学生入口':'还没填活动码：二维码指向'+nm+'首页'}
+  function upd(){const c=inp.value.trim().toUpperCase();if(!fixed)store.set('code-'+app,c);const url=c?`${base}/${c}`:base;q.innerHTML=qrSvg(url)+`<span>${url.replace('https://','')}</span>`;host.href=c?`${base}/host/${c}`:base;host.hidden=!c;info.textContent=c?(fixed&&c===fixed?'扫码就能写，点二维码可放大投屏':'二维码 = 学生入口'):'还没填活动码：二维码指向'+nm+'首页'}
+  q.style.cursor='zoom-in';q.onclick=()=>{const url=host.hidden?base:base+'/'+inp.value.trim().toUpperCase();const ov=h('div',{class:'qr-big',role:'dialog'});ov.innerHTML=`<div class="qr-big-in"><div class="k mono">扫码写${nm}</div><b>${($('h4',el)||{}).textContent||nm}</b>${qrSvg(url)}<span class="note">${url.replace('https://','')}</span><span class="note">点任意处关闭</span></div>`;ov.onclick=()=>ov.remove();document.body.append(ov)};
   inp.oninput=upd;row.append(h('a',{class:'btn go',href:base,target:'_blank',rel:'noopener',style:'text-decoration:none'},'打开'+nm+' →'),inp,host,info);upd();
   const SB='https://ghnrxnoqqteuxxtqlzfv.supabase.co/rest/v1/',KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4';
   const path=app==='zhitiao'?'zhitiao_activities?select=code,title&is_open=eq.true&order=created_at.desc&limit=1':'migong_rounds?select=code,title&status=eq.open&order=created_at.desc&limit=1';
@@ -1968,7 +2027,7 @@ W.radar=function(el){const body=$('.lab-b',el);const A=[['持续学习','技术�
   const list=$('.quiz-list'),sc=$('.quiz-score');let done=0,right=0;
   function score(){sc.innerHTML=`<div><div class="note">选择题</div><div class="mono" style="font-size:1.8rem;font-weight:900">${right} <span class="note">/ ${Q.length} 答对</span></div></div><div class="note">已作答 ${done} 题</div><button class="ghost" id="quizReset">重新做</button>`;$('#quizReset').onclick=build}
   function build(){list.innerHTML='';done=0;right=0;Q.forEach(([q,o,a,why],n)=>{const box=h('div',{class:'qc',style:'margin:0;max-width:none'},h('div',{class:'t'},'第 '+(n+1)+' 题'),h('div',{class:'q'},q));const opts=h('div',{class:'opts'});let first=true;
-    o.forEach((t,i)=>{const b=h('button',{class:'opt'},'ABCD'[i]+'．'+t);b.onclick=()=>{if(first){done++;if(i===a)right++;first=false;score()}if(i===a){b.classList.add('right');$$('.opt',opts).forEach(x=>x.disabled=true);box.append(h('div',{class:'why'},'✓ '+why))}else{b.classList.add('wrong');b.disabled=true}};opts.append(b)});box.append(opts);list.append(box)});score()}
+    o.forEach((t,i)=>{const b=h('button',{class:'opt'},'ABCD'[i]+'．'+t);b.onclick=()=>{if(first){done++;if(i===a)right++;first=false;score();track('test',null,i===a,{n:n+1})}if(i===a){b.classList.add('right');$$('.opt',opts).forEach(x=>x.disabled=true);box.append(h('div',{class:'why'},'✓ '+why))}else{b.classList.add('wrong');b.disabled=true}};opts.append(b)});box.append(opts);list.append(box)});score()}
   build();const sl=$('.short-list');S.forEach(([q,a],i)=>{const ans=h('div',{class:'why',hidden:''},a);const b=h('button',{class:'ghost',style:'margin-top:6px'},'看答案');b.onclick=()=>{ans.hidden=!ans.hidden;b.textContent=ans.hidden?'看答案':'收起'};sl.append(h('div',{class:'qc',style:'margin:0;max-width:none'},h('div',{class:'q'},'（'+(i+1)+'）'+q),b,ans))});
 })();
 /* boot */
@@ -1979,6 +2038,7 @@ W.radar=function(el){const body=$('.lab-b',el);const A=[['持续学习','技术�
     if(ch){showChapter(ch.dataset.chapter,false);setTimeout(()=>el.scrollIntoView({behavior:first?'auto':'smooth',block:'start'}),first?350:60);return}
     if(first)showChapter(store.get('tab','t1'),false)}
   go(true);addEventListener('hashchange',()=>go(false));
+  try{initIdentity()}catch(e){console.error('identity',e)}
 })();
 
 }
