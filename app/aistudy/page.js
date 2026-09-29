@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 import { TASKS, LABS, TOOLS, TOOL_CATS, toolList, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
-import { getMe, register, logEvent, logVisit, isTeacher, teacherLogin, teacherLogout } from './track'
+import { getMe, register, logEvent, logVisit, isTeacher, getTeacher, teacherEnter, teacherLogout } from './track'
 
 const COURSE = '/aistudy/course'
 const labById = id => LABS.find(l => l.id === id)
@@ -232,16 +232,16 @@ function IdentityModal({ me, onDone, onTeacher, onClose }) {
   const [cls, setCls] = useState(me?.cls || '')
   const [name, setName] = useState(me?.name || '')
   const [sno, setSno] = useState(me?.sno || '')
-  const [user, setUser] = useState('')
-  const [pass, setPass] = useState('')
+  const [tno, setTno] = useState('')
+  const [tname, setTname] = useState('')
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   async function go(e) {
     e.preventDefault(); setErr('')
     if (role === 'teacher') {
-      if (!user.trim() || !pass) return setErr('请填写用户名和密码')
+      if (!tno.trim() || !tname.trim()) return setErr('请填写工号和姓名')
       setSaving(true)
-      try { await teacherLogin(user, pass); onTeacher() } catch (x) { setErr(x.message || '登录失败') } finally { setSaving(false) }
+      try { onTeacher(await teacherEnter(tno, tname)) } catch (x) { setErr(x.message || '进入失败') } finally { setSaving(false) }
       return
     }
     if (!cls.trim() || !name.trim()) return setErr('请填写班级和姓名')
@@ -261,15 +261,15 @@ function IdentityModal({ me, onDone, onTeacher, onClose }) {
           <input className="xx-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} aria-label="学号" />
           <div className="xx-privacy">你的提问和答题记录，任课老师能在数据看板里看到，用来了解大家哪里没学会；其他同学看不到。</div>
         </> : <>
-          <h3>老师登录</h3>
-          <input className="xx-input" value={user} onChange={e => setUser(e.target.value)} placeholder="用户名" autoComplete="username" aria-label="用户名" autoFocus />
-          <input className="xx-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="密码" autoComplete="current-password" aria-label="密码" />
-          <div className="xx-privacy">和数据看板是同一个账号。登录后进入老师模式：上课投屏时提问、出题都不会计入学生数据，数据看板也会自动登录。</div>
+          <h3>老师，您好</h3>
+          <input className="xx-input" value={tno} onChange={e => setTno(e.target.value)} placeholder="工号" maxLength={20} aria-label="工号" autoFocus />
+          <input className="xx-input" value={tname} onChange={e => setTname(e.target.value)} placeholder="姓名" maxLength={12} aria-label="姓名" />
+          <div className="xx-privacy">进入老师模式后，不再弹出学生登记；上课投屏时的提问、出题和陪练都不计入学生数据。</div>
         </>}
         {err && <div className="xx-err">{err}</div>}
         <div className="xx-row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
           <button type="button" className="xx-ghost" onClick={onClose}>稍后再说</button>
-          <button className="xx-btn" type="submit" disabled={saving}>{saving ? (role === 'teacher' ? '登录中…' : '登记中…') : (role === 'teacher' ? '登录' : '进入')}</button>
+          <button className="xx-btn" type="submit" disabled={saving}>{saving ? '进入中…' : '进入'}</button>
         </div>
       </form>
     </div>
@@ -523,14 +523,14 @@ export default function XiaoXinHome() {
   const [score, setScore] = useState({ right: 0, total: 0, streak: 0 })
   const [me, setMe] = useState(null)
   const [showId, setShowId] = useState(false)
-  const [teacher, setTeacher] = useState(false)
+  const [teacher, setTeacher] = useState(null)
   const pendingRef = useRef(null)
   const listRef = useRef(null), idRef = useRef(1), quizRef = useRef({ queue: [], cur: null, tries: 0 }), stateTimer = useRef(null)
 
   useEffect(() => {
     document.title = '小信 · 信息技术基础智能体'; setVoice(store.get('voice', false)); setWrongBook(store.get('wrong', []))
     const m = getMe(); setMe(m)
-    const tc = isTeacher(); setTeacher(tc)
+    const tc = getTeacher(); setTeacher(tc)
     if (tc) return
     if (m) logVisit('home'); else { const t = setTimeout(() => setShowId(true), 1500); return () => clearTimeout(t) }
   }, [])
@@ -539,13 +539,14 @@ export default function XiaoXinHome() {
     if (isTeacher() || getMe()) return true
     pendingRef.current = fn; setShowId(true); return false
   }
-  function onTeacherIn() {
-    setTeacher(true); setShowId(false)
+  function onTeacherIn(t) {
+    setTeacher(t); setShowId(false)
     const fn = pendingRef.current; pendingRef.current = null
     if (fn) setTimeout(fn, 50)
-    else say('老师好！已经进入老师模式，接下来的提问和出题都不会计入学生数据。要看学生的学习情况，点右上角「数据看板」。', {}, 'happy')
+    else say(`${tTitle(t)}好！已经进入老师模式，接下来的提问、出题和陪练都不会计入学生数据。`, {}, 'happy')
   }
-  function outTeacher() { teacherLogout(); setTeacher(false) }
+  const tTitle = t => t.admin ? '管理员' : (/老师$/.test(t.name) ? t.name : t.name + '老师')
+  function outTeacher() { teacherLogout(); setTeacher(null) }
   function onRegistered(m) {
     setMe(m); setShowId(false); logVisit('home')
     const fn = pendingRef.current; pendingRef.current = null
@@ -732,7 +733,7 @@ export default function XiaoXinHome() {
               <div><b>{wrongBook.length}</b><span>错题本</span></div>
             </div>
             {teacher
-              ? <div className="xx-me xx-me-t"><i>老师模式</i><a href="/aistudy/admin">数据看板</a><button type="button" onClick={outTeacher}>退出</button></div>
+              ? <div className="xx-me xx-me-t"><i>老师模式</i><span>{tTitle(teacher)}</span><button type="button" onClick={outTeacher}>退出</button></div>
               : <button type="button" className="xx-me" onClick={() => setShowId(true)}>{me ? <>我是 {me.cls} · {me.name}<u>切换</u></> : <>还没登记身份<u>登记</u></>}</button>}
           </div>
 

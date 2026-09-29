@@ -4,22 +4,28 @@
 import { supabase } from '@/lib/supabase'
 
 const KEY = 'xiaoxin:me'
-const ADMIN_KEY = 'xiaoxin:admin' // 和数据看板共用：老师在任一处登录，小信和课件都进入老师模式
+const ADMIN_KEY = 'xiaoxin:admin' // 数据看板的管理员登录（和看板共用）
+const TEACHER_KEY = 'xiaoxin:teacher' // 老师用工号 + 姓名进入老师模式，不能看数据
 
-// 老师模式：不弹学生登记，提问和答题不计入学生数据
-export function isTeacher() {
-  try { return !!localStorage.getItem(ADMIN_KEY) } catch (e) { return false }
+// 老师模式：不弹学生登记，提问和答题不计入学生数据。老师或管理员任一登录都算
+export function getTeacher() {
+  try { const v = JSON.parse(localStorage.getItem(TEACHER_KEY) || 'null'); if (v && v.tno) return v } catch (e) {}
+  try { if (localStorage.getItem(ADMIN_KEY)) return { tno: 'admin', name: '管理员', admin: true } } catch (e) {}
+  return null
 }
-export async function teacherLogin(user, pass) {
-  const { data, error } = await supabase.rpc('aistudy_admin_login', { p_user: String(user || '').trim(), p_pass: String(pass || '') })
-  if (error) throw new Error('登录失败，请检查网络')
-  if (!data) throw new Error('用户名或密码不对')
-  try { localStorage.setItem(ADMIN_KEY, data) } catch (e) {}
-  return data
+export const isTeacher = () => !!getTeacher()
+export async function teacherEnter(tno, name) {
+  const t = String(tno || '').trim().slice(0, 20), n = String(name || '').trim().slice(0, 12)
+  if (!t || !n) throw new Error('请填写工号和姓名')
+  const { data, error } = await supabase.rpc('aistudy_teacher_register', { p_tno: t, p_name: n })
+  if (error || !data) throw new Error('进入失败，请检查网络后再试')
+  const v = { id: data, tno: t, name: n }
+  try { localStorage.setItem(TEACHER_KEY, JSON.stringify(v)) } catch (e) {}
+  return v
 }
 export function teacherLogout() {
   let t = null
-  try { t = localStorage.getItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY) } catch (e) {}
+  try { localStorage.removeItem(TEACHER_KEY); t = localStorage.getItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY) } catch (e) {}
   if (t) supabase.rpc('aistudy_admin_logout', { p_token: t }).then(() => {}, () => {})
 }
 
