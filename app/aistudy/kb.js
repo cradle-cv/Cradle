@@ -75,13 +75,24 @@ export const LABS = [
     sum: '六项能力：持续学习、与 AI 协作、跨界整合、掌握核心工具、判断决策、情感连接。人从执行者变成策划者和决策者。' },
 ]
 
-export const TOOLS = {
-  lulu: { name: '录录', desc: '课堂房间：签到、抢答、讨论、Word / Excel 实操', url: 'https://cradle.art/lulu', student: 'https://cradle.art/lulu', code: false, kw: ['录录', '签到', '抢答', '点名', '课堂房间', 'Excel实操', 'Word实操'] },
-  pei: { name: '配配', desc: '装机实训：按场景和预算配一台电脑，老师在线打分', url: 'https://cradle.art/pei', student: 'https://cradle.art/pei', code: false, kw: ['配配', '装机', '配电脑', '装机任务'] },
-  zhitiao: { name: '纸条', desc: '匿名头脑风暴，写完才能看别人的，大屏按热度排', url: 'https://cradle.art/zhitiao', student: 'https://cradle.art/zhitiao', code: true, kw: ['纸条', '头脑风暴', '匿名', '传纸条'] },
-  migong: { name: '迷宫', desc: '全班迷宫赛，扫码闯关，按用时排名', url: 'https://cradle.art/migong', student: 'https://cradle.art/migong', code: true, kw: ['迷宫', '闯关', '比赛', '游戏'] },
-  lili: { name: '理理', desc: '文件整理实训：两关，第二关有伪装病毒', url: '/aistudy/course#k2-8', student: '/aistudy/course#k2-8', code: false, kw: ['理理', '整理文件'] },
+// 课堂工具注册表：以后开发了新工具，在这里加一条，主页的工具库、小信的「课堂互动」、聊天里的工具卡片都会自动出现。
+// 字段：name 名称；icon 图标（一个 emoji）；cat 分类（见 TOOL_CATS）；tasks 适用的任务（空数组表示通用）；
+//      desc 一句话介绍；action 小信「课堂互动」里的快捷说法；url 老师入口；student 学生入口；
+//      code 是否需要活动码（学生入口 = student/活动码）；kw 聊天里识别这个工具的关键词；
+//      status：'live' 已上线 / 'beta' 试用中 / 'soon' 开发中（开发中的只展示，不能打开）
+export const TOOL_CATS = {
+  interact: { name: '课堂互动', color: '#4DA3FF' },
+  practice: { name: '实训操作', color: '#37D99E' },
+  assess: { name: '测评反馈', color: '#FFC34D' },
 }
+export const TOOLS = {
+  zhitiao: { name: '纸条', icon: '📝', cat: 'interact', tasks: [], status: 'live', action: '开一场纸条', desc: '匿名头脑风暴，写完才能看别人的，大屏按热度排', url: 'https://cradle.art/zhitiao', student: 'https://cradle.art/zhitiao', code: true, kw: ['纸条', '头脑风暴', '匿名', '传纸条'] },
+  migong: { name: '迷宫', icon: '🧩', cat: 'interact', tasks: [], status: 'live', action: '开一场迷宫赛', desc: '全班迷宫赛，扫码闯关，按用时排名', url: 'https://cradle.art/migong', student: 'https://cradle.art/migong', code: true, kw: ['迷宫', '闯关', '比赛', '游戏'] },
+  lulu: { name: '录录', icon: '🙋', cat: 'interact', tasks: [], status: 'live', action: '开录录课堂', desc: '课堂房间：签到、抢答、讨论、Word / Excel 实操', url: 'https://cradle.art/lulu', student: 'https://cradle.art/lulu', code: false, kw: ['录录', '签到', '抢答', '点名', '课堂房间', 'Excel实操', 'Word实操'] },
+  pei: { name: '配配', icon: '🖥️', cat: 'practice', tasks: ['t1'], status: 'live', action: '发配配装机任务', desc: '装机实训：按场景和预算配一台电脑，传截图自动识别型号，老师在线打分', url: 'https://cradle.art/pei', student: 'https://cradle.art/pei', code: false, kw: ['配配', '装机', '配电脑', '装机任务'] },
+  lili: { name: '理理', icon: '🗂️', cat: 'practice', tasks: ['t2', 't3'], status: 'live', action: '理理整理文件', desc: '文件整理实训：两关，第二关混进了伪装成图片的病毒', url: '/aistudy/course#k2-8', student: '/aistudy/course#k2-8', code: false, kw: ['理理', '整理文件'] },
+}
+export const toolList = () => Object.entries(TOOLS).map(([id, t]) => ({ id, ...t }))
 
 // 陪练题库：hint 是答错第一次时的提示，不直接给答案
 export const QUIZ = [
@@ -120,12 +131,12 @@ export function matchLabs(text, n = 2) {
 }
 export function matchTool(text) {
   const t = (text || '').toLowerCase()
-  return Object.entries(TOOLS).find(([, v]) => v.kw.some(k => t.includes(k.toLowerCase())))?.[0] || null
+  return Object.entries(TOOLS).find(([, v]) => v.status !== 'soon' && v.kw.some(k => t.includes(k.toLowerCase())))?.[0] || null
 }
 
 export function systemPrompt(mode) {
   const kb = LABS.map(l => `${l.id}｜${TASKS.find(t => t.id === l.task).name}·${l.title}｜${l.sum}`).join('\n')
-  const tools = Object.entries(TOOLS).map(([k, v]) => `${k}｜${v.name}｜${v.desc}`).join('\n')
+  const tools = Object.entries(TOOLS).filter(([, v]) => v.status !== 'soon').map(([k, v]) => `${k}｜${v.name}｜${v.desc}`).join('\n')
   return `你是「小信」，信息技术基础课程的 AI 助教，面对的是高职大一学生和他们的任课老师。今天是 2026 年 9 月。
 说话风格：亲切、清楚、有耐心，像一个懂行的学长。先给结论，再用一个生活里的例子解释。一般控制在 200 字以内，学生要求详细讲时可以长一些（不超过 500 字）；不用 Markdown 标题和加粗符号，可以用「1. 2. 3.」分条。
 范围：你是学生身边什么都能聊的学长。学习方法、其他科目、专业和就业、写作和表达、编程、办公软件、生活常识、情绪小困扰，都正常、认真地回答，不要把话题硬拉回课程，也不要说「这个问题和课程无关」。信息技术相关的问题，结合下面的课件讲得更具体。只有违法、危险、低俗、帮人考试作弊这类请求才婉拒。涉及 2026 年的最新事实，课件里有的以课件为准；课件没有、你也不确定的最新消息，就直说不确定，不要编造型号、数字和日期。

@@ -4,12 +4,13 @@
 // 小信 · 信息技术基础课程智能体主页（cradle.art/aistudy）
 // 形象：原创动画角色，有待机、倾听、思考、说话、开心、担心六种状态，眼睛跟着鼠标转
 // 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 录录 / 理理）、按知识点推荐实验、语音朗读
-// 依赖：app/aistudy/kb.js（知识库）、app/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
+// 依赖：app/aistudy/kb.js（知识库）、app/aistudy/track.js（学生身份和使用记录）、app/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
-import { TASKS, LABS, TOOLS, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
+import { TASKS, LABS, TOOLS, TOOL_CATS, toolList, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
+import { getMe, register, logEvent, logVisit } from './track'
 
 const COURSE = '/aistudy/course'
 const labById = id => LABS.find(l => l.id === id)
@@ -162,8 +163,108 @@ function LabCard({ id }) {
   )
 }
 
+/* ============================== 课堂工具库 ============================== */
+// 工具来自 kb.js 的 TOOLS 注册表：新工具加一条就会出现在这里，按分类筛选，卡片网格随数量自动换行
+function ToolTile({ t, onQR }) {
+  const c = TOOL_CATS[t.cat]?.color || '#4DA3FF', soon = t.status === 'soon'
+  const ext = t.url.startsWith('http')
+  return (
+    <div className={`xx-tile${soon ? ' soon' : ''}`} style={{ '--c': c }}>
+      <div className="xx-tile-top">
+        <span className="xx-tile-ic" aria-hidden="true">{t.icon || '🔧'}</span>
+        <span className="xx-tile-tags">
+          <i>{TOOL_CATS[t.cat]?.name || '工具'}</i>
+          {(t.tasks || []).map(k => <i key={k}>{taskOf(k)?.name}</i>)}
+          {t.status === 'beta' && <i className="beta">试用</i>}
+          {soon && <i className="soon">开发中</i>}
+        </span>
+      </div>
+      <b className="xx-tile-name">{t.name}</b>
+      <span className="xx-tile-desc">{t.desc}</span>
+      {!soon && (
+        <div className="xx-tile-act">
+          <a className="xx-btn xx-btn-sm" href={t.url} target={ext ? '_blank' : undefined} rel="noopener">打开 →</a>
+          <button type="button" className="xx-ghost" onClick={onQR}>学生二维码</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolLibrary() {
+  const [cat, setCat] = useState('all')
+  const [open, setOpen] = useState(null)
+  const list = toolList()
+  const live = list.filter(t => t.status !== 'soon').length
+  const cats = Object.entries(TOOL_CATS).map(([k, c]) => ({ k, ...c, n: list.filter(t => t.cat === k).length })).filter(c => c.n)
+  const shown = list.filter(t => cat === 'all' || t.cat === cat)
+  const wishTool = () => window.dispatchEvent(new CustomEvent('xiaoxin:wishcat', { detail: 'tool' }))
+  return (
+    <section className="xx-sec" id="tools">
+      <div className="xx-sec-h"><div className="xx-k">课堂工具</div><h2>课堂工具库</h2><span className="xx-muted">已上线 {live} 个 · 持续上新</span></div>
+      <div className="xx-cats xx-toolcats" role="tablist" aria-label="工具分类">
+        <button className={cat === 'all' ? 'on' : ''} style={{ '--c': '#EAF0FF' }} onClick={() => setCat('all')}>全部 {list.length}</button>
+        {cats.map(c => <button key={c.k} className={cat === c.k ? 'on' : ''} style={{ '--c': c.color }} onClick={() => setCat(c.k)}>{c.name} {c.n}</button>)}
+      </div>
+      <div className="xx-tools">
+        {shown.map(t => <ToolTile key={t.id} t={t} onQR={() => setOpen(t.id)} />)}
+        <a className="xx-tile xx-tile-add" href="#wish" onClick={wishTool}>
+          <span className="xx-tile-ic" aria-hidden="true">＋</span>
+          <b className="xx-tile-name">想要新工具？</b>
+          <span className="xx-tile-desc">去许愿池选「想要的工具」写下来，下一个工具可能就是它。</span>
+        </a>
+      </div>
+      {open && (
+        <div className="xx-modal" onClick={() => setOpen(null)} role="dialog" aria-modal="true" aria-label={TOOLS[open]?.name}>
+          <div className="xx-modal-in xx-toolmodal" onClick={e => e.stopPropagation()}>
+            <button className="xx-x xx-modal-x" onClick={() => setOpen(null)} aria-label="关闭">×</button>
+            <ToolCard id={open} />
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/* ============================== 学生身份登记 ============================== */
+function IdentityModal({ me, onDone, onClose }) {
+  const [cls, setCls] = useState(me?.cls || '')
+  const [name, setName] = useState(me?.name || '')
+  const [sno, setSno] = useState(me?.sno || '')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+  async function go(e) {
+    e.preventDefault()
+    if (!cls.trim() || !name.trim()) return setErr('请填写班级和姓名')
+    setSaving(true); setErr('')
+    try { onDone(await register(cls, name, sno)) } catch (x) { setErr(x.message || '登记失败') } finally { setSaving(false) }
+  }
+  return (
+    <div className="xx-modal" onClick={onClose} role="dialog" aria-modal="true" aria-label="登记身份">
+      <form className="xx-modal-in xx-id" onClick={e => e.stopPropagation()} onSubmit={go}>
+        <div className="xx-k">{me ? '切换身份' : '第一次来'}</div>
+        <h3>先告诉小信你是谁</h3>
+        <input className="xx-input" value={cls} onChange={e => setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={20} aria-label="班级" autoFocus />
+        <input className="xx-input" value={name} onChange={e => setName(e.target.value)} placeholder="姓名" maxLength={12} aria-label="姓名" />
+        <input className="xx-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} aria-label="学号" />
+        <div className="xx-privacy">你的提问和答题记录，任课老师能在数据看板里看到，用来了解大家哪里没学会；其他同学看不到。</div>
+        {err && <div className="xx-err">{err}</div>}
+        <div className="xx-row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+          <button type="button" className="xx-ghost" onClick={onClose}>稍后再说</button>
+          <button className="xx-btn" type="submit" disabled={saving}>{saving ? '登记中…' : '进入'}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 /* ============================== 主页 ============================== */
 /* ============================== 许愿池 ============================== */
+// 许愿池里同时显示小信课程那一场纸条（活动码 C2KGTN）的留言，作为第五种灯
+const ZT_CODE = 'C2KGTN'
+const NOTE_CAT = { name: '纸条', color: '#B07CFF' }
+const catOf = w => (w && w.category === 'note') ? NOTE_CAT : (WISH_CATS[w && w.category] || WISH_CATS.wish)
+const toNote = n => ({ id: 'z' + n.id, content: String(n.content || '').slice(0, 140), category: 'note', nickname: n.nickname || null, likes: n.likes || 0, created_at: n.created_at })
 const ago = ts => { const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); return m < 1 ? '刚刚' : m < 60 ? m + ' 分钟前' : m < 1440 ? Math.floor(m / 60) + ' 小时前' : Math.floor(m / 1440) + ' 天前' }
 
 function WishPool({ onWish }) {
@@ -178,17 +279,20 @@ function WishPool({ onWish }) {
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [liked, setLiked] = useState([])
+  const [notes, setNotes] = useState([])
+  const [noteAct, setNoteAct] = useState(null)
   const [wishUrl, setWishUrl] = useState('https://www.cradle.art' + WISH_PATH)
   const [bigQR, setBigQR] = useState(false)
   const wishesRef = useRef([])
-  wishesRef.current = wishes
+  const all = useMemo(() => [...wishes, ...notes], [wishes, notes])
+  wishesRef.current = all
 
   // 心愿灯：在椭圆水面上漂
   const addOrb = (w, drop) => {
     const S = sim.current, a = Math.random() * Math.PI * 2, r = 0.15 + Math.random() * 0.75
     const o = { id: w.id, a, r, va: (Math.random() < .5 ? -1 : 1) * (0.0006 + Math.random() * 0.0012), ph: Math.random() * 6.28, born: drop ? performance.now() : 0 }
     S.orbs = S.orbs.filter(x => x.id !== w.id).concat(o)
-    if (drop) { const p = pos(o); S.ripples.push({ x: p.x, y: p.y, t: performance.now(), c: WISH_CATS[w.category]?.color || '#FFC34D' }) }
+    if (drop) { const p = pos(o); S.ripples.push({ x: p.x, y: p.y, t: performance.now(), c: catOf(w).color }) }
   }
   const pos = o => { const S = sim.current, cx = S.W / 2, cy = S.H / 2 + 6, rx = S.W * 0.44, ry = S.H * 0.36; return { x: cx + Math.cos(o.a) * rx * o.r, y: cy + Math.sin(o.a) * ry * o.r } }
 
@@ -211,6 +315,32 @@ function WishPool({ onWish }) {
       })
       .subscribe()
     return () => { off = true; supabase.removeChannel && supabase.removeChannel(ch) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 纸条留言：读取小信课程那一场纸条，新纸条实时漂进来，被老师隐藏的实时消失
+  useEffect(() => {
+    let off = false, ch = null
+    const onCat = e => { if (e.detail && WISH_CATS[e.detail]) setCat(e.detail) }
+    window.addEventListener('xiaoxin:wishcat', onCat)
+    supabase.from('zhitiao_activities').select('id,title,code').eq('code', ZT_CODE).maybeSingle().then(({ data: act }) => {
+      if (off || !act) return
+      setNoteAct(act)
+      supabase.from('zhitiao_notes').select('id,content,nickname,likes,created_at').eq('activity_id', act.id).eq('is_hidden', false).order('created_at', { ascending: false }).limit(80)
+        .then(({ data }) => { if (off) return; const d = (data || []).map(toNote); setNotes(d); d.forEach(n => addOrb(n, false)) }, () => {})
+      ch = supabase.channel('aistudy-wish-notes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'zhitiao_notes', filter: `activity_id=eq.${act.id}` }, p => {
+          const n = p.new; if (!n || n.is_hidden) return
+          const w = toNote(n); setNotes(l => l.some(x => x.id === w.id) ? l : [w, ...l]); addOrb(w, true)
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'zhitiao_notes', filter: `activity_id=eq.${act.id}` }, p => {
+          const n = p.new; if (!n) return
+          const id = 'z' + n.id
+          if (n.is_hidden) { setNotes(l => l.filter(x => x.id !== id)); sim.current.orbs = sim.current.orbs.filter(o => o.id !== id); return }
+          setNotes(l => l.map(x => x.id === id ? { ...x, likes: n.likes || 0 } : x))
+        })
+        .subscribe()
+    }, () => {})
+    return () => { off = true; window.removeEventListener('xiaoxin:wishcat', onCat); ch && supabase.removeChannel && supabase.removeChannel(ch) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 画水面
@@ -241,7 +371,7 @@ function WishPool({ onWish }) {
         const w = byId[o.id]; if (!w) return
         o.a += o.va; const p = pos(o), bob = Math.sin(now / 900 + o.ph) * 3
         const grow = o.born ? Math.min(1, (now - o.born) / 700) : 1
-        const r = (6 + Math.min(w.likes, 20) * 0.7) * grow, c = WISH_CATS[w.category]?.color || '#FFC34D'
+        const r = (6 + Math.min(w.likes, 20) * 0.7) * grow, c = catOf(w).color
         const isSel = sel && sel.id === w.id, isHov = hover === w.id
         const glow = g.createRadialGradient(p.x, p.y + bob, 0, p.x, p.y + bob, r * 3.2); glow.addColorStop(0, c); glow.addColorStop(1, 'transparent')
         g.globalAlpha = isSel || isHov ? 0.9 : 0.55; g.fillStyle = glow; g.beginPath(); g.arc(p.x, p.y + bob, r * 3.2, 0, 7); g.fill()
@@ -266,7 +396,7 @@ function WishPool({ onWish }) {
   }, [sel, hover, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hitAt = e => { const r = cvRef.current.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; let best = null, bd = 1e9; sim.current.orbs.forEach(o => { if (!o.hit) return; const d = Math.hypot(o.hit.x - x, o.hit.y - y); if (d < o.hit.r && d < bd) { bd = d; best = o.id } }); return best }
-  const pick = e => { const id = hitAt(e); setSel(id ? wishes.find(w => w.id === id) || null : null) }
+  const pick = e => { const id = hitAt(e); setSel(id ? all.find(w => w.id === id) || null : null) }
   const move = e => { const id = hitAt(e); setHover(id); cvRef.current.style.cursor = id ? 'pointer' : 'default' }
 
   async function like(w) {
@@ -274,7 +404,7 @@ function WishPool({ onWish }) {
     const l = [...liked, w.id]; setLiked(l); store.set('liked', l)
     setWishes(list => list.map(x => x.id === w.id ? { ...x, likes: x.likes + 1 } : x))
     if (sel && sel.id === w.id) setSel({ ...w, likes: w.likes + 1 })
-    const o = sim.current.orbs.find(o => o.id === w.id); if (o && o.hit) sim.current.ripples.push({ x: o.hit.x, y: o.hit.y, t: performance.now(), c: WISH_CATS[w.category]?.color })
+    const o = sim.current.orbs.find(o => o.id === w.id); if (o && o.hit) sim.current.ripples.push({ x: o.hit.x, y: o.hit.y, t: performance.now(), c: catOf(w).color })
     try { await supabase.rpc('aistudy_wish_like', { wish_id: w.id }) } catch (e) {}
   }
 
@@ -300,18 +430,20 @@ function WishPool({ onWish }) {
   const hot = [...wishes].sort((a, b) => b.likes - a.likes || new Date(b.created_at) - new Date(a.created_at)).slice(0, 6)
   return (
     <section className="xx-sec" id="wish">
-      <div className="xx-sec-h"><div className="xx-k">许愿池</div><h2>把你的心愿投进池子里</h2><span className="xx-muted">已有 {wishes.length} 个心愿 · 点亮的灯越大，想要的人越多</span></div>
+      <div className="xx-sec-h"><div className="xx-k">许愿池</div><h2>把你的心愿投进池子里</h2><span className="xx-muted">已有 {wishes.length} 个心愿{notes.length ? ` · ${notes.length} 张纸条` : ''} · 点亮的灯越大，想要的人越多</span></div>
       <div className="xx-wish">
         <div className="xx-pool" ref={boxRef}>
           <canvas ref={cvRef} className="xx-pool-cv" onClick={pick} onPointerMove={move} onPointerLeave={() => setHover(null)} aria-label="许愿池，点一盏灯看心愿" role="img" />
-          <div className="xx-legend">{Object.entries(WISH_CATS).map(([k, c]) => <span key={k}><i style={{ background: c.color }} />{c.name}</span>)}</div>
+          <div className="xx-legend">{Object.entries(WISH_CATS).map(([k, c]) => <span key={k}><i style={{ background: c.color }} />{c.name}</span>)}{notes.length > 0 && <span><i style={{ background: NOTE_CAT.color }} />纸条留言</span>}</div>
           {sel ? (
-            <div className="xx-wishcard" style={{ '--c': WISH_CATS[sel.category]?.color }}>
-              <div className="xx-row" style={{ justifyContent: 'space-between' }}><span className="xx-wtag">{WISH_CATS[sel.category]?.name}</span><button className="xx-x" onClick={() => setSel(null)} aria-label="关闭">×</button></div>
+            <div className="xx-wishcard" style={{ '--c': catOf(sel).color }}>
+              <div className="xx-row" style={{ justifyContent: 'space-between' }}><span className="xx-wtag">{sel.category === 'note' ? `纸条 · ${noteAct?.title || ''}` : catOf(sel).name}</span><button className="xx-x" onClick={() => setSel(null)} aria-label="关闭">×</button></div>
               <div className="xx-wtext">{sel.content}</div>
               <div className="xx-row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
                 <span className="xx-muted">{sel.nickname || '匿名同学'} · {ago(sel.created_at)}</span>
-                <button className="xx-like" disabled={liked.includes(sel.id)} onClick={() => like(sel)}>{liked.includes(sel.id) ? '已 +1' : '我也想 +1'} · {sel.likes}</button>
+                {sel.category === 'note'
+                  ? <a className="xx-like" href={`/zhitiao/${ZT_CODE}`} target="_blank" rel="noopener">去纸条里看 · 热度 {sel.likes}</a>
+                  : <button className="xx-like" disabled={liked.includes(sel.id)} onClick={() => like(sel)}>{liked.includes(sel.id) ? '已 +1' : '我也想 +1'} · {sel.likes}</button>}
               </div>
             </div>
           ) : <div className="xx-poolhint">点一盏灯，看看同学许了什么愿</div>}
@@ -338,7 +470,7 @@ function WishPool({ onWish }) {
           <div className="xx-hot">
             <div className="xx-k" style={{ marginBottom: 6 }}>最多人想要</div>
             {hot.length ? hot.map((w, i) => (
-              <div key={w.id} className="xx-hotrow" style={{ '--c': WISH_CATS[w.category]?.color }}>
+              <div key={w.id} className="xx-hotrow" style={{ '--c': catOf(w).color }}>
                 <span className="n">{i + 1}</span>
                 <button className="t" onClick={() => setSel(w)}>{w.content}</button>
                 <button className="xx-like sm" disabled={liked.includes(w.id)} onClick={() => like(w)}>+{w.likes}</button>
@@ -371,9 +503,26 @@ export default function XiaoXinHome() {
   const [voice, setVoice] = useState(false)
   const [wrongBook, setWrongBook] = useState([])
   const [score, setScore] = useState({ right: 0, total: 0, streak: 0 })
+  const [me, setMe] = useState(null)
+  const [showId, setShowId] = useState(false)
+  const pendingRef = useRef(null)
   const listRef = useRef(null), idRef = useRef(1), quizRef = useRef({ queue: [], cur: null, tries: 0 }), stateTimer = useRef(null)
 
-  useEffect(() => { document.title = '小信 · 信息技术基础智能体'; setVoice(store.get('voice', false)); setWrongBook(store.get('wrong', [])) }, [])
+  useEffect(() => {
+    document.title = '小信 · 信息技术基础智能体'; setVoice(store.get('voice', false)); setWrongBook(store.get('wrong', []))
+    const m = getMe(); setMe(m)
+    if (m) logVisit('home'); else { const t = setTimeout(() => setShowId(true), 1500); return () => clearTimeout(t) }
+  }, [])
+  // 问答和陪练要先登记身份，登记完自动继续刚才的操作
+  function needMe(fn) {
+    if (getMe()) return true
+    pendingRef.current = fn; setShowId(true); return false
+  }
+  function onRegistered(m) {
+    setMe(m); setShowId(false); logVisit('home')
+    const fn = pendingRef.current; pendingRef.current = null
+    if (fn) setTimeout(fn, 50)
+  }
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight }, [msgs])
 
   const mood = (s, ms) => { clearTimeout(stateTimer.current); setState(s); if (ms) stateTimer.current = setTimeout(() => setState('idle'), ms) }
@@ -412,6 +561,8 @@ export default function XiaoXinHome() {
   const history = () => msgs.filter(m => (m.role === 'user' || m.role === 'bot') && m.text && !m.quiz).slice(-12).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }))
 
   async function ask(text, apiMode = 'chat', display = text) {
+    if (!needMe(() => ask(text, apiMode, display))) return
+    logEvent('chat', matchLabs(text, 1)[0]?.id || null, null, { q: (apiMode === 'coach' ? display + '｜' + text.split('\n')[0] : text).slice(0, 300), mode: apiMode })
     userSay(display); setBusy(true); mood('think')
     const tool = apiMode === 'chat' ? matchTool(text) : null
     if (tool && (mode === 'class' || text.includes(TOOLS[tool].name)) && /打开|开一|开个|开场|来一|启动|组织|发起|发布|布置|怎么开/.test(text)) {
@@ -461,6 +612,7 @@ export default function XiaoXinHome() {
 
   /* ---------- 陪练 ---------- */
   function startQuiz(task) {
+    if (!needMe(() => startQuiz(task))) return
     const pool = task === 'wrong' ? QUIZ.filter((q, i) => wrongBook.includes(i)) : QUIZ.filter(q => task === 'all' || q.task === task)
     if (!pool.length) return say('错题本是空的，先做几道题吧。')
     quizRef.current = { queue: shuffle(pool.map(q => QUIZ.indexOf(q))), cur: null, tries: 0 }
@@ -478,6 +630,7 @@ export default function XiaoXinHome() {
     const q = QUIZ[qi], Q = quizRef.current
     if (Q.cur !== qi) return
     const done = i === q.a || Q.tries >= 1
+    logEvent('quiz', q.lab, i === q.a, { qi, first: Q.tries === 0 })
     setMsgs(m => m.map(x => x.id === msgId ? { ...x, quiz: { ...x.quiz, picked: [...x.quiz.picked, i], done } } : x))
     if (i === q.a) {
       const first = Q.tries === 0
@@ -521,9 +674,13 @@ export default function XiaoXinHome() {
           <nav className="xx-nav">
             <a href={COURSE}>课件</a>
             <a href="#map">课件地图</a>
-            <a href="#wish">许愿池</a>
             <a href="#tools">课堂工具</a>
+            <a href="#wish">许愿池</a>
           </nav>
+          <a className="xx-ghost xx-dash" href="/aistudy/admin" title="教师登录后查看学生使用数据">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+            数据看板
+          </a>
           <button className={`xx-ghost${voice ? ' on' : ''}`} onClick={toggleVoice} aria-pressed={voice}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" />{voice ? <path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" /> : <path d="M17 9l5 6M22 9l-5 6" />}</svg>
             朗读{voice ? '开' : '关'}
@@ -546,6 +703,7 @@ export default function XiaoXinHome() {
               <div><b>{score.streak}</b><span>连对</span></div>
               <div><b>{wrongBook.length}</b><span>错题本</span></div>
             </div>
+            <button type="button" className="xx-me" onClick={() => setShowId(true)}>{me ? <>我是 {me.cls} · {me.name}<u>切换</u></> : <>还没登记身份<u>登记</u></>}</button>
           </div>
 
           <div className="xx-chat">
@@ -586,8 +744,8 @@ export default function XiaoXinHome() {
                 <button className="xx-chip" disabled={!wrongBook.length} onClick={() => startQuiz('wrong')}>错题重练（{wrongBook.length}）</button>
               </>}
               {mode === 'class' && <>
-                {[['zhitiao', '开一场纸条'], ['migong', '开一场迷宫赛'], ['pei', '发配配装机任务'], ['lulu', '开录录课堂'], ['lili', '理理整理文件']].map(([k, n]) => (
-                  <button key={k} className="xx-chip" onClick={() => { userSay(n); mood('happy', 1500); say(`好的，${TOOLS[k].name}在这里。`, { tools: [k] }, 'happy') }}>{n}</button>
+                {toolList().filter(t => t.status !== 'soon').map(t => (
+                  <button key={t.id} className="xx-chip" onClick={() => { userSay(t.action || '打开' + t.name); mood('happy', 1500); say(`好的，${t.name}在这里。`, { tools: [t.id] }, 'happy') }}>{t.action || '打开' + t.name}</button>
                 ))}
                 {TASKS.map(t => <button key={t.id} className="xx-chip" style={{ '--c': t.color }} onClick={() => { userSay(`今天讲${t.name}，有哪些实验？`); say(`${t.name}「${t.title}」一共 ${LABS.filter(l => l.task === t.id).length} 个知识点，每个都有能动手的实验，挑几个带着同学做：`, { labs: LABS.filter(l => l.task === t.id).map(l => l.id) }) }}>{t.name}的实验</button>)}
               </>}
@@ -599,8 +757,6 @@ export default function XiaoXinHome() {
             </form>
           </div>
         </section>
-
-        <WishPool onWish={onWish} />
 
         <section className="xx-sec" id="map">
           <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>四个任务，{LABS.length} 个知识点，每个都能动手</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
@@ -614,12 +770,12 @@ export default function XiaoXinHome() {
           </div>
         </section>
 
-        <section className="xx-sec" id="tools">
-          <div className="xx-sec-h"><div className="xx-k">课堂工具</div><h2>上课用的五个小工具</h2></div>
-          <div className="xx-toolgrid">{Object.keys(TOOLS).map(id => <ToolCard key={id} id={id} />)}</div>
-        </section>
+        <ToolLibrary />
+
+        <WishPool onWish={onWish} />
         <footer className="xx-foot">小信的回答由智谱 GLM 生成，仅供学习参考，重要信息以课件和老师讲解为准。点一下小信，它会跟你打招呼。</footer>
       </main>
+      {showId && <IdentityModal me={me} onDone={onRegistered} onClose={() => { setShowId(false); pendingRef.current = null }} />}
     </div>
   )
 }
@@ -652,7 +808,7 @@ body{background:#06080F!important}
 .xx-btn:disabled{opacity:.4;cursor:not-allowed}
 .xx-input{background:rgba(0,0,0,.35);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;font-size:.95rem;min-width:0}
 .xx-hero{max-width:1240px;margin:0 auto;padding:28px 16px 12px;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:28px;align-items:stretch}
-.xx-stage{position:relative;border-radius:24px;border:1px solid var(--line);background:radial-gradient(70% 60% at 50% 40%,rgba(77,163,255,.16),transparent 70%),linear-gradient(180deg,rgba(16,22,38,.7),rgba(6,8,15,.4));display:grid;grid-template-rows:1fr auto auto;justify-items:center;padding:18px 18px 16px;overflow:hidden;min-height:560px}
+.xx-stage{position:relative;border-radius:24px;border:1px solid var(--line);background:radial-gradient(70% 60% at 50% 40%,rgba(77,163,255,.16),transparent 70%),linear-gradient(180deg,rgba(16,22,38,.7),rgba(6,8,15,.4));display:grid;grid-template-rows:1fr auto auto auto;justify-items:center;padding:18px 18px 16px;overflow:hidden;min-height:560px}
 .xx-stage::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(140,160,210,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(140,160,210,.06) 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(circle at 50% 45%,#000,transparent 70%);-webkit-mask-image:radial-gradient(circle at 50% 45%,#000,transparent 70%)}
 .xx-halo{position:absolute;left:50%;top:40%;width:340px;height:340px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,rgba(77,163,255,.0),rgba(77,163,255,.35),rgba(176,124,255,.35),rgba(63,213,255,.0));filter:blur(40px);animation:xxspin 12s linear infinite;opacity:.7}
 @keyframes xxspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
@@ -784,6 +940,38 @@ body{background:#06080F!important}
 .xx-task a .n{font-family:var(--xx-mono);font-size:.76rem;color:var(--c);min-width:2.4em;padding-top:2px}
 .xx-toolgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
 
+/* ---- 工具库 ---- */
+.xx-toolcats{margin-bottom:14px}
+.xx-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.xx-tile{position:relative;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:18px;border:1px solid color-mix(in srgb,var(--c) 35%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 13%,transparent),rgba(16,22,38,.7) 60%);transition:transform .15s,border-color .15s}
+.xx-tile:hover{transform:translateY(-2px);border-color:var(--c)}
+.xx-tile.soon{opacity:.6;border-style:dashed}
+.xx-tile-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.xx-tile-ic{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;font-size:1.45rem;background:color-mix(in srgb,var(--c) 18%,rgba(0,0,0,.3));border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.xx-tile-tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.xx-tile-tags i{font-style:normal;font-size:.7rem;padding:1px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);white-space:nowrap}
+.xx-tile-tags i:first-child{color:var(--c);border-color:color-mix(in srgb,var(--c) 50%,transparent)}
+.xx-tile-tags i.soon,.xx-tile-tags i.beta{color:#FFC34D;border-color:rgba(255,195,77,.5)}
+.xx-tile-name{font-size:1.2rem;font-weight:900;margin-top:4px}
+.xx-tile-desc{color:var(--muted);font-size:.86rem;line-height:1.6;flex:1}
+.xx-tile-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.xx-btn-sm{padding:6px 14px;font-size:.84rem}
+.xx-tile-add{--c:#9AA6C2;border-style:dashed;background:rgba(255,255,255,.02);justify-content:center}
+.xx-tile-add .xx-tile-ic{font-size:1.6rem;color:var(--muted)}
+/* ---- 弹窗 ---- */
+.xx-modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:xxin .2s ease-out}
+.xx-modal-in{position:relative;width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:22px;background:#0B1020;border:1px solid var(--line2);box-shadow:0 30px 80px -30px #000}
+.xx-modal-x{position:absolute;top:10px;right:12px;z-index:2}
+.xx-toolmodal{padding:34px 18px 18px}
+.xx-id{display:grid;gap:10px;width:min(400px,100%)}
+.xx-id h3{margin:0 0 4px;font-size:1.35rem;font-weight:900}
+.xx-privacy{font-size:.8rem;line-height:1.6;color:var(--muted);padding:8px 10px;border-radius:10px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.2)}
+.xx-err{color:#FF8A95;font-size:.86rem}
+.xx button.xx-me{position:relative;margin-top:10px;border:0;background:none;font-size:.8rem;color:var(--muted);white-space:nowrap}
+.xx button.xx-ghost{font-size:.8rem}
+.xx-me u{margin-left:8px;color:var(--a);text-decoration:none;border-bottom:1px dashed var(--a)}
+.xx-dash{white-space:nowrap}
+
 /* ---- 许愿池 ---- */
 .xx-wish{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
 .xx-pool{position:relative;border-radius:24px;border:1px solid var(--line);background:radial-gradient(80% 70% at 50% 45%,rgba(63,213,255,.08),transparent 70%),rgba(6,10,22,.6);overflow:hidden}
@@ -822,8 +1010,9 @@ body{background:#06080F!important}
 .xx-foot{max-width:1240px;margin:40px auto 0;padding:18px 16px 40px;border-top:1px solid var(--line);font-size:.8rem;color:var(--faint)}
 @media (max-width:900px){
   .xx-hero{grid-template-columns:1fr;padding-top:14px;gap:14px}
-  .xx-stage{min-height:0;grid-template-columns:auto 1fr;grid-template-rows:auto auto;justify-items:start;align-items:center;gap:0 12px;padding:12px}
-  .xx-bot{width:130px;grid-row:1/3}
+  .xx-stage{min-height:0;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;justify-items:start;align-items:center;gap:0 12px;padding:12px}
+  .xx-bot{width:130px;grid-row:1/4}
+  .xx-me{grid-column:2;justify-self:start;margin-top:4px;padding:0}
   .xx-halo{left:70px;top:50%;width:180px;height:180px}
   .xx-name{text-align:left}.xx-title{font-size:1.6rem}
   .xx-score{margin-top:6px}.xx-score div{padding:4px 10px}
