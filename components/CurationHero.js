@@ -20,6 +20,7 @@ const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
  */
 export default function CurationHero({ curations, birthdays = [] }) {
   const [idx, setIdx] = useState(0)
+  const [showAllBirthdays, setShowAllBirthdays] = useState(false)
 
   if (!curations || curations.length === 0) return null
 
@@ -38,10 +39,10 @@ export default function CurationHero({ curations, birthdays = [] }) {
       <div className="max-w-6xl mx-auto">
 
         {/* ── 顶栏：左日期 · 中主题 · 右期号切换 ── */}
-        <div className="flex items-center justify-between gap-3 md:gap-8 mb-7 md:mb-10">
+        <div className={`flex items-center justify-between gap-3 md:gap-8 ${birthdays.length ? 'mb-3 md:mb-4' : 'mb-7 md:mb-10'}`}>
 
           {/* 左：今天的日期，恒定不变；有艺术家今天生日，方框下面送一句祝福 */}
-          <div className="flex-shrink-0 text-center relative" style={{ minWidth: '64px' }}>
+          <div className="flex-shrink-0 text-center" style={{ minWidth: '64px' }}>
             <div style={{ border: `1px solid ${birthdays.length ? '#B45309' : '#111827'}`, padding: '8px 12px' }}>
               <div style={{ fontSize: '26px', fontWeight: 500, lineHeight: 1, color: '#111827' }}>
                 {today.getDate()}
@@ -50,17 +51,6 @@ export default function CurationHero({ curations, birthdays = [] }) {
                 {MONTHS[today.getMonth()]}
               </div>
             </div>
-            {birthdays.length > 0 && (
-              <div className="absolute left-0 whitespace-nowrap text-left"
-                style={{ top: 'calc(100% + 8px)', fontSize: '12px', color: '#B45309', letterSpacing: '0.5px' }}>
-                今天是{birthdays.map((b, i) => (
-                  <span key={b.id}>
-                    {i > 0 ? '、' : ' '}
-                    <a href={`/artists/${b.id}`} className="hover:underline" style={{ color: '#92400E', fontWeight: 500 }}>{b.display_name}</a>
-                  </span>
-                ))} 的生日，生日快乐
-              </div>
-            )}
           </div>
 
           {/* 中：主题 */}
@@ -127,6 +117,31 @@ export default function CurationHero({ curations, birthdays = [] }) {
         </div>
 
         {/* ── 三幅画 ── */}
+        {/* 生日祝福：单独一行，能换行，不压画；超过三位折成「等 N 位」，点开看全部 */}
+        {birthdays.length > 0 && (() => {
+          const LIMIT = 3
+          const shown = showAllBirthdays ? birthdays : birthdays.slice(0, LIMIT)
+          const rest = birthdays.length - shown.length
+          return (
+            <p className="mb-6 md:mb-8" style={{ fontSize: '13px', lineHeight: 1.8, color: '#B45309', textWrap: 'pretty' }}>
+              今天是
+              {shown.map((b, i) => (
+                <span key={b.id}>
+                  {i > 0 ? '、' : ' '}
+                  <a href={`/artists/${b.id}`} className="hover:underline" style={{ color: '#92400E', fontWeight: 500 }}>{b.display_name}</a>
+                </span>
+              ))}
+              {rest > 0 && (
+                <button type="button" onClick={() => setShowAllBirthdays(true)}
+                  className="hover:underline" style={{ color: '#92400E', background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}>
+                  &nbsp;等 {birthdays.length} 位艺术家
+                </button>
+              )}
+              &nbsp;的生日，生日快乐
+            </p>
+          )
+        })()}
+
         <ResponsiveRail mobileWidth="85%" desktopCols={3} gap={16}>
           {works.map(w => (
             <a key={w.id} href={`/gallery/${w.id}`} className="group block">
