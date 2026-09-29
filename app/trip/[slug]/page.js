@@ -1,6 +1,9 @@
 // 目标路径：app/trip/[slug]/page.js
-// 同行手账 · 单趟行程页（服务端只负责取 slug，页面本体在 TripClient）
+// 同行手账 · 单趟行程页：服务端先把整趟行程读好直出给页面，手机不用再自己连数据库
 import TripClient from './TripClient'
+import { loadTripBundle } from '../tripData'
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
@@ -14,5 +17,6 @@ export async function generateMetadata({ params }) {
 
 export default async function TripPage({ params }) {
   const { slug } = await params
-  return <TripClient slug={slug} />
+  const initial = await loadTripBundle(slug)
+  return <TripClient slug={slug} initial={initial} />
 }
