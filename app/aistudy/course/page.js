@@ -266,7 +266,7 @@ const HTML = String.raw`
     <div class="hero-in">
       <div class="kick">信息技术基础 · 互动课堂 · 2026 秋</div>
       <h1>从一块芯片<span class="l2">到一个 AI 时代</span></h1>
-      <p class="lede">四个任务，从电脑里面的零件讲到正在改变每个行业的 AI。每个知识点都配了能动手的实验和小游戏，所有案例更新到 2026 年 9 月。</p>
+      <p class="lede">从电脑里面的零件，一路讲到正在改变每个行业的 AI。每个知识点都配了能动手的实验和小游戏，所有案例更新到 2026 年 9 月。</p>
       <div class="route">
         <button class="c1" data-go="t1"><span class="n">任务一</span><b>计算机发展与硬件</b><span class="d">从 ENIAC 到灵晟，拆开一台电脑，最后去配配装一台</span></button>
         <button class="c2" data-go="t2"><span class="n">任务二</span><b>软件、文件与多媒体</b><span class="d">扩展名、编码、声音图像视频，再来一局整理文件</span></button>
@@ -930,7 +930,7 @@ const HTML = String.raw`
   <div class="opener" id="quiz">
     <div class="big" aria-hidden="true">✓</div>
     <div class="k">课堂小测</div>
-    <h2>四个任务，<span class="grad">20 道题</span></h2>
+    <h2>学完了，<span class="grad">来做几道题</span></h2>
     <p>选择题点完立刻判分；简答题先自己想，再点「看答案」。</p>
   </div>
   <section class="kp" style="padding-top:12px">
