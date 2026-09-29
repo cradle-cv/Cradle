@@ -759,7 +759,7 @@ export default function XiaoXinHome() {
         </section>
 
         <section className="xx-sec" id="map">
-          <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>四个任务，{LABS.length} 个知识点，每个都能动手</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
+          <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>按任务找知识点，每一个都能动手做实验</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
           <div className="xx-map">
             {TASKS.map(t => (
               <div key={t.id} className="xx-task" style={{ '--c': t.color }}>
