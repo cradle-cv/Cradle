@@ -206,10 +206,14 @@ function Dashboard({ token, onOut }) {
   const [open, setOpen] = useState(null)
   const [pw, setPw] = useState(false)
   const [labFilter, setLabFilter] = useState('')
+  const [teachers, setTeachers] = useState([])
 
   async function load() {
     setLoading(true); setErr('')
-    try { setData(await rpc('aistudy_dash', { p_token: token, p_cls: cls || null, p_days: days })) }
+    try {
+      setData(await rpc('aistudy_dash', { p_token: token, p_cls: cls || null, p_days: days }))
+      rpc('aistudy_dash_teachers', { p_token: token }).then(t => setTeachers(t || []), () => {})
+    }
     catch (e) { if (/unauthorized/.test(e.message)) onOut(); else setErr('数据加载失败：' + e.message) }
     finally { setLoading(false) }
   }
@@ -379,6 +383,18 @@ function Dashboard({ token, onOut }) {
               </tbody>
             </table>
           </div>
+        </section>
+        <section className="db-card">
+          <h2>使用小信的老师（{teachers.length}）</h2>
+          <p className="db-muted">老师在小信里点「我是老师」，填工号和姓名进入老师模式：不弹学生登记，示范操作不计入学生数据，也看不到这个看板。</p>
+          {teachers.length ? (
+            <div className="db-tablewrap">
+              <table className="db-table" style={{ minWidth: 480 }}>
+                <thead><tr><th>工号</th><th>姓名</th><th>第一次进入</th><th>最近使用</th></tr></thead>
+                <tbody>{teachers.map(t => <tr key={t.tno} style={{ cursor: 'default' }}><td className="db-mono">{t.tno}</td><td><b>{t.name}</b></td><td>{fmtTime(t.created)}</td><td>{fmtAgo(t.last)}</td></tr>)}</tbody>
+              </table>
+            </div>
+          ) : <div className="db-empty">还没有老师进入过老师模式</div>}
         </section>
         <footer className="db-foot">数据从学生登记身份后开始记录。答题和提问只保存班级、姓名、学号（选填）和学习行为，不收集手机号和身份证号。</footer>
       </>}
