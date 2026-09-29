@@ -211,6 +211,7 @@ table.t th{font-size:.78rem;color:var(--muted);font-weight:600}
 .me-pill{position:fixed;left:16px;bottom:16px;z-index:150;display:inline-flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:7px 14px;border-radius:999px;border:1px solid var(--line2,rgba(140,160,210,.3));background:rgba(8,12,24,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#C9D3EA;font:inherit;font-size:.8rem;cursor:pointer;box-shadow:0 10px 30px -12px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .me-pill .dot{width:8px;height:8px;border-radius:50%;background:#37D99E;box-shadow:0 0 8px #37D99E;flex:0 0 auto}
 .me-pill .dot.off{background:#FFC34D;box-shadow:0 0 8px #FFC34D}
+.me-pill .dot.t{background:#B07CFF;box-shadow:0 0 8px #B07CFF}
 .me-pill.need{border-color:rgba(255,195,77,.55);color:#FFE3A3}
 .me-modal{position:fixed;inset:0;z-index:220;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .me-box{display:grid;gap:10px;width:min(400px,100%);padding:22px;border-radius:20px;background:#0B1020;border:1px solid rgba(140,160,210,.3)}
@@ -1068,13 +1069,14 @@ const store={get(k,d){try{const v=localStorage.getItem('aistudy:'+k);return v==n
 const SB_URL='https://ghnrxnoqqteuxxtqlzfv.supabase.co',SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4';
 function sbRpc(fn,args){return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',keepalive:true,headers:{apikey:SB_ANON,Authorization:'Bearer '+SB_ANON,'Content-Type':'application/json'},body:JSON.stringify(args)}).then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))}
 function getMe(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:me')||'null');return v&&v.id?v:null}catch(e){return null}}
-function track(type,lab=null,ok=null,detail=null){const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
+function isTeacher(){try{return !!localStorage.getItem('xiaoxin:admin')}catch(e){return false}}
+function track(type,lab=null,ok=null,detail=null){if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
 function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
 function initIdentity(){
   const pill=h('button',{class:'me-pill',type:'button'});document.body.append(pill);
-  function paint(){const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
+  function paint(){if(isTeacher()){pill.innerHTML='<span class="dot t"></span>老师模式 · 打开数据看板';pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
   function open(){const me=getMe()||{};const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
-    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></div></form>`;
+    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="/aistudy/admin" style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
     const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';
     ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()});
     f.onsubmit=async e=>{e.preventDefault();const c=f.cls.value.trim(),n=f.name.value.trim(),sn=f.sno.value.trim(),er=$('.err',f);
@@ -1082,7 +1084,7 @@ function initIdentity(){
       try{const id=await sbRpc('aistudy_register',{p_cls:c,p_name:n,p_sno:sn||null});if(!id)throw 0;localStorage.setItem('xiaoxin:me',JSON.stringify({id,cls:c,name:n,sno:sn}));ov.remove();paint();trackVisit()}
       catch(x){er.hidden=false;er.textContent='登记失败，请检查网络后再试'}};
     document.body.append(ov);setTimeout(()=>f.cls.focus(),50)}
-  pill.onclick=open;paint();if(!getMe())setTimeout(()=>{if(!getMe())open()},2500);else trackVisit();
+  pill.onclick=()=>{if(isTeacher())location.href='/aistudy/admin';else open()};paint();if(isTeacher()){}else if(!getMe())setTimeout(()=>{if(!getMe()&&!isTeacher())open()},2500);else trackVisit();
   // 知识点浏览：一个知识点在屏幕中间停留满 5 秒记一次
   const seen=new Set(),timers=new Map();
   const io=new IntersectionObserver(es=>es.forEach(e=>{const id=e.target.id;if(seen.has(id))return;
