@@ -18,7 +18,7 @@ const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
  * 左侧日期恒为今天，不随切换变化；翻期由右侧期号承担，
  * 因为期号本来就是「第几期」的意思，用它翻期比用日期自然。
  */
-export default function CurationHero({ curations }) {
+export default function CurationHero({ curations, birthdays = [] }) {
   const [idx, setIdx] = useState(0)
 
   if (!curations || curations.length === 0) return null
@@ -40,9 +40,9 @@ export default function CurationHero({ curations }) {
         {/* ── 顶栏：左日期 · 中主题 · 右期号切换 ── */}
         <div className="flex items-center justify-between gap-3 md:gap-8 mb-7 md:mb-10">
 
-          {/* 左：今天的日期，恒定不变 */}
-          <div className="flex-shrink-0 text-center" style={{ minWidth: '64px' }}>
-            <div style={{ border: '1px solid #111827', padding: '8px 12px' }}>
+          {/* 左：今天的日期，恒定不变；有艺术家今天生日，方框下面送一句祝福 */}
+          <div className="flex-shrink-0 text-center relative" style={{ minWidth: '64px' }}>
+            <div style={{ border: `1px solid ${birthdays.length ? '#B45309' : '#111827'}`, padding: '8px 12px' }}>
               <div style={{ fontSize: '26px', fontWeight: 500, lineHeight: 1, color: '#111827' }}>
                 {today.getDate()}
               </div>
@@ -50,6 +50,17 @@ export default function CurationHero({ curations }) {
                 {MONTHS[today.getMonth()]}
               </div>
             </div>
+            {birthdays.length > 0 && (
+              <div className="absolute left-0 whitespace-nowrap text-left"
+                style={{ top: 'calc(100% + 8px)', fontSize: '12px', color: '#B45309', letterSpacing: '0.5px' }}>
+                今天是{birthdays.map((b, i) => (
+                  <span key={b.id}>
+                    {i > 0 ? '、' : ' '}
+                    <a href={`/artists/${b.id}`} className="hover:underline" style={{ color: '#92400E', fontWeight: 500 }}>{b.display_name}</a>
+                  </span>
+                ))} 的生日，生日快乐
+              </div>
+            )}
           </div>
 
           {/* 中：主题 */}

@@ -17,6 +17,8 @@ export default function EditArtistPage({ params }) {
   const [formData, setFormData] = useState({
     display_name: '',
     specialty: '',
+    birth_month: '',
+    birth_day: '',
     intro: '',
     philosophy: '',
     avatar_url: '',
@@ -71,6 +73,8 @@ export default function EditArtistPage({ params }) {
         setFormData({
           display_name: artist.display_name || '',
           specialty: artist.specialty || '',
+          birth_month: artist.birth_month || '',
+          birth_day: artist.birth_day || '',
           intro: artist.intro || '',
           philosophy: artist.philosophy || '',
           avatar_url: artist.avatar_url || '',
@@ -153,6 +157,8 @@ export default function EditArtistPage({ params }) {
         .update({
           display_name: formData.display_name,
           specialty: formData.specialty,
+          birth_month: formData.birth_month ? Number(formData.birth_month) : null,
+          birth_day: formData.birth_day ? Number(formData.birth_day) : null,
           intro: formData.intro,
           philosophy: formData.philosophy,
           avatar_url: formData.avatar_url,
@@ -351,6 +357,23 @@ export default function EditArtistPage({ params }) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="如：油画、摄影、书法"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">生日</label>
+                  <div className="flex items-center gap-2">
+                    <select name="birth_month" value={formData.birth_month} onChange={handleChange}
+                      className="px-3 py-3 border border-gray-300 rounded-lg text-gray-900">
+                      <option value="">月</option>
+                      {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} 月</option>)}
+                    </select>
+                    <select name="birth_day" value={formData.birth_day} onChange={handleChange}
+                      className="px-3 py-3 border border-gray-300 rounded-lg text-gray-900">
+                      <option value="">日</option>
+                      {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} 日</option>)}
+                    </select>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">只记月和日，不记年份。填了之后，生日那天首页日历下面会送上一句祝福。</p>
                 </div>
 
                 <div>

@@ -112,8 +112,11 @@ async function getData() {
     console.error('get_homepage_offline_exhibitions failed:', e)
   }
 
+  // 今天过生日的艺术家（东八区的今天）
+  const { data: birthdays } = await supabase.rpc('get_today_birthdays')
+
   return {
-    exhibition, dailyPainting, dailyPhoto, collections: collections || [], artists: artists || [],
+    exhibition, dailyPainting, dailyPhoto, birthdays: birthdays || [], collections: collections || [], artists: artists || [],
     partners: partners || [], homeCurations,
     homepageDaily, homepageSelect, offlineExhibitions,
     homeWorkshops,
@@ -212,14 +215,14 @@ function ExhibitionActionButton({ exhibition }) {
 }
 
 export default async function Home() {
-  const { exhibition, dailyPainting, dailyPhoto, collections, artists, partners, homeCurations, homepageDaily, homepageSelect, offlineExhibitions, homeWorkshops, homepageInvitations } = await getData()
+  const { exhibition, dailyPainting, dailyPhoto, birthdays, collections, artists, partners, homeCurations, homepageDaily, homepageSelect, offlineExhibitions, homeWorkshops, homepageInvitations } = await getData()
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
       <SiteNav links={HOME_LINKS} />
 
       {/* Hero：当期阅览室的三幅画 */}
-      <CurationHero curations={homeCurations} />
+      <CurationHero curations={homeCurations} birthdays={birthdays} />
 
       {/* 每日一展 + 邀请函 */}
       {(exhibition || homepageInvitations.length > 0) && (
