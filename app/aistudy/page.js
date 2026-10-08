@@ -3,7 +3,7 @@
 // 目标路径：app/aistudy/page.js
 // 小信 · 信息技术基础课程智能体主页（cradle.art/aistudy）
 // 形象：原创动画角色，有待机、倾听、思考、说话、开心、担心六种状态，眼睛跟着鼠标转
-// 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 录录 / 理理）、按知识点推荐实验、语音朗读
+// 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 录录 / 理理 / 病毒攻防 / 网络闯关 / 进制闯关）、按知识点推荐实验、语音朗读
 // 依赖：app/aistudy/kb.js（知识库）、app/aistudy/track.js（学生身份和使用记录）、app/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -123,17 +123,25 @@ function ToolCard({ id }) {
   const [code, setCode] = useState(() => store.get('code-' + id, ''))
   const [note, setNote] = useState('')
   useEffect(() => {
-    if (!t.code || code) return
+    if (!t.code || (code && id !== 'virus')) return
     let off = false
-    const q = id === 'zhitiao'
-      ? supabase.from('zhitiao_activities').select('code,title').eq('is_open', true).order('created_at', { ascending: false }).limit(1)
-      : supabase.from('migong_rounds').select('code,title').eq('status', 'open').order('created_at', { ascending: false }).limit(1)
-    q.then(({ data }) => { if (!off && data && data[0]) { setCode(data[0].code); setNote('已自动找到进行中的活动：' + (data[0].title || data[0].code)) } }).catch(() => {})
+    const found = (c, title) => { if (!off && c) { setCode(c); setNote('已自动找到进行中的活动：' + (title || c)) } }
+    if (id === 'virus') {
+      // 病毒攻防：优先用这台电脑上开的房间，其次找 6 小时内最新的进行中房间
+      const own = store.get('virus-host', null)
+      if (own && own.code) found(own.code, '病毒攻防 ' + own.code)
+      else supabase.rpc('aistudy_battle_latest').then(({ data }) => found(data, '病毒攻防 ' + data), () => {})
+    } else if (id === 'zhitiao' || id === 'migong') {
+      const q = id === 'zhitiao'
+        ? supabase.from('zhitiao_activities').select('code,title').eq('is_open', true).order('created_at', { ascending: false }).limit(1)
+        : supabase.from('migong_rounds').select('code,title').eq('status', 'open').order('created_at', { ascending: false }).limit(1)
+      q.then(({ data }) => { if (data && data[0]) found(data[0].code, data[0].title) }).catch(() => {})
+    }
     return () => { off = true }
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
   const c = code.trim().toUpperCase()
   const full = u => (u.startsWith('http') ? u : (typeof window !== 'undefined' ? window.location.origin : 'https://cradle.art') + u)
-  const stu = t.code && c ? `${t.student}/${c}` : full(t.student)
+  const stu = t.code && c ? full(`${t.student}/${c}`) : full(t.student)
   return (
     <div className="xx-tool">
       <div className="xx-tool-main">
