@@ -969,7 +969,7 @@ body{background:#06080F!important}
 .xx-sec{max-width:1240px;margin:0 auto;padding:48px 16px 8px}
 .xx-sec-h{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;margin-bottom:16px}
 .xx-sec-h h2{font-size:clamp(1.3rem,3vw,1.8rem);flex:1;min-width:260px}
-.xx-map{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.xx-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .xx-task{border:1px solid var(--line);border-radius:16px;padding:14px;background:linear-gradient(170deg,color-mix(in srgb,var(--c) 12%,transparent),transparent 50%);display:grid;gap:2px;align-content:start}
 .xx-task-h{display:grid;margin-bottom:6px}
 .xx-task-h span{font-family:var(--xx-mono);font-size:.74rem;color:var(--c)}
