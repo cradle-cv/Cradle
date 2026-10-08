@@ -1,7 +1,7 @@
 'use client'
 
 // 目标路径：app/aistudy/course/page.js
-// 信息技术基础互动课堂（cradle.art/aistudy/course）：四个任务的滚动叙事式交互课件。
+// 信息技术基础互动课堂（cradle.art/aistudy/course）：六个任务的滚动叙事式交互课件。
 // 结构：CSS（样式）→ HTML（页面内容）→ runAistudy（全部交互代码）→ 页面组件。
 // 修改文字：在 HTML 里改；修改交互：在 runAistudy 里改。
 
@@ -35,6 +35,8 @@ body{background:#06080F!important}
 .c2{--acc:#FFB23F;--acc2:#FF6F5B;--acc-soft:rgba(255,178,63,.14)}
 .c3{--acc:#FF4F6D;--acc2:#FF9A3D;--acc-soft:rgba(255,79,109,.14)}
 .c4{--acc:#B07CFF;--acc2:#3FD5FF;--acc-soft:rgba(176,124,255,.15)}
+.c5{--acc:#3FD5FF;--acc2:#37D99E;--acc-soft:rgba(63,213,255,.14)}
+.c6{--acc:#FF7ACB;--acc2:#B07CFF;--acc-soft:rgba(255,122,203,.14)}
 .cq{--acc:#37D99E;--acc2:#3FD5FF;--acc-soft:rgba(55,217,158,.14)}
 html{font-size:var(--fs);scroll-behavior:smooth}
 html.lecture{--fs:20px;--col:860px;--wide:1360px}
@@ -79,7 +81,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hero h1 .l2{display:block;background:linear-gradient(95deg,#4DA3FF 0%,#B07CFF 45%,#FF4F6D 75%,#FFB23F 100%);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:sheen 9s ease-in-out infinite alternate}
 @keyframes sheen{to{background-position:100% 0}}
 .hero p.lede{max-width:34em;font-size:1.12rem;color:var(--muted);margin:0 0 28px}
-.route{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:980px}
+.route{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:980px}
 .route button{all:unset;cursor:pointer;display:grid;gap:4px;padding:14px 16px;border-radius:var(--r);border:1px solid var(--line);background:rgba(10,14,26,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform .2s,border-color .2s,box-shadow .2s}
 .route button:hover,.route button:focus-visible{transform:translateY(-3px);border-color:var(--acc);box-shadow:0 12px 40px -18px var(--acc)}
 .route .n{font-family:var(--f-mono);font-size:.75rem;color:var(--acc)}
@@ -254,6 +256,8 @@ const HTML = String.raw`
       <button class="tab" role="tab" data-go="t2" aria-selected="false"><span class="n">02</span>软件·文件·多媒体</button>
       <button class="tab" role="tab" data-go="t3" aria-selected="false"><span class="n">03</span>病毒与防护</button>
       <button class="tab" role="tab" data-go="t4" aria-selected="false"><span class="n">04</span>AI 时代</button>
+      <button class="tab" role="tab" data-go="t5" aria-selected="false"><span class="n">05</span>网络基础</button>
+      <button class="tab" role="tab" data-go="t6" aria-selected="false"><span class="n">06</span>操作系统</button>
       <button class="tab" role="tab" data-go="quiz" aria-selected="false"><span class="n">✓</span>小测</button>
     </nav>
     <button class="ghost" id="lectureBtn" aria-pressed="false" title="放大字号，适合投屏">讲课模式</button>
@@ -267,12 +271,14 @@ const HTML = String.raw`
     <div class="hero-in">
       <div class="kick">信息技术基础 · 互动课堂 · 2026 秋</div>
       <h1>从一块芯片<span class="l2">到一个 AI 时代</span></h1>
-      <p class="lede">从电脑里面的零件，一路讲到正在改变每个行业的 AI。每个知识点都配了能动手的实验和小游戏，所有案例更新到 2026 年 9 月。</p>
+      <p class="lede">从电脑里面的零件，讲到正在改变每个行业的 AI，再到网络是怎么通的、电脑是怎么管的。每个知识点都配了能动手的实验和小游戏，所有案例更新到 2026 年 10 月。</p>
       <div class="route">
         <button class="c1" data-go="t1"><span class="n">任务一</span><b>计算机发展与硬件</b><span class="d">从 ENIAC 到灵晟，拆开一台电脑，最后去配配装一台</span></button>
         <button class="c2" data-go="t2"><span class="n">任务二</span><b>软件、文件与多媒体</b><span class="d">扩展名、编码、声音图像视频，再来一局整理文件</span></button>
         <button class="c3" data-go="t3"><span class="n">任务三</span><b>病毒与安全防护</b><span class="d">勒索病毒、AI 换脸诈骗，闯关当一回安全守门员</span></button>
         <button class="c4" data-go="t4"><span class="n">任务四</span><b>AI 时代新工作</b><span class="d">大模型、Vibe Coding、AI 视频、智能体与未来十年</span></button>
+        <button class="c5" data-go="t5"><span class="n">任务五</span><b>网络基础</b><span class="d">分层模型、MAC 与 IP、数据封装、DNS，打开命令行亲手查</span></button>
+        <button class="c6" data-go="t6"><span class="n">任务六</span><b>操作系统与 Windows 11</b><span class="d">进程内存、路径盘符、装软件避坑、C 盘自救、Linux 命令</span></button>
       </div>
     </div>
   </section>
@@ -944,6 +950,281 @@ const HTML = String.raw`
     </div>
   </section>
 </div>
+<div class="chapter c5" data-chapter="t5" hidden>
+  <div class="opener" id="t5">
+    <div class="big" aria-hidden="true">05</div>
+    <div class="k">任务五</div>
+    <h2>网络基础：<span class="grad">从一台电脑到另一台电脑</span></h2>
+    <p>你发的一条消息，是怎么飞到千里之外的？它要经过网卡、网线、交换机、路由器……每一步都在做什么，为什么不能直接把数据扔过去？这一节走一遍数据的旅程，再看看每天都在用的网页背后发生了什么，最后打开命令行亲手查一查。</p>
+    <div class="goals"><span>说出网络的三要素和分层的好处</span><span>分清 OSI 七层和 TCP/IP 四层</span><span>区分 MAC 地址和 IP 地址</span><span>讲出打开网页的 5 步</span><span>会用 ipconfig、ping、tracert</span></div>
+  </div>
+
+  <section class="kp" id="k5-1">
+    <div class="col">
+      <p class="eyebrow">5.1 什么是计算机网络 · 为什么要分层</p>
+      <h3>设备、协议、共享：网络的三个要素</h3>
+      <p><span class="term">计算机网络</span>是把多台计算机和外部设备用通信线路连接起来，在网络软件的支持下实现<b>资源共享</b>和<b>信息传递</b>的系统。拆开看有三个要素：<b>设备</b>（电脑、手机、服务器、路由器、交换机、网线）、<b>协议</b>（大家都遵守的规则，就像说同一种语言）、<b>共享</b>（共享文件和打印机、传递消息、浏览网页）。</p>
+      <p>网络为什么要「分层」？想想寄快递：你只管写好信、填好地址，快递公司只管揽件分拣，司机只管运输——谁也不用懂别人的活。网络也一样分层，好处有三个：<b>简单化</b>（每层只做自己的事）、<b>灵活性</b>（网线换成光纤，上面的层毫无感觉）、<b>易排错</b>（出问题知道查哪一层：是网断了，还是软件问题）。</p>
+    </div>
+    <div class="lab" data-w="classify" data-set="netparts">
+      <div class="lab-h"><span class="t"><b>实践 5.1</b>它属于网络的哪个要素？</span><span class="hint">先点卡片，再点要素</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-2">
+    <div class="col">
+      <p class="eyebrow">5.2 OSI 七层与 TCP/IP 四层</p>
+      <h3>七层是教学参考，四层是互联网真正在跑的</h3>
+      <p><span class="term">OSI 七层模型</span>从下到上是：物理层（网线、光纤、无线电，传 0 和 1）、数据链路层（MAC 地址、帧，相邻节点之间可靠传递）、网络层（IP 地址寻址、路由选择，决定数据走哪条路）、传输层（端到端通信，TCP / UDP）、会话层（建立和维护会话）、表示层（格式转换、加密、压缩）、应用层（HTTP、FTP、SMTP 等直接面向用户的协议）。记忆口诀：<b>物 · 数 · 网 · 传 · 会 · 表 · 应</b>。</p>
+      <p><span class="term">TCP/IP 四层模型</span>是互联网实际使用的版本：把 OSI 上面三层合并成<b>应用层</b>，下面两层合并成<b>网络接口层</b>，中间的<b>传输层</b>和<b>网络层</b>基本不变。</p>
+    </div>
+    <div class="lab" data-w="layers">
+      <div class="lab-h"><span class="t"><b>实践 5.2</b>分层模型对照表</span><span class="hint">点任一层看它管什么；右边练口诀</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="qc" data-ans="1" data-why="TCP/IP 四层把 OSI 的应用、表示、会话三层合并成了应用层。">
+      <div class="t">课堂一问</div><div class="q">OSI 的「表示层」在 TCP/IP 四层模型里被并进了哪一层？</div>
+      <div class="opts"><button class="opt">传输层</button><button class="opt">应用层</button><button class="opt">网络层</button><button class="opt">网络接口层</button></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-3">
+    <div class="col">
+      <p class="eyebrow">5.3 网卡、交换机、路由器 · MAC 地址与 IP 地址</p>
+      <h3>两个地址配合：一个认机器，一个认网络</h3>
+      <p>电脑靠<span class="term">网卡</span>（NIC）联网，有线网卡是 RJ45 网口，无线网卡连 WiFi，每块网卡出厂时都烧录了一个唯一的 <b>MAC 地址</b>。<b>交换机</b>在同一个局域网里靠 MAC 地址转发数据，<b>路由器</b>连接不同网络、靠 IP 地址选路。一句话区分：交换机管「同一个楼里的通信」，路由器管「楼跟楼之间的通信」。</p>
+      <p><span class="term">MAC 地址</span>是网卡的硬件身份证：48 位，写成 6 组两位十六进制数，如 <span class="kbd">00:1A:2B:3C:4D:5E</span>，全球唯一，只在局域网内有效，像手机的 IMEI 号。<span class="term">IP 地址</span>是网络分配的逻辑地址，像门牌号，全球互联网都能寻址。IPv4 是 32 位，分 4 段、每段 0～255，前面是<b>网络号</b>，后面是<b>主机号</b>；192.168.x.x、10.x.x.x 这类是局域网内部的<b>私网 IP</b>，运营商分配、全球可寻址的是<b>公网 IP</b>。IPv4 一共约 43 亿个，早就不够用了，所以有了 128 位的 IPv6。</p>
+    </div>
+    <div class="lab" data-w="classify" data-set="netdev">
+      <div class="lab-h"><span class="t"><b>实践 5.3</b>这是谁的活？</span><span class="hint">把说法归到对应的设备或地址</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="lab" data-w="iplab">
+      <div class="lab-h"><span class="t"><b>实践 5.4</b>IP 地址解剖</span><span class="hint">输入一个 IP，看它的二进制、网络号和主机号</span></div>
+      <div class="lab-b"></div>
+      <div class="lab-f">子网掩码里的 1 对应网络号，0 对应主机号。家里和学校最常见的是 /24（255.255.255.0）：前三段是网络号，最后一段才是主机号，所以一个网段最多 254 台设备。</div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-4">
+    <div class="col">
+      <p class="eyebrow">5.4 数据是怎么一层层「打包」送出去的</p>
+      <h3>发送方逐层加信封，接收方逐层拆信封</h3>
+      <p>你要发的消息先在应用层写好，往下每经过一层就套一层「信封」：传输层加 <b>TCP 头</b>（端口号，告诉对方交给哪个程序），网络层加 <b>IP 头</b>（源 IP 和目的 IP），数据链路层加<b>帧头</b>（源 MAC 和目的 MAC），最后变成 0 和 1 从网线出去。到了对方那里，再从下往上一层层拆：先看 MAC 对不对，再看 IP，再看端口，最后交给应用程序。这就是<span class="term">封装</span>和<span class="term">解封装</span>。</p>
+    </div>
+    <div class="scrolly" data-scrolly="encapStage">
+      <div class="steps">
+        <div class="step"><div><div class="yr">应用层</div><h5>写好要发的消息</h5><p>你在聊天软件里打下「下午三点机房见」，这就是最里面的数据。</p></div></div>
+        <div class="step"><div><div class="yr">传输层 · +TCP 头</div><h5>写上端口号</h5><p>一台电脑同时开着很多程序，<b>端口号</b>决定数据到了对方电脑后交给谁。网页用 80 / 443，这条消息给聊天软件。TCP 还会给每段数据编号，丢了重发，保证按顺序到。</p></div></div>
+        <div class="step"><div><div class="yr">网络层 · +IP 头</div><h5>写上源 IP 和目的 IP</h5><p>IP 头是「快递面单」上的地址：从哪来、到哪去。一路上的每个路由器都看它来决定下一站往哪送。</p></div></div>
+        <div class="step"><div><div class="yr">数据链路层 · +帧头</div><h5>写上这一跳的 MAC 地址</h5><p>帧头里是<b>本段线路</b>两端的 MAC 地址：先从你的网卡到路由器。每过一个路由器，帧头就换一次，IP 头不变。</p></div></div>
+        <div class="step"><div><div class="yr">物理层</div><h5>变成 0 和 1 出发</h5><p>整个「包裹」变成电信号、光信号或无线电波，沿着网线、光纤、WiFi 一路传过去。</p></div></div>
+        <div class="step"><div><div class="yr">接收方 · 逐层拆开</div><h5>MAC 对不对 → IP 对不对 → 端口对不对</h5><p>对方的网卡先看帧头：是发给我的；系统看 IP 头：没错；再看 TCP 头：交给聊天软件。最后同学看到了「下午三点机房见」。</p></div></div>
+      </div>
+      <div class="stage"><div class="stage-box"></div></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-5">
+    <div class="col">
+      <p class="eyebrow">5.5 必须认识的几个核心协议</p>
+      <h3>HTTP 说「这是网页」，DNS 说「IP 是多少」，TCP 保证送到，IP 负责找路</h3>
+      <ul>
+        <li><b>HTTP / HTTPS</b>（应用层）：浏览网页用的协议，HTTPS 是加密版，地址栏有小锁。</li>
+        <li><b>DNS</b>（应用层）：域名系统，把 www.baidu.com 翻译成 IP 地址。</li>
+        <li><b>TCP</b>（传输层）：可靠传输，保证数据不丢、按顺序到；<b>UDP</b> 更快但不保证，视频通话常用。</li>
+        <li><b>IP</b>（网络层）：网际协议，负责寻址和路由选择。</li>
+      </ul>
+    </div>
+    <div class="lab" data-w="classify" data-set="protos">
+      <div class="lab-h"><span class="t"><b>实践 5.5</b>协议和设备住在哪一层？</span><span class="hint">按 TCP/IP 四层归类</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="qc" data-ans="2" data-why="TCP 给每段数据编号、确认和重发，保证不丢、按顺序到；IP 只负责找路。">
+      <div class="t">课堂一问</div><div class="q">哪个协议负责「保证数据完整、按顺序送到」？</div>
+      <div class="opts"><button class="opt">HTTP</button><button class="opt">IP</button><button class="opt">TCP</button><button class="opt">DNS</button></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-6">
+    <div class="col">
+      <p class="eyebrow">5.6 打开一个网页要走 5 步 · DNS 与域名</p>
+      <h3>你按下回车的那一秒里发生了什么</h3>
+      <p>① 在地址栏<b>输入网址</b>；② <b>DNS 解析</b>，把域名翻译成服务器 IP；③ 和服务器<b>建立 TCP 连接</b>；④ 发送 HTTP <b>请求数据</b>，服务器返回网页；⑤ 浏览器<b>渲染显示</b>。每一步都要花时间，加起来就是你感受到的「加载速度」。</p>
+      <p>我们记住的是 www.baidu.com，网络通信却只认 IP，中间的翻译官就是 <span class="term">DNS</span>：像电话簿（名字对号码）、有缓存（第二次就快）、出问题有症状（能上 QQ 但打不开网页，多半是 DNS）。常用的公共 DNS 有 114.114.114.114 和 8.8.8.8。</p>
+      <p>域名是分层的，<b>从右往左读</b>：根域「.」→ 顶级域 .com（商业）/ .org（非营利）/ .edu（教育）/ .cn（中国）→ 二级域 baidu（谁注册的）→ 主机名 www（哪台服务器）。多层嵌套也常见：pku.edu.cn 是中国的大学，.gov.cn 只有政府机关能注册。</p>
+    </div>
+    <div class="lab" data-w="order" data-set="web5">
+      <div class="lab-h"><span class="t"><b>实践 5.6</b>打开网页的 5 步，排个序</span><span class="hint">按先后点击</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="lab" data-w="domain">
+      <div class="lab-h"><span class="t"><b>实践 5.7</b>域名拆解器</span><span class="hint">输入一个域名，从右往左拆给你看</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k5-7">
+    <div class="col">
+      <p class="eyebrow">5.7 动手：三个最常用的网络命令</p>
+      <h3>ipconfig 看自己，ping 测通不通，tracert 看走了哪些路</h3>
+      <p>按 <span class="kbd">Win</span>+<span class="kbd">R</span>，输入 cmd 回车，就打开了命令行。<b>ipconfig</b> 查看本机的 IPv4 地址、子网掩码、默认网关（路由器的 IP）和 DNS；<b>ping 网址</b> 测试通不通、延迟多少毫秒、丢包多少；<b>tracert 网址</b> 跟踪数据包经过了几个路由器、每一跳用了多少时间——排查网络卡在哪一段最有用。</p>
+    </div>
+    <div class="lab" data-w="term">
+      <div class="lab-h"><span class="t"><b>实践 5.8</b>模拟命令行</span><span class="hint">先在这里练，再去自己电脑上真的敲一遍</span></div>
+      <div class="lab-b"></div>
+      <div class="lab-f">这是模拟环境，输出和真实情况接近但不完全相同。真实电脑上：Win+R → 输入 cmd → 回车；Mac 用「终端」，命令是 ifconfig、ping、traceroute。</div>
+    </div>
+    <div class="wide" data-w="nettasks" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:18px auto"></div>
+    <div class="cta" data-w="cta" data-url="https://cradle.art/aistudy/net">
+      <div>
+        <div class="k mono" style="color:var(--acc);font-size:.8rem;letter-spacing:.16em">互动游戏 · 网络闯关</div>
+        <h4>学完了？去闯四关</h4>
+        <p>手机扫码打开「网络闯关」：给数据包找路、按序号拼回消息，判断 IP 合不合法、排 DNS 的步骤，认设备和拓扑，最后识破钓鱼网址。登记过班级姓名的同学，星级会记到自己名下。</p>
+        <a class="btn go" href="https://cradle.art/aistudy/net" target="_blank" rel="noopener">打开网络闯关 →</a>
+      </div>
+      <div class="qr"></div>
+    </div>
+  </section>
+</div>
+<div class="chapter c6" data-chapter="t6" hidden>
+  <div class="opener" id="t6">
+    <div class="big" aria-hidden="true">06</div>
+    <div class="k">任务六</div>
+    <h2>操作系统与 <span class="grad">Windows 11 实用技能</span></h2>
+    <p>电脑明明有 CPU、内存、硬盘，为什么还需要一个「操作系统」？软件开多了为什么会卡，C 盘红了为什么整机变慢，装个软件为什么弹窗要「管理员权限」？这一节用最少的概念把它们串起来，目标只有一个：会用电脑、能自己解决问题。</p>
+    <div class="goals"><span>说出操作系统管的三件事</span><span>用任务管理器解决卡死</span><span>会读路径、分盘存文件</span><span>装软件不踩坑</span><span>C 盘爆红会自救</span><span>看得懂 Linux 命令</span></div>
+  </div>
+
+  <section class="kp" id="k6-1">
+    <div class="col">
+      <p class="eyebrow">6.1 操作系统是什么</p>
+      <h3>人和硬件之间的「翻译官」和「大管家」</h3>
+      <p>你不需要直接指挥 CPU、读写内存、转动硬盘——<span class="term">操作系统</span>（OS）帮你做这件事。它管三件事：<b>CPU</b>（谁先用、用多久）、<b>内存</b>（临时数据放哪）、<b>硬盘</b>（文件存哪、怎么取）。常见的操作系统：个人电脑上的 Windows、苹果电脑的 macOS、服务器和开发常用的 Linux，手机上的 Android 和 iOS。</p>
+    </div>
+    <div class="lab" data-w="classify" data-set="osjobs">
+      <div class="lab-h"><span class="t"><b>实践 6.1</b>这件事归操作系统的哪个「部门」管？</span><span class="hint">先点情景，再点部门</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-2">
+    <div class="col">
+      <p class="eyebrow">6.2 进程、内存、文件：为什么电脑会卡</p>
+      <h3>软件开多了卡 ＝ 进程太多 ＋ 内存占满</h3>
+      <p><span class="term">进程</span>是正在运行的程序：Word.exe 躺在硬盘里是文件，双击打开被装进内存开始跑，就变成了一个进程，任务管理器里一条条就是它们。<span class="term">内存</span>是 CPU 直接干活的「工作台」，断电就清空，开的软件越多占得越大；工作台铺满了，系统只能往硬盘借地方（<b>虚拟内存</b>），硬盘比内存慢几十倍，于是整机变慢。<span class="term">文件</span>是存在硬盘上的永久数据，断电不丢。</p>
+      <p>软件卡死怎么办？<span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Esc</span> 打开任务管理器，点「CPU」或「内存」列标题排序，占用最高的就是元凶，选中 → 结束任务。别乱结束带 Windows 字样的系统进程。</p>
+    </div>
+    <div class="lab" data-w="taskmgr">
+      <div class="lab-h"><span class="t"><b>实践 6.2</b>任务管理器模拟器</span><span class="hint">打开几个软件，看内存条和流畅度怎么变</span></div>
+      <div class="lab-b"></div>
+      <div class="lab-f">内存不够用时系统会借硬盘当虚拟内存，所以卡顿不是「坏了」，是在等硬盘。结论：加内存条比任何「优化软件」都管用；虚拟内存让系统自动管理就好。</div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-3">
+    <div class="col">
+      <p class="eyebrow">6.3 文件与文件夹：盘符、路径、好习惯</p>
+      <h3>C 盘是系统盘，资料放 D 盘，桌面只放手头的事</h3>
+      <p>「此电脑」里的 C:、D:、E: 叫<span class="term">盘符</span>，是硬盘被分成的几块：<b>C 盘装 Windows 和软件，D / E 盘放你的资料</b>。<span class="term">路径</span>是文件的完整地址，从左往右读：<span class="kbd">C:\Users\张三\Desktop\论文.docx</span> 就是 C 盘 → Users 文件夹 → 张三的用户目录 → 桌面 → 论文.docx。点一下资源管理器的地址栏就能复制完整路径。</p>
+      <p>几个真相：<b>桌面就是 C 盘</b>，文件堆多了开机变慢、重装系统全没；删文件只是「标记为可覆盖」，误删可以从回收站还原，但 U 盘和移动硬盘删文件不进回收站，Shift+Delete 是永久删除；.zip 右键就能解压，.rar 要装 7-Zip 或 WinRAR；C 盘爆红先清空回收站；U 盘传完文件「安全弹出」再拔。</p>
+    </div>
+    <div class="lab" data-w="pathlab">
+      <div class="lab-h"><span class="t"><b>实践 6.3</b>路径怎么读</span><span class="hint">输入或点一个路径，拆成一层层看</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="lab" data-w="tf" data-set="filetf">
+      <div class="lab-h"><span class="t"><b>实践 6.4</b>真的还是假的？</span><span class="hint">关于文件的 8 个说法</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-4">
+    <div class="col">
+      <p class="eyebrow">6.4 用户权限与装软件避坑</p>
+      <h3>那个「是否允许此应用对你的设备进行更改」是在问你什么</h3>
+      <p>Windows 有两种账户：<b>管理员</b>能装软件、改系统设置，<b>标准用户</b>只能用软件、不能动系统。装软件时屏幕变暗弹出的窗口叫 <span class="term">UAC</span>（用户账户控制）：软件要动系统之前，先拦下来问你一句。正规软件要装，点「是」没问题；一个来历不明的破解游戏、外挂、小工具也弹这个窗，就要警惕——它正在申请最高权限。</p>
+      <p>装软件的三个坑：① 一步步点「下一步」别狂点，每一步看一眼，取消「捆绑安装 XX 卫士」「设 XX 为首页」；② 安装路径别都放 C 盘，能改就改成 D:\Program Files\；③ 卸载要正规卸：设置 → 应用 → 已安装的应用 → 卸载，别直接删文件夹。</p>
+    </div>
+    <div class="lab" data-w="installer">
+      <div class="lab-h"><span class="t"><b>实践 6.5</b>装软件模拟器</span><span class="hint">像真的安装程序一样，看你能避开几个坑</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-5">
+    <div class="col">
+      <p class="eyebrow">6.5 磁盘：C 盘爆红怎么救</p>
+      <h3>磁盘清理 → 搬走大文件 → 卸载不用的软件</h3>
+      <p>C 盘建议至少留 50 GB 空闲。开始菜单搜「<b>磁盘清理</b>」→ 选 C 盘 → 勾选临时文件、回收站、更新缓存 → 确定，每月一次。<b>碎片整理</b>只有机械硬盘（HDD）才需要；固态硬盘（SSD）不要碎片整理，会缩短寿命——现在的新电脑基本都是 SSD，这个功能忽略即可。</p>
+      <p><span class="term">虚拟内存</span>（页面文件）是操作系统在硬盘上划出的、用于扩展内存的一段区域，内存不够时顶上，代价是慢几十倍。考试可能会考它的定义。</p>
+    </div>
+    <div class="lab" data-w="diskclean">
+      <div class="lab-h"><span class="t"><b>实践 6.6</b>把爆红的 C 盘救回来</span><span class="hint">点各项操作，看空闲空间怎么变</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-6">
+    <div class="col">
+      <p class="eyebrow">6.6 系统设置与自带小工具</p>
+      <h3>Win + I 进设置，几个快捷键顶半个软件</h3>
+      <p><span class="kbd">Win</span>+<span class="kbd">I</span> 打开「设置」：系统（显示、声音、电源、存储）、蓝牙和设备、网络和 Internet、应用（卸载、默认应用）、隐私和安全性、Windows 更新。字太小就把缩放调到 125% / 150%，分辨率选带「推荐」的；笔记本插电选「最佳性能」，用电池选「最佳能效」。PDF 总用 Edge 打开？应用 → 默认应用 → 搜 pdf → 改成你的阅读器。</p>
+      <p>不用装软件的三个工具：<span class="kbd">Win</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span> 截图，<span class="kbd">Win</span>+<span class="kbd">V</span> 剪贴板历史，记事本临时记东西。命令提示符会 ipconfig、ping、dir 这几条就够。</p>
+    </div>
+    <div class="lab" data-w="pairs" data-set="shortcuts">
+      <div class="lab-h"><span class="t"><b>实践 6.7</b>快捷键配对</span><span class="hint">先点左边的快捷键，再点右边它的作用</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="qc" data-ans="2" data-why="Win + I 打开「设置」；Win + V 是剪贴板历史，Win + Shift + S 是截图，Ctrl + Shift + Esc 是任务管理器。">
+      <div class="t">课堂一问</div><div class="q">想改屏幕缩放和默认浏览器，按哪个快捷键最快进「设置」？</div>
+      <div class="opts"><button class="opt">Win + V</button><button class="opt">Win + Shift + S</button><button class="opt">Win + I</button><button class="opt">Ctrl + Shift + Esc</button></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-7">
+    <div class="col">
+      <p class="eyebrow">6.7 备份还原、蓝屏、驱动 · 文件系统</p>
+      <h3>系统可以重装，数据没了就是真没了</h3>
+      <p><b>系统还原点</b>是系统在正常时拍的「快照」，装错软件、改坏设置后可以回退，不影响个人文件。<b>蓝屏</b>不是世界末日，常见原因是内存接触不良、显卡或网卡驱动出问题、系统文件损坏：先重启，频繁蓝屏再查驱动。<b>驱动程序</b>是硬件和系统之间的翻译官——联想游戏本连不上 WiFi，常常是无线网卡驱动掉了。个人数据备份的优先级高于一切技巧：重要论文、照片定期复制到移动硬盘或云盘。</p>
+      <p>U 盘格式化时选哪个文件系统？<b>NTFS</b>：Windows 系统盘默认，单文件无上限，Mac 只读；<b>FAT32</b>：老设备通用，但单个文件最大 4 GB；<b>exFAT</b>：新 U 盘和移动硬盘首选，大文件没问题，Windows 和 Mac 都能读写。考试记忆点：4 GB 限制 → FAT32；跨 Windows / Mac → exFAT；系统盘 → NTFS。</p>
+    </div>
+    <div class="lab" data-w="scenario" data-set="fixit">
+      <div class="lab-h"><span class="t"><b>实践 6.8</b>同学的电脑出事了，第一步做什么？</span><span class="hint">6 个真实场景</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-8">
+    <div class="col">
+      <p class="eyebrow">6.8 Linux 极简入门 · 三大系统 · 系统安全</p>
+      <h3>看得懂命令行就行，不用装复杂环境</h3>
+      <p><span class="term">Linux</span> 开源、免费、多用户，服务器几乎全用它，Android 的底层也是 Linux，图形界面不是强项，命令行为主。几个高频命令认得就行：<b>pwd</b> 当前在哪、<b>ls</b> 列出文件、<b>cd 目录</b> 进入目录、<b>mkdir 名字</b> 新建文件夹、<b>rm 文件</b> 删除、<b>sudo 命令</b> 以管理员执行。和 Windows 的区别：没有盘符，从根目录 / 开始，路径用斜杠 /（Windows 是反斜杠 \）。</p>
+      <p>Windows 适合个人电脑、办公、游戏，软件生态最强；macOS 只在苹果硬件上跑，设计和开发同学常用；Linux 开源免费，跑在服务器、嵌入式和开发环境里。没有谁更好，只有谁更适合场景。安全方面：系统自带的 <b>Windows Defender</b> 实时打开就够了，不装第二家安全管家，多个安全软件互相打架反而拖慢系统；真正要防的是捆绑软件、藏在破解软件里的木马和来历不明的 .exe。</p>
+    </div>
+    <div class="lab" data-w="linux">
+      <div class="lab-h"><span class="t"><b>实践 6.9</b>Linux 命令行沙盒</span><span class="hint">在这个假的文件系统里随便折腾，不会弄坏任何东西</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="lab" data-w="classify" data-set="oswhich">
+      <div class="lab-h"><span class="t"><b>实践 6.10</b>这个场景该用哪个系统？</span><span class="hint">Windows、macOS 还是 Linux</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k6-9">
+    <div class="col">
+      <p class="eyebrow">6.9 课后带走这 8 条</p>
+      <h3>不需要成为专家，做到这些就够用</h3>
+      <p>电脑是工具，不是玄学。遇到问题先冷静，大部分都能自己查、自己修。下面 8 条，做到一条勾一条——这一页会记住你的进度。</p>
+    </div>
+    <div class="lab" data-w="checklist">
+      <div class="lab-h"><span class="t"><b>实践 6.11</b>我的电脑习惯清单</span><span class="hint">在自己的电脑上真的做到了再勾</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+</div>
 
 <div class="chapter cq" data-chapter="quiz" hidden>
   <div class="opener" id="quiz">
@@ -960,7 +1241,7 @@ const HTML = String.raw`
   </section>
 </div>
 
-<div class="foot">信息技术基础互动课堂 · 内容更新至 2026 年 9 月 26 日。键盘 <span class="kbd">→</span> <span class="kbd">PageDown</span> 跳到下一个知识点，<span class="kbd">←</span> <span class="kbd">PageUp</span> 回到上一个，适合用翻页笔讲课。</div>
+<div class="foot">信息技术基础互动课堂 · 内容更新至 2026 年 10 月 9 日。键盘 <span class="kbd">→</span> <span class="kbd">PageDown</span> 跳到下一个知识点，<span class="kbd">←</span> <span class="kbd">PageUp</span> 回到上一个，适合用翻页笔讲课。</div>
   </div>
 </main>
 
@@ -1131,7 +1412,7 @@ function accOf(el){const c=el.closest('.chapter')||document.documentElement;retu
 function onVisible(el,fn,opts){const io=new IntersectionObserver(es=>es.forEach(e=>fn(e.isIntersecting,e)),opts||{});io.observe(el);return io}
 
 /* ---------- tabs & chapters ---------- */
-const chapters=$$('.chapter');const ORDER=['t1','t2','t3','t4','quiz'];
+const chapters=$$('.chapter');const ORDER=chapters.map(c=>c.dataset.chapter); // 任务顺序由页面里的 .chapter 决定，加任务不用改这里
 function showChapter(id,scroll=true){
   if(!ORDER.includes(id))id='t1';
   chapters.forEach(c=>c.hidden=c.dataset.chapter!==id);
@@ -2025,6 +2306,268 @@ W.radar=function(el){const body=$('.lab-b',el);const A=[['持续学习','技术�
   body.append(h('div',{class:'split'},ctl,h('div',{},svgBox,tip)));draw();
 };
 
+/* ================= 任务五 · 网络基础 ================= */
+Object.assign(SETS,{
+  netparts:{buckets:[['设备','看得见摸得着的硬件'],['协议','大家都遵守的规则'],['共享','网络能做到的事']],
+    items:[['路由器',0],['网线和光纤',0],['手机和笔记本',0],['HTTP',1],['TCP/IP',1],['大家都用同一种「语言」交流',1],['全班共用一台打印机',2],['把作业传到老师电脑上',2],['刷短视频、看网页',2]],
+    tip:{0:'设备：电脑、手机、服务器、路由器、交换机、网线，都是硬件。',1:'协议：通信双方约定好的规则，没有共同的协议就像鸡同鸭讲。',2:'共享：资源共享和信息传递，这是建网络的目的。'}},
+  netdev:{buckets:[['网卡','电脑联网的硬件接口'],['交换机','同一个局域网内转发'],['路由器','连接不同的网络'],['MAC 地址','网卡的硬件身份证'],['IP 地址','网络分配的门牌号']],
+    items:[['有线的是 RJ45 网口，无线的连 WiFi',0],['工作在数据链路层，出厂烧录了唯一编号',0],['靠 MAC 地址在同一个楼里转发数据',1],['机房里 40 台电脑都插在它上面',1],['靠 IP 地址给数据包选路，连通「楼跟楼」',2],['家里 WiFi 的那个盒子，给每台设备分配 IP',2],['48 位，写成 6 组十六进制，如 00:1A:2B:3C:4D:5E',3],['像手机的 IMEI，换了网络也不变',3],['192.168.1.100 这样的四段数字',4],['逻辑地址，出了局域网也能寻址',4]],
+    tip:{0:'网卡是电脑上网的硬件接口，有线、无线两种。',1:'交换机管同一局域网内的通信，看 MAC 地址。',2:'路由器连接不同网络，看 IP 地址选路，还负责分配局域网 IP。',3:'MAC 地址是硬件地址，全球唯一，只在局域网内有效。',4:'IP 地址是逻辑地址，由网络分配，全球互联网都能寻址。'}},
+  protos:{buckets:[['应用层','HTTP · DNS · FTP'],['传输层','TCP · UDP'],['网络层','IP · 路由'],['网络接口层','网卡 · MAC · 网线']],
+    items:[['HTTP / HTTPS：浏览网页',0],['DNS：把域名翻译成 IP',0],['FTP：传文件',0],['TCP：可靠传输，不丢、按顺序',1],['UDP：更快但不保证送到，视频通话常用',1],['IP：寻址和路由选择',2],['路由器',2],['网卡和 MAC 地址',3],['交换机',3],['网线、光纤、WiFi 电波',3]],
+    tip:{0:'应用层：我们直接打交道的网络软件和协议都在这里。',1:'传输层：端到端传输，TCP 可靠、UDP 快。',2:'网络层：IP 地址寻址，路由器在这一层工作。',3:'网络接口层：合并了 OSI 的数据链路层和物理层，网卡、交换机、线缆都在这。'}}
+});
+Object.assign(ORDERS,{
+  web5:{items:[['在浏览器地址栏输入网址，按回车',0],['DNS 解析：把域名翻译成服务器 IP',1],['和服务器建立 TCP 连接',2],['发送 HTTP 请求，服务器返回网页数据',3],['浏览器解析代码，渲染出页面',4]],start:'点击第一步：你做的第一个动作是什么？',done:'✓ 五步全对：输入网址 → DNS 解析 → 建立连接 → 请求数据 → 渲染显示。'}
+});
+
+/* 5.2 分层对照 + 口诀练习 */
+W.layers=function(el){const body=$('.lab-b',el);
+  const OSI=[['物理层','网线、光纤、无线电，传输 0 和 1 的比特流','网线 · 光纤 · 集线器'],['数据链路层','MAC 地址、帧传输，相邻节点间的可靠传递','MAC · 交换机'],['网络层','IP 地址寻址、路由选择，决定数据走哪条路','IP · 路由器'],['传输层','端到端通信，TCP / UDP，负责可靠传输','TCP · UDP'],['会话层','建立、管理和维护通信会话','会话管理'],['表示层','数据格式转换、加密解密、压缩解压','加密 · 编码转换'],['应用层','直接面向用户，HTTP、FTP、SMTP 都在这层','HTTP · FTP · DNS']];
+  const TCP=[['网络接口层',0,1,'把 OSI 的物理层和数据链路层合并：网卡、网线、MAC'],['网络层',2,2,'跟 OSI 的网络层基本一样：IP 寻址和路由'],['传输层',3,3,'跟 OSI 的传输层基本一样：TCP / UDP'],['应用层',4,6,'把 OSI 的应用、表示、会话三层合并：我们直接打交道的所有网络软件']];
+  const left=h('div',{style:'display:grid;gap:6px'}),info=h('div',{class:'card',style:'min-height:7em'}),drill=h('div');
+  let cur=6;
+  function paint(){left.innerHTML='';const t=TCP.find(x=>cur>=x[1]&&cur<=x[2]);
+    for(let i=6;i>=0;i--){const tc=TCP.find(x=>i>=x[1]&&i<=x[2]);const on=i===cur,inT=tc===t;
+      left.append(h('button',{style:`display:grid;grid-template-columns:2.2em 1fr 1fr;gap:10px;align-items:center;text-align:left;padding:8px 12px;border-radius:10px;cursor:pointer;border:1px solid ${on?'var(--acc)':'var(--line)'};background:${on?'var(--acc-soft)':inT?'rgba(255,255,255,.05)':'rgba(0,0,0,.2)'}`,onclick:()=>{cur=i;paint()}},
+        h('span',{class:'mono',style:'color:var(--acc)'},String(i+1)),h('b',{},OSI[i][0]),h('span',{class:'note',style:`${i===tc[1]?'':'visibility:hidden'}`},'→ '+tc[0])))}
+    info.innerHTML=`<div class="mono" style="color:var(--acc);font-size:.78rem;letter-spacing:.1em">第 ${cur+1} 层 · ${OSI[cur][0]}</div><p style="margin:6px 0;color:var(--ink);font-size:1rem">${OSI[cur][1]}</p><p class="note" style="margin:0">典型协议 / 设备：${OSI[cur][2]}</p><p class="note" style="margin:6px 0 0">在 TCP/IP 四层里属于<b style="color:var(--ink)">${t[0]}</b>：${t[3]}</p>`}
+  // 口诀练习：从下往上点
+  const Q=OSI.map(x=>x[0]);let got=[],miss=0;const pool=h('div',{class:'pool'}),seq=h('div',{style:'display:grid;gap:4px;margin-top:10px'}),fb=h('div',{class:'fb'});
+  function reset(){got=[];miss=0;pool.innerHTML='';seq.innerHTML='';fb.className='fb';fb.textContent='口诀「物数网传会表应」：从最底下的第 1 层开始，按顺序点。';shuffle(Q,77).forEach(n=>{const c=h('button',{class:'chip'},n);c.onclick=()=>{const want=Q[got.length];if(n===want){got.push(n);c.remove();seq.prepend(h('div',{class:'card',style:'padding:5px 12px;font-size:.9rem'},h('span',{class:'mono',style:'color:var(--acc);margin-right:8px'},got.length),n));fb.className='fb good';fb.textContent=got.length===7?`✓ 七层全对${miss?`（点错 ${miss} 次）`:'，一次都没错'}！`:'✓ 对，再往上一层？'}else{miss++;c.classList.add('shake');setTimeout(()=>c.classList.remove('shake'),400);fb.className='fb bad';fb.textContent=`✗ 第 ${got.length+1} 层不是它。想想口诀的第 ${got.length+1} 个字。`}};pool.append(c)})}
+  drill.append(h('div',{class:'mono note',style:'margin-bottom:6px'},'口诀练习 · 从下往上'),pool,seq,fb,h('button',{class:'ghost',style:'margin-top:8px',onclick:reset},'重来'));
+  body.append(h('div',{class:'split'},h('div',{},left,h('div',{style:'margin-top:10px'},info)),drill));paint();reset();
+};
+
+/* 5.4 IP 地址解剖 */
+W.iplab=function(el){const body=$('.lab-b',el);
+  const inp=h('input',{type:'text',value:'192.168.1.100',autocomplete:'off',spellcheck:'false',style:'font-family:var(--f-mono);font-size:1.1rem;width:12em'}),mask=h('select',{},...[[24,'/24 · 255.255.255.0（最常见）'],[16,'/16 · 255.255.0.0'],[8,'/8 · 255.0.0.0']].map(([v,t])=>h('option',{value:v},t)));
+  const out=h('div',{style:'margin-top:14px'});
+  const ex=h('div',{class:'row',style:'gap:6px;margin-top:8px'},h('span',{class:'note'},'试试：'),...['192.168.1.100','10.0.3.7','110.242.68.3','8.8.8.8','127.0.0.1','192.168.1.300'].map(p=>h('button',{class:'ghost',onclick:()=>{inp.value=p;run()}},p)));
+  function kind(o){if(o[0]===10||(o[0]===172&&o[1]>=16&&o[1]<=31)||(o[0]===192&&o[1]===168))return['私网 IP','局域网内部用的地址，家里的路由器分配的就是这种，互联网上不能直接访问它。','var(--warn)'];if(o[0]===127)return['本机回环地址','127.0.0.1 永远指向你自己这台电脑，ping 它只是在测自己的网络软件通不通。','var(--acc2)'];if(o[0]>=224)return['特殊用途','224 以上是组播和保留地址，不分给普通电脑。','var(--muted)'];return['公网 IP','运营商分配、全球可寻址的地址，网站服务器用的就是这种。','var(--good)']}
+  function run(){const s=inp.value.trim(),parts=s.split('.');
+    if(parts.length!==4||parts.some(p=>!/^\d{1,3}$/.test(p)||+p>255)){out.innerHTML=`<div class="fb bad">✗ 不是合法的 IPv4 地址：必须是四段、用英文句点隔开、每段 0～255${parts.some(p=>+p>255)?'（有一段超过了 255，8 位二进制最大只能到 255）':''}。</div>`;return}
+    const o=parts.map(Number),m=+mask.value,[kn,kd,kc]=kind(o);
+    const bits=o.map(v=>v.toString(2).padStart(8,'0'));let idx=0;
+    const bin=bits.map((b,i)=>'<span style="letter-spacing:.08em">'+[...b].map(c=>{const net=idx<m;idx++;return `<span style="color:${net?'var(--acc)':'var(--good)'}">${c}</span>`}).join('')+'</span>').join('<span class="note"> . </span>');
+    const netOct=o.map((v,i)=>i*8+8<=m?v:(i*8<m?(v&(0xFF<<(8-(m-i*8))&0xFF)):0));
+    out.innerHTML=`<div class="card"><div class="mono" style="font-size:1.25rem;overflow-wrap:anywhere">${bin}</div><div class="note" style="margin-top:4px"><span style="color:var(--acc)">■</span> 网络号 ${m} 位 　<span style="color:var(--good)">■</span> 主机号 ${32-m} 位</div></div>
+      <div class="stats" style="margin-top:12px"><div class="stat"><span class="k">类型</span><span class="v" style="color:${kc};font-size:1.1rem">${kn}</span></div><div class="stat"><span class="k">所在网段</span><span class="v" style="font-size:1.1rem">${netOct.join('.')}/${m}</span></div><div class="stat"><span class="k">同网段最多</span><span class="v" style="font-size:1.1rem">${cnBig(2**(32-m)-2)}<small> 台</small></span></div></div><p class="note" style="margin:10px 0 0">${kd}</p>`}
+  inp.oninput=run;mask.onchange=run;body.append(h('div',{class:'row'},h('label',{class:'ctl',style:'min-width:0;flex:0'},'IP 地址',inp),h('label',{class:'ctl'},'子网掩码',mask)),ex,out);run();
+};
+
+/* 5.4 封装 scrolly */
+W.encapStage=function(stage){
+  const L=[['帧头','MAC 00:1A… → 7C:D3…','#3FD5FF'],['IP 头','192.168.1.100 → 10.0.3.7','#4DA3FF'],['TCP 头','端口 5000 → 8888 · 序号 #1','#B07CFF'],['数据','下午三点机房见','#37D99E']];
+  stage.innerHTML=`<div style="position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;padding:18px 20px"><div class="row" style="justify-content:space-between"><div class="mono en-tag" style="color:var(--acc);font-size:.85rem;letter-spacing:.14em"></div><div class="note en-side"></div></div><div class="en-box" style="display:grid;place-items:center;min-height:0"></div><div class="en-foot note"></div></div>`;
+  const box=$('.en-box',stage);
+  function draw(n,dir){ // n = 几层信封已加上（0..3），dir 发/收
+    const W0=460,H0=340,PX=20,PY=44;let s=`<svg viewBox="0 0 ${W0} ${H0}" style="width:100%;max-height:100%"><defs><filter id="eg" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+    for(let i=0;i<4;i++){const depth=3-i;const on=i===3||(3-i)<=n;const x=PX*i,y=PY*i,w=W0-2*x,hh=H0-2*y;const[name,desc,col]=L[i];
+      s+=`<g style="transition:opacity .4s" opacity="${on?1:0.08}"><rect x="${x+2}" y="${y+2}" width="${w-4}" height="${hh-4}" rx="14" fill="${col}" fill-opacity="${i===3?.18:.07}" stroke="${col}" stroke-width="${(3-i)===n&&n<3?3:1.5}" ${((3-i)===n&&n<3)?'filter="url(#eg)"':''}/>`;
+      if(i<3)s+=`<text x="${x+14}" y="${y+20}" font-size="12" font-weight="700" fill="${col}">${name}</text><text x="${x+14}" y="${y+36}" font-size="11" fill="var(--muted)" class="mono">${desc}</text>`;
+      else s+=`<text x="${W0/2}" y="${H0/2+6}" text-anchor="middle" font-size="16" font-weight="800" fill="var(--ink)">「${desc}」</text><text x="${W0/2}" y="${H0/2+26}" text-anchor="middle" font-size="11" fill="${col}">应用层数据</text>`;s+='</g>'}
+    return s+'</svg>'}
+  const S=[[0,'应用层','发送方','最里面是你写的消息。'],[1,'传输层','发送方 · 加第 1 层信封','TCP 头：端口号 + 序号，保证交给对的程序、按顺序到。'],[2,'网络层','发送方 · 加第 2 层信封','IP 头：源 IP → 目的 IP，一路上的路由器都看它。'],[3,'数据链路层','发送方 · 加第 3 层信封','帧头：这一段线路两端的 MAC 地址，每过一个路由器换一次。'],[3,'物理层','在线路上','整个包裹变成 0 和 1，沿网线、光纤、WiFi 传过去。'],[0,'接收方','对方电脑 · 逐层拆开','拆帧头看 MAC → 拆 IP 头看 IP → 拆 TCP 头看端口 → 聊天软件收到消息。']];
+  return{set(i){const[n,tag,side,foot]=S[i];$('.en-tag',stage).textContent=tag;$('.en-side',stage).textContent=side;$('.en-foot',stage).textContent=foot;
+    if(i===5){let k=3;box.innerHTML=draw(3);const t=setInterval(()=>{k--;box.innerHTML=draw(k);if(k<=0)clearInterval(t)},reduced?0:600)}else box.innerHTML=draw(n)}}
+};
+
+/* 5.7 域名拆解 */
+W.domain=function(el){const body=$('.lab-b',el);
+  const TLD={com:'商业公司，最常见',org:'非营利组织',net:'网络服务商',edu:'教育机构（美国）',gov:'政府机构（美国）',cn:'中国',hk:'中国香港',tw:'中国台湾',jp:'日本',uk:'英国',io:'原本是英属印度洋领地，现在程序员和创业公司爱用',xyz:'新通用顶级域，注册门槛低，钓鱼网站也常用',top:'新通用顶级域，便宜，骗子也爱用',cc:'科科斯群岛，常被拿来仿冒',art:'艺术类新通用顶级域'};
+  const SLD={edu:'教育机构',gov:'政府机关',org:'非营利组织',com:'企业',net:'网络机构',ac:'科研机构'};
+  const inp=h('input',{type:'text',value:'www.pku.edu.cn',autocomplete:'off',spellcheck:'false',style:'font-family:var(--f-mono);font-size:1.1rem;width:100%'}),out=h('div',{style:'margin-top:12px'});
+  const ex=h('div',{class:'row',style:'gap:6px;margin-top:8px'},h('span',{class:'note'},'试试：'),...['www.baidu.com','www.pku.edu.cn','www.gov.cn','cradle.art','mail.qq.com','icbc.com.cn.safe-verify.top'].map(p=>h('button',{class:'ghost',onclick:()=>{inp.value=p;run()}},p)));
+  function run(){let s=inp.value.trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/.*$/,'');const parts=s.split('.').filter(Boolean);
+    if(parts.length<2||parts.some(p=>!/^[a-z0-9-]+$/.test(p))){out.innerHTML='<div class="fb bad">✗ 输入一个完整的域名，比如 www.baidu.com（只能有字母、数字、连字符和点）。</div>';return}
+    const tld=parts[parts.length-1];let i=parts.length-1;const rows=[['根域「.」','最顶层，所有域名最终都指向这里（平时省略不写）','var(--muted)']];
+    rows.push(['顶级域 .'+tld,TLD[tld]||'顶级域名后缀','var(--acc)']);i--;
+    if(i>=1&&['cn','hk','tw','uk','jp'].includes(tld)&&SLD[parts[i]]){rows.push(['二级域 .'+parts[i],`${SLD[parts[i]]}，在 .${tld} 下再分一层`,'var(--acc)']);i--}
+    if(i>=0){rows.push([(rows.length===2?'二级域 ':'三级域 ')+parts[i],'注册这个域名的公司或机构的名字——这才是「主域名」，判断网站真假看这里','var(--good)']);i--}
+    while(i>=0){rows.push([(i===0?'主机名 ':'子域 ')+parts[i],i===0?(parts[i]==='www'?'www 通常是网站服务器，mail 是邮件服务器':'这台服务器或子站点的名字'):'机构内部再分的一层','var(--acc2)']);i--}
+    const main=rows.find(r=>r[2]==='var(--good)');
+    out.innerHTML=`<div class="card" style="padding:12px 14px"><div class="mono" style="font-size:1.3rem;overflow-wrap:anywhere">${parts.map((p,k)=>`<span style="color:${k===parts.length-1?'var(--acc)':(main&&main[0].endsWith(p)&&k===parts.indexOf(main[0].split(' ')[1]))?'var(--good)':'var(--ink)'}">${p}</span>`).join('<span class="note">.</span>')}<span class="note">.</span></div></div>
+      <ol style="margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px">${rows.map(([t,d,c])=>`<li class="card" style="padding:8px 12px;border-left:3px solid ${c}"><b style="color:${c}">${t}</b><span class="note"> — ${d}</span></li>`).join('')}</ol>
+      ${main?`<p class="fb ${/safe-verify|refund|login/.test(s)?'bad':''}" style="margin-top:10px">主域名是 <b>${main[0].split(' ')[1]}.${parts.slice(parts.indexOf(main[0].split(' ')[1])+1).join('.')}</b>${/safe-verify|refund|login/.test(s)?'——前面的 icbc.com.cn 只是骗人的前缀，这是钓鱼网址！':'。判断一个网址是不是官方的，就看这一段。'}</p>`:''}`}
+  inp.oninput=run;body.append(inp,ex,out);run();
+};
+
+/* 5.8 模拟命令行 */
+W.term=function(el){const body=$('.lab-b',el);
+  const ME='192.168.1.23',GW='192.168.1.1',DNS='114.114.114.114';const HOSTS={'www.baidu.com':'110.242.68.3','baidu.com':'110.242.68.66','www.cradle.art':'76.76.21.21','cradle.art':'76.76.21.21','www.pku.edu.cn':'162.105.131.113','www.qq.com':'121.14.77.221','www.gov.cn':'36.110.213.189','localhost':'127.0.0.1','8.8.8.8':'8.8.8.8','114.114.114.114':'114.114.114.114','127.0.0.1':'127.0.0.1'};
+  const scr=h('pre',{style:'margin:0;background:#07090F;border:1px solid var(--line2);border-radius:10px;padding:12px 14px;min-height:260px;max-height:420px;overflow:auto;font-family:var(--f-mono);font-size:.84rem;line-height:1.55;white-space:pre-wrap;color:#D6DEEE'}),inp=h('input',{type:'text',autocomplete:'off',spellcheck:'false',placeholder:'输入命令后按回车，例如 ipconfig',style:'font-family:var(--f-mono);flex:1'});
+  const quick=h('div',{class:'row',style:'gap:6px'},...['ipconfig','ping www.baidu.com','tracert www.baidu.com','ping 192.168.1.1','help','cls'].map(c=>h('button',{class:'ghost',onclick:()=>run(c)},c)));
+  const print=t=>{scr.textContent+=t+'\n';scr.scrollTop=scr.scrollHeight};const r=(a,b)=>a+Math.floor(Math.random()*(b-a+1));const sleep=ms=>new Promise(x=>setTimeout(x,reduced?0:ms));let busy=false;
+  print('Microsoft Windows [版本 10.0.26100]\n(c) Microsoft Corporation。保留所有权利。\n（模拟环境 · 本机 IP '+ME+'）\n');
+  async function run(cmd){if(busy)return;cmd=cmd.trim();print('C:\\Users\\student>'+cmd);if(!cmd)return;const[c,...a]=cmd.split(/\s+/);const cc=c.toLowerCase();busy=true;
+    try{if(cc==='cls'){scr.textContent=''}
+    else if(cc==='help'){print('可以试的命令：\n  ipconfig            查看本机的网络配置\n  ping <网址或IP>      测试网络通不通\n  tracert <网址或IP>   跟踪数据包经过的路由器\n  cls                 清屏\n')}
+    else if(cc==='ipconfig'){print(`\nWindows IP 配置\n\n以太网适配器 以太网:\n\n   连接特定的 DNS 后缀 . . . . . . . :\n   IPv4 地址 . . . . . . . . . . . . : ${ME}\n   子网掩码  . . . . . . . . . . . . : 255.255.255.0\n   默认网关. . . . . . . . . . . . . : ${GW}\n${a[0]==='/all'?`   DNS 服务器  . . . . . . . . . . . : ${DNS}\n   物理地址. . . . . . . . . . . . . : 00-1A-2B-3C-4D-5E\n   DHCP 已启用 . . . . . . . . . . . : 是\n`:''}`)}
+    else if(cc==='ping'||cc==='tracert'||cc==='traceroute'){const host=(a[0]||'').toLowerCase();if(!host){print('用法：'+cc+' <网址或 IP>');}else{const ip=HOSTS[host]||(/^\d+\.\d+\.\d+\.\d+$/.test(host)?host:null);
+      if(!ip){print(`Ping 请求找不到主机 ${host}。请检查该名称，然后重试。\n（提示：这里只模拟了几个网址，试试 www.baidu.com、www.pku.edu.cn、8.8.8.8）`)}
+      else if(cc==='ping'){const local=ip.startsWith('192.168.')||ip==='127.0.0.1',base=local?1:ip.startsWith('110.')?r(18,30):r(30,60);print(`\n正在 Ping ${host} [${ip}] 具有 32 字节的数据:`);const ts=[];for(let i=0;i<4;i++){await sleep(500);const t=local?(Math.random()<.7?'<1':'1'):String(base+r(-3,6));ts.push(t==='<1'?1:+t);print(`来自 ${ip} 的回复: 字节=32 时间${t==='<1'?'<1ms':'='+t+'ms'} TTL=${local?64:r(50,56)}`)}
+        print(`\n${ip} 的 Ping 统计信息:\n    数据包: 已发送 = 4，已接收 = 4，丢失 = 0 (0% 丢失)，\n往返行程的估计时间(以毫秒为单位):\n    最短 = ${Math.min(...ts)}ms，最长 = ${Math.max(...ts)}ms，平均 = ${Math.round(ts.reduce((x,y)=>x+y)/4)}ms\n`)}
+      else{print(`\n通过最多 30 个跃点跟踪\n到 ${host} [${ip}] 的路由:\n`);const hops=[[GW,1],['100.64.0.1',3],['183.218.'+r(1,200)+'.'+r(1,254),5],['221.183.'+r(1,200)+'.'+r(1,254),8],['*',0],['219.158.'+r(1,200)+'.'+r(1,254),14],[ip,ip.startsWith('110.')?18:36]];if(ip.startsWith('192.168.')||ip==='127.0.0.1')hops.length=1,hops[0]=[ip,1];
+        for(let i=0;i<hops.length;i++){await sleep(450);const[hp,t]=hops[i];print(hp==='*'?`  ${i+1}     *        *        *     请求超时。`:`  ${i+1}    ${String(t+r(0,2)).padStart(2)} ms    ${String(t+r(0,3)).padStart(2)} ms    ${String(t+r(0,2)).padStart(2)} ms  ${hp}`)}
+        print('\n跟踪完成。\n'+(hops.length>1?`（第 1 跳 ${GW} 就是你的默认网关——家里或机房的路由器；中间打星号的一跳是不回应探测的路由器，不代表断了。）`:'（同一个局域网里，一跳就到。）'))}}}
+    else print(`'${c}' 不是内部或外部命令，也不是可运行的程序。输入 help 看看能用什么。`)}
+    finally{busy=false;inp.focus()}}
+  const form=h('form',{class:'row',style:'margin-top:10px;gap:8px',onsubmit:e=>{e.preventDefault();const v=inp.value;inp.value='';run(v)}},h('span',{class:'mono note'},'C:\\>'),inp,h('button',{class:'btn'},'回车'));
+  body.append(scr,form,h('div',{style:'margin-top:10px'},h('span',{class:'note'},'快捷：'),quick));
+};
+
+/* 5.7 两个实践任务 */
+W.nettasks=function(el){const T=[
+  ['实践任务一','做一次「网络地址侦探」','你发的每条消息都要经过好几站才能到对方那里。今天当一回侦探，看看数据从你的电脑出发，走了哪些中转站。',[['找到自己的地址','打开 cmd，输入 ipconfig，记下你的 IPv4 地址和默认网关（路由器 IP）。'],['追踪旅程路线','输入 tracert www.baidu.com，数一数到百度一共经过了几站，第一站是不是你的网关。'],['画出旅程地图','把每一站的 IP 记下来，画一条路线：你的电脑 → 路由器 → … → 百度。']],'找到自己的 IP 和网关，数清楚到百度经过了几跳，能说出「第一跳为什么是网关」。'],
+  ['实践任务二','当你按下回车的那一刻','从输入网址到页面完全显示，这零点几秒里发生了什么？用浏览器的「透视眼」看清楚。',[['打开透视眼','打开 Chrome 或 Edge，按 F12 打开开发者工具，切换到「网络（Network）」标签。'],['观察加载全过程','刷新百度首页，数一数一共加载了多少个文件，哪个文件最大。'],['速度大对比','分别打开百度和淘宝，比一比哪个加载更快，快的原因是什么。']],'能打开 F12 看到网络请求列表，数清楚一个网页加载了多少个文件，能说出为什么有的网站快有的慢。']];
+  T.forEach(([k,t,bg,steps,done])=>el.append(h('div',{class:'card',style:'background:linear-gradient(160deg,var(--acc-soft),transparent 60%)'},h('div',{class:'mono',style:'color:var(--acc);font-size:.78rem;letter-spacing:.1em'},k),h('h5',{style:'font-size:1.1rem;margin:4px 0 8px'},t),h('p',{},bg),
+    h('ol',{style:'margin:0 0 10px;padding-left:1.4em;display:grid;gap:6px;font-size:.92rem;color:#D3DBEE'},...steps.map(([a,b])=>h('li',{},h('b',{},a+'　'),b))),h('p',{class:'note',style:'margin:0'},'完成标准：'+done))))
+};
+
+/* ================= 任务六 · 操作系统与 Windows 11 ================= */
+Object.assign(SETS,{
+  osjobs:{buckets:[['CPU 管理','谁先用、用多久'],['内存管理','临时数据放哪'],['文件管理','存在硬盘的哪里、怎么取']],
+    items:[['同时开着微信、浏览器和 Word，每个都在动',0],['游戏卡住了，鼠标也动不了，等它把算力让出来',0],['开的软件太多，提示「内存不足」',1],['关掉几个网页，电脑马上流畅了',1],['论文保存在 D:\\学习\\大一上\\',2],['回收站里还能找回误删的照片',2],['U 盘格式化时问你选 NTFS 还是 exFAT',2]],
+    tip:{0:'CPU 管理：操作系统轮流把 CPU 分给各个进程，谁先用、用多久都由它调度。',1:'内存管理：决定每个程序的临时数据放在内存的哪里，不够时借硬盘当虚拟内存。',2:'文件管理：盘符、路径、文件系统、回收站，都是文件管理的事。'}},
+  oswhich:{buckets:[['Windows','个人电脑 · 办公 · 游戏'],['macOS','苹果电脑 · 设计 · 开发'],['Linux','服务器 · 嵌入式 · 开发']],
+    items:[['上课用的机房电脑，装了 Office 和专业软件',0],['周末打《原神》和《英雄联盟》',0],['编导专业同学在 MacBook 上剪片子',1],['开发 iPhone 的 App，只能在它上面编译',1],['网站和 App 的后端服务器',2],['实验课要搭一个爬虫环境，开源免费',2],['Android 手机的底层',2]],
+    tip:{0:'Windows 软件生态最强，办公、游戏、专业软件大多首选它。',1:'macOS 只在苹果硬件上跑，界面流畅统一，设计和 iOS 开发离不开它。',2:'Linux 开源免费，服务器几乎全用它，Android 底层也是它。'}}
+});
+
+/* 通用：真假判断 */
+const TFS={filetf:[['桌面上的文件其实存在 C 盘里。',true,'桌面是 C:\\Users\\你\\Desktop，堆多了开机变慢，重装系统全没。'],['删掉的文件会立刻从硬盘上擦掉。',false,'只是「标记为可覆盖」，所以误删能从回收站还原，专业软件甚至能恢复。'],['U 盘里删掉的文件也会进回收站。',false,'U 盘和移动硬盘删文件不进回收站，直接没了。'],['Shift + Delete 会跳过回收站，永久删除。',true,'按之前三思。'],['.rar 压缩包 Windows 自带就能解压。',false,'自带只支持 .zip，.rar 要装 7-Zip 或 WinRAR。'],['分卷压缩包只下载了 part1 也能解压出一部分。',false,'全部分卷都下载完才能解压。'],['C 盘爆红时，清空回收站能腾出空间。',true,'回收站占的也是 C 盘空间。'],['U 盘用完直接拔就行，不用「安全弹出」。',false,'传输可能还没写完，直接拔容易损坏文件。']]};
+W.tf=function(el){const body=$('.lab-b',el);const Q=TFS[el.dataset.set];let k=0,ok=0;const box=h('div');body.append(box);
+  function show(){if(k>=Q.length){box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div class="mono note">完成</div><div style="font-size:2rem;font-weight:900" class="grad">${ok} / ${Q.length}</div><p>一次判断正确 ${ok} 条。</p><button class="btn" id="tfAgain">再来一次</button></div>`;$('#tfAgain',box).onclick=()=>{k=0;ok=0;show()};return}
+    const[q,a,w]=Q[k];box.innerHTML='';const fb=h('div',{class:'fb'}),nx=h('button',{class:'btn',hidden:'',style:'margin-top:10px',onclick:()=>{k++;show()}},k<Q.length-1?'下一条 →':'看结果');
+    const opts=h('div',{class:'row',style:'gap:8px;margin-top:14px'},...[['✓ 真的',true],['✗ 假的',false]].map(([t,v])=>h('button',{class:'btn sec',style:'min-width:110px',onclick:e=>{$$('button',opts).forEach(x=>x.disabled=true);const right=v===a;if(right)ok++;e.target.style.cssText+=`background:${right?'var(--good)':'var(--bad)'};color:#06080F;border-color:${right?'var(--good)':'var(--bad)'}`;fb.className='fb '+(right?'good':'bad');fb.textContent=(right?'✓ 对。':'✗ 不对。')+w;nx.hidden=false}},t)));
+    box.append(h('div',{class:'mono note'},`第 ${k+1} / ${Q.length} 条`),h('div',{style:'font-size:1.2rem;font-weight:700;margin-top:6px'},q),opts,fb,nx)}
+  show();
+};
+
+/* 通用：配对 */
+const PAIRS={shortcuts:[['Win + I','打开「设置」'],['Ctrl + Shift + Esc','打开任务管理器'],['Win + Shift + S','截图'],['Win + V','剪贴板历史'],['Win + R','运行（输入 cmd 开命令行）'],['Win + E','打开文件资源管理器'],['F12','浏览器开发者工具']]};
+W.pairs=function(el){const body=$('.lab-b',el);const P=PAIRS[el.dataset.set];let sel=null,wrong=new Set(),done=new Set();
+  const L=h('div',{style:'display:grid;gap:8px'}),R=h('div',{style:'display:grid;gap:8px'}),fb=h('div',{class:'fb'});const right=shuffle(P.map((p,i)=>i),P.length*11+2);
+  function paint(){L.innerHTML='';R.innerHTML='';P.forEach((p,i)=>L.append(h('button',{class:'chip'+(sel===i?' sel':'')+(done.has(i)?' ok':''),style:'font-family:var(--f-mono);justify-self:start',disabled:done.has(i)?'':null,onclick:()=>{sel=i;paint()}},p[0])));
+    right.forEach(i=>R.append(h('button',{class:'opt'+(done.has(i)?' right':''),disabled:done.has(i)?'':null,onclick:()=>{if(sel==null){fb.className='fb';fb.textContent='先点左边一个快捷键。';return}if(sel===i){done.add(i);fb.className='fb good';fb.textContent=`✓ ${P[i][0]} → ${P[i][1]}`;sel=null;if(done.size===P.length)fb.textContent=`✓ 全部配对完成，一次就对的有 ${P.length-wrong.size} 个。`}else{wrong.add(sel);fb.className='fb bad';fb.textContent=`✗ ${P[sel][0]} 不是「${P[i][1]}」。`}paint()}},P[i][1])))}
+  body.append(h('div',{class:'split even'},L,R),fb,h('button',{class:'ghost',style:'margin-top:8px',onclick:()=>{sel=null;wrong=new Set();done=new Set();fb.textContent='';paint()}},'重来'));paint();
+};
+
+/* 通用：情景选择 */
+const SCEN={fixit:[
+  ['同学的笔记本开着游戏突然卡死，鼠标能动但点什么都没反应。',['直接长按电源键关机','Ctrl + Shift + Esc 打开任务管理器，结束占用最高的进程','重装系统','拔掉电源'],1,'先用任务管理器结束卡死的进程，大多数情况就好了。长按电源强制关机是最后手段，可能丢文件。'],
+  ['开机时蓝屏了一次，重启后正常，但这周已经第三次。',['不管它，能用就行','频繁蓝屏先查驱动：显卡、无线网卡驱动更新或回退','马上把硬盘格式化','换一台电脑'],1,'偶尔一次蓝屏重启即可；频繁蓝屏常见原因是驱动出问题或内存接触不良，先从驱动查起。'],
+  ['联想游戏本突然搜不到任何 WiFi，手机却能连。',['WiFi 坏了，去修','重启路由器','检查无线网卡驱动是不是掉了，重装驱动','重装 Windows'],2,'手机能连说明 WiFi 没问题；电脑搜不到任何网络，多半是无线网卡驱动掉了。'],
+  ['装了个「系统优化大师」后桌面乱了、浏览器主页也被改了。',['再装一个优化软件修复','用系统还原点回退到装它之前，并卸载它','重装所有软件','格式化 C 盘'],1,'系统还原点可以回退到正常状态，不影响个人文件；然后在「设置 → 应用」里正规卸载它。'],
+  ['U 盘要把一个 6 GB 的视频从 Windows 拷到同学的 MacBook 上，提示「文件过大」。',['把视频压缩一下','U 盘格式化成 exFAT（先备份 U 盘里的东西）','格式化成 FAT32','格式化成 NTFS'],1,'FAT32 单文件最大 4 GB；NTFS 在 Mac 上只读；exFAT 两边都能读写、大文件没问题。'],
+  ['论文写了一半，电脑硬盘坏了，修不好。',['花钱找人恢复数据','以后：重要文件定期备份到移动硬盘或云盘','以后：把文件都放桌面','以后：不写论文了'],1,'系统可以重装，数据没了就是真没了。备份的优先级高于一切技巧。']]};
+W.scenario=function(el){const body=$('.lab-b',el);const Q=SCEN[el.dataset.set];let k=0,ok=0;const box=h('div');body.append(box);
+  function show(){if(k>=Q.length){box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div class="mono note">完成</div><div style="font-size:2rem;font-weight:900" class="grad">${ok} / ${Q.length}</div><p>一次选对 ${ok} 个场景。</p><button class="btn" id="scAgain">再来一次</button></div>`;$('#scAgain',box).onclick=()=>{k=0;ok=0;show()};return}
+    const[q,o,a,w]=Q[k];box.innerHTML='';const fb=h('div',{class:'fb'}),nx=h('button',{class:'btn',hidden:'',style:'margin-top:10px',onclick:()=>{k++;show()}},k<Q.length-1?'下一个场景 →':'看结果');
+    const opts=h('div',{class:'opts',style:'margin-top:12px'},...o.map((t,i)=>h('button',{class:'opt',onclick:e=>{$$('.opt',opts).forEach(x=>x.disabled=true);if(i===a){ok++;e.target.classList.add('right')}else{e.target.classList.add('wrong');$$('.opt',opts)[a].classList.add('right')}fb.className='fb '+(i===a?'good':'bad');fb.textContent=(i===a?'✓ ':'✗ ')+w;nx.hidden=false}},'ABCD'[i]+'．'+t)));
+    box.append(h('div',{class:'mono note'},`场景 ${k+1} / ${Q.length}`),h('div',{style:'font-size:1.15rem;font-weight:700;margin-top:6px'},q),opts,fb,nx)}
+  show();
+};
+
+/* 6.2 任务管理器模拟器 */
+W.taskmgr=function(el){const body=$('.lab-b',el);
+  const APPS=[['Windows 系统','sys',1800,8,true],['微信','app',420,2],['QQ','app',380,2],['Chrome 标签页','tab',350,6],['Word 论文','app',300,3],['网易云音乐','app',260,2],['Photoshop','app',2600,12],['原神','game',4800,35],['视频会议','app',900,15]];
+  let ram=8192,procs=[{n:'Windows 系统',m:1800,c:8,sys:true}];
+  const sel=h('div',{class:'seg'},...[8,16,32].map((g,i)=>h('button',{'aria-pressed':String(i===0)},g+' GB 内存')));seg(sel,i=>{ram=[8192,16384,32768][i];paint()});
+  const open=h('div',{class:'row',style:'gap:6px;margin:10px 0'}),list=h('div',{style:'display:grid;gap:4px'}),bar=h('div'),gauge=h('div');
+  function paint(){const used=procs.reduce((a,p)=>a+p.m,0),cpu=Math.min(100,procs.reduce((a,p)=>a+p.c,0)),pct=used/ram,over=Math.max(0,used-ram);
+    const st=pct<.6?['流畅',"var(--good)",'内存充足，软件切换没有感觉。']:pct<.85?['一般','var(--warn)','内存快满了，再开几个就要借硬盘了。']:pct<1?['有点卡','#FF8A5A','内存几乎占满，系统开始频繁整理和压缩内存。']:['卡顿 / 假死','var(--bad)',`内存超出 ${fmtBytes(over*1048576)}，这部分放到了硬盘的虚拟内存里，速度差几十倍——这就是「卡」的原因。`];
+    bar.innerHTML=`<div class="row" style="justify-content:space-between"><b>内存 ${fmtBytes(used*1048576)} / ${ram/1024} GB</b><span style="color:${st[1]};font-weight:800">${st[0]}</span></div><div style="height:16px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden;margin:6px 0"><div style="height:100%;width:${Math.min(100,pct*100)}%;background:${st[1]};transition:width .3s"></div></div>${over?`<div style="height:10px;border-radius:5px;background:rgba(255,90,106,.15);overflow:hidden"><div style="height:100%;width:${Math.min(100,over/ram*100)}%;background:repeating-linear-gradient(45deg,var(--bad) 0 6px,transparent 6px 12px)"></div></div><div class="note">↑ 借用硬盘的虚拟内存 ${fmtBytes(over*1048576)}</div>`:''}<p class="note" style="margin:6px 0 0">${st[2]}　CPU ${cpu}%</p>`;
+    list.innerHTML='';list.append(h('div',{class:'row',style:'font-size:.78rem;color:var(--muted);padding:0 8px;justify-content:space-between'},h('span',{},'进程'),h('span',{},'内存 · CPU')));
+    procs.slice().sort((a,b)=>b.m-a.m).forEach(p=>list.append(h('div',{class:'row',style:`justify-content:space-between;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid ${p.m>=2000?'rgba(255,90,106,.4)':'var(--line)'}`},h('span',{},p.sys?'🪟 ':'',p.n,p.sys?h('span',{class:'note'},'（系统进程，别结束）'):null),h('span',{class:'row',style:'gap:10px'},h('span',{class:'mono note'},`${fmtBytes(p.m*1048576)} · ${p.c}%`),p.sys?null:h('button',{class:'ghost',onclick:()=>{procs=procs.filter(x=>x!==p);paint()}},'结束任务')))))}
+  APPS.filter(a=>!a[4]).forEach(([n,t,m,c])=>open.append(h('button',{class:'btn sec',onclick:()=>{procs.push({n:t==='tab'?n+' '+(procs.filter(p=>p.n.startsWith(n)).length+1):n,m,c});paint()}},'打开 '+n)));
+  body.append(h('div',{class:'row',style:'justify-content:space-between'},h('span',{class:'note'},'这台电脑有多少内存？'),sel),open,h('div',{class:'split'},list,bar));paint();
+};
+
+/* 6.3 路径解读 */
+W.pathlab=function(el){const body=$('.lab-b',el);
+  const inp=h('input',{type:'text',value:'C:\\Users\\张三\\Desktop\\论文.docx',autocomplete:'off',spellcheck:'false',style:'font-family:var(--f-mono);font-size:1.05rem;width:100%'}),out=h('div',{style:'margin-top:12px'});
+  const ex=h('div',{class:'row',style:'gap:6px;margin-top:8px'},h('span',{class:'note'},'试试：'),...['C:\\Users\\张三\\Desktop\\论文.docx','D:\\学习\\大一上\\信息技术\\作业1.pptx','C:\\Program Files\\WeChat\\WeChat.exe','E:\\素材\\照片\\IMG_2026.jpg','/home/zhangsan/docs/report.pdf'].map(p=>h('button',{class:'ghost',onclick:()=>{inp.value=p;run()}},p.length>28?p.slice(0,26)+'…':p)));
+  const EXT={docx:'Word 文档',xlsx:'Excel 表格',pptx:'PPT 演示文稿',pdf:'PDF 文档',jpg:'图片',png:'图片',exe:'可执行程序（要警惕来源）',zip:'压缩包',rar:'压缩包',mp4:'视频',mp3:'音频',txt:'文本'};
+  function run(){const s=inp.value.trim();if(!s){out.innerHTML='';return}const lin=s.startsWith('/');const parts=lin?s.split('/').filter(Boolean):s.split(/[\\/]/).filter(Boolean);
+    if(!lin&&!/^[A-Za-z]:$/.test(parts[0]||'')){out.innerHTML='<div class="fb bad">✗ Windows 路径要从盘符开始，比如 C:\\ 或 D:\\（Linux / Mac 则从 / 开始）。</div>';return}
+    const rows=[];parts.forEach((p,i)=>{const last=i===parts.length-1;let d;
+      if(lin){d=i===0?'根目录下的 '+p+(p==='home'?'（Linux 里放所有用户的个人目录，相当于 Windows 的 Users）':''):last&&p.includes('.')?'文件：'+(EXT[p.split('.').pop().toLowerCase()]||'文件'):'文件夹'}
+      else{const dr=parts[0][0].toUpperCase();d=i===0?(dr==='C'?'C 盘 · 系统盘，装 Windows 和软件':dr+' 盘 · 数据盘，放你的资料'):p==='Users'?'所有用户的个人目录都在这里':p==='Desktop'?'桌面——注意它在 C 盘里':p==='Program Files'?'软件默认安装的地方':i===2&&parts[1]==='Users'?'用户「'+p+'」的个人目录':last&&p.includes('.')?'文件：'+(EXT[p.split('.').pop().toLowerCase()]||'文件')+'，扩展名 .'+p.split('.').pop():'文件夹'}
+      rows.push([p,d])});
+    const onC=!lin&&parts[0][0].toUpperCase()==='C'&&(parts.includes('Desktop')||parts.includes('Downloads'))&&/\.(docx|xlsx|pptx|pdf|jpg|png|mp4)$/i.test(parts[parts.length-1]||'');
+    out.innerHTML=`<div class="row" style="gap:4px;flex-wrap:wrap">${rows.map(([p],i)=>`<span class="chip ok" style="cursor:default">${p}</span>${i<rows.length-1?'<span class="note">'+(lin?'/':'\\')+'</span>':''}`).join('')}</div><ol style="margin:12px 0 0;padding:0;list-style:none;display:grid;gap:5px">${rows.map(([p,d],i)=>`<li class="card" style="padding:7px 12px;margin-left:${i*14}px"><b class="mono">${p}</b><span class="note"> — ${d}</span></li>`).join('')}</ol>${onC?'<p class="fb bad" style="margin-top:10px">⚠ 这份资料放在 C 盘的桌面 / 下载里：重装系统会丢，C 盘也会越来越满。建议搬到 D:\\学习\\ 这样的数据盘目录。</p>':''}`}
+  inp.oninput=run;body.append(inp,ex,out);run();
+};
+
+/* 6.5 装软件模拟器 */
+W.installer=function(el){const body=$('.lab-b',el);let step=0,log=[];
+  const win=h('div',{style:'max-width:560px;margin:0 auto;border:1px solid var(--line2);border-radius:12px;background:#F3F5F9;color:#1B2232;overflow:hidden;font-size:.92rem'});
+  const bad=h('div',{class:'fb'}),box=h('div');body.append(win,box);
+  const S=[
+    {t:'欢迎使用「超级看图王 2026」安装向导',body:()=>h('div',{},h('p',{},'本向导将引导你完成安装。点击「下一步」继续。'),h('p',{class:'note',style:'color:#667'},'版本 12.3.1 · 大小 86 MB')),next:'下一步',ok:()=>null},
+    {t:'许可协议',body:()=>{const box=h('div',{style:'height:90px;overflow:auto;background:#fff;border:1px solid #ccd;padding:8px;font-size:.78rem;color:#556'},'1. 本软件按「现状」提供…… 2. 安装即表示您同意我们收集设备信息用于改进产品…… 3. 本软件可能推荐第三方合作伙伴的产品……（条款很长，但第 2、3 条值得看一眼）');const cb=h('label',{style:'display:block;margin-top:8px'},h('input',{type:'checkbox',id:'inAgree'}),' 我已阅读并同意许可协议');return h('div',{},box,cb)},next:'下一步',ok:()=>$('#inAgree')&&!$('#inAgree').checked?'要先勾选「同意许可协议」才能继续——这是正常的，几乎所有软件都有。':null},
+    {t:'安装选项',body:()=>h('div',{},h('p',{},h('b',{},'推荐安装（已为你勾选）')),...[['同时安装「超级安全卫士」（推荐）',true,'bundle'],['安装「超级浏览器」并设为默认浏览器',true,'bundle'],['将 超级导航 设为浏览器主页',true,'bundle'],['创建桌面快捷方式',true,'fine']].map(([t,c,k])=>h('label',{style:'display:block;margin:4px 0'},h('input',{type:'checkbox','data-k':k,checked:c?'':null}),' '+t)),h('p',{style:'margin:10px 0 4px'},h('b',{},'安装位置')),h('div',{class:'row',style:'gap:6px'},h('input',{type:'text',id:'inPath',value:'C:\\Program Files\\SuperViewer\\',style:'flex:1;background:#fff;color:#1B2232;border:1px solid #ccd'}),h('button',{class:'ghost',style:'color:#1B2232;border-color:#aab',onclick:()=>{$('#inPath').value='D:\\Program Files\\SuperViewer\\'}},'浏览…'))),next:'下一步',ok:()=>{const b=$$('input[data-k=bundle]',win).filter(x=>x.checked).length;const p=$('#inPath').value;if(b)log.push(`没取消 ${b} 个捆绑项：会多装一个「安全卫士」、一个浏览器，主页还被改了`);if(/^C:/i.test(p))log.push('装到了 C 盘：能改就改到 D:\\Program Files\\，给系统盘留空间');return null}},
+    {t:'用户账户控制',uac:true,body:()=>h('div',{style:'background:#fff;border:1px solid #ccd;padding:12px;border-radius:6px'},h('b',{},'你要允许此应用对你的设备进行更改吗？'),h('p',{style:'margin:6px 0'},'超级看图王 安装程序'),h('p',{class:'note',style:'color:#667;margin:0'},'已验证的发布者：Super Soft Ltd.　文件来源：此计算机上的硬盘驱动器')),next:'是',alt:'否',ok:()=>null,note:'这就是 UAC：软件要动系统前拦下来问你。它来自官网、有已验证的发布者，装它本来就要写系统，点「是」没问题。如果是来历不明的破解游戏弹这个窗，就要多想三秒。'},
+    {t:'安装完成',body:()=>h('div',{},h('p',{},'「超级看图王 2026」已成功安装。'),...[['立即运行 超级看图王',true,'fine'],['开机自动启动（推荐）',true,'startup'],['加入用户体验改进计划',true,'startup']].map(([t,c,k])=>h('label',{style:'display:block;margin:4px 0'},h('input',{type:'checkbox','data-k':k,checked:c?'':null}),' '+t))),next:'完成',ok:()=>{const s=$$('input[data-k=startup]',win).filter(x=>x.checked).length;if(s)log.push(`留了 ${s} 个「开机自启 / 体验计划」：开机变慢、后台偷偷上传数据，装完记得在任务管理器「启动应用」里关掉`);return null}}];
+  function paint(){if(step>=S.length){const n=log.length;win.innerHTML='';box.innerHTML='';box.append(h('div',{class:'card',style:'text-align:center;padding:22px;margin-top:12px'},h('div',{class:'mono note'},'安装结束 · 复盘'),h('div',{style:'font-size:1.8rem;font-weight:900;margin:4px 0',class:n?'':'grad'},n?`踩了 ${n} 个坑`:'一个坑都没踩！'),n?h('ul',{style:'text-align:left;margin:8px auto;max-width:36em;padding-left:1.2em;color:#D3DBEE'},...log.map(l=>h('li',{},l))):h('p',{},'取消了全部捆绑、改到了 D 盘、关掉了开机自启。这就是「每一步都看一眼」的价值。'),h('button',{class:'btn',onclick:()=>{step=0;log=[];paint()}},'再装一次')));return}
+    const s=S[step];win.innerHTML='';bad.textContent='';
+    win.append(h('div',{style:`background:${s.uac?'#1F3A8A':'#2B6BE6'};color:#fff;padding:8px 14px;font-weight:700`},s.t),h('div',{style:'padding:14px'},s.body()),
+      h('div',{class:'row',style:'justify-content:flex-end;gap:8px;padding:10px 14px;background:#E6EAF2'},s.alt?h('button',{class:'ghost',style:'color:#1B2232;border-color:#aab',onclick:()=>{log.push('在 UAC 弹窗点了「否」：来自官网的正规软件被拦下，装不上了');step++;paint()}},s.alt):h('button',{class:'ghost',style:'color:#1B2232;border-color:#aab',onclick:()=>{step=0;log=[];paint()}},'取消'),h('button',{class:'btn',style:'background:#2B6BE6;color:#fff;box-shadow:none',onclick:()=>{const err=s.ok();if(err){bad.className='fb bad';bad.textContent=err;return}step++;paint()}},s.next)),bad);
+    box.innerHTML='';if(s.note)box.append(h('p',{class:'note',style:'margin:10px 0 0'},s.note))}
+  paint();
+};
+
+/* 6.6 磁盘清理 */
+W.diskclean=function(el){const body=$('.lab-b',el);const TOTAL=256;
+  const parts=[['Windows 系统',32,'sys'],['已安装的软件',58,'soft'],['桌面上的文件',44,'desk'],['下载文件夹',36,'down'],['微信 / QQ 缓存',27,'cache'],['临时文件',12,'tmp'],['回收站',9,'bin'],['Windows 更新缓存',7,'upd'],['其他',18,'misc']];
+  const act=[['磁盘清理（临时文件、回收站、更新缓存）',['tmp','bin','upd'],'开始菜单搜「磁盘清理」→ 选 C 盘 → 勾选 → 确定。每月一次。'],['把桌面和下载的资料搬到 D 盘',['desk','down'],'桌面只留当前在做的几个文件，微信 / QQ 的接收目录也改到 D 盘。'],['清理微信 / QQ 聊天缓存',['cache'],'在微信「设置 → 通用 → 存储空间」里清，图片视频缓存往往有几十 GB。'],['卸载半年没用过的软件（约 20 GB）',['soft20'],'设置 → 应用 → 已安装的应用 → 卸载，别直接删文件夹。']];
+  const done=new Set();let ssd=true;
+  const bar=h('div'),btns=h('div',{style:'display:grid;gap:8px'}),frag=h('div',{class:'card',style:'margin-top:10px'});
+  function used(){let u=0;parts.forEach(([n,v,k])=>{if(done.has(k))return;u+=k==='soft'&&done.has('soft20')?v-20:v});return u}
+  function paint(){const u=used(),free=TOTAL-u,pct=u/TOTAL,col=free<25?'var(--bad)':free<50?'var(--warn)':'var(--good)';
+    bar.innerHTML=`<div class="row" style="justify-content:space-between"><b>本地磁盘 (C:)</b><span class="mono" style="color:${col}">${free} GB 可用，共 ${TOTAL} GB</span></div><div style="display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);margin:6px 0;background:rgba(255,255,255,.06)">${parts.map(([n,v,k])=>{const vv=done.has(k)?0:(k==='soft'&&done.has('soft20')?v-20:v);return vv?`<div title="${n} ${vv} GB" style="width:${vv/TOTAL*100}%;background:${k==='sys'?'#4DA3FF':k==='soft'?'#7C5CFF':['desk','down'].includes(k)?'#FF7ACB':['tmp','bin','upd','cache'].includes(k)?'#FFC34D':'#3A4666'};transition:width .4s"></div>`:''}).join('')}</div><p style="margin:0;color:${col};font-weight:800">${free<25?'爆红：空间不足，系统更新会失败，整机变慢':free<50?'偏满：建议再腾一些':'健康：留足了 50 GB 以上'}</p><div class="note">■ 蓝色系统　■ 紫色软件　■ 粉色你的资料　■ 黄色可清理的缓存和垃圾</div>`;
+    btns.innerHTML='';act.forEach(([t,keys,how])=>{const ok=keys.every(k=>done.has(k));btns.append(h('button',{class:'opt'+(ok?' right':''),disabled:ok?'':null,onclick:()=>{keys.forEach(k=>done.add(k));paint()}},h('b',{},t),h('div',{class:'note'},how)))});
+    frag.innerHTML=`<div class="row" style="justify-content:space-between"><b>碎片整理</b><span class="seg" id="dcSeg"><button aria-pressed="${ssd}">固态硬盘 SSD</button><button aria-pressed="${!ssd}">机械硬盘 HDD</button></span></div><p class="note" style="margin:6px 0 0">${ssd?'这台电脑是 SSD：<b style="color:var(--bad)">不要碎片整理</b>，没有提速效果，反而消耗寿命。系统会自动做 TRIM，不用管。':'这是机械硬盘：碎片整理能让读写更连续、稍微提速，可以偶尔做一次。'}</p>`;seg($('#dcSeg',frag),i=>{ssd=i===0;paint()})}
+  body.append(bar,h('div',{class:'split',style:'margin-top:12px'},btns,frag),h('button',{class:'ghost',style:'margin-top:10px',onclick:()=>{done.clear();paint()}},'重来'));paint();
+};
+
+/* 6.9 Linux 沙盒 */
+W.linux=function(el){const body=$('.lab-b',el);
+  const FS={'/':['home','etc','usr','tmp'],'/home':['zhangsan'],'/home/zhangsan':['docs','music','report.txt'],'/home/zhangsan/docs':['homework.pdf','notes.txt'],'/home/zhangsan/music':['song.mp3'],'/etc':['hosts','passwd'],'/usr':['bin','lib'],'/usr/bin':['ls','cat','python3'],'/usr/lib':[],'/tmp':[]};
+  const isDir=p=>p in FS;let cwd='/home/zhangsan';
+  const scr=h('pre',{style:'margin:0;background:#07090F;border:1px solid var(--line2);border-radius:10px;padding:12px 14px;min-height:220px;max-height:380px;overflow:auto;font-family:var(--f-mono);font-size:.84rem;line-height:1.55;white-space:pre-wrap;color:#D6DEEE'}),inp=h('input',{type:'text',autocomplete:'off',spellcheck:'false',placeholder:'输入命令后按回车，例如 ls',style:'font-family:var(--f-mono);flex:1'}),ps=h('span',{class:'mono note'});
+  const print=t=>{scr.textContent+=t+'\n';scr.scrollTop=scr.scrollHeight};const prompt=()=>`zhangsan@linux:${cwd.replace('/home/zhangsan','~')}$ `;
+  const norm=p=>{if(!p)return cwd;let a=(p.startsWith('/')?[]:cwd.split('/').filter(Boolean));if(p==='~'||p.startsWith('~/')){a=['home','zhangsan'];p=p.slice(2)}p.split('/').filter(Boolean).forEach(s=>{if(s==='..')a.pop();else if(s!=='.')a.push(s)});return '/'+a.join('/')};
+  const parent=p=>p.split('/').slice(0,-1).join('/')||'/',base=p=>p.split('/').pop();
+  print('Welcome to Linux sandbox（模拟环境）。输入 help 看看能用什么。\n');
+  function run(cmd){cmd=cmd.trim();print(prompt()+cmd);if(!cmd)return;const[c,...a]=cmd.split(/\s+/);
+    if(c==='help')print('pwd        我现在在哪个目录\nls         列出当前目录的内容\ncd 目录     进入目录（cd .. 回上一级，cd ~ 回家）\nmkdir 名字  新建文件夹\nrm 文件     删除文件（rm -r 目录 删文件夹）\ncat 文件    看文本内容\nsudo 命令   以管理员身份执行\nclear      清屏');
+    else if(c==='pwd')print(cwd);
+    else if(c==='ls'){const p=norm(a.find(x=>!x.startsWith('-'))||'');if(!isDir(p))print(`ls: 无法访问 '${a[0]}': 没有那个文件或目录`);else print(FS[p].map(x=>isDir(p+'/'+x)||isDir((p==='/'?'':p)+'/'+x)?x+'/':x).join('  ')||'（空目录）')}
+    else if(c==='cd'){const p=norm(a[0]||'~');if(isDir(p))cwd=p;else print(`bash: cd: ${a[0]}: 没有那个文件或目录`)}
+    else if(c==='mkdir'){if(!a[0])print('mkdir: 缺少操作数');else{const p=norm(a[0]);if(isDir(p)||FS[parent(p)]?.includes(base(p)))print(`mkdir: 无法创建目录 '${a[0]}': 文件已存在`);else if(!isDir(parent(p)))print(`mkdir: 无法创建目录 '${a[0]}': 没有那个文件或目录`);else if(parent(p)==='/'||parent(p).startsWith('/etc')||parent(p).startsWith('/usr'))print(`mkdir: 无法创建目录 '${a[0]}': 权限不够（试试 sudo mkdir ${a[0]}）`);else{FS[p]=[];FS[parent(p)].push(base(p))}}}
+    else if(c==='rm'){const r=a.includes('-r')||a.includes('-rf');const t=a.find(x=>!x.startsWith('-'));if(!t)print('rm: 缺少操作数');else{const p=norm(t);if(isDir(p)){if(!r)print(`rm: 无法删除 '${t}': 是一个目录（删目录要加 -r）`);else if(p==='/'||p==='/home'||p==='/home/zhangsan')print(`rm: 危险操作已拦截：你正要删掉 ${p}。真实系统里 sudo rm -rf / 会把整个系统删光，这是 Linux 最著名的「自杀命令」。`);else{delete FS[p];FS[parent(p)]=FS[parent(p)].filter(x=>x!==base(p));print(`已删除目录 ${t}`)}}else if(FS[parent(p)]?.includes(base(p))){FS[parent(p)]=FS[parent(p)].filter(x=>x!==base(p));print(`已删除 ${t}（注意：Linux 命令行删除没有回收站）`)}else print(`rm: 无法删除 '${t}': 没有那个文件或目录`)}}
+    else if(c==='cat'){const t=a[0];const p=norm(t||'');if(!t)print('cat: 缺少文件名');else if(isDir(p))print(`cat: ${t}: 是一个目录`);else if(FS[parent(p)]?.includes(base(p)))print({'report.txt':'信息技术基础 · 实验报告\n姓名：张三\n……','notes.txt':'周三下午三点机房见。\n记得带 U 盘。','hosts':'127.0.0.1   localhost\n','passwd':'root:x:0:0:root:/root:/bin/bash\nzhangsan:x:1000:1000::/home/zhangsan:/bin/bash'}[base(p)]||'（二进制文件，看不了）');else print(`cat: ${t}: 没有那个文件或目录`)}
+    else if(c==='sudo'){if(!a.length)print('用法：sudo 命令');else{print('[sudo] zhangsan 的密码：********');const sub=a.join(' ');if(/^mkdir\s/.test(sub)){const t=a[1];const p=norm(t);if(isDir(parent(p))){FS[p]=[];FS[parent(p)].push(base(p));print(`已用管理员权限创建 ${t}`)}else print(`mkdir: 无法创建目录 '${t}': 没有那个文件或目录`)}else if(/^rm\s+-rf?\s+\/\s*$/.test(sub))print('已拦截：sudo rm -rf / 会删掉整个系统。这就是为什么「以管理员执行」前要多想三秒。');else run(sub)}}
+    else if(c==='clear')scr.textContent='';
+    else print(`${c}：未找到命令。输入 help 查看可用命令。`);
+    ps.textContent=prompt()}
+  ps.textContent=prompt();const form=h('form',{class:'row',style:'margin-top:10px;gap:8px',onsubmit:e=>{e.preventDefault();const v=inp.value;inp.value='';run(v);inp.focus()}},ps,inp,h('button',{class:'btn'},'回车'));
+  body.append(scr,form,h('div',{style:'margin-top:10px'},h('span',{class:'note'},'快捷：'),h('span',{class:'row',style:'gap:6px;display:inline-flex'},...['pwd','ls','cd docs','ls','cat notes.txt','cd ..','mkdir 作业','rm -r 作业','sudo rm -rf /','help'].map(c=>h('button',{class:'ghost',onclick:()=>run(c)},c)))));
+};
+
+/* 6.11 习惯清单 */
+W.checklist=function(el){const body=$('.lab-b',el);const L=['打开文件扩展名显示','文件放 D 盘，桌面只放当前文件','卡顿时 Ctrl + Shift + Esc 开任务管理器','C 盘爆红先用磁盘清理','装软件每一步都看，取消捆绑','不装多个安全管家，Defender 足够','来历不明的 .exe 不双击','重要资料定期备份'];
+  let on=store.get('habits',L.map(()=>false));const list=h('div',{style:'display:grid;gap:8px'}),g=h('div',{style:'display:grid;place-items:center'});
+  function paint(){const n=on.filter(Boolean).length,C2=2*Math.PI*70,col=n===8?'var(--good)':n>=5?'var(--warn)':'var(--acc)';
+    g.innerHTML=`<svg viewBox="0 0 180 180" style="width:200px;max-width:100%"><circle cx="90" cy="90" r="70" fill="none" stroke="var(--line)" stroke-width="14"/><circle cx="90" cy="90" r="70" fill="none" stroke="${col}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${C2*n/8} ${C2}" transform="rotate(-90 90 90)" style="transition:stroke-dasharray .5s;filter:drop-shadow(0 0 8px ${col})"/><text x="90" y="96" text-anchor="middle" font-size="40" font-weight="900" fill="var(--ink)" class="mono">${n}<tspan font-size="16" fill="var(--muted)">/8</tspan></text></svg><p style="text-align:center;margin:6px 0 0;font-weight:700;color:${col}">${n===8?'全部做到，同学的电脑坏了第一个找的就是你':n>=5?'过半了，继续':'从最简单的开始：先打开扩展名显示'}</p>`;
+    list.innerHTML='';L.forEach((t,i)=>list.append(h('button',{style:`display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;text-align:left;border:1px solid ${on[i]?'var(--good)':'var(--line)'};background:${on[i]?'var(--good-soft)':'rgba(0,0,0,.2)'};border-radius:10px;padding:9px 12px;cursor:pointer`,'aria-pressed':String(on[i]),onclick:()=>{on[i]=!on[i];store.set('habits',on);paint()}},h('span',{style:`width:22px;height:22px;border-radius:6px;border:2px solid ${on[i]?'var(--good)':'var(--line2)'};background:${on[i]?'var(--good)':'transparent'};display:grid;place-items:center;color:#06080F;font-weight:900`},on[i]?'✓':''),h('span',{},h('span',{class:'mono note',style:'margin-right:8px'},i+1),t))))}
+  body.append(h('div',{class:'split'},list,g));paint();
+};
+
 /* ================= quiz ================= */
 (function(){
   const Q=[
@@ -2047,14 +2590,22 @@ W.radar=function(el){const body=$('.lab-b',el);const A=[['持续学习','技术�
     ['用好 AI 视频模型，最关键的是（  ）。',['堆砌更多形容词','写带时间线、景别、运镜的分镜表','只用英文写提示词','一次生成越长越好'],1,'结构化的分镜表让 AI 像在片场一样执行导演指令。'],
     ['「Vibe Coding」最核心的意思是（  ）。',['背熟提示词模板','用自然语言描述需求，由 AI 写代码','学习可视化编程组件','手写汇编语言'],1,'你描述需求，AI 负责实现。'],
     ['在本地运行一个 32B 参数、4 位量化的模型，大约需要（  ）显存。',['4 GB','8 GB','24 GB','96 GB'],2,'32 × 4÷8 × 1.2 ＋ 1 ≈ 20 GB，24 GB 显卡可以跑。'],
-    ['Harness Engineering（驾驭工程）中，能发现智能体「漏掉一张发票」的是（  ）。',['子代理分治','工具编排','验证闭环','提示词模板'],2,'每一步结果自动校验，不合格就重来。']];
+    ['Harness Engineering（驾驭工程）中，能发现智能体「漏掉一张发票」的是（  ）。',['子代理分治','工具编排','验证闭环','提示词模板'],2,'每一步结果自动校验，不合格就重来。'],
+    ['TCP/IP 四层模型中，负责 IP 寻址和路由选择的是（  ）。',['应用层','传输层','网络层','网络接口层'],2,'网络层用 IP 地址找路，路由器工作在这一层。'],
+    ['下列关于 MAC 地址的说法，正确的是（  ）。',['由路由器临时分配','出厂烧录在网卡上，48 位，全球唯一','全球互联网都能寻址','可以写成 192.168.1.1'],1,'MAC 是硬件地址，只在局域网内有效；IP 才是网络分配的逻辑地址。'],
+    ['能上 QQ 却打不开任何网页，最可能出问题的是（  ）。',['网线','DNS','显卡驱动','内存'],1,'QQ 直接用 IP 通信，网页要先把域名翻译成 IP——DNS 坏了就是这个症状。'],
+    ['软件卡死时，打开任务管理器的快捷键是（  ）。',['Win + I','Win + V','Ctrl + Shift + Esc','Win + Shift + S'],2,'Ctrl + Shift + Esc 直接打开任务管理器，按内存或 CPU 排序找到元凶后结束任务。'],
+    ['U 盘要在 Windows 和 Mac 之间拷贝一个 6 GB 的视频，应格式化为（  ）。',['FAT32','NTFS','exFAT','ext4'],2,'FAT32 单文件最大 4 GB，NTFS 在 Mac 上只读，exFAT 两边都能读写。'],
+    ['操作系统在硬盘上划出一块空间当作内存使用，这叫（  ）。',['高速缓存','虚拟内存','回收站','系统还原点'],1,'虚拟内存也叫页面文件，内存不够时顶上，但比内存慢几十倍。']];
   const S=[['硬盘和内存的区别是什么？','内存（RAM）速度快、容量小，存放正在运行的程序和数据，断电后内容消失；硬盘属于外存，速度慢、容量大，断电不丢失。CPU 只能直接处理内存中的数据。'],
     ['CPU 的作用是什么？主要性能指标有哪些？AI PC 里还有哪些处理器？','CPU 包括运算器和控制器，负责执行指令并指挥各部件工作。指标有主频、字长、核心数和高速缓存。AI PC 里还有擅长并行计算的 GPU 和专门低功耗运行 AI 的 NPU。'],
     ['将十进制数 256 转换成二进制数。','256 ＝ 2⁸，结果是 100000000B。'],
     ['将二进制数 11010B 转换成十进制数。','16＋8＋2 ＝ 26。'],
     ['为什么要打开「文件扩展名」显示？','Windows 默认隐藏扩展名，病毒会用「xxx.jpg.exe」这样的双扩展名伪装成图片或文档。显示扩展名后才能看清真实类型。'],
     ['列出三条预防计算机病毒和网络诈骗的方法。','例如：及时安装系统补丁；开启杀毒软件和防火墙；不打开来历不明的附件、链接和 U 盘；强密码加两步验证；定期离线备份；涉及转账先用原号码核实。'],
-    ['AI 时代最重要的两项基本功是什么？','清晰表达需求，和判断结果好坏。']];
+    ['AI 时代最重要的两项基本功是什么？','清晰表达需求，和判断结果好坏。'],
+    ['在浏览器里输入网址按下回车，到网页显示出来要经过哪几步？','输入网址 → DNS 解析把域名翻译成 IP → 和服务器建立 TCP 连接 → 发送 HTTP 请求、服务器返回数据 → 浏览器渲染显示。'],
+    ['为什么软件开多了电脑会卡？怎么办？','进程太多、内存占满后，系统只能把一部分数据放到硬盘的虚拟内存里，硬盘比内存慢几十倍，于是卡顿。办法：用任务管理器结束占用高的进程，长期看加内存条最管用。']];
   const list=$('.quiz-list'),sc=$('.quiz-score');let done=0,right=0;
   function score(){sc.innerHTML=`<div><div class="note">选择题</div><div class="mono" style="font-size:1.8rem;font-weight:900">${right} <span class="note">/ ${Q.length} 答对</span></div></div><div class="note">已作答 ${done} 题</div><button class="ghost" id="quizReset">重新做</button>`;$('#quizReset').onclick=build}
   function build(){list.innerHTML='';done=0;right=0;Q.forEach(([q,o,a,why],n)=>{const box=h('div',{class:'qc',style:'margin:0;max-width:none'},h('div',{class:'t'},'第 '+(n+1)+' 题'),h('div',{class:'q'},q));const opts=h('div',{class:'opts'});let first=true;
