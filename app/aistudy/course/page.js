@@ -518,6 +518,15 @@ const HTML = String.raw`
       <div class="lab-b"></div>
       <div class="lab-f">口诀：其他进制转十进制「按权展开」；十进制转其他「整数除 r 取余倒着读，小数乘 r 取整正着读」；二转八「三位一组」，二转十六「四位一组」。</div>
     </div>
+    <div class="cta" data-w="cta" data-url="https://cradle.art/aistudy/base">
+      <div>
+        <div class="k mono" style="color:var(--acc);font-size:.8rem;letter-spacing:.16em">互动游戏 · 进制闯关</div>
+        <h4>练熟了？去闯五关</h4>
+        <p>手机扫码打开「进制闯关」：二进制转十进制、拨开关拼十进制数、十六进制、八进制，最后 60 秒混合挑战。登记过班级姓名的同学，星级会记到自己名下。</p>
+        <a class="btn go" href="https://cradle.art/aistudy/base" target="_blank" rel="noopener">打开进制闯关 →</a>
+      </div>
+      <div class="qr"></div>
+    </div>
   </section>
 
   <section class="kp" id="k2-3">
@@ -722,6 +731,15 @@ const HTML = String.raw`
     <div class="lab" data-w="guard" style="max-width:1100px">
       <div class="lab-h"><span class="t"><b>安全守门员</b>情景闯关</span><span class="hint">所有内容均为模拟，不会真的发生</span></div>
       <div class="lab-b"></div>
+    </div>
+    <div class="cta" data-w="cta" data-url="https://cradle.art/aistudy/virus">
+      <div>
+        <div class="k mono" style="color:var(--acc);font-size:.8rem;letter-spacing:.16em">课堂对战 · 病毒攻防</div>
+        <h4>全班红蓝对战：黑客 VS 安全卫士</h4>
+        <p>老师在大屏上开一个房间，全班扫码加入，自动分成红蓝两队。红队用钓鱼邮件、U 盘、漏洞、伪装文件、勒索病毒去感染网络里的 24 台电脑，蓝队装防护、查杀、做离线备份。每出一招都要先答对一道安全题，赛后大屏复盘哪种攻击最致命、哪种防护最管用。</p>
+        <a class="btn go" href="https://cradle.art/aistudy/virus" target="_blank" rel="noopener">老师：开一场病毒攻防 →</a>
+      </div>
+      <div class="qr"></div>
     </div>
   </section>
 </div>
