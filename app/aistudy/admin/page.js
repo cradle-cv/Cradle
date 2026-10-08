@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { TASKS, LABS, QUIZ } from '../kb'
+import { TASKS, LABS, QUIZ, GAMES } from '../kb'
 
 const TOKEN_KEY = 'xiaoxin:admin'
 const labById = id => LABS.find(l => l.id === id)
@@ -28,7 +28,48 @@ const STATUS = {
   none: { c: '#3a4258', t: '数据少', i: '·' },
 }
 const statusOf = (ok, n) => (n < 3 ? 'none' : ok / n >= 0.8 ? 'good' : ok / n >= 0.6 ? 'warn' : 'bad')
-const EV = { visit: '打开页面', chat: '提问', quiz: '陪练答题', qc: '课堂一问', kp: '看知识点', test: '课件小测' }
+const EV = { visit: '打开页面', chat: '提问', quiz: '陪练答题', qc: '课堂一问', kp: '看知识点', test: '课件小测', game: '互动游戏' }
+const gameName = g => GAMES[g]?.name || g
+const levelName = (g, lv) => (lv == null || lv === '' ? '' : GAMES[g]?.levels?.[lv] || '第 ' + lv + ' 关')
+// 一条游戏记录的说明：网络闯关 · IP 与域名 · 8/10，病毒攻防 · 红队 · 12 分
+function gameText(d) {
+  if (!d) return ''
+  const side = d.side === 'red' ? '红队' : d.side === 'blue' ? '蓝队' : ''
+  return [gameName(d.game), levelName(d.game, d.level), side, d.total ? `${d.score}/${d.total}` : d.score != null ? `${d.score} 分` : ''].filter(Boolean).join(' · ')
+}
+
+// 互动游戏统计：游戏列表来自 kb.js 的 GAMES，加了新游戏这里自动出现
+function GamesCard({ g }) {
+  const games = Object.keys(GAMES).map(k => ({ k, ...(g?.games || []).find(x => x.game === k) }))
+  const levels = g?.levels || []
+  return (
+    <section className="db-card">
+      <h2>互动游戏</h2>
+      <p className="db-muted">病毒攻防按对战结束时所在队伍的胜负算「过关」；闯关游戏答对 60% 算过关。只统计登记过身份的学生。</p>
+      <div className="db-games">
+        {games.map(x => (
+          <div key={x.k} className="db-game">
+            <b>{gameName(x.k)}</b>
+            <div className="db-game-n"><span><em>{x.plays || 0}</em>局</span><span><em>{x.players || 0}</em>人</span><span><em>{x.plays ? pct(x.pass, x.plays) + '%' : '—'}</em>{x.k === 'virus' ? '胜率' : '过关率'}</span></div>
+            {Object.keys(GAMES[x.k].levels || {}).length > 0 && (
+              <ul className="db-lv">
+                {Object.entries(GAMES[x.k].levels).map(([lv, name]) => {
+                  const r = levels.find(y => y.game === x.k && String(y.level) === String(lv)) || {}
+                  const st = STATUS[statusOf(r.pass || 0, r.plays || 0)]
+                  return <li key={lv}><span>{lv}. {name}</span><span className="db-muted">{r.plays || 0} 局</span><span className="db-badge" style={{ '--s': st.c }}>{r.plays ? pct(r.pass, r.plays) + '%' : '—'}</span></li>
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+      {(g?.students || []).length > 0 && <>
+        <h3>玩得最多的学生</h3>
+        <div className="db-gs">{g.students.slice(0, 12).map(s => <span key={s.id}><b>{s.name}</b><i>{s.cls}</i><em>{s.plays} 局 · 过关 {s.pass}</em></span>)}</div>
+      </>}
+    </section>
+  )
+}
 
 async function rpc(fn, args) {
   const { data, error } = await supabase.rpc(fn, args)
@@ -148,6 +189,7 @@ function StudentDrawer({ token, s, onClose }) {
           <ul className="db-timeline">
             {ev.slice(0, 80).map((e, i) => (
               <li key={i}><span className="db-muted">{fmtTime(e.t)}</span><b>{EV[e.type] || e.type}</b>
+                {e.type === 'game' && <span className="db-chip">{gameText(e.detail)}</span>}
                 {e.lab && <span className="db-chip">{labNo(e.lab)} {labById(e.lab)?.title || ''}</span>}
                 {e.ok === true && <span className="db-ok">✓ 对</span>}{e.ok === false && <span className="db-no">✗ 错</span>}
               </li>
@@ -207,12 +249,14 @@ function Dashboard({ token, onOut }) {
   const [pw, setPw] = useState(false)
   const [labFilter, setLabFilter] = useState('')
   const [teachers, setTeachers] = useState([])
+  const [games, setGames] = useState(null)
 
   async function load() {
     setLoading(true); setErr('')
     try {
       setData(await rpc('aistudy_dash', { p_token: token, p_cls: cls || null, p_days: days }))
       rpc('aistudy_dash_teachers', { p_token: token }).then(t => setTeachers(t || []), () => {})
+      rpc('aistudy_dash_games', { p_token: token, p_cls: cls || null, p_days: days }).then(setGames, () => {})
     }
     catch (e) { if (/unauthorized/.test(e.message)) onOut(); else setErr('数据加载失败：' + e.message) }
     finally { setLoading(false) }
@@ -328,6 +372,8 @@ function Dashboard({ token, onOut }) {
             ))}
           </div>
         </section>
+
+        <GamesCard g={games} />
 
         <div className="db-grid2">
           <section className="db-card">
@@ -523,6 +569,16 @@ body{background:#06080F!important}
 .db-timeline li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
 .db-timeline li .db-muted{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.76rem;min-width:7.5em}
 .db-ok{color:#5fd35f;font-weight:700}.db-no{color:#ef6a6a;font-weight:700}
+.db-games{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.db-game{display:grid;gap:8px;align-content:start;padding:14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.db-game-n{display:flex;gap:14px;font-size:.8rem;color:var(--muted)}
+.db-game-n em{font-style:normal;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:1.4rem;font-weight:900;color:var(--ink);margin-right:3px}
+.db-lv{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.db-lv li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;font-size:.84rem}
+.db-gs{display:flex;flex-wrap:wrap;gap:8px}
+.db-gs span{display:grid;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:.84rem}
+.db-gs i{font-style:normal;color:var(--muted);font-size:.76rem}
+.db-gs em{font-style:normal;color:#8CC4FF;font-size:.78rem}
 .db-foot{font-size:.78rem;color:var(--faint);text-align:center;padding-top:10px}
 @media (max-width:980px){.db-map{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.db-grid2{grid-template-columns:1fr}.db-tiles.sm{grid-template-columns:1fr 1fr 1fr}.db-tile b{font-size:1.5rem}}
