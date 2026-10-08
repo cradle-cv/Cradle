@@ -527,7 +527,7 @@ body{background:#06080F!important}
 /* 知识点地图 */
 .db-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
 .db-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.db-map{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.db-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .db-task{display:grid;gap:6px;align-content:start}
 .db-task-h{font-size:.82rem;font-weight:800;color:var(--c);padding-bottom:4px;border-bottom:2px solid var(--c)}
 .db-cell{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:0 8px;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid color-mix(in srgb,var(--s) 55%,transparent);background:color-mix(in srgb,var(--s) 16%,rgba(0,0,0,.2));color:var(--ink)}
