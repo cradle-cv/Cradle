@@ -222,6 +222,15 @@ table.t th{font-size:.78rem;color:var(--muted);font-weight:600}
 .me-box input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(140,160,210,.3);background:rgba(0,0,0,.35);color:#EAF0FF!important;font:inherit;font-size:16px}
 .me-box .note{margin:0;font-size:.8rem;line-height:1.6}
 .me-box .err{margin:0;color:#FF8A95;font-size:.86rem}
+.rs-wrap{position:relative;min-width:0}
+.rs-dd{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:5;max-height:240px;overflow:auto;display:grid;background:#0E1428;border:1px solid rgba(140,160,210,.35);border-radius:12px;padding:4px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.rs-dd[hidden]{display:none}
+.rs-dd button{all:unset;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:.92rem;color:#EAF0FF;cursor:pointer}
+.rs-dd button.on,.rs-dd button:hover{background:rgba(77,163,255,.18)}
+.rs-dd button small{color:#9AA6C2;font-size:.76rem;flex:none}
+.rs-none{padding:8px 10px;font-size:.82rem;color:#9AA6C2}
+.rs-warn{margin:0;font-size:.8rem;line-height:1.5;color:#FFC46B;padding:6px 10px;border-radius:10px;background:rgba(255,196,107,.1);border:1px solid rgba(255,196,107,.3)}
+.me-box input[hidden]{display:none}
 .qr-big{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:16px;background:rgba(3,5,12,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:zoom-out}
 .qr-big-in{display:grid;justify-items:center;gap:10px;text-align:center;padding:26px 30px;border-radius:24px;background:#0B1020;border:1px solid #4DA3FF;max-width:100%}
 .qr-big-in b{font-size:clamp(1.3rem,3vw,2rem);color:#EAF0FF}
@@ -1373,12 +1382,45 @@ function isTeacher(){return !!getTeacher()}
 function tTitle(t){return t.admin?'管理员':(/老师$/.test(t.name)?t.name:t.name+'老师')}
 function track(type,lab=null,ok=null,detail=null){if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
 function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
+/* 班级名单（和 app/aistudy/roster.js 同一套逻辑）：班级输关键字选，姓名从本班名单里挑；班里有重名才出现学号框 */
+const roster={classes:null,names:new Map(),
+  norm:s=>String(s||'').toLowerCase().replace(/[\s（）()]/g,''),
+  core(s){return this.norm(s).replace(/^\d{4}级/,'').replace(/班$/,'')},
+  subseq(t,s){let i=0;for(const ch of s)if(ch===t[i])i++;return i>=t.length},
+  classList(){if(this.classes)return Promise.resolve(this.classes);return sbRpc('aistudy_class_list',{}).then(l=>this.classes=Array.isArray(l)?l:[]).catch(()=>[])},
+  nameList(c){c=String(c||'').trim();if(!c)return Promise.resolve([]);if(!this.names.has(c))this.names.set(c,sbRpc('aistudy_roster_names',{p_cls:c}).then(l=>Array.isArray(l)?l:[]).catch(()=>{this.names.delete(c);return[]}));return this.names.get(c)},
+  matchClasses(list,q,limit=12){const toks=String(q||'').trim().toLowerCase().split(/\s+/).map(t=>this.norm(t)).filter(Boolean);if(!toks.length)return list.slice(0,limit);const out=[];
+    for(const c of list){const n=this.norm(c.cls),k=this.core(c.cls),hay=t=>/^\d+$/.test(t)?k:n;let score=0;if(toks.every(t=>hay(t).includes(t)))score=k.startsWith(toks[0])?3:2;else if(toks.every(t=>this.subseq(t,hay(t))))score=1;if(score)out.push({c,score})}
+    out.sort((a,b)=>b.score-a.score||a.c.cls.localeCompare(b.c.cls,'zh'));return out.slice(0,limit).map(x=>x.c)},
+  matchNames(names,q,limit=12){const k=String(q||'').trim(),u=Array.from(new Set(names));if(!k)return u.slice(0,limit);const out=u.filter(n=>n.includes(k)).sort((a,b)=>(b.startsWith(k)-a.startsWith(k))||a.localeCompare(b,'zh'));return(out.length?out:u.filter(n=>this.subseq(k,n))).slice(0,limit)}};
+// 给登记表单装上下拉：f 是表单，含 name=cls / name / sno 的输入框
+function rosterAttach(f){
+  const ci=f.cls,ni=f.name,si=f.sno;let classes=[],names=[],open=null,hi=0;
+  const wrap=el=>{const w=h('div',{class:'rs-wrap'});el.replaceWith(w);w.append(el);return w};
+  const cw=wrap(ci),nw=wrap(ni);const cd=h('div',{class:'rs-dd',role:'listbox',hidden:true}),nd=h('div',{class:'rs-dd',role:'listbox',hidden:true});cw.append(cd);nw.append(nd);
+  const warn=h('p',{class:'rs-warn',hidden:true});nw.after(warn);si.hidden=true;
+  const known=()=>classes.some(c=>c.cls===ci.value.trim());
+  function paintCls(){const hits=open==='cls'?roster.matchClasses(classes,ci.value):[];cd.innerHTML='';
+    if(open==='cls'&&!hits.length&&classes.length&&ci.value.trim()){cd.className='rs-dd rs-none';cd.textContent='名单里没有匹配的班级，可以直接填写';cd.hidden=false;return}
+    cd.className='rs-dd';cd.hidden=!hits.length;hits.forEach((c,i)=>{const b=h('button',{type:'button',role:'option',class:i===hi?'on':'','aria-selected':i===hi});b.append(c.cls,h('small',{},c.n+' 人'));b.onmousedown=e=>e.preventDefault();b.onclick=()=>pickCls(c.cls);cd.append(b)});cd._hits=hits.map(c=>c.cls)}
+  function paintName(){const hits=open==='name'?roster.matchNames(names,ni.value):[];nd.innerHTML='';nd.hidden=!hits.length;
+    hits.forEach((n,i)=>{const b=h('button',{type:'button',role:'option',class:i===hi?'on':'','aria-selected':i===hi},n);b.onmousedown=e=>e.preventDefault();b.onclick=()=>pickName(n);nd.append(b)});nd._hits=hits;
+    const v=ni.value.trim(),k=known();warn.hidden=!(k&&v&&!names.includes(v));if(!warn.hidden)warn.textContent='本班名单里没有「'+v+'」，请检查是否写错；确认无误也可以直接进入。';
+    const dup=k&&names.filter(n=>n===v).length>1;si.hidden=!dup;si.placeholder=dup?'班里有重名，请填学号':'学号（选填）'}
+  function pickCls(c){ci.value=c;open=null;paintCls();loadNames();setTimeout(()=>ni.focus(),0)}
+  function pickName(n){ni.value=n;open=null;paintName()}
+  function loadNames(){if(!known()){names=[];paintName();return}const c=ci.value.trim();roster.nameList(c).then(l=>{if(ci.value.trim()===c){names=l;paintName()}})}
+  const key=(e,dd,pick)=>{const hits=dd._hits||[];if(!hits.length)return;if(e.key==='ArrowDown'){e.preventDefault();hi=(hi+1)%hits.length}else if(e.key==='ArrowUp'){e.preventDefault();hi=(hi-1+hits.length)%hits.length}else if(e.key==='Enter'&&open){e.preventDefault();pick(hits[hi]||hits[0]);return}else if(e.key==='Escape'){open=null}else return;dd===cd?paintCls():paintName()};
+  ci.oninput=()=>{open='cls';hi=0;paintCls();loadNames()};ci.onfocus=()=>{open='cls';hi=0;paintCls()};ci.onblur=()=>setTimeout(()=>{if(open==='cls'){open=null;paintCls()}},150);ci.onkeydown=e=>key(e,cd,pickCls);
+  ni.oninput=()=>{open='name';hi=0;paintName()};ni.onfocus=()=>{open='name';hi=0;paintName()};ni.onblur=()=>setTimeout(()=>{if(open==='name'){open=null;paintName()}},150);ni.onkeydown=e=>key(e,nd,pickName);
+  ci.setAttribute('autocomplete','off');ni.setAttribute('autocomplete','off');
+  roster.classList().then(l=>{classes=l;if(l.length)ci.placeholder='班级：输关键字选，如 电商 1';if(open==='cls')paintCls();loadNames()})}
 function initIdentity(){
   const pill=h('button',{class:'me-pill',type:'button'});document.body.append(pill);
   function paint(){const tc=getTeacher();if(tc){pill.innerHTML=`<span class="dot t"></span>老师模式 · ${tTitle(tc)}`;pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
   function open(){const me=getMe()||{};const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
-    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="20" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="#" data-t style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
-    const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';
+    ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="40" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="#" data-t style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
+    const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';rosterAttach(f);
     ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove();if(e.target.hasAttribute('data-t')){e.preventDefault();ov.remove();openTeacher()}});
     f.onsubmit=async e=>{e.preventDefault();const c=f.cls.value.trim(),n=f.name.value.trim(),sn=f.sno.value.trim(),er=$('.err',f);
       if(!c||!n){er.hidden=false;er.textContent='请填写班级和姓名';return}
