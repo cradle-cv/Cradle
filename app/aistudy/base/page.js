@@ -36,8 +36,6 @@ function Demo() {
   const [v, setV] = useState(164)
   const [msg, setMsg] = useState('')
   const on = W.filter((w, i) => bitsOf(v)[i])
-  const steps = []
-  for (let x = v; x > 0; x = Math.floor(x / 2)) steps.push([x, Math.floor(x / 2), x % 2])
   const b = bin(v)
   const hi = (v >> 4) & 15, lo = v & 15
   const o = [b.slice(0, 2), b.slice(2, 5), b.slice(5)]
@@ -60,17 +58,84 @@ function Demo() {
         <div className="bs-o"><span>十六进制（4 位一组）</span><b>{hex(v).padStart(2, '0')}<small>H</small></b><em><code>{b.slice(0, 4)}</code> → {hex(hi)}　<code>{b.slice(4)}</code> → {hex(lo)}</em></div>
         <div className="bs-o"><span>八进制（3 位一组）</span><b>{oct(v)}<small>Q</small></b><em>{o.map((g, i) => <span key={i}><code>{g}</code> → {parseInt(g, 2)}　</span>)}</em></div>
       </div>
-      <div className="bs-div">
-        <div className="gk-row"><span className="gk-muted">十进制转二进制：除 2 取余，余数倒着读。输入一个 0–255 的数：</span>
-          <input className="gk-input bs-in" type="number" min={0} max={255} value={v} onChange={e => act(Math.max(0, Math.min(255, parseInt(e.target.value || '0', 10) || 0)))} /></div>
-        <div className="bs-steps">
-          {steps.length ? steps.map(([x, q, r], i) => <div key={i}><span className="gk-mono">{x} ÷ 2 = {q}</span><b>余 {r}</b></div>) : <div className="gk-muted">0 的二进制就是 0</div>}
+      <Convert v={v} setV={act} />
+      <details className="bs-rel">
+        <summary>四种进制的身份名片 · 它们之间怎么换</summary>
+        <div className="bs-rel-cards">
+          {REL.map(r => <div key={r.t} className="bs-rel-card"><b>{r.t}</b><p>{r.d}</p><code>{r.e}</code></div>)}
         </div>
-        {steps.length > 0 && <div className="gk-muted">余数从下往上读：<b className="gk-mono" style={{ color: 'var(--good)' }}>{steps.map(s => s[2]).reverse().join('')}</b>，补齐 8 位就是 <b className="gk-mono">{b}</b></div>}
-      </div>
+      </details>
     </section>
   )
 }
+
+/* ============================== 转换演示（分步动画） ============================== */
+// 三种方法：除基取余（余数珠子逐个落下、倒序读）、位权展开（逐位累加）、分组魔法（二进制 3 位一组→八进制、4 位一组→十六进制）
+const BN = { 2: '二进制', 8: '八进制', 10: '十进制', 16: '十六进制' }
+const dg = (d) => d < 10 ? String(d) : 'ABCDEF'[d - 10]
+const digitsOf = (n, base) => { if (n === 0) return { digits: [0], weights: [1] }; const digits = []; for (let q = n; q > 0; q = Math.floor(q / base)) digits.unshift(q % base); return { digits, weights: digits.map((_, i) => base ** (digits.length - 1 - i)) } }
+const genDivide = (n, base) => { const st = []; if (n === 0) return [{ q: 0, nq: 0, r: 0 }]; for (let q = n; q > 0; q = Math.floor(q / base)) st.push({ q, nq: Math.floor(q / base), r: q % base }); return st }
+const genGroup = (n, base) => { const k = base === 8 ? 3 : 4; const b = n.toString(2); const padded = b.padStart(Math.ceil(b.length / k) * k, '0'); const groups = padded.match(new RegExp(`.{${k}}`, 'g')); return { k, groups, mapped: groups.map(g => dg(parseInt(g, 2))) } }
+const MODES = [['divide', '除基取余', '十进制 → 其他进制'], ['expand', '位权展开', '其他进制 → 十进制'], ['group', '分组魔法', '二进制 ↔ 八 / 十六进制']]
+
+function Convert({ v, setV }) {
+  const [mode, setMode] = useState('divide')
+  const [base, setBase] = useState(2)
+  const [idx, setIdx] = useState(0)
+  const b = mode === 'group' && base === 2 ? 8 : base
+  const data = mode === 'divide' ? genDivide(v, b) : mode === 'expand' ? digitsOf(v, b) : genGroup(v, b)
+  const total = mode === 'divide' ? data.length : mode === 'expand' ? data.digits.length : data.groups.length
+  useEffect(() => { setIdx(0) }, [v, mode, base])
+  const i = Math.min(idx, total)
+  const done = i >= total
+  const choose = (m) => { setMode(m); if (m === 'group' && base === 2) setBase(8) }
+  return (
+    <div className="bs-conv">
+      <div className="gk-qhead"><div><div className="gk-k">看转换过程 · 一步步播</div><h3>{v} 是怎么算出来的？</h3></div>
+        <div className="gk-row">
+          <button className="gk-ghost" onClick={() => setV(rand(1, 255))}>换个数</button>
+          <input className="gk-input bs-in" type="number" min={0} max={255} value={v} onChange={e => setV(Math.max(0, Math.min(255, parseInt(e.target.value || '0', 10) || 0)))} aria-label="要演示的数" />
+        </div>
+      </div>
+      <div className="bs-conv-bar">
+        <div className="gk-row">{MODES.map(([m, t, d]) => <button key={m} className={`bs-mode${mode === m ? ' on' : ''}`} onClick={() => choose(m)} title={d}>{t}</button>)}</div>
+        <div className="gk-row"><span className="gk-muted">{mode === 'expand' ? '从' : '到'}</span>{[2, 8, 16].map(x => <button key={x} className={`bs-mode sm${b === x ? ' on' : ''}`} disabled={mode === 'group' && x === 2} onClick={() => setBase(x)}>{BN[x]}</button>)}</div>
+      </div>
+      <div className="bs-stage">
+        {mode === 'divide' && <>
+          <p className="gk-muted">把十进制 <b>{v}</b> 换成{BN[b]}：每次除以 {b} 记下余数，除到商为 0，最后把余数<b>从下往上</b>读。</p>
+          <div className="bs-steps col">{data.slice(0, i).map((s, k) => <div key={k} className="pop"><span className="no">{k + 1}</span><span className="gk-mono">{s.q} ÷ {b} = {s.nq}</span><b>余 {dg(s.r)}</b></div>)}</div>
+          {i > 0 && <div className="bs-beads"><span className="gk-muted">余数（先出来的在左边）</span>{data.slice(0, i).map((s, k) => <i key={k} className={`bead${s.r ? ' one' : ''}`}>{dg(s.r)}</i>)}</div>}
+          {done && <div className="bs-ans-strip">完成！余数从下往上读：<b className="gk-mono">{data.map(s => dg(s.r)).reverse().join('')}</b>（{BN[b]}）= 十进制 {v}{b === 2 && <>，补齐 8 位就是 <b className="gk-mono">{bin(v)}</b></>}</div>}
+        </>}
+        {mode === 'expand' && <>
+          <p className="gk-muted">把{BN[b]} <b className="gk-mono">{v.toString(b).toUpperCase()}</b> 展开：每一位 <b>数字 × 位权</b>，从高位到低位逐个相加。</p>
+          <div className="bs-exp">{data.digits.map((d, k) => <div key={k} className={`bs-cell${k < i ? ' on' : ''}`}><b>{dg(d)}</b><small>× {data.weights[k]}</small>{d >= 10 && <small>{dg(d)} = {d}</small>}</div>)}</div>
+          <div className="bs-formula">{i === 0 ? <span className="gk-muted">点「下一步」开始展开</span> : <>{data.digits.slice(0, i).map((d, k) => <span key={k}><b>{d}×{data.weights[k]}</b>{k < i - 1 ? ' + ' : ''}</span>)} = <em>{data.digits.slice(0, i).reduce((t, d, k) => t + d * data.weights[k], 0)}</em></>}</div>
+          {done && <div className="bs-ans-strip">累加完成：<b className="gk-mono">{v.toString(b).toUpperCase()}</b>（{BN[b]}）= 十进制 <b>{v}</b></div>}
+        </>}
+        {mode === 'group' && <>
+          <p className="gk-muted">二进制 → {BN[b]}：{data.k} 个二进制位正好是 1 个{BN[b]}位（2<sup>{data.k}</sup> = {b}），从<b>右往左</b>每 {data.k} 位分一组，不够的高位补 0。</p>
+          <div className="bs-groups">{data.groups.map((g, k) => <div key={k} className={`bs-grp${k < i ? ' on' : ''}`}><div className="bits">{g.split('').map((c, j) => <i key={j}>{c}</i>)}</div><span>↓</span><b>{k < i ? data.mapped[k] : '?'}</b></div>)}</div>
+          {done && <div className="bs-ans-strip">每组替换完成：<b className="gk-mono">{data.mapped.join('')}</b>（{BN[b]}）= 十进制 {v}；反过来，一位{BN[b]}拆成 {data.k} 位二进制就是逆运算。</div>}
+        </>}
+        <div className="gk-row">
+          <button className="gk-ghost" onClick={() => setIdx(x => Math.max(0, x - 1))} disabled={i === 0}>上一步</button>
+          <button className="gk-btn" onClick={() => setIdx(x => Math.min(total, x + 1))} disabled={done}>下一步</button>
+          <button className="gk-ghost" onClick={() => setIdx(total)} disabled={done}>一口气放完</button>
+          <button className="gk-ghost" onClick={() => setIdx(0)} disabled={i === 0}>重播</button>
+          <span className="gk-muted gk-mono">{i}/{total}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+const REL = [
+  { t: '二进制 · 0 和 1', d: '只用 0、1，逢 2 进 1。计算机里只有"开 / 关"两种状态，所以一切数据最终都存成二进制——一排开关，每个开关就是一位。', e: '13 = 1101₂' },
+  { t: '八进制 · 0~7', d: '用 0~7，逢 8 进 1。2³ = 8，所以 3 个二进制位正好凑 1 个八进制位。Linux 文件权限 755 就是它。', e: '202 = 312₈' },
+  { t: '十进制 · 0~9', d: '用 0~9，逢 10 进 1。人类最熟悉的进制，因为我们有十根手指；它是其他进制之间的"翻译官"。', e: '202 = 2×100 + 0×10 + 2×1' },
+  { t: '十六进制 · 0~9 A~F', d: '用 0~9 和 A~F 共 16 个符号，逢 16 进 1。2⁴ = 16，所以 4 个二进制位正好凑 1 位。网页颜色 #FF6B00、MAC 地址都靠它。', e: '202 = CA₁₆' },
+]
 
 /* ============================== 题目 ============================== */
 // type：dec 填十进制，hex 填十六进制，oct 填八进制，bin 填二进制；sw 用开关作答
@@ -296,7 +361,7 @@ export default function BaseGame() {
         <section className="gk-hero">
           <div className="gk-k">任务二 · 文件的本质：二进制与数制转换</div>
           <h1>进制闯关</h1>
-          <p className="gk-muted">计算机里的一切，最后都是一串开关的开和合。先拨一拨，看看同一个数在二进制、十进制、十六进制、八进制里长什么样；再从第 1 关的翻译工坊开始，自己把 0~15 的四种写法推出来。</p>
+          <p className="gk-muted">计算机里的一切，最后都是一串开关的开和合。先拨一拨，看看同一个数在二进制、十进制、十六进制、八进制里长什么样；再一步步看它是怎么用除基取余、位权展开、分组法算出来的；最后从第 1 关的翻译工坊开始，自己把 0~15 的四种写法推出来。</p>
         </section>
         <Demo />
         <section id="bs-levels" className="bs-levels-h">
@@ -389,5 +454,44 @@ const CSS = String.raw`
 .ws-cmp{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.9rem;text-align:center}
 .ws-cmp th,.ws-cmp td{padding:6px 4px;border:1px solid var(--line)}
 .ws-cmp thead th{background:#141C31}
-@media (max-width:700px){.ws-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-table td.ref{width:64px}.bs-out{grid-template-columns:1fr}.bs-bits{gap:4px}.bs-bit{padding:8px 2px;border-radius:10px}.bs-bit.gap{margin-left:8px}.bs-bit .sw{width:24px;height:44px}.bs-bit .sw i{height:18px}.bs-bit.on .sw i{bottom:19px}.bs-bit b{font-size:1.2rem}.bs-bit .w{font-size:.66rem}}
+.bs-conv{display:grid;gap:12px;padding:14px;border-radius:14px;border:1px dashed var(--line2)}
+.bs-conv h3{font-size:1.1rem}
+.bs-conv-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.bs-mode{padding:8px 14px;border-radius:10px;border:1px solid var(--line2);background:rgba(255,255,255,.03);color:var(--muted);font-weight:700;cursor:pointer;font-size:.9rem}
+.bs-mode.sm{padding:6px 10px;font-size:.84rem}
+.bs-mode.on{border-color:var(--acc);color:var(--ink);background:rgba(255,255,255,.08);box-shadow:0 0 0 1px var(--acc) inset}
+.bs-mode:disabled{opacity:.35;cursor:not-allowed}
+.bs-stage{display:grid;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.25);min-height:150px}
+.bs-stage p{margin:0;line-height:1.6}
+.bs-stage p b{color:var(--ink)}
+.bs-steps.col{flex-direction:column;align-items:flex-start}
+.bs-steps .no{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:.75rem;font-weight:800;background:rgba(63,213,255,.15);color:var(--c2)}
+.bs-steps .pop{animation:bsPop .3s ease}
+@keyframes bsPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.bs-beads{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:10px;border-top:1px dashed var(--line)}
+.bs-beads i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-family:var(--mono);font-weight:800;background:rgba(255,255,255,.08);border:2px solid var(--line2);animation:bsDrop .35s ease}
+.bs-beads i.one{background:var(--warn);color:#06080F;border-color:#ffe3a3;box-shadow:0 0 10px -2px var(--warn)}
+@keyframes bsDrop{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+.bs-ans-strip{padding:10px 14px;border-radius:10px;background:rgba(55,217,158,.1);border:1px solid rgba(55,217,158,.45);font-size:.95rem;animation:bsPop .35s ease}
+.bs-ans-strip b{color:var(--good);font-size:1.1rem}
+.bs-exp{display:flex;gap:8px;flex-wrap:wrap}
+.bs-cell{display:grid;justify-items:center;gap:2px;min-width:56px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:rgba(255,255,255,.03);transition:all .2s;opacity:.55}
+.bs-cell b{font-family:var(--mono);font-size:1.5rem;line-height:1}.bs-cell small{font-family:var(--mono);color:var(--muted);font-size:.75rem}
+.bs-cell.on{opacity:1;border-color:var(--c2);transform:translateY(-3px);box-shadow:0 0 12px -4px var(--c2)}.bs-cell.on small{color:var(--c2)}
+.bs-formula{font-family:var(--mono);font-size:1rem;line-height:1.9;min-height:30px}
+.bs-formula b{color:var(--warn)}.bs-formula em{font-style:normal;color:var(--c2);font-weight:800;font-size:1.15rem}
+.bs-groups{display:flex;gap:14px;flex-wrap:wrap}
+.bs-grp{display:grid;justify-items:center;gap:4px;opacity:.55;transition:all .2s}
+.bs-grp.on{opacity:1}
+.bs-grp .bits{display:flex;gap:4px}
+.bs-grp .bits i{width:30px;height:36px;display:grid;place-items:center;border-radius:7px;font-style:normal;font-family:var(--mono);font-weight:800;border:1.5px solid var(--line2);background:rgba(255,255,255,.03)}
+.bs-grp.on .bits i{border-color:#c084fc;color:#e6d5ff}
+.bs-grp span{color:var(--muted)}
+.bs-grp b{width:44px;height:44px;display:grid;place-items:center;border-radius:10px;font-family:var(--mono);font-size:1.4rem;border:2px solid var(--line2);background:rgba(0,0,0,.3)}
+.bs-grp.on b{border-color:#c084fc;background:rgba(192,132,252,.15);color:#e6d5ff;animation:bsPop .35s ease}
+.bs-rel summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}
+.bs-rel-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}
+.bs-rel-card{display:grid;gap:6px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:.85rem}
+.bs-rel-card b{color:var(--warn)}.bs-rel-card p{margin:0;color:var(--muted);line-height:1.6}.bs-rel-card code{font-family:var(--mono);color:var(--c2)}
+@media (max-width:700px){.bs-rel-cards{grid-template-columns:1fr 1fr}.bs-conv-bar{flex-direction:column}.ws-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-table td.ref{width:64px}.bs-out{grid-template-columns:1fr}.bs-bits{gap:4px}.bs-bit{padding:8px 2px;border-radius:10px}.bs-bit.gap{margin-left:8px}.bs-bit .sw{width:24px;height:44px}.bs-bit .sw i{height:18px}.bs-bit.on .sw i{bottom:19px}.bs-bit b{font-size:1.2rem}.bs-bit .w{font-size:.66rem}}
 `
