@@ -34,11 +34,11 @@ export function getMe() {
 }
 
 export async function register(cls, name, sno) {
-  const c = String(cls || '').trim().slice(0, 20), n = String(name || '').trim().slice(0, 12), s = String(sno || '').trim().slice(0, 20)
+  const c = String(cls || '').trim().slice(0, 40), n = String(name || '').trim().slice(0, 12), s = String(sno || '').trim().slice(0, 20)
   if (!c || !n) throw new Error('请填写班级和姓名')
   const { data, error } = await supabase.rpc('aistudy_register', { p_cls: c, p_name: n, p_sno: s || null })
   if (error || !data) throw new Error('登记失败，请检查网络后再试')
-  const me = { id: data, cls: c, name: n, sno: s }
+  const me = { id: data, cls: c, name: n, sno: s } // 学号没填时，服务器会按班级名单自动补上，本机不用存
   try { localStorage.setItem(KEY, JSON.stringify(me)) } catch (e) {}
   return me
 }
