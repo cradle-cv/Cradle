@@ -132,6 +132,9 @@ function ToolCard({ id }) {
       const own = store.get('virus-host', null)
       if (own && own.code) found(own.code, '病毒攻防 ' + own.code)
       else supabase.rpc('aistudy_battle_latest').then(({ data }) => found(data, '病毒攻防 ' + data), () => {})
+    } else if (id === 'qiandao') {
+      const own = store.get('ci-room', null)
+      if (own && own.code) found(own.code, '签到 ' + own.code)
     } else if (id === 'zhitiao' || id === 'migong') {
       const q = id === 'zhitiao'
         ? supabase.from('zhitiao_activities').select('code,title').eq('is_open', true).order('created_at', { ascending: false }).limit(1)
