@@ -103,33 +103,63 @@ function hasColorApplied(h){
   for(const el of h.querySelectorAll("[style]")){if(el.style.color&&el.style.color!==""&&el.style.color!=="inherit")return true}
   return false
 }
-function evalReqs(el,reqs){
-  const nd=new Set()
+// ── Word 排版评分（v2）：按规则返回 got/need，支持部分得分与文本锚定 ──
+const _txt=e=>(e.textContent||"").replace(/\s+/g,"")
+const _has=(e,t)=>!t||_txt(e).includes(String(t).replace(/\s+/g,""))
+function _countTexts(els,texts){const arr=Array.isArray(texts)?texts:[];if(!arr.length)return els.length;return arr.filter(t=>els.some(e=>_has(e,t))).length}
+function _isBoldEl(e){const fw=e.style&&e.style.fontWeight;return e.nodeName==="B"||e.nodeName==="STRONG"||fw==="bold"||fw==="700"||fw==="800"||fw==="900"}
+function measureReqs(el,reqs){
+  const out={}
+  const styled=()=>Array.from(el.querySelectorAll("[style]"))
   for(const r of reqs){
+    let got=0,need=1,partial=true
     switch(r.type){
-      case "h1":if(el.querySelector("h1"))nd.add(r.id);break
-      case "h2":if(el.querySelectorAll("h2").length>=(r.min||1))nd.add(r.id);break
-      case "table":{const t=el.querySelector("table");if(t){const rows=t.querySelectorAll("tr").length;let mx=0;t.querySelectorAll("tr").forEach(tr=>{const c=tr.querySelectorAll("td,th").length;if(c>mx)mx=c});if(rows>=(r.min_rows||1)&&mx>=(r.min_cols||1))nd.add(r.id)}break}
-      case "bold":{const be=el.querySelectorAll("b,strong");const bs=Array.from(el.querySelectorAll("[style]")).filter(e=>{const fw=e.style.fontWeight;return fw==="bold"||fw==="700"||fw==="800"||fw==="900"});if(be.length+bs.length>=(r.min||1))nd.add(r.id);break}
-      case "color_h2":{const colored=Array.from(el.querySelectorAll("h2")).filter(h=>hasColorApplied(h));if(colored.length>=(r.min||1))nd.add(r.id);break}
-      case "align":{const al=Array.from(el.querySelectorAll("[style],[align]")).filter(e=>e.style.textAlign==="center"||e.getAttribute("align")==="center");if(al.length>=(r.min||1))nd.add(r.id);break}
-      case "list":if(el.querySelector("ul,ol"))nd.add(r.id);break
-      case "indent_first":{const ind=Array.from(el.querySelectorAll("[style]")).filter(e=>{const ti=e.style.textIndent;if(!ti||ti==="0px"||ti==="0")return false;return parseFloat(ti)>0});if(ind.length>=(r.min||1))nd.add(r.id);break}
-      case "line_height":{const mv=parseFloat(r.min_value)||1.5;const lh=Array.from(el.querySelectorAll("[style]")).filter(e=>{const v=parseFloat(e.style.lineHeight);return!isNaN(v)&&v>=mv});if(lh.length>=(r.min||1))nd.add(r.id);break}
-      case "space_before":{const mp=parseFloat(r.min_px)||12;const sp=Array.from(el.querySelectorAll("[style]")).filter(e=>(parseFloat(e.style.marginTop)||0)>=mp);if(sp.length>=(r.min||1))nd.add(r.id);break}
-      case "space_after":{const mp=parseFloat(r.min_px)||12;const sp=Array.from(el.querySelectorAll("[style]")).filter(e=>(parseFloat(e.style.marginBottom)||0)>=mp);if(sp.length>=(r.min||1))nd.add(r.id);break}
-      case "indent_block":{const mp=parseFloat(r.min_px)||24;const ind=Array.from(el.querySelectorAll("[style],blockquote")).filter(e=>e.nodeName==="BLOCKQUOTE"||(parseFloat(e.style.marginLeft)||0)>=mp);if(ind.length>=(r.min||1))nd.add(r.id);break}
+      case "h1":{const hs=Array.from(el.querySelectorAll("h1"));got=r.text?(hs.some(h=>_has(h,r.text))?1:0):(hs.length?1:0);partial=false;break}
+      case "h2":{const hs=Array.from(el.querySelectorAll("h2"));need=r.texts?.length||r.min||1;got=r.texts?.length?_countTexts(hs,r.texts):hs.length;break}
+      case "table":{const t=el.querySelector("table");need=2;if(t){const rows=t.querySelectorAll("tr").length;let mx=0;t.querySelectorAll("tr").forEach(tr=>{const c=tr.querySelectorAll("td,th").length;if(c>mx)mx=c});got=(rows>=(r.min_rows||1)&&mx>=(r.min_cols||1))?2:1}break}
+      case "bold":{const bs=Array.from(el.querySelectorAll("b,strong,[style]")).filter(_isBoldEl);need=r.texts?.length||r.min||1;got=r.texts?.length?_countTexts(bs,r.texts):bs.length;break}
+      case "color_h2":{const hs=Array.from(el.querySelectorAll("h2")).filter(h=>hasColorApplied(h));need=r.min||1;got=hs.length;break}
+      case "align":{const al=Array.from(el.querySelectorAll("[style],[align]")).filter(e=>e.style.textAlign==="center"||e.getAttribute("align")==="center");need=r.texts?.length||r.min||1;got=r.texts?.length?_countTexts(al,r.texts):(r.text?(al.some(e=>_has(e,r.text))?1:0):al.length);if(r.text)need=1;break}
+      case "list":{const ls=el.querySelectorAll("ul,ol");got=ls.length?1:0;if(r.type_strict&&r.list_type)got=el.querySelector(r.list_type)?1:0;partial=false;break}
+      case "indent_first":{need=r.min||1;got=styled().filter(e=>{const ti=e.style.textIndent;return ti&&ti!=="0px"&&ti!=="0"&&parseFloat(ti)>0}).length;break}
+      case "line_height":{const mv=parseFloat(r.min_value)||1.5;need=r.min||1;got=styled().filter(e=>{const v=parseFloat(e.style.lineHeight);return!isNaN(v)&&v>=mv}).length;break}
+      case "space_before":{const mp=parseFloat(r.min_px)||12;need=r.min||1;got=styled().filter(e=>(parseFloat(e.style.marginTop)||0)>=mp).length;break}
+      case "space_after":{const mp=parseFloat(r.min_px)||12;need=r.min||1;got=styled().filter(e=>(parseFloat(e.style.marginBottom)||0)>=mp).length;break}
+      case "indent_block":{const mp=parseFloat(r.min_px)||24;need=r.min||1;got=Array.from(el.querySelectorAll("[style],blockquote")).filter(e=>e.nodeName==="BLOCKQUOTE"||(parseFloat(e.style.marginLeft)||0)>=mp).length;break}
+      default:continue
     }
+    const g=Math.min(got,need)
+    const pts=g>=need?(r.pts||0):(partial&&g>0?Math.floor((r.pts||0)*g/need):0)
+    out[r.id]={got,need,pts,max:r.pts||0,ok:g>=need}
   }
+  return out
+}
+function evalReqs(el,reqs){
+  const m=measureReqs(el,reqs);const nd=new Set()
+  for(const r of reqs)if(m[r.id]?.ok)nd.add(r.id)
   return nd
 }
+// 正文保留率：删掉原文超过一半时封顶 50%，防止"删文凑格式"
+function keepRatio(el,rawHtml){
+  if(!rawHtml)return 1
+  const d=document.createElement("div");d.innerHTML=rawHtml
+  const a=_txt(d).length;if(!a)return 1
+  return Math.min(1,_txt(el).length/a)
+}
+function scoreReqs(el,reqs,rawHtml){
+  const m=measureReqs(el,reqs)
+  const raw=reqs.reduce((s,r)=>s+(m[r.id]?.pts||0),0)
+  const kr=keepRatio(el,rawHtml)
+  const capped=kr<0.5
+  return {score:capped?Math.min(raw,Math.floor(reqs.reduce((s,r)=>s+(r.pts||0),0)/2)):raw,raw,measure:m,keep:kr,capped}
+}
 const REQ_TYPES={
-  h1:{label:"H1大标题",toolbar:"h1",params:[],hint:"选中大标题，点工具栏 H1"},
-  h2:{label:"H2小标题",toolbar:"h2",params:[{k:"min",label:"至少几个",default:1}],hint:"选中各小标题，点工具栏 H2"},
+  h1:{label:"H1大标题",toolbar:"h1",params:[{k:"text",label:"标题须包含文字（可空）",text:true,ph:"如：招新通知"}],hint:"选中大标题，点工具栏 H1"},
+  h2:{label:"H2小标题",toolbar:"h2",params:[{k:"min",label:"至少几个",default:1},{k:"texts",label:"指定小标题（逗号分隔，可空）",text:true,list:true,ph:"如：招新对象，活动安排"}],hint:"选中各小标题，点工具栏 H2"},
   table:{label:"插入表格",toolbar:"table",params:[{k:"min_rows",label:"至少几行（含表头）",default:3},{k:"min_cols",label:"至少几列",default:2}],hint:"点工具栏「插入表格」"},
-  bold:{label:"加粗文字",toolbar:"bold",params:[{k:"min",label:"至少几处",default:2}],hint:"选中文字，点工具栏「加粗」"},
+  bold:{label:"加粗文字",toolbar:"bold",params:[{k:"min",label:"至少几处",default:2},{k:"texts",label:"指定须加粗的文字（逗号分隔，可空）",text:true,list:true,ph:"如：截止时间，名额有限"}],hint:"选中文字，点工具栏「加粗」"},
   color_h2:{label:"H2标题颜色",toolbar:"color",params:[{k:"min",label:"至少几个H2上色",default:3}],hint:"选中H2内文字，点「文字颜色」选色"},
-  align:{label:"居中对齐",toolbar:"align",params:[{k:"min",label:"至少几处",default:1}],hint:"选中文字，点工具栏「居中」"},
+  align:{label:"居中对齐",toolbar:"align",params:[{k:"min",label:"至少几处",default:1},{k:"text",label:"须居中的文字（可空）",text:true,ph:"如：通知标题"}],hint:"选中文字，点工具栏「居中」"},
   list:{label:"插入列表",toolbar:"list",params:[{k:"type",label:"类型(ul/ol)",default:"ul"}],hint:"点工具栏「无序列表」或「有序列表」"},
   indent_first:{label:"首行缩进",toolbar:"indent_first",params:[{k:"min",label:"至少几段",default:1}],hint:"光标置于段落内，点「首行缩进」按钮"},
   line_height:{label:"行距设置",toolbar:"line_height",params:[{k:"min",label:"至少几处",default:1},{k:"min_value",label:"最小行距(如1.5)",default:1.5}],hint:"光标置于段落，用「行距」下拉菜单设置"},
@@ -1137,7 +1167,9 @@ function LayoutTaskEditor({task,onSave,onBack}){
                       {REQ_TYPES[r.type].params.map(p=>(
                         <div key={p.k}>
                           <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{p.label}</div>
-                          <input type="number" min={1} max={20} value={r[p.k]??p.default} onChange={e=>updReq(i,p.k,Number(e.target.value))} style={inp({width:60,padding:"5px 8px",fontSize:13})}/>
+                          {p.text
+                            ? <input type="text" placeholder={p.ph||""} value={Array.isArray(r[p.k])?r[p.k].join("，"):(r[p.k]??"")} onChange={e=>{const v=e.target.value;updReq(i,p.k,p.list?v.split(/[,，、]/).map(x=>x.trim()).filter(Boolean):v)}} style={inp({width:p.list?220:140,padding:"5px 8px",fontSize:13})}/>
+                            : <input type="number" min={1} max={20} value={r[p.k]??p.default} onChange={e=>updReq(i,p.k,Number(e.target.value))} style={inp({width:60,padding:"5px 8px",fontSize:13})}/>}
                         </div>
                       ))}
                     </div>
@@ -2905,6 +2937,8 @@ function SMain({session:init,studentName}){
   const editorRef=useRef(null)
   const savedSel=useRef(null)
   const [done,setDone]=useState(new Set())
+  const [prog,setProg]=useState({})
+  const [keepInfo,setKeepInfo]=useState({keep:1,capped:false})
   const [labTime,setLabTime]=useState(init.time_limit)
   const [submitted,setSubmitted]=useState(false)
   const [subId,setSubId]=useState(null)
@@ -3126,14 +3160,19 @@ function SMain({session:init,studentName}){
   function checkReqs(){
     if(!editorRef.current) return
     const reqs=(activeTask?.requirements)||TASK.reqs
-    const nd=evalReqs(editorRef.current,reqs)
-    setDone(nd)
+    const res=scoreReqs(editorRef.current,reqs,activeTask?.raw_html||TASK.rawHtml)
+    const nd=new Set(reqs.filter(r=>res.measure[r.id]?.ok).map(r=>r.id))
+    setDone(nd);setProg(res.measure);setKeepInfo({keep:res.keep,capped:res.capped})
+  }
+  function calcScore(reqs){
+    if(!editorRef.current)return reqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    return scoreReqs(editorRef.current,reqs,activeTask?.raw_html||TASK.rawHtml).score
   }
 
   async function save(){
     if(!subId) return
     const taskReqs=(activeTask?.requirements)||TASK.reqs
-    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    const score=calcScore(taskReqs)
     await sb.from("word_lab_submissions").update({
       score,completed_tasks:[...done],
       html_content:editorRef.current?.innerHTML||"",
@@ -3145,7 +3184,7 @@ function SMain({session:init,studentName}){
     if(submitted) return
     await save()
     const taskReqs=(activeTask?.requirements)||TASK.reqs
-    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    const score=calcScore(taskReqs)
     await sb.from("word_lab_submissions").update({submitted:true,score,phase:'lab'}).eq("id",subId)
     setFinalScore(score);setSubmitted(true)
   }
@@ -3161,7 +3200,7 @@ function SMain({session:init,studentName}){
 
   const myGroup=groups.find(g=>g.id===myGroupId)
   const taskReqs=(activeTask?.requirements)||TASK.reqs
-    const score=taskReqs.filter(r=>done.has(r.id)).reduce((s,r)=>s+r.pts,0)
+    const score=calcScore(taskReqs)
 
   // Checkin screen
   if(!checkedIn||sess.phase==="checkin"){
@@ -3610,11 +3649,14 @@ function SMain({session:init,studentName}){
             overflow:"auto",display:"flex",flexDirection:"column"}}>
             <div style={{padding:"10px 14px",background:"#1e3a5f",flexShrink:0}}>
               <div style={{fontSize:12,fontWeight:700,color:"white"}}>📋 评分任务</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:2}}>完成即自动得分</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.45)",marginTop:2}}>完成即自动得分 · 按完成比例计分</div>
+              {keepInfo.capped&&<div style={{fontSize:10,color:"#fbbf24",marginTop:4,fontWeight:700}}>⚠ 原文删除过多（仅保留 {Math.round(keepInfo.keep*100)}%），总分封顶 50%</div>}
             </div>
             <div style={{padding:14,flex:1}}>
               {((activeTask?.requirements)||TASK.reqs).map((r,i)=>{
                 const ok=done.has(r.id)
+                const pg=prog[r.id]
+                const part=pg&&!ok&&pg.pts>0
                 return(
                   <div key={r.id} style={{marginBottom:14,padding:"12px 14px",borderRadius:10,
                     border:`1.5px solid ${ok?C.accent:C.border}`,
@@ -3625,10 +3667,11 @@ function SMain({session:init,studentName}){
                         {ok?"✓":"○"}
                       </span>
                       <span style={{fontSize:20,fontWeight:900,fontFamily:FM,
-                        color:ok?C.accent:"#d1d5db"}}>
-                        {r.pts}
+                        color:ok?C.accent:part?"#d97706":"#d1d5db"}}>
+                        {ok?r.pts:part?`${pg.pts}/${r.pts}`:r.pts}
                       </span>
                       <span style={{fontSize:10,color:ok?C.accent:"#9ca3af",fontWeight:700}}>分</span>
+                      {pg&&pg.need>1&&!ok&&<span style={{fontSize:10,color:part?"#d97706":"#9ca3af",marginLeft:"auto",fontFamily:FM}}>{Math.min(pg.got,pg.need)}/{pg.need}</span>}
                     </div>
                     <div style={{fontSize:12,color:ok?C.text:C.muted,lineHeight:1.5}}>
                       {r.desc}
