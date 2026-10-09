@@ -7,6 +7,8 @@ const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4"
 const sb = createClient(SB_URL, SB_KEY)
 const DEFAULT_PW = "lulu2025"
+// 小信主页 / 课件 / 游戏登记过的学生身份（同域名共享 localStorage），配配学生端直接沿用，不用再填一次
+function xiaoxinMe(){ try{ const v=JSON.parse(localStorage.getItem("xiaoxin:me")||"null"); if(v&&v.cls&&v.name) return {cls:String(v.cls).trim().slice(0,40),name:String(v.name).trim().slice(0,12)} }catch(_){} return null }
 
 const C = {
   bg:"#f1f5f9", panel:"#ffffff", border:"#e2e8f0", text:"#0f172a", muted:"#64748b",
@@ -387,6 +389,52 @@ function BuildGrid({parts,readOnly,onPart,mode="desktop"}){
   )
 }
 
+// 提交后的 AI 评判：把任务场景、预算和配置单交给 /api/pei/review，拿回四个维度的分数、问题和建议。只作参考，老师定分为准。
+function partsForReview(parts, mode){
+  const metas=metasFor(mode)
+  return parts.filter(p=>metas.some(m=>m.id===p.id)).filter(p=>(p.model||"").trim()||num(p.price)>0)
+    .map(p=>({id:p.id,name:(metas.find(m=>m.id===p.id)||{}).name||p.id,model:p.model,price:p.price,specs:p.id==="laptop"?p.specs:undefined}))
+}
+async function requestReview(task, mode, parts, total){
+  const res=await fetch("/api/pei/review",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({task:{title:task.title,scenario:task.scenario,budget_limit:task.budget_limit,device_type:task.device_type},mode,parts:partsForReview(parts,mode),total})})
+  const j=await res.json().catch(()=>({}))
+  if(!res.ok||j.error) throw new Error(j.error||("HTTP "+res.status))
+  return j
+}
+function AiReview({review,loading,error,onRetry,compact}){
+  if(loading) return <div style={{padding:"12px 14px",background:"#f0f9ff",borderRadius:10,fontSize:13,color:C.accentDark}}>🤖 小信正在评判这份配置单…</div>
+  if(error) return <div style={{padding:"12px 14px",background:"#fff7ed",borderRadius:10,fontSize:13,color:C.gold,display:"flex",gap:10,alignItems:"center"}}><span style={{flex:1}}>AI 评判暂时没做出来：{error}</span>{onRetry&&<Btn small onClick={onRetry} color={C.gold}>再试一次</Btn>}</div>
+  if(!review) return null
+  const col=v=>v>=20?C.green:v>=13?C.gold:C.red
+  return(
+    <div style={{background:"linear-gradient(135deg,#f0f9ff,#f8fafc)",border:"1px solid #bae6fd",borderRadius:12,padding:"14px 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.accentDark}}>🤖 小信 AI 评判</div>
+        <div style={{fontSize:11,color:C.muted}}>仅供参考，最终以老师定分为准</div>
+        <div style={{flex:1}}/>
+        <div style={{fontFamily:FM,fontWeight:900,fontSize:26,color:col(review.score/4)}}>{review.score}<span style={{fontSize:12,color:C.muted}}> /100</span></div>
+      </div>
+      {review.summary&&<div style={{fontSize:13,lineHeight:1.7,marginBottom:10}}>{review.summary}</div>}
+      <div style={{display:"grid",gridTemplateColumns:compact?"1fr":"repeat(auto-fit,minmax(200px,1fr))",gap:8,marginBottom:10}}>
+        {(review.dims||[]).map((d,i)=>(
+          <div key={i} style={{background:"#fff",borderRadius:8,padding:"8px 10px",border:`1px solid ${C.border}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700}}><span>{d.name}</span><span style={{fontFamily:FM,color:col(d.score)}}>{d.score}/{d.max||25}</span></div>
+            <div style={{height:4,borderRadius:2,background:"#e2e8f0",margin:"6px 0"}}><div style={{height:"100%",borderRadius:2,width:`${Math.round(d.score/(d.max||25)*100)}%`,background:col(d.score)}}/></div>
+            {d.comment&&<div style={{fontSize:12,color:C.muted,lineHeight:1.5}}>{d.comment}</div>}
+          </div>
+        ))}
+      </div>
+      {[["issues","⚠️ 需要改的",C.red,"#fef2f2"],["suggestions","💡 建议",C.gold,"#fffbeb"],["highlights","👍 做得好",C.green,"#ecfdf5"]].map(([k,t,c,bg])=>(review[k]||[]).length>0&&(
+        <div key={k} style={{background:bg,borderRadius:8,padding:"8px 12px",marginBottom:6}}>
+          <div style={{fontSize:12,fontWeight:700,color:c,marginBottom:4}}>{t}</div>
+          {review[k].map((x,i)=><div key={i} style={{fontSize:13,lineHeight:1.6}}>· {x}</div>)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ScoreDetail({detail}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -513,7 +561,7 @@ function TAdmin({onLogout}){
     if(!selId) return
     setOpenId(null)
     const load=()=>sb.from("pei_submissions")
-      .select("id,class_name,student_name,total_price,submitted,auto_score,auto_detail,teacher_score,teacher_note,updated_at,build_mode")
+      .select("id,class_name,student_name,total_price,submitted,auto_score,auto_detail,teacher_score,teacher_note,updated_at,build_mode,ai_score,ai_review")
       .eq("task_id",selId).then(({data})=>data&&setSubs(data))
     load(); const t=setInterval(load,6000)
     return()=>clearInterval(t)
@@ -625,6 +673,7 @@ function TAdmin({onLogout}){
                               <span style={{flex:1,fontSize:12,fontFamily:FM,color:over?C.red:C.text}}>¥{total.toLocaleString()}{over?" 超预算":""}</span>
                               <span><span style={{fontSize:22,fontWeight:900,fontFamily:FM,color:C.accent}}>{s.final}</span>
                                 <span style={{fontSize:11,color:C.muted}}>/100</span></span>
+                              {s.ai_score!=null&&<span title="AI 评判分" style={{fontSize:10,color:C.accentDark,fontFamily:FM}}>AI {s.ai_score}</span>}
                               {s.teacher_score!=null&&<span style={{fontSize:10,color:C.purple}}>已定分</span>}
                               <span style={{color:C.muted}}>{openId===s.id?"▲":"▼"}</span>
                             </div>
@@ -634,6 +683,7 @@ function TAdmin({onLogout}){
                                   ? <div style={{color:C.muted,fontSize:13}}>加载中…</div>
                                   : <>
                                       <BuildGrid parts={openParts} readOnly mode={s.build_mode||"desktop"}/>
+                                      {s.ai_review&&<div style={{marginTop:14}}><AiReview review={s.ai_review}/></div>}
                                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginTop:14}}>
                                         <div>
                                           <div style={{fontSize:12,color:C.muted,marginBottom:8}}>自动评分</div>
@@ -689,6 +739,7 @@ function FinalRank({rows}){
 function SLogin({onEnter,onBack}){
   const [cls,setCls]=useState(""); const [name,setName]=useState("")
   useEffect(()=>{
+    const x=xiaoxinMe(); if(x){ setCls(x.cls); setName(x.name); return }
     try{ const v=JSON.parse(localStorage.getItem("pei_student")||"null"); if(v){ setCls(v.cls||""); setName(v.name||"") } }catch(_){}
   },[])
   function go(){
@@ -702,7 +753,7 @@ function SLogin({onEnter,onBack}){
       <Card style={{width:"100%",maxWidth:340}}>
         <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>开始装机</div>
         <div style={{fontSize:13,color:C.muted,marginBottom:18}}>下次用同样的班级和姓名进入，可以继续修改</div>
-        <input value={cls} onChange={e=>setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={20} style={inp({marginBottom:10})}/>
+        <input value={cls} onChange={e=>setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={40} style={inp({marginBottom:10})}/>
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="姓名" maxLength={12}
           onKeyDown={e=>e.key==="Enter"&&go()} style={inp({marginBottom:14})}/>
         <Btn onClick={go} style={{width:"100%"}}>进入</Btn>
@@ -774,7 +825,7 @@ function SBuild({me,task,onBack}){
   const key={task_id:task.id,class_name:me.cls,student_name:me.name}
 
   useEffect(()=>{
-    const load=(first)=>sb.from("pei_submissions").select("parts,submitted,auto_score,auto_detail,teacher_score,teacher_note,build_mode")
+    const load=(first)=>sb.from("pei_submissions").select("parts,submitted,auto_score,auto_detail,teacher_score,teacher_note,build_mode,ai_review,ai_score")
       .eq("task_id",task.id).eq("class_name",me.cls).eq("student_name",me.name).maybeSingle()
       .then(({data})=>{
         if(data){
@@ -805,11 +856,23 @@ function SBuild({me,task,onBack}){
     clearTimeout(saveTimer.current)
     saveTimer.current=setTimeout(()=>persist(next),1200)
   }
+  const [aiBusy,setAiBusy]=useState(false)
+  const [aiErr,setAiErr]=useState("")
+  async function review(ps=partsRef.current,m=modeRef.current){
+    setAiBusy(true); setAiErr("")
+    try{
+      const r=await requestReview(task,m,ps,calcTotal(ps,m))
+      await sb.from("pei_submissions").update({ai_review:r,ai_score:r.score}).eq("task_id",task.id).eq("class_name",me.cls).eq("student_name",me.name)
+      setSub(s=>({...(s||{}),ai_review:r,ai_score:r.score}))
+    }catch(e){ setAiErr(e.message||"网络错误") }
+    finally{ setAiBusy(false) }
+  }
   async function submit(){
     const missing=metasFor(mode).filter(m=>m.req).filter(m=>!(parts.find(p=>p.id===m.id)?.model||"").trim()).length
     if(missing&&!confirm(mode==="laptop"?"还没填笔记本整机型号，确定提交吗？":`还有 ${missing} 个必选硬件没填型号，确定提交吗？`)) return
     clearTimeout(saveTimer.current)
-    await persist(parts,true)
+    const ok=await persist(parts,true)
+    if(ok) review(parts,mode)
   }
   async function withdraw(){
     if(sub?.teacher_score!=null){ alert("老师已经评分，不能撤回"); return }
@@ -872,6 +935,10 @@ function SBuild({me,task,onBack}){
           <Card style={{marginBottom:16,padding:"14px 18px"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.green,marginBottom:10}}>✓ 已提交，配置单已锁定</div>
             <ScoreDetail detail={sub?.auto_detail||detail}/>
+            <div style={{marginTop:12}}>
+              <AiReview review={sub?.ai_review} loading={aiBusy} error={aiErr} onRetry={()=>review()}/>
+              {!aiBusy&&!aiErr&&!sub?.ai_review&&<Btn small onClick={()=>review()} color={C.accent}>🤖 让小信评判这份配置单</Btn>}
+            </div>
             {sub?.teacher_score!=null&&<div style={{marginTop:10,fontSize:13,color:C.purple,fontWeight:700}}>老师定分：{sub.teacher_score}</div>}
             {sub?.teacher_note&&<div style={{marginTop:8,padding:"10px 12px",background:"#f5f3ff",borderRadius:8,fontSize:13}}>💬 {sub.teacher_note}</div>}
           </Card>
@@ -887,7 +954,18 @@ function AppInner(){
   const [screen,setScreen]=useState("home")
   const [me,setMe]=useState(null)
   const [task,setTask]=useState(null)
-  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>setScreen("s-login")}/>
+  // 从小信工具库扫码进来的学生链接带 #student：有小信身份就直接进任务列表，没有就到登记页
+  useEffect(()=>{
+    if(typeof window==="undefined"||window.location.hash!=="#student") return
+    const x=xiaoxinMe()
+    if(x){ try{ localStorage.setItem("pei_student",JSON.stringify(x)) }catch(_){}; setMe(x); setScreen("s-tasks") }
+    else setScreen("s-login")
+  },[])
+  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>{
+    const x=xiaoxinMe()
+    if(x){ try{ localStorage.setItem("pei_student",JSON.stringify(x)) }catch(_){}; setMe(x); setScreen("s-tasks") }
+    else setScreen("s-login")
+  }}/>
   if(screen==="t-login") return <TLogin onSuccess={()=>setScreen("t-admin")} onBack={()=>setScreen("home")}/>
   if(screen==="t-admin") return <TAdmin onLogout={()=>setScreen("home")}/>
   if(screen==="s-login") return <SLogin onEnter={v=>{setMe(v);setScreen("s-tasks")}} onBack={()=>setScreen("home")}/>
