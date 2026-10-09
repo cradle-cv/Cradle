@@ -2,8 +2,9 @@
 
 // 目标路径：app/aistudy/base/page.js
 // 进制闯关：上半部分是「拨开关」演示（8 个二进制位的权值、十进制、十六进制、八进制、除 2 取余实时联动），
-// 下半部分是五关闯关。进度存在本机（xiaoxin:game-base），登记过的学生每通一关把成绩记进数据看板（事件 game，game=base，知识点 k2-2）。
-// 加新关卡：在 LEVELS 里加一条（gen 生成一道题），kb.js 的 GAMES.base.levels 里加上关卡名。
+// 下半部分是六关闯关。进度存在本机（xiaoxin:game-base），登记过的学生每通一关把成绩记进数据看板（事件 game，game=base，知识点 k2-2）。
+// 第 1 关是「0~15 翻译工坊」：把 0~15 依次翻译成二进制、八进制、十六进制、十进制，每格即时判定，错了小信逐句讲进位规律，最后给出四进制对照表。
+// 加新关卡：在 LEVELS 里加一条（gen 生成一道题，或 kind:'workshop' 走 Workshop 组件），kb.js 的 GAMES.base.levels 里加上关卡名。
 import { useEffect, useRef, useState } from 'react'
 import { GameBar, useIdentity, useProgress, logGame, Result, Stars, starsOf, rand, pick, GAME_CSS } from '../gamekit'
 
@@ -92,11 +93,12 @@ const Q = {
   d2bt: () => { const v = rand(3, 63); return { kind: 'type', base: 2, v, ask: <>十进制 <b className="bs-target">{v}</b> 写成二进制</>, why: `${v} = ${W.filter((w, i) => bitsOf(v)[i]).join(' + ')}，二进制是 ${v.toString(2)}。` } },
 }
 const LEVELS = [
-  { id: 1, icon: '➡️', name: '二进制→十进制', desc: '看开关，把是 1 的位的权值加起来', n: 8, gen: i => Q.b2d(i < 3 ? 4 : 8) },
-  { id: 2, icon: '🎚️', name: '十进制→二进制', desc: '拨开关拼出目标数，从大权值开始放', n: 8, gen: () => Q.d2b() },
-  { id: 3, icon: '🔣', name: '十六进制', desc: '4 位二进制一组，对应 1 位十六进制', n: 8, gen: i => [Q.b2h, Q.h2b, Q.h2d][i % 3]() },
-  { id: 4, icon: '🎱', name: '八进制', desc: '3 位二进制一组，对应 1 位八进制', n: 8, gen: i => (i % 2 ? Q.o2d() : Q.b2o()) },
-  { id: 5, icon: '⏱️', name: '60 秒挑战', desc: '各种进制混在一起，60 秒能答对几道？答对 9 道过关', n: 15, timed: 60, gen: () => pick([Q.b2d, Q.b2h, Q.h2d, Q.b2o, Q.d2bt])() },
+  { id: 1, icon: '🧮', name: '0~15 翻译工坊', desc: '把 0~15 依次译成二进制、八进制、十六进制、十进制，自己推出四进制对照表', kind: 'workshop', n: 64 },
+  { id: 2, icon: '➡️', name: '二进制→十进制', desc: '看开关，把是 1 的位的权值加起来', n: 8, gen: i => Q.b2d(i < 3 ? 4 : 8) },
+  { id: 3, icon: '🎚️', name: '十进制→二进制', desc: '拨开关拼出目标数，从大权值开始放', n: 8, gen: () => Q.d2b() },
+  { id: 4, icon: '🔣', name: '十六进制', desc: '4 位二进制一组，对应 1 位十六进制', n: 8, gen: i => [Q.b2h, Q.h2b, Q.h2d][i % 3]() },
+  { id: 5, icon: '🎱', name: '八进制', desc: '3 位二进制一组，对应 1 位八进制', n: 8, gen: i => (i % 2 ? Q.o2d() : Q.b2o()) },
+  { id: 6, icon: '⏱️', name: '60 秒挑战', desc: '各种进制混在一起，60 秒能答对几道？答对 9 道过关', n: 15, timed: 60, gen: () => pick([Q.b2d, Q.b2h, Q.h2d, Q.b2o, Q.d2bt])() },
 ]
 
 function Ask({ q, timed, onAnswer }) {
@@ -121,6 +123,127 @@ function Ask({ q, timed, onAnswer }) {
       {st && !timed && <><div className={`gk-why${st === 'ok' ? '' : ' no'}`}>{st === 'ok' ? '✓ 对了！' : `✗ 正确答案：${q.kind === 'sw' ? bin(q.v) : q.base === 16 ? hex(q.v) + 'H' : q.v.toString(q.base)}。`}{q.why}</div><button type="button" className="gk-btn" autoFocus onClick={() => onAnswer(st === 'ok')}>下一题</button></>}
       {st && timed && <div className={st === 'ok' ? 'gk-good' : 'gk-err'}>{st === 'ok' ? '✓' : `✗ 答案是 ${q.base === 16 ? hex(q.v) + 'H' : q.v.toString(q.base)}`}</div>}
     </form>
+  )
+}
+
+
+/* ============================== 第 1 关 · 0~15 翻译工坊 ============================== */
+// 左列是恒定基准「自然数 0~15」，右列按关卡依次填二进制、八进制、十六进制、十进制；每格回车或离开即判定。
+const WS_N = 16
+const WS = [
+  { key: 'bin', base: 2, name: '二进制', rule: '逢二进一', color: '#EAF0FF', ph: '0 / 1',
+    insight: '0~15 的二进制已全部译对：0、1 直接书写；数值 2 逢二进一成 10、4 进位成 100、8 进位成 1000。二进制只有 0 和 1，满 2 就进位，这正是计算机的基本计数方式。' },
+  { key: 'oct', base: 8, name: '八进制', rule: '逢八进一', color: '#2DD4BF', ph: '0 ~ 7',
+    insight: '八进制已通关：0~7 和自然数写法一样，数值 8 才开始进位（8 记作 10）。对比二进制满 2 进位、八进制满 8 进位，可以看出基数越大、进位越晚。' },
+  { key: 'hex', base: 16, name: '十六进制', rule: '逢十六进一', color: '#FF8A3D', ph: '0~9, A~F',
+    insight: '十六进制已通关：0~9 复用数字，10~15 用字母 A~F 表示，16 才进位，符号最多、写法最精炼。' },
+  { key: 'dec', base: 10, name: '十进制', rule: '无需改写', color: '#FFD166', ph: '0 ~ 15',
+    insight: '0~15 在十进制下不需要任何改写，就是它本身——数学里的阿拉伯自然数，用的正是十进制计数规则。所以前面分别用二、八、十六进制去翻译「自然数 0~15」，实际上就是在推导十进制、二进制、八进制、十六进制这四种进制的对照关系。' },
+]
+const wsConv = (base, v) => base === 16 ? v.toString(16).toUpperCase() : v.toString(base)
+function wsExplain(base, v) {
+  if (base === 2) return v >= 2
+    ? [`${v} 用一位符号写不出来，二进制只有 0 和 1，没有「${v}」这个符号。`, '逢二进一：数值每满 2 就向前进一位。', '0 和 1 能组成的两位数只有 00、01、10、11；00 已经表示 0、01 表示 1，所以 10 表示 2、11 表示 3。', '数值 4 进到三位：100 表示 4，101 = 5、110 = 6、111 = 7；数值 8 进到四位：1000 表示 8。']
+    : ['0、1 在二进制里就是它本身，不用进位。']
+  if (base === 8) return v >= 8
+    ? [`${v} 用一位符号写不出来，八进制最大的符号是 7，没有「${v}」。`, '逢八进一：数值每满 8 就向前进一位（比二进制的满 2 进位晚得多）。', '0~7 和自然数写法一样；数值 8 进到两位：8 记作 10，往后 9 = 11、10 = 12、11 = 13、12 = 14、13 = 15、14 = 16、15 = 17。']
+    : ['0~7 在八进制里和自然数写法一样。']
+  if (base === 16) return v >= 10
+    ? [`${v} 没法用一位数字表示——0~9 十个数字符号已经用完了。`, '逢十六进一：16 才进位，所以 0~15 都能用一位符号表示。', '数字不够用就引入字母：A、B、C、D、E、F 分别代表 10、11、12、13、14、15。']
+    : ['0~9 在十六进制里和自然数写法一样。']
+  return [`${v} 的十进制就是它本身，不用改写、进位或替换。`, '数学里的阿拉伯自然数，用的就是十进制计数规则。', '四种进制只是同一个数的四种写法。']
+}
+function wsPraise(base, v, name) {
+  if (base === 10) return v === 15 ? '每一个自然数的十进制都是它本身——所以说，数学里的阿拉伯自然数用的就是十进制计数规则。' : `${v} 的十进制就是它本身。`
+  if (base === 8 && v === 7) return '自然数 0~7 和八进制的符号相同。'
+  if (base === 16 && v === 9) return '自然数 0~9 和十六进制的符号相同。'
+  return `${v} 的${name}写作 ${wsConv(base, v)}。`
+}
+
+function Workshop({ level, onExit, onFinish }) {
+  const [stage, setStage] = useState(0)
+  const [vals, setVals] = useState(() => Array(WS_N).fill(''))
+  const [st, setSt] = useState(() => Array(WS_N).fill(null)) // 'ok' | 'err' | null
+  const [wrong, setWrong] = useState(0)
+  const [firstTry, setFirstTry] = useState(0) // 一次就对的格数（计星）
+  const stRef = useRef(st), tried = useRef(new Set()) // 回车和失焦会连续触发两次判定，用 ref 保证同一格只算一次
+  const [tip, setTip] = useState({ t: '提示', m: ['请先把 0~15 各数翻译成二进制，每格按回车或离开输入框就会判定。'], c: null })
+  const [phase, setPhase] = useState('play') // play | done | final
+  const refs = useRef([])
+  const saved = useRef(false)
+  const S = WS[stage]
+  const okCount = st.filter(x => x === 'ok').length
+  useEffect(() => { refs.current[0] && refs.current[0].focus() }, [stage])
+  function judge(v) {
+    const cur = stRef.current
+    if (cur[v] === 'ok') return
+    const raw = (refs.current[v] ? refs.current[v].value : vals[v] || '').trim().toUpperCase()
+    const key = stage + ':' + v
+    if (!raw) { setTip({ t: '提示', m: ['这一格还没填，先写出翻译结果。'], c: null }); return }
+    if (raw === wsConv(S.base, v)) {
+      if (!tried.current.has(key)) setFirstTry(n => n + 1)
+      const ns = cur.slice(); ns[v] = 'ok'; stRef.current = ns; setSt(ns)
+      setTip({ t: '答案正确', m: [wsPraise(S.base, v, S.name)], c: S.color })
+      if (ns.every(x => x === 'ok')) { setPhase('done'); return }
+      const nx = refs.current.slice(v + 1).find(Boolean); nx && nx.focus()
+      return
+    }
+    if (tried.current.has(key) && cur[v] === 'err') { const el = refs.current[v]; el && el.focus(); return } // 失焦重复判定同一个错误不再计数
+    tried.current.add(key)
+    const ns = cur.slice(); ns[v] = 'err'; stRef.current = ns; setSt(ns)
+    setWrong(n => n + 1)
+    setTip({ t: '小信 · 说明', m: wsExplain(S.base, v), c: S.color })
+    const el = refs.current[v]; el && el.focus(); el && el.select()
+  }
+  function next() {
+    stRef.current = Array(WS_N).fill(null)
+    setStage(stage + 1); setVals(Array(WS_N).fill('')); setSt(stRef.current); setPhase('play')
+    setTip({ t: '提示', m: [`请把 0~15 各数翻译成${WS[stage + 1].name}。`], c: null })
+  }
+  function finish() {
+    setPhase('final')
+    if (!saved.current) { saved.current = true; onFinish(firstTry, WS_N * WS.length) }
+  }
+  function again() { saved.current = false; stRef.current = Array(WS_N).fill(null); tried.current = new Set(); setStage(0); setVals(Array(WS_N).fill('')); setSt(stRef.current); setWrong(0); setFirstTry(0); setPhase('play'); setTip({ t: '提示', m: ['重新开始：依次翻译二进制、八进制、十六进制、十进制。'], c: null }) }
+  return (
+    <section className="gk-card bs-play ws">
+      <div className="gk-qhead">
+        <b>{level.icon} 第 {level.id} 关 · {level.name}</b>
+        <span className="gk-row"><span className="gk-muted">累计纠错 {wrong} 次</span><button className="gk-ghost" onClick={onExit}>退出</button></span>
+      </div>
+      <div className="ws-stages">
+        {WS.map((w, i) => <div key={w.key} className={`ws-stg${i < stage ? ' done' : i === stage ? ' on' : ''}`} style={{ '--acc': w.color }}><span className="no">{i < stage ? '✓' : i + 1}</span><span><b>{w.name}</b><small>{i < stage ? '已完成' : i === stage ? w.rule : '未解锁'}</small></span></div>)}
+      </div>
+      {phase === 'play' && <>
+        <div className="ws-intro">左列是恒定基准 <b>自然数 0~15</b>，右列请填它的<b style={{ color: S.color }}>{S.name}</b>写法（{S.rule}）。每格按回车或离开输入框即判定，答错了小信会在下面讲为什么。本关 <b>{okCount}</b> / {WS_N}</div>
+        <div className="ws-scroll"><table className="ws-table">
+          <thead><tr><th>自然数<small>0~15</small></th><th style={{ '--acc': S.color }}>{S.name}<small style={{ color: S.color }}>{S.rule}</small></th></tr></thead>
+          <tbody>{Array.from({ length: WS_N }, (_, v) => (
+            <tr key={v}><td className="ref">{v}</td><td className="cell">
+              <input ref={el => { refs.current[v] = el }} className={`ws-in${st[v] ? ' ' + st[v] : ''}`} value={vals[v]} disabled={st[v] === 'ok'} placeholder={S.ph} maxLength={8} autoComplete="off" spellCheck={false} inputMode={S.base === 16 ? 'text' : 'numeric'} aria-label={`${v} 的${S.name}`}
+                onChange={e => { const nv = vals.slice(); nv[v] = e.target.value; setVals(nv); if (stRef.current[v] === 'err') { const ns = stRef.current.slice(); ns[v] = null; stRef.current = ns; setSt(ns) } }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); judge(v) } }}
+                onBlur={() => judge(v)} />
+            </td></tr>))}</tbody>
+        </table></div>
+        <div className="ws-ai"><div className="ws-face">信</div><div className="ws-msg"><span className="t" style={{ color: tip.c || 'var(--muted)' }}>{tip.t}</span>{tip.m.map((x, i) => <span key={i} className="step">{x}</span>)}</div></div>
+      </>}
+      {phase === 'done' && <div className="ws-done" style={{ '--acc': S.color }}>
+        <h3 style={{ color: S.color }}>{S.name} · 通关！</h3>
+        <div className="gk-muted">本关 {WS_N} 格全部译对 · 累计纠错 {wrong} 次</div>
+        <div className="ws-insight">{S.insight}</div>
+        <button className="gk-btn" autoFocus onClick={stage === WS.length - 1 ? finish : next}>{stage === WS.length - 1 ? '开启终极对照 →' : '进入下一进制 →'}</button>
+      </div>}
+      {phase === 'final' && <Result score={firstTry} total={WS_N * WS.length} title={`第 ${level.id} 关 · ${level.name}`} onAgain={again} onBack={onExit}>
+        <div className="gk-muted">64 格中 {firstTry} 格一次译对，累计纠错 {wrong} 次</div>
+        <div className="ws-cmp-h">终极对照 · 四种进制，由你亲手推出</div>
+        <div className="ws-scroll"><table className="ws-cmp">
+          <thead><tr><th>自然数</th><th style={{ color: WS[0].color }}>二进制</th><th style={{ color: WS[1].color }}>八进制</th><th style={{ color: WS[2].color }}>十六进制</th><th style={{ color: WS[3].color }}>十进制</th></tr></thead>
+          <tbody>{Array.from({ length: WS_N }, (_, v) => <tr key={v}><td>{v}</td><td>{v.toString(2)}</td><td>{v.toString(8)}</td><td>{v.toString(16).toUpperCase()}</td><td>{v}</td></tr>)}</tbody>
+        </table></div>
+        <div className="ws-insight">对照可见：十进制一列和左侧基准完全相同，不需要任何改写——数学里的阿拉伯自然数用的本来就是十进制。二进制逢二进一、八进制逢八进一、十六进制逢十六进一，十进制则不用进位。<b>四种进制只是同一个数的四种写法，描述的是同一套数值。</b>你只凭 0 和 1、0~7、0~9 加 A~F 三套符号，就自己推出了四种进制的完整对照——进位的规律、符号的创造，都出自你的思考。</div>
+      </Result>}
+    </section>
   )
 }
 
@@ -173,7 +296,7 @@ export default function BaseGame() {
         <section className="gk-hero">
           <div className="gk-k">任务二 · 文件的本质：二进制与数制转换</div>
           <h1>进制闯关</h1>
-          <p className="gk-muted">计算机里的一切，最后都是一串开关的开和合。先拨一拨，看看同一个数在二进制、十进制、十六进制、八进制里长什么样，再去闯关。</p>
+          <p className="gk-muted">计算机里的一切，最后都是一串开关的开和合。先拨一拨，看看同一个数在二进制、十进制、十六进制、八进制里长什么样；再从第 1 关的翻译工坊开始，自己把 0~15 的四种写法推出来。</p>
         </section>
         <Demo />
         <section id="bs-levels" className="bs-levels-h">
@@ -193,7 +316,7 @@ export default function BaseGame() {
             ))}
           </section>
         )}
-        {cur && <Play key={cur.id} level={cur} onExit={() => setCur(null)} onFinish={finish} />}
+        {cur && (cur.kind === 'workshop' ? <Workshop key={cur.id} level={cur} onExit={() => setCur(null)} onFinish={finish} /> : <Play key={cur.id} level={cur} onExit={() => setCur(null)} onFinish={finish} />)}
       </main>
     </div>
   )
@@ -236,5 +359,35 @@ const CSS = String.raw`
 .bs-live b{color:var(--c2);font-family:var(--mono)}
 .bs-clock{font-family:var(--mono);font-weight:900;font-size:1.3rem}
 .bs-clock.hot{color:var(--warn)}
-@media (max-width:700px){.bs-out{grid-template-columns:1fr}.bs-bits{gap:4px}.bs-bit{padding:8px 2px;border-radius:10px}.bs-bit.gap{margin-left:8px}.bs-bit .sw{width:24px;height:44px}.bs-bit .sw i{height:18px}.bs-bit.on .sw i{bottom:19px}.bs-bit b{font-size:1.2rem}.bs-bit .w{font-size:.66rem}}
+.ws-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ws-stg{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);opacity:.55}
+.ws-stg .no{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-size:.8rem;font-weight:800;background:rgba(255,255,255,.08);color:var(--muted);flex:none}
+.ws-stg b{display:block;font-size:.88rem;line-height:1.2}.ws-stg small{display:block;font-size:.72rem;color:var(--muted)}
+.ws-stg.on{opacity:1;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.ws-stg.on .no{background:var(--acc);color:#06080F}
+.ws-stg.done{opacity:1;border-color:rgba(55,217,158,.45)}.ws-stg.done .no{background:rgba(55,217,158,.15);color:var(--good)}
+.ws-intro{font-size:.9rem;color:var(--muted);line-height:1.6;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.ws-intro b{color:var(--ink)}
+.ws-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.2)}
+.ws-table{width:100%;border-collapse:collapse;font-size:.95rem}
+.ws-table thead th{position:sticky;top:0;background:#141C31;color:var(--muted);font-weight:700;padding:10px;border-bottom:1px solid var(--line);font-size:.9rem}
+.ws-table thead th small{display:block;font-family:var(--mono);font-size:.74rem;font-weight:600}
+.ws-table td{text-align:center;border-top:1px solid var(--line)}
+.ws-table td.ref{font-family:var(--mono);font-weight:800;font-size:1.05rem;color:var(--warn);width:84px;background:rgba(255,255,255,.03)}
+.ws-table td.cell{padding:5px 10px;border-left:1px solid var(--line)}
+.ws-in{font-family:var(--mono);background:rgba(0,0,0,.35);border:1px solid var(--line2);color:var(--ink)!important;font-size:1.05rem;width:100%;max-width:200px;padding:7px 8px;border-radius:8px;text-align:center}
+.ws-in:focus{outline:2px solid var(--a);border-color:transparent}
+.ws-in.ok{background:rgba(55,217,158,.14);border-color:rgba(55,217,158,.5)}
+.ws-in.err{background:rgba(255,90,106,.14);border-color:rgba(255,90,106,.55)}
+.ws-ai{position:sticky;bottom:10px;display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:rgba(14,20,36,.96);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.ws-face{flex:none;width:36px;height:36px;border-radius:11px;background:var(--a);color:#06080F;display:grid;place-items:center;font-weight:900}
+.ws-msg{display:grid;gap:2px;font-size:.92rem;line-height:1.6}
+.ws-msg .t{font-size:.72rem;font-weight:800;letter-spacing:.08em}
+.ws-done{display:grid;gap:12px;justify-items:center;text-align:center;padding:22px 18px;border-radius:16px;border:1px solid var(--acc);background:rgba(255,255,255,.03)}
+.ws-done h3{font-size:1.3rem}
+.ws-insight{text-align:left;font-size:.95rem;line-height:1.7;padding:12px 14px;border-left:3px solid var(--a);border-radius:0 10px 10px 0;background:rgba(255,255,255,.03)}
+.ws-cmp-h{font-weight:800;margin-top:6px}
+.ws-cmp{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.9rem;text-align:center}
+.ws-cmp th,.ws-cmp td{padding:6px 4px;border:1px solid var(--line)}
+.ws-cmp thead th{background:#141C31}
+@media (max-width:700px){.ws-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-table td.ref{width:64px}.bs-out{grid-template-columns:1fr}.bs-bits{gap:4px}.bs-bit{padding:8px 2px;border-radius:10px}.bs-bit.gap{margin-left:8px}.bs-bit .sw{width:24px;height:44px}.bs-bit .sw i{height:18px}.bs-bit.on .sw i{bottom:19px}.bs-bit b{font-size:1.2rem}.bs-bit .w{font-size:.66rem}}
 `
