@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 import { TASKS, LABS, TOOLS, TOOL_CATS, toolList, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
 import { getMe, register, logEvent, logVisit, isTeacher, getTeacher, teacherEnter, teacherLogout } from './track'
+import { RosterFields, ROSTER_CSS } from './roster'
 
 const COURSE = '/aistudy/course'
 const labById = id => LABS.find(l => l.id === id)
@@ -264,9 +265,7 @@ function IdentityModal({ me, onDone, onTeacher, onClose }) {
         </div>
         {role === 'student' ? <>
           <h3>先告诉小信你是谁</h3>
-          <input className="xx-input" value={cls} onChange={e => setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={20} aria-label="班级" autoFocus />
-          <input className="xx-input" value={name} onChange={e => setName(e.target.value)} placeholder="姓名" maxLength={12} aria-label="姓名" />
-          <input className="xx-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} aria-label="学号" />
+          <RosterFields cls={cls} setCls={setCls} name={name} setName={setName} sno={sno} setSno={setSno} inputClass="xx-input" />
           <div className="xx-privacy">你的提问和答题记录，任课老师能在数据看板里看到，用来了解大家哪里没学会；其他同学看不到。</div>
         </> : <>
           <h3>老师，您好</h3>
@@ -1006,6 +1005,7 @@ body{background:#06080F!important}
 .xx-id h3{margin:0 0 4px;font-size:1.35rem;font-weight:900}
 .xx-privacy{font-size:.8rem;line-height:1.6;color:var(--muted);padding:8px 10px;border-radius:10px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.2)}
 .xx-err{color:#FF8A95;font-size:.86rem}
+${ROSTER_CSS}
 .xx button.xx-me{position:relative;margin-top:10px;border:0;background:none;font-size:.8rem;color:var(--muted);white-space:nowrap}
 .xx button.xx-ghost{font-size:.8rem}
 .xx-me u{margin-left:8px;color:var(--a);text-decoration:none;border-bottom:1px dashed var(--a)}
