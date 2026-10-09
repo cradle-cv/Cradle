@@ -159,7 +159,7 @@ function StudentDrawer({ token, s, onClose }) {
   useEffect(() => { rpc('aistudy_dash_student', { p_token: token, p_id: s.id }).then(setD, e => setErr(e.message)) }, [token, s.id])
   const ev = d?.events || []
   const wrong = []
-  ev.filter(e => e.type === 'quiz' && e.ok === false && e.detail?.qi != null).forEach(e => { if (!wrong.includes(e.detail.qi)) wrong.push(e.detail.qi) })
+  ev.filter(e => e.type === 'quiz' && e.ok === false && (e.detail?.qi != null || e.detail?.bid)).forEach(e => { const k = e.detail.bid || e.detail.qi; if (!wrong.some(w => w.k === k)) wrong.push(e.detail.bid ? { k, q: e.detail.q, lab: e.lab } : { k, q: QUIZ[k]?.q, lab: QUIZ[k]?.lab }) })
   const asks = ev.filter(e => e.type === 'chat')
   const seen = new Set(ev.filter(e => e.type === 'kp').map(e => e.lab))
   return (
@@ -182,7 +182,7 @@ function StudentDrawer({ token, s, onClose }) {
             {LABS.map(l => <span key={l.id} className={seen.has(l.id) ? 'on' : ''} title={`${labNo(l.id)} ${l.title}${seen.has(l.id) ? '：看过' : '：还没看'}`}>{labNo(l.id)}</span>)}
           </div>
           <h3>错过的题（{wrong.length}）</h3>
-          {wrong.length ? <ol className="db-list">{wrong.map(qi => <li key={qi}>{QUIZ[qi]?.q}<span className="db-chip">{labNo(QUIZ[qi]?.lab)} {labById(QUIZ[qi]?.lab)?.title}</span></li>)}</ol> : <div className="db-muted">没有错题</div>}
+          {wrong.length ? <ol className="db-list">{wrong.map(w => <li key={w.k}>{w.q}{w.lab ? <span className="db-chip">{labNo(w.lab)} {labById(w.lab)?.title}</span> : <span className="db-chip">题库</span>}</li>)}</ol> : <div className="db-muted">没有错题</div>}
           <h3>问过的问题（{asks.length}）</h3>
           {asks.length ? <ul className="db-list">{asks.slice(0, 40).map((e, i) => <li key={i}>{e.detail?.q}<span className="db-muted"> · {fmtTime(e.t)}</span></li>)}</ul> : <div className="db-muted">还没问过问题</div>}
           <h3>最近的学习轨迹</h3>
