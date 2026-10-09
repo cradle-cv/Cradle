@@ -738,8 +738,9 @@ function FinalRank({rows}){
 /* ── Student ── */
 function SLogin({onEnter,onBack}){
   const [cls,setCls]=useState(""); const [name,setName]=useState("")
+  const [known,setKnown]=useState(null) // 小信主页 / 课件登记过的身份
   useEffect(()=>{
-    const x=xiaoxinMe(); if(x){ setCls(x.cls); setName(x.name); return }
+    const x=xiaoxinMe(); if(x){ setKnown(x); setCls(x.cls); setName(x.name); return }
     try{ const v=JSON.parse(localStorage.getItem("pei_student")||"null"); if(v){ setCls(v.cls||""); setName(v.name||"") } }catch(_){}
   },[])
   function go(){
@@ -752,11 +753,13 @@ function SLogin({onEnter,onBack}){
     <Page style={{display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <Card style={{width:"100%",maxWidth:340}}>
         <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>开始装机</div>
-        <div style={{fontSize:13,color:C.muted,marginBottom:18}}>下次用同样的班级和姓名进入，可以继续修改</div>
+        {known
+          ? <div style={{fontSize:13,color:C.muted,marginBottom:18}}>检测到你在小信登记过的身份，确认无误直接进入；不是你本人就改一下再进</div>
+          : <div style={{fontSize:13,color:C.muted,marginBottom:18}}>下次用同样的班级和姓名进入，可以继续修改</div>}
         <input value={cls} onChange={e=>setCls(e.target.value)} placeholder="班级，如 电商2401" maxLength={40} style={inp({marginBottom:10})}/>
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="姓名" maxLength={12}
           onKeyDown={e=>e.key==="Enter"&&go()} style={inp({marginBottom:14})}/>
-        <Btn onClick={go} style={{width:"100%"}}>进入</Btn>
+        <Btn onClick={go} style={{width:"100%"}}>{known&&cls===known.cls&&name===known.name?`以 ${known.cls} · ${known.name} 进入`:"进入"}</Btn>
         <button onClick={onBack} style={{marginTop:12,background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13}}>← 返回</button>
       </Card>
     </Page>
@@ -961,11 +964,7 @@ function AppInner(){
     if(x){ try{ localStorage.setItem("pei_student",JSON.stringify(x)) }catch(_){}; setMe(x); setScreen("s-tasks") }
     else setScreen("s-login")
   },[])
-  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>{
-    const x=xiaoxinMe()
-    if(x){ try{ localStorage.setItem("pei_student",JSON.stringify(x)) }catch(_){}; setMe(x); setScreen("s-tasks") }
-    else setScreen("s-login")
-  }}/>
+  if(screen==="home")    return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>setScreen("s-login")}/>
   if(screen==="t-login") return <TLogin onSuccess={()=>setScreen("t-admin")} onBack={()=>setScreen("home")}/>
   if(screen==="t-admin") return <TAdmin onLogout={()=>setScreen("home")}/>
   if(screen==="s-login") return <SLogin onEnter={v=>{setMe(v);setScreen("s-tasks")}} onBack={()=>setScreen("home")}/>
