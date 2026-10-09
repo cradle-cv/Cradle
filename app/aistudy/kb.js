@@ -124,17 +124,17 @@ export const TOOLS = {
   zhitiao: { name: '纸条', icon: '📝', cat: 'interact', tasks: [], status: 'live', action: '开一场纸条', desc: '匿名头脑风暴，写完才能看别人的，大屏按热度排', url: 'https://cradle.art/zhitiao', student: 'https://cradle.art/zhitiao', code: true, kw: ['纸条', '头脑风暴', '匿名', '传纸条'] },
   migong: { name: '迷宫', icon: '🧩', cat: 'interact', tasks: [], status: 'live', action: '开一场迷宫赛', desc: '全班迷宫赛，扫码闯关，按用时排名', url: 'https://cradle.art/migong', student: 'https://cradle.art/migong', code: true, kw: ['迷宫', '闯关', '比赛', '游戏'] },
   lulu: { name: '录录', icon: '🙋', cat: 'interact', tasks: [], status: 'live', action: '开录录课堂', desc: '课堂房间：签到、抢答、讨论、Word / Excel 实操', url: 'https://cradle.art/lulu', student: 'https://cradle.art/lulu', code: false, kw: ['录录', '签到', '抢答', '点名', '课堂房间', 'Excel实操', 'Word实操'] },
-  pei: { name: '配配', icon: '🖥️', cat: 'practice', tasks: ['t1'], status: 'live', action: '发配配装机任务', desc: '装机实训：按场景和预算配一台电脑，传截图自动识别型号，老师在线打分', url: 'https://cradle.art/pei', student: 'https://cradle.art/pei', code: false, kw: ['配配', '装机', '配电脑', '装机任务'] },
+  pei: { name: '配配', icon: '🖥️', cat: 'practice', tasks: ['t1'], status: 'live', action: '发配配装机任务', desc: '装机实训：按场景和预算配一台电脑，传截图自动识别型号，老师在线打分', url: 'https://cradle.art/pei', student: 'https://cradle.art/pei#student', code: false, kw: ['配配', '装机', '配电脑', '装机任务'] },
   virus: { name: '病毒攻防', icon: '🦠', cat: 'game', tasks: ['t3'], status: 'live', action: '开一场病毒攻防', desc: '全班红蓝对战：红队放病毒，蓝队打补丁、查杀、做备份，答对题才能出招，大屏实时看战况', url: '/aistudy/virus', student: '/aistudy/virus', code: true, kw: ['病毒攻防', '红蓝', '对战', '攻防'] },
   net: { name: '网络闯关', icon: '🌐', cat: 'game', tasks: ['t5'], status: 'live', action: '玩网络闯关', desc: '四关：数据包怎么走、IP 与域名、网络设备与拓扑、上网安全', url: '/aistudy/net', student: '/aistudy/net', code: false, kw: ['网络闯关', '网络知识', 'DNS', '域名', 'IP 地址', 'IP地址', '路由器', '拓扑', '数据包', '钓鱼网址', '公共WiFi', '公共 WiFi'] },
-  base: { name: '进制闯关', icon: '🔢', cat: 'game', tasks: ['t2'], status: 'live', action: '玩进制闯关', desc: '拨开关看二进制怎么变成十进制、十六进制、八进制，再闯五关', url: '/aistudy/base', student: '/aistudy/base', code: false, kw: ['进制', '二进制', '十六进制', '八进制', '数制转换', '除2取余', '除二取余'] },
+  base: { name: '进制闯关', icon: '🔢', cat: 'game', tasks: ['t2'], status: 'live', action: '玩进制闯关', desc: '拨开关看二进制怎么变成十进制、十六进制、八进制，从 0~15 翻译工坊开始闯六关', url: '/aistudy/base', student: '/aistudy/base', code: false, kw: ['进制', '二进制', '十六进制', '八进制', '数制转换', '除2取余', '除二取余'] },
   lili: { name: '理理', icon: '🗂️', cat: 'practice', tasks: ['t2', 't3'], status: 'live', action: '理理整理文件', desc: '文件整理实训：两关，第二关混进了伪装成图片的病毒', url: '/aistudy/course#k2-8', student: '/aistudy/course#k2-8', code: false, kw: ['理理', '整理文件'] },
 }
 // 互动游戏：成绩记进数据看板（事件类型 game）。lab 是成绩挂靠的知识点；levels 是关卡名，看板按这里显示，加关卡在这里加一条
 export const GAMES = {
   virus: { name: '病毒攻防', lab: 'k3-4', levels: {} },
   net: { name: '网络闯关', lab: 'k5-6', levels: { 1: '数据包怎么走', 2: 'IP 与域名', 3: '网络设备与拓扑', 4: '上网安全' } },
-  base: { name: '进制闯关', lab: 'k2-2', levels: { 1: '二进制→十进制', 2: '十进制→二进制', 3: '十六进制', 4: '八进制', 5: '60 秒挑战' } },
+  base: { name: '进制闯关', lab: 'k2-2', levels: { 1: '0~15 翻译工坊', 2: '二进制→十进制', 3: '十进制→二进制', 4: '十六进制', 5: '八进制', 6: '60 秒挑战' } },
 }
 export const toolList = () => Object.entries(TOOLS).map(([id, t]) => ({ id, ...t }))
 
