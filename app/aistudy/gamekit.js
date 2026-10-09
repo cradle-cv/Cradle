@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 import { GAMES } from './kb'
 import { getMe, register, logEvent, logVisit, getTeacher } from './track'
+import { RosterFields, ROSTER_CSS } from './roster'
 
 export const store = {
   get(k, d) { try { const v = localStorage.getItem('xiaoxin:' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } },
@@ -57,9 +58,7 @@ export function RegisterModal({ onDone, onClose }) {
       <form className="gk-card gk-reg" onClick={e => e.stopPropagation()} onSubmit={go}>
         <b style={{ fontSize: '1.2rem' }}>登记一下，成绩会记到你名下</b>
         <span className="gk-muted">和小信主页、课件用的是同一个身份，只需登记一次。</span>
-        <input className="gk-input" value={cls} onChange={e => setCls(e.target.value)} placeholder="班级，如 24 计算机 1 班" maxLength={20} autoFocus />
-        <input className="gk-input" value={name} onChange={e => setName(e.target.value)} placeholder="姓名" maxLength={12} />
-        <input className="gk-input" value={sno} onChange={e => setSno(e.target.value)} placeholder="学号（选填）" maxLength={20} />
+        <RosterFields cls={cls} setCls={setCls} name={name} setName={setName} sno={sno} setSno={setSno} inputClass="gk-input" />
         {err && <span className="gk-err">{err}</span>}
         <div className="gk-row"><button className="gk-btn" disabled={busy || !cls.trim() || !name.trim()}>{busy ? '登记中…' : '登记'}</button><button type="button" className="gk-ghost" onClick={onClose}>先不登记</button></div>
       </form>
@@ -109,6 +108,7 @@ export function Result({ score, total, title, onAgain, onBack, children }) {
 
 export const GAME_CSS = String.raw`
 body{background:#06080F!important}
+${ROSTER_CSS}
 .gk{--bg:#06080F;--card:#0E1424;--raise:#141C31;--line:rgba(140,160,210,.16);--line2:rgba(140,160,210,.3);--ink:#EAF0FF;--muted:#9AA6C2;--faint:#606B88;--a:#4DA3FF;--b:#B07CFF;--c2:#3FD5FF;--good:#37D99E;--bad:#FF5A6A;--warn:#FFC34D;--red:#FF5A6A;--blue:#4DA3FF;
   --sans:"PingFang SC","HarmonyOS Sans SC","MiSans","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
   min-height:100vh;background:radial-gradient(900px 600px at 15% -10%,rgba(77,163,255,.13),transparent 60%),radial-gradient(800px 600px at 100% 0,rgba(176,124,255,.12),transparent 60%),var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;color-scheme:dark}
