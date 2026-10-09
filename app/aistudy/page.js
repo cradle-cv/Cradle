@@ -20,6 +20,12 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('xiaoxin:' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } },
   set(k, v) { try { localStorage.setItem('xiaoxin:' + k, JSON.stringify(v)) } catch (e) {} },
 }
+// 题库（bank.js，866 道教师题库）按需加载：陪练第一次出题时才下载。题目 key：数字 = kb.js 的 QUIZ 序号（带提示和解析），'b' + 序号 = 题库题
+let BANK = null
+const loadBank = () => BANK ? Promise.resolve(BANK) : import('./bank').then(m => (BANK = m.BANK.map(([task, sub, lab, q, o, a, d], i) => ({ id: 'b' + i, task, sub, lab: lab || null, q, o, a, d }))))
+const getQ = k => typeof k === 'number' ? QUIZ[k] : (BANK ? BANK[+String(k).slice(1)] : null)
+const SUBN = { word: 'Word', excel: 'Excel', ppt: 'PowerPoint' }
+const GROUP = 10
 const shuffle = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[b[i], b[j]] = [b[j], b[i]] } return b }
 
 // 从回答里取出 [[实验:k2-4]] [[工具:zhitiao]] 标签
@@ -650,45 +656,59 @@ export default function XiaoXinHome() {
   }
 
   /* ---------- 陪练 ---------- */
-  function startQuiz(task) {
+  async function startQuiz(task) {
     if (!needMe(() => startQuiz(task))) return
-    const pool = task === 'wrong' ? QUIZ.filter((q, i) => wrongBook.includes(i)) : QUIZ.filter(q => task === 'all' || q.task === task)
-    if (!pool.length) return say('错题本是空的，先做几道题吧。')
-    quizRef.current = { queue: shuffle(pool.map(q => QUIZ.indexOf(q))), cur: null, tries: 0 }
-    userSay(task === 'wrong' ? '把错题再练一遍' : task === 'all' ? '考考我，随便出' : `考考我${taskOf(task).name}的内容`)
+    try { await loadBank() } catch (e) { BANK = BANK || null }
+    const keys = []
+    if (task === 'wrong') keys.push(...wrongBook.filter(k => getQ(k)))
+    else {
+      QUIZ.forEach((q, i) => { if (task === 'all' || q.task === task) keys.push(i) })
+      ;(BANK || []).forEach(q => { if (task === 'all' || q.task === task) keys.push(q.id) })
+    }
+    if (!keys.length) return say(task === 'wrong' ? '错题本是空的，先做几道题吧。' : '这一类暂时还没有题目。')
+    // 课件配套题（带提示和解析）排在前面，再从题库里随机补足一组
+    const own = shuffle(keys.filter(k => typeof k === 'number')), bank = shuffle(keys.filter(k => typeof k !== 'number'))
+    const queue = task === 'wrong' ? shuffle(keys) : own.slice(0, 4).concat(bank).slice(0, GROUP)
+    quizRef.current = { queue, cur: null, tries: 0, n: queue.length }
+    userSay(task === 'wrong' ? '把错题再练一遍' : task === 'all' ? '考考我，随便出' : task === 'office' ? '考考我办公软件' : `考考我${taskOf(task).name}的内容`)
     nextQ()
   }
   function nextQ() {
     const Q = quizRef.current
-    if (!Q.queue.length) { mood('happy', 2000); return say(`这一组做完啦！一共答对 ${score.right} 题。想继续的话，再选一组。`, {}, 'happy') }
+    if (!Q.queue.length) { mood('happy', 2000); return say(`这一组 ${Q.n} 题做完啦！本次累计答对 ${score.right} 题。想继续的话，再选一组，每组都会重新抽题。`, {}, 'happy') }
     const qi = Q.queue.shift(); Q.cur = qi; Q.tries = 0
-    const q = QUIZ[qi]
-    say(q.q, { quiz: { qi, picked: [], done: false } }, 'listen')
+    const q = getQ(qi)
+    const tag = q.id ? `【${q.task === 'office' ? '办公软件 · ' + (SUBN[q.sub] || '') : taskOf(q.task).name}${q.o.length === 2 ? ' · 判断' : ''}】` : ''
+    say(tag + q.q, { quiz: { qi, picked: [], done: false } }, 'listen')
   }
   function answer(msgId, qi, i) {
-    const q = QUIZ[qi], Q = quizRef.current
+    const q = getQ(qi), Q = quizRef.current
     if (Q.cur !== qi) return
     const done = i === q.a || Q.tries >= 1
-    logEvent('quiz', q.lab, i === q.a, { qi, first: Q.tries === 0 })
+    logEvent('quiz', q.lab, i === q.a, q.id ? { bid: q.id, q: q.q.slice(0, 80), first: Q.tries === 0 } : { qi, first: Q.tries === 0 })
     setMsgs(m => m.map(x => x.id === msgId ? { ...x, quiz: { ...x.quiz, picked: [...x.quiz.picked, i], done } } : x))
     if (i === q.a) {
       const first = Q.tries === 0
       setScore(s => ({ right: s.right + (first ? 1 : 0), total: s.total + 1, streak: first ? s.streak + 1 : 0 }))
       if (first && wrongBook.includes(qi)) { const w = wrongBook.filter(x => x !== qi); setWrongBook(w); store.set('wrong', w) }
       Q.cur = null
-      say(`${first ? ['答对了！', '漂亮！', '完全正确！'][Math.floor(Math.random() * 3)] : '这次对了！'}${q.why}`, { next: true }, 'happy')
+      say(`${first ? ['答对了！', '漂亮！', '完全正确！'][Math.floor(Math.random() * 3)] : '这次对了！'}${q.why || ''}`, { next: true, explain: q.why ? null : { qi, ok: true } }, 'happy')
     } else if (Q.tries === 0) {
       Q.tries = 1
-      say(`不对哦，别急。提示：${q.hint}`, { coach: { qi, pick: i } }, 'sad')
+      say(q.hint ? `不对哦，别急。提示：${q.hint}` : (q.o.length === 2 ? '不对哦，再判断一次。' : '不对哦，别急，再想想。'), { coach: { qi, pick: i } }, 'sad')
     } else {
       Q.cur = null
       setScore(s => ({ ...s, total: s.total + 1, streak: 0 }))
       if (!wrongBook.includes(qi)) { const w = [...wrongBook, qi]; setWrongBook(w); store.set('wrong', w) }
-      say(`正确答案是「${q.o[q.a]}」。${q.why}这道题我帮你记进错题本了，去对应的实验里再看看。`, { labs: [q.lab], next: true }, 'sad')
+      say(`正确答案是「${q.o[q.a]}」。${q.why ? q.why + '这道题我帮你记进错题本了，去对应的实验里再看看。' : '这道题我帮你记进错题本了。'}`, { labs: q.lab ? [q.lab] : [], next: true, explain: q.why ? null : { qi } }, 'sad')
     }
   }
+  function explainQ(qi) {
+    const q = getQ(qi)
+    ask(`题目：${q.q}\n选项：${q.o.map((o, i) => 'ABCD'[i] + '. ' + o).join('  ')}\n正确答案是 ${'ABCD'[q.a]}「${q.o[q.a]}」。请用两三句话讲清楚为什么，再提醒一个容易混淆的点。`, 'coach', '讲讲这道题')
+  }
   function coachMore(qi, pick) {
-    const q = QUIZ[qi]
+    const q = getQ(qi)
     ask(`题目：${q.q}\n选项：${q.o.map((o, i) => 'ABCD'[i] + '. ' + o).join('  ')}\n我选了「${q.o[pick]}」，答错了。请不要直接告诉我答案，用一两个问题引导我自己想出来。`, 'coach', '为什么不对？帮我想想')
   }
 
@@ -761,13 +781,14 @@ export default function XiaoXinHome() {
                     <div className="xx-bub">{m.text.slice(0, m.shown)}{(m.shown < m.text.length || m.streaming) && <span className="xx-caret" />}</div>
                     {m.shown >= m.text.length && m.quiz && (
                       <div className="xx-opts">
-                        {QUIZ[m.quiz.qi].o.map((o, i) => {
-                          const picked = m.quiz.picked.includes(i), right = i === QUIZ[m.quiz.qi].a
+                        {getQ(m.quiz.qi).o.map((o, i) => {
+                          const picked = m.quiz.picked.includes(i), right = i === getQ(m.quiz.qi).a
                           return <button key={i} disabled={m.quiz.done || picked} className={picked ? (right ? 'ok' : 'bad') : (m.quiz.done && right ? 'ok' : '')} onClick={() => answer(m.id, m.quiz.qi, i)}>{'ABCD'[i]}．{o}</button>
                         })}
                       </div>
                     )}
                     {m.shown >= m.text.length && m.coach && <button className="xx-chip" onClick={() => coachMore(m.coach.qi, m.coach.pick)} disabled={busy}>让小信一步步引导我</button>}
+                    {m.shown >= m.text.length && m.explain && <button className="xx-chip" onClick={() => explainQ(m.explain.qi)} disabled={busy}>{m.explain.ok ? '听小信讲讲这道题' : '请小信讲讲为什么'}</button>}
                     {m.shown >= m.text.length && m.labs && m.labs.length > 0 && <div className="xx-labs">{m.labs.map(id => <LabCard key={id} id={id} />)}</div>}
                     {m.shown >= m.text.length && m.tools && m.tools.map(id => <ToolCard key={id} id={id} />)}
                     {m.shown >= m.text.length && m.next && <button className="xx-chip" onClick={nextQ}>下一题 →</button>}
@@ -782,6 +803,7 @@ export default function XiaoXinHome() {
               {mode === 'coach' && <>
                 <button className="xx-chip" onClick={() => startQuiz('all')}>随机出题</button>
                 {TASKS.map(t => <button key={t.id} className="xx-chip" style={{ '--c': t.color }} onClick={() => startQuiz(t.id)}>{t.name}</button>)}
+                <button className="xx-chip" style={{ '--c': '#37D99E' }} onClick={() => startQuiz('office')}>办公软件</button>
                 <button className="xx-chip" disabled={!wrongBook.length} onClick={() => startQuiz('wrong')}>错题重练（{wrongBook.length}）</button>
               </>}
               {mode === 'class' && <>
