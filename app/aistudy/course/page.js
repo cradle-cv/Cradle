@@ -1522,7 +1522,7 @@ const prog=$('#prog');addEventListener('scroll',()=>{const d=document.documentEl
 })();
 
 /* ---------- quick check ---------- */
-function initQC(qc){if(qc.dataset.inited)return;qc.dataset.inited='1';const ans=+qc.dataset.ans,opts=$$('.opt',qc);let why=null,tried=false;const lab=(qc.closest('.kp')||{}).id||null;
+function initQC(qc){if(qc.dataset.inited||qc.dataset.ans==null)return;qc.dataset.inited='1';const ans=+qc.dataset.ans,opts=$$('.opt',qc);let why=null,tried=false;const lab=(qc.closest('.kp')||{}).id||null;
   opts.forEach((o,i)=>o.addEventListener('click',()=>{if(!tried){tried=true;track('qc',lab,i===ans,{first:true})}if(i===ans){o.classList.add('right');opts.forEach(x=>x.disabled=true);if(!why){why=h('div',{class:'why'},'✓ '+qc.dataset.why);qc.append(why)}}else{o.classList.add('wrong');o.disabled=true}}))}
 
 /* ---------- classify (tap to sort) ---------- */
