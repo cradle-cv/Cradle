@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import ParallelPet from './ParallelPet'
 
 // 独立全屏子站不显示主站宠物
-const HIDE_PREFIXES = ['/seewayphoto', '/lulu', '/zhitiao']
+const HIDE_PREFIXES = ['/seewayphoto', '/lulu', '/zhitiao', '/aistudy', '/pei', '/migong']
 
 export default function PetWrapper() {
   const pathname = usePathname() || ''
