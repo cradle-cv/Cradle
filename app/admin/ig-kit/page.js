@@ -100,8 +100,15 @@ export default function IgKitPage() {
       }
       setStoryTexts(ordered.map(w => intros[w.rike_article_id] || ''))
 
-      const hk = Array.isArray(cur.ig_hooks) ? cur.ig_hooks : []
-      setHookItems(hk.map((t, i) => ({ id: `lib-${i}`, text: t, checked: i === 0, source: 'lib' })))
+      const hk = (Array.isArray(cur.ig_hooks) ? cur.ig_hooks : []).filter(t => t && String(t).trim())
+      if (hk.length) {
+        setHookItems(hk.map((t, i) => ({ id: `lib-${i}`, text: t, checked: i === 0, source: 'lib' })))
+      } else {
+        // 本期没有预置钩子：从引言里取最后一句问句（没有问句就取第一句），先出一张封面，可以改
+        const sents = (cur.quote || '').split(/(?<=[。？！?!])|\n/).map(x => x.trim()).filter(Boolean)
+        const q = [...sents].reverse().find(x => /[？?]$/.test(x)) || sents[0] || cur.theme_zh
+        setHookItems([{ id: 'auto-0', text: q, checked: true, source: 'custom' }])
+      }
 
       // 册子里存过的版式与文字（画带位置、辉光颜色、标题措辞等），有就沿用
       const { data: bs } = await supabase.from('booklet_settings')
@@ -468,7 +475,7 @@ export default function IgKitPage() {
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
               <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>钩子（勾选后可直接编辑，改字预览实时更新；每条勾中的钩子出一张封面）</label>
               {hookItems.length === 0 ? (
-                <p className="text-sm text-amber-700 mb-3">本期还没有预置钩子，可点下方自定义钩子自己写。</p>
+                <p className="text-sm text-amber-700 mb-3">本期还没有预置钩子，已从引言里取一句先生成封面，可以直接改，也可以再加自定义钩子。</p>
               ) : (
                 <div className="space-y-2.5">
                   {hookItems.map(h => (
