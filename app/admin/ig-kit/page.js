@@ -76,7 +76,7 @@ export default function IgKitPage() {
       if (!cur) return
       const { data: works } = await supabase
         .from('gallery_works')
-        .select('id, title, artist_name, cover_image, puzzle_article_id, rike_article_id')
+        .select('id, title, title_en, artist_name, artist_name_en, cover_image, puzzle_article_id, rike_article_id')
         .in('id', cur.work_ids || [])
       const ordered = (cur.work_ids || []).map(id => (works || []).find(w => w.id === id)).filter(Boolean)
 
@@ -124,7 +124,7 @@ export default function IgKitPage() {
       setDetail({
         issue: cur.issue_number, is_special: cur.is_special,
         theme_zh: cur.theme_zh, theme_en: cur.theme_en, quote: cur.quote || '',
-        works: ordered.map(w => ({ title: w.title, artist: w.artist_name, cover: w.cover_image })),
+        works: ordered.map(w => ({ title: w.title, titleEn: w.title_en || '', artist: w.artist_name, artistEn: w.artist_name_en || '', cover: w.cover_image })),
         cover: {
           s: { ...BK, ...(bs?.layout || {}) },
           bandPos: Array.isArray(bt.bandPos) ? bt.bandPos : [[50, 50], [50, 50], [50, 50]],
@@ -175,7 +175,17 @@ export default function IgKitPage() {
     const issueLabel = d.is_special ? `特刊《${d.theme_zh}》` : `第 ${d.issue} 期《${d.theme_zh}》`
     const worksList = d.works.map(w => `· ${w.title}／${w.artist}`).join('\n')
     const firstLine = firstHook ? firstHook.trim() : `摇篮 · 艺术阅览室 ${issueLabel}`
-    return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}`
+    // 画家与作品的标签：中文去掉间隔号和标点，英文去空格、每个词首字母大写
+    const zhTag = t => (t || '').replace(/[·・\s《》“”"'‘’，,。.\-－—:：()（）!！?？]/g, '')
+    const enTag = t => (t || '').split(/[^A-Za-z0-9]+/).filter(Boolean).map(x => x[0].toUpperCase() + x.slice(1)).join('')
+    const workTags = []
+    d.works.forEach(w => {
+      ;[zhTag(w.artist), enTag(w.artistEn), zhTag(w.title), enTag(w.titleEn)].forEach(t => {
+        if (t && !workTags.includes(t)) workTags.push(t)
+      })
+    })
+    const tagLine = workTags.map(t => `#${t}`).join(' ')
+    return `${firstLine}\n\n摇篮 · 艺术阅览室 ${issueLabel}　${d.theme_en}\n\n本期三幅：\n${worksList}\n\n完整日课与谜题见 cradle.art\n\n${FIXED_TAGS}${tagLine ? `\n${tagLine}` : ''}`
   }
 
   function toggleHook(id) { setHookItems(p => p.map(h => h.id === id ? { ...h, checked: !h.checked } : h)) }
@@ -445,6 +455,41 @@ export default function IgKitPage() {
     ctx.restore()
   }
 
+  // ═══ 分享到 Instagram ═══
+  // 每张海报画好后顺手存一份 JPEG（Instagram 只收 JPEG），点按钮时可立刻交给系统分享面板
+  const jpegs = useRef({})
+  const [shareMsg, setShareMsg] = useState('')
+  function shareToIG() {
+    const seq = []
+    const cover = pages.findIndex(p => p.type === 'hook')
+    if (cover >= 0) seq.push(cover)
+    pages.forEach((p, i) => { if (p.type === 'work') seq.push(i) })
+    const blobs = seq.map(i => jpegs.current[`${i}|${pageKey(pages[i])}`])
+    if (!seq.length || blobs.some(b => !b)) { alert('海报还在生成，等几秒再点一次'); return }
+    const files = blobs.map((b, k) => new File([b], `cradle-${detail.issue}-${k + 1}.jpg`, { type: 'image/jpeg' }))
+    // 先复制配文（不等它完成，免得错过分享所需的点击时机）
+    try { navigator.clipboard && navigator.clipboard.writeText(caption).catch(() => {}) } catch {}
+
+    // 路一：系统分享面板（iPad / iPhone / 部分电脑），选 Instagram 即进入发帖
+    if (navigator.canShare && navigator.canShare({ files })) {
+      setShareMsg('配文已复制。在弹出的分享面板里选 Instagram，进入发帖后，比例选「原图」，再把配文粘贴进去。')
+      navigator.share({ files }).catch(e => {
+        if (e && e.name === 'AbortError') return
+        setShareMsg(`系统分享没有成功（${e && e.message}），可以改用「下载全部」后手动上传。`)
+      })
+      return
+    }
+    // 路二：不支持分享文件的电脑浏览器：逐张下载，并打开 instagram.com
+    files.forEach((f, k) => setTimeout(() => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+    }, k * 500))
+    window.open('https://www.instagram.com/', '_blank')
+    setShareMsg(`这台设备不能直接分享给 Instagram：${files.length} 张图已下载，配文已复制，并已打开 instagram.com。点「创建」，按顺序选这几张图，比例选「原图」，再粘贴配文。`)
+  }
+  const pageKey = (p) => p.type === 'hook' ? `hook|${p.hook}|${JSON.stringify(ov)}` : `work|${p.w.title}`
+
   const checkedTexts = hookItems.filter(h => h.checked).map(h => h.text)
   const pages = detail ? [
     ...checkedTexts.map(t => ({ type: 'hook', hook: t })),
@@ -538,22 +583,27 @@ export default function IgKitPage() {
             )}
 
             <div className="bg-white rounded-xl p-5 mb-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold" style={{ color: '#111827' }}>海报预览（共 {pages.length} 张）</h2>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <h2 className="text-base font-semibold mr-auto" style={{ color: '#111827' }}>海报预览（共 {pages.length} 张）</h2>
                 <button onClick={async () => {
                   const btns = Array.from(document.querySelectorAll('[data-dl="post"]'))
                   for (const b of btns) { b.click(); await new Promise(r => setTimeout(r, 600)) }
                 }}
-                  className="px-4 py-1.5 rounded text-xs text-white" style={{ backgroundColor: '#111827' }}>下载全部</button>
+                  className="px-4 py-1.5 rounded text-xs border" style={{ color: '#374151', borderColor: '#D1D5DB' }}>下载全部</button>
+                <button onClick={shareToIG}
+                  className="px-4 py-1.5 rounded text-xs text-white" style={{ background: 'linear-gradient(45deg,#f09433,#dc2743 55%,#bc1888)' }}>分享到 Instagram</button>
               </div>
+              {shareMsg && <p className="text-xs mb-3 px-3 py-2 rounded" style={{ color: '#92400E', backgroundColor: '#FFFBEB' }}>{shareMsg}</p>}
+              <p className="text-xs mb-3" style={{ color: '#9CA3AF' }}>分享时只带第一张封面加三幅画；勾了多条钩子时，排在最前面的那条是封面。</p>
               <div className="grid grid-cols-3 gap-4">
                 {pages.map((p, i) => {
-                  const key = p.type === 'hook' ? `hook|${p.hook}|${JSON.stringify(ov)}` : `work|${p.w.title}`
+                  const key = pageKey(p)
                   const draw = p.type === 'hook' ? ctx => renderHook(ctx, p.hook) : ctx => renderWork(ctx, p.w)
                   const label = p.type === 'hook' ? '封面' : `《${p.w.title}》`
                   return (
                     <PosterThumb key={`${i}-${key}`} depKey={key} draw={draw} label={`${i + 1}. ${label}`}
-                      filename={`cradle-${detail.issue}-${i + 1}.png`} group="post" onPreview={setPreviewUrl} />
+                      filename={`cradle-${detail.issue}-${i + 1}.png`} group="post" onPreview={setPreviewUrl}
+                      onJpeg={b => { jpegs.current[`${i}|${key}`] = b }} />
                   )
                 })}
               </div>
@@ -617,13 +667,16 @@ export default function IgKitPage() {
   )
 }
 
-function PosterThumb({ depKey, draw, label, filename, group, onPreview, height = H }) {
+function PosterThumb({ depKey, draw, label, filename, group, onPreview, height = H, onJpeg }) {
   const canvasRef = useRef(null)
   useEffect(() => {
     let cancelled = false
     async function run() {
       const cv = canvasRef.current; if (!cv) return
       await draw(cv.getContext('2d'))
+      if (onJpeg && !cancelled) {
+        try { cv.toBlob(b => { if (b) onJpeg(b) }, 'image/jpeg', 0.92) } catch (e) { /* 画布被污染时导出失败，下载按钮会给出原因 */ }
+      }
     }
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) run() })
     else run()
