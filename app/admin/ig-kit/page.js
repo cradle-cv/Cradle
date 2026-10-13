@@ -636,7 +636,7 @@ function PosterThumb({ depKey, draw, label, filename, group, onPreview, height =
     try {
       blob = await canvasToBlob(cv)
     } catch (e) {
-      alert('导出失败：图片跨域未授权，确认 /api/proxy-image 已部署')
+      alert(`导出失败：${e && (e.name || '')} ${e && (e.message || e)}\n（若是 SecurityError，说明有图片没经过 /api/proxy-image，画布被跨域污染）`)
       return
     }
 
@@ -647,7 +647,10 @@ function PosterThumb({ depKey, draw, label, filename, group, onPreview, height =
         await navigator.share({ files: [file] })
         return
       }
-    } catch (e) { /* 用户取消或不支持，继续往下 */ }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return   // 用户在分享面板里点了取消
+      /* 其他情况（不支持分享文件等）继续往下 */
+    }
 
     // 路二：苹果设备退回大图预览，长按选「存储到照片」
     if (isApple()) {
