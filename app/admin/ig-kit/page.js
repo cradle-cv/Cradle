@@ -470,8 +470,10 @@ export default function IgKitPage() {
     // 先复制配文（不等它完成，免得错过分享所需的点击时机）
     try { navigator.clipboard && navigator.clipboard.writeText(caption).catch(() => {}) } catch {}
 
-    // 路一：系统分享面板（iPad / iPhone / 部分电脑），选 Instagram 即进入发帖
-    if (navigator.canShare && navigator.canShare({ files })) {
+    // 路一：只在手机和平板上用系统分享面板（选 Instagram 即进入发帖）
+    // 电脑上的系统共享窗口（如 Windows）里没有能收图的 Instagram，会一闪而过，所以电脑一律走路二
+    const isMobile = isApple() || /Android|Mobi/i.test(navigator.userAgent)
+    if (isMobile && navigator.canShare && navigator.canShare({ files })) {
       setShareMsg('配文已复制。在弹出的分享面板里选 Instagram，进入发帖后，比例选「原图」，再把配文粘贴进去。')
       navigator.share({ files }).catch(e => {
         if (e && e.name === 'AbortError') return
@@ -486,7 +488,7 @@ export default function IgKitPage() {
       setTimeout(() => URL.revokeObjectURL(a.href), 4000)
     }, k * 500))
     window.open('https://www.instagram.com/', '_blank')
-    setShareMsg(`这台设备不能直接分享给 Instagram：${files.length} 张图已下载，配文已复制，并已打开 instagram.com。点「创建」，按顺序选这几张图，比例选「原图」，再粘贴配文。`)
+    setShareMsg(`${files.length} 张图已下载到电脑，配文已复制，并已在新标签页打开 instagram.com。在那里点「创建」，按顺序选这几张图（cradle-${detail.issue}-1 到 ${files.length}），比例选「原图」，再粘贴配文，确认无误后点「分享」。`)
   }
   const pageKey = (p) => p.type === 'hook' ? `hook|${p.hook}|${JSON.stringify(ov)}` : `work|${p.w.title}`
 
