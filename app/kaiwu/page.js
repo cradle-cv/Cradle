@@ -44,18 +44,23 @@ async function getData() {
 
   const workshops = ws || []
   const ids = workshops.map(w => w.id)
-  const firstPhoto = {}
+  const photosBy = {}
   if (ids.length) {
     const { data: ph } = await supabase.from('workshop_photos')
       .select('workshop_id, image_url, display_order').in('workshop_id', ids).order('display_order')
-    ;(ph || []).forEach(p => { if (!firstPhoto[p.workshop_id]) firstPhoto[p.workshop_id] = p.image_url })
+    ;(ph || []).forEach(p => { (photosBy[p.workshop_id] = photosBy[p.workshop_id] || []).push(p.image_url) })
   }
   const now = new Date()
-  const all = workshops.map(w => ({
-    ...w,
-    image: w.cover_image || firstPhoto[w.id] || null,
-    isOpen: w.status === 'open' && (!w.starts_at || new Date(w.starts_at) > now),
-  }))
+  const all = workshops.map(w => {
+    const photos = photosBy[w.id] || []
+    const image = w.cover_image || photos[0] || null
+    return {
+      ...w,
+      image,
+      extraPhotos: photos.filter(u => u !== image).slice(0, 3),
+      isOpen: w.status === 'open' && (!w.starts_at || new Date(w.starts_at) > now),
+    }
+  })
 
   const objects = objs || []
   const offersBy = {}
@@ -142,8 +147,56 @@ export default async function KaiwuPage() {
           <Band en="WORKSHOPS" zh={openCount ? `摇 篮 优 课 · 招 募 中 ${openCount}` : '摇 篮 优 课'} href="/workshops" linkLabel="查看全部优课" />
           {workshops.length === 0 ? (
             <p className="py-10 text-center" style={{ color: '#4B5563' }}>第一场优课正在筹备</p>
+          ) : workshops.length === 1 ? (
+            (() => {
+              const w = workshops[0]
+              const d = fmtDay(w.starts_at)
+              const host = w.artists?.display_name
+              return (
+                <div className="grid md:grid-cols-5 gap-8 md:gap-12 items-center">
+                  <div className="md:col-span-3">
+                    <Link href={`/workshops/${w.id}`} className="group block relative rounded-xl overflow-hidden" style={{ aspectRatio: '4 / 3', backgroundColor: '#E5E7EB' }}>
+                      {w.image && <img src={w.image} alt={w.title} loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />}
+                    </Link>
+                    {w.extraPhotos.length > 0 && (
+                      <div className="grid grid-cols-3 gap-3 mt-3">
+                        {w.extraPhotos.map(u => (
+                          <Link key={u} href={`/workshops/${w.id}`} className="block rounded-lg overflow-hidden" style={{ aspectRatio: '4 / 3', backgroundColor: '#E5E7EB' }}>
+                            <img src={u} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex items-baseline gap-3">
+                      <span style={{ fontSize: '44px', fontWeight: 700, lineHeight: 1, color: '#111827' }}>{d.day}</span>
+                      <span style={{ fontSize: '13px', color: '#4B5563', letterSpacing: '2px' }}>{d.month}</span>
+                      <span className="ml-auto rounded-full px-2.5 py-1"
+                        style={{ fontSize: '11px', backgroundColor: w.isOpen ? '#065F46' : '#F3F4F6', color: w.isOpen ? '#FFFFFF' : '#4B5563' }}>
+                        {w.isOpen ? '招募中' : '已举办'}
+                      </span>
+                    </div>
+                    <div className="my-5" style={{ borderTop: '0.5px solid #D1D5DB' }}></div>
+                    <Link href={`/workshops/${w.id}`} className="hover:underline" style={{ textUnderlineOffset: '6px' }}>
+                      <h3 style={{ fontSize: '26px', fontWeight: 700, color: '#111827', lineHeight: 1.4, letterSpacing: '1px' }}>{w.title}</h3>
+                    </Link>
+                    {(host || w.venue || w.city) && (
+                      <p className="mt-3 text-sm" style={{ color: '#4B5563', letterSpacing: '1px' }}>
+                        {[host && `主持 ${host}`, w.venue, w.city].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                    {w.summary && <p className="mt-5 line-clamp-5" style={{ fontSize: '15px', color: '#374151', lineHeight: 2 }}>{w.summary}</p>}
+                    <Link href={`/workshops/${w.id}`} className="inline-block mt-6 text-sm hover:underline" style={{ color: '#111827', textUnderlineOffset: '4px', letterSpacing: '1px' }}>
+                      {w.isOpen ? '去报名 →' : '看这场优课 →'}
+                    </Link>
+                  </div>
+                </div>
+              )
+            })()
           ) : (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className={`grid sm:grid-cols-2 ${workshops.length >= 3 ? 'md:grid-cols-3' : ''} gap-6`}>
               {workshops.map(w => {
                 const d = fmtDay(w.starts_at)
                 return (
@@ -157,7 +210,7 @@ export default async function KaiwuPage() {
                       </div>
                       <span className="absolute right-3 top-3 rounded-full px-2.5 py-1"
                         style={{ fontSize: '11px', backgroundColor: w.isOpen ? '#065F46' : 'rgba(17,24,39,0.72)', color: '#FFFFFF' }}>
-                        {w.isOpen ? '招募中' : '办过的'}
+                        {w.isOpen ? '招募中' : '已举办'}
                       </span>
                     </div>
                     <p className="mt-3 font-bold line-clamp-1" style={{ fontSize: '17px', color: '#111827' }}>{w.title}</p>
