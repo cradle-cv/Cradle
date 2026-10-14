@@ -70,7 +70,7 @@ export default function ParticipationBlock({ workshops, invitations }) {
             工作坊 <span className="text-gray-300 font-normal mx-1">·</span> 参展邀请
           </h2>
           <div className="flex gap-4 mb-1 text-xs md:text-sm">
-            <Link href="/workshops" className="text-gray-600 hover:text-gray-900">全部工作坊 →</Link>
+            <Link href="/kaiwu" className="text-gray-600 hover:text-gray-900">进入开物 →</Link>
             <Link href="/invitations" className="text-gray-600 hover:text-gray-900">全部邀请 →</Link>
           </div>
         </div>

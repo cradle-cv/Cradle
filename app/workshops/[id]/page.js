@@ -99,8 +99,8 @@ export default async function WorkshopDetailPage({ params }) {
 
       <div className="max-w-3xl mx-auto px-6 pt-6 pb-14">
 
-        <Link href="/workshops" className="text-sm" style={{ color: '#6B7280' }}>
-          ← 工坊优课
+        <Link href="/kaiwu" className="text-sm" style={{ color: '#6B7280' }}>
+          ← 开物
         </Link>
 
         {/* 主视觉：有现场照片用现场照片，没有用封面 */}

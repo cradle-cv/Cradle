@@ -361,7 +361,7 @@ export default async function ArtistDetailPage({ params }) {
         </section>
       )}
 
-      {/* 工坊好物：他制作的，以及后台关联到他的 */}
+      {/* 摇篮好物：他制作的，以及后台关联到他的 */}
       <section className="px-6">
         <div className="max-w-6xl mx-auto">
           <RelatedObjects targetType="artist" targetId={artist.id} includeMade />

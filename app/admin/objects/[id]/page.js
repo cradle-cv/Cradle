@@ -10,7 +10,7 @@ import {
 
 const STATUS_OPTIONS = [
   { key: 'draft', label: '草稿', hint: '只有自己看得到' },
-  { key: 'published', label: '上架', hint: '公开显示在工坊好物' },
+  { key: 'published', label: '上架', hint: '公开显示在摇篮好物' },
   { key: 'archived', label: '下架', hint: '不再公开，保留记录' },
 ]
 
@@ -315,7 +315,7 @@ export default function EditObjectPage({ params }) {
   return (
     <div className="max-w-3xl space-y-6 pb-20">
       <div>
-        <Link href="/admin/objects" className="text-sm" style={{ color: '#6B7280' }}>← 工坊好物</Link>
+        <Link href="/admin/objects" className="text-sm" style={{ color: '#6B7280' }}>← 摇篮好物</Link>
         <div className="flex items-center justify-between mt-2 flex-wrap gap-3">
           <h1 className="text-2xl font-bold text-gray-900">{form.title || '未命名物件'}</h1>
           {form.status === 'published' && (

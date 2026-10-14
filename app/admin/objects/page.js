@@ -78,7 +78,7 @@ export default function AdminObjectsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">工坊好物</h1>
+            <h1 className="text-2xl font-bold text-gray-900">摇篮好物</h1>
             <p className="text-sm text-gray-500 mt-1">
               摇篮只做挑选和介绍，不经手收款。每件物件可以挂多个购买渠道，各自的币种与销售方由你设定。
             </p>

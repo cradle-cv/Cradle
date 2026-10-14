@@ -12,12 +12,12 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export const metadata = {
-  title: '工坊好物',
+  title: '摇篮好物',
   description: '摇篮从手艺人那里挑来的笔墨、纸、印、织绣、器物与版画，每一件都讲得出它从哪里来、由谁做成。',
   alternates: { canonical: '/objects' },
   openGraph: {
     type: 'website',
-    title: '工坊好物 · Cradle 摇篮',
+    title: '摇篮好物 · Cradle 开物',
     description: '摇篮从手艺人那里挑来的笔墨、纸、印、织绣、器物与版画，每一件都讲得出它从哪里来、由谁做成。',
     url: 'https://www.cradle.art/objects',
   },

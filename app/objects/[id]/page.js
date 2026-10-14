@@ -75,15 +75,15 @@ export async function generateMetadata({ params }) {
   const { id } = await params
   const { data: o } = await supabase
     .from('craft_objects').select('title, subtitle, story, cover_image, status').eq('id', id).maybeSingle()
-  if (!o || o.status !== 'published') return { title: '工坊好物' }
-  const desc = o.subtitle || (o.story ? o.story.slice(0, 90) : `摇篮工坊好物《${o.title}》`)
+  if (!o || o.status !== 'published') return { title: '摇篮好物' }
+  const desc = o.subtitle || (o.story ? o.story.slice(0, 90) : `摇篮好物《${o.title}》`)
   return {
     title: o.title,
     description: desc,
     alternates: { canonical: `/objects/${id}` },
     openGraph: {
       type: 'website',
-      title: `${o.title} · Cradle 摇篮工坊好物`,
+      title: `${o.title} · Cradle 摇篮好物`,
       description: desc,
       url: `https://www.cradle.art/objects/${id}`,
       images: o.cover_image ? [{ url: o.cover_image }] : undefined,
@@ -160,7 +160,7 @@ export default async function ObjectDetailPage({ params }) {
       <div className="max-w-5xl mx-auto px-6 pt-6 pb-14">
         <Link href={o.category ? `/objects?c=${encodeURIComponent(o.category)}` : '/objects'}
           className="text-sm" style={{ color: '#6B7280' }}>
-          ← {o.category || '全部好物'}
+          ← {o.category || '摇篮好物'}
         </Link>
 
         <div className="grid md:grid-cols-2 gap-10 mt-6">

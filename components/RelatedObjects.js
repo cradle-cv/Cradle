@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 /**
- * 在工作坊、艺术家、阅览室期次、文章页面里显示关联的工坊好物（服务端组件）
+ * 在工作坊、艺术家、阅览室期次、文章页面里显示关联的摇篮好物（服务端组件）
  *
  * 用法：
  *   <RelatedObjects targetType="workshop" targetId={w.id} variant="kit" />
