@@ -17,6 +17,8 @@ export default async function sitemap() {
     { url: `${BASE}/partners`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/invitations`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${BASE}/residency`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE}/workshops`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${BASE}/objects`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
   ]
 
   const dynamicRoutes = []
@@ -25,6 +27,22 @@ export default async function sitemap() {
   const safePush = async (fn) => { try { await fn() } catch (e) { /* 忽略单源失败 */ } }
 
   await Promise.all([
+    safePush(async () => {
+      const { data } = await supabase.from('craft_objects').select('id, updated_at').eq('status', 'published')
+      ;(data || []).forEach(r => dynamicRoutes.push({
+        url: `${BASE}/objects/${r.id}`,
+        lastModified: new Date(r.updated_at || now),
+        changeFrequency: 'monthly', priority: 0.6,
+      }))
+    }),
+    safePush(async () => {
+      const { data } = await supabase.from('workshops').select('id, updated_at').in('status', ['open', 'closed'])
+      ;(data || []).forEach(r => dynamicRoutes.push({
+        url: `${BASE}/workshops/${r.id}`,
+        lastModified: new Date(r.updated_at || now),
+        changeFrequency: 'weekly', priority: 0.6,
+      }))
+    }),
     safePush(async () => {
       const { data } = await supabase.from('artists').select('id, updated_at, created_at')
       ;(data || []).forEach(r => dynamicRoutes.push({

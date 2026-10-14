@@ -1,18 +1,19 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import SiteNav from '@/components/SiteNav'
+import WorkshopTabs from '@/components/WorkshopTabs'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export const metadata = {
-  title: '工作坊',
+  title: '工坊优课',
   description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
   alternates: { canonical: '/workshops' },
   openGraph: {
     type: 'website',
-    title: '工作坊 · Cradle 摇篮',
+    title: '工坊优课 · Cradle 摇篮',
     description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
     url: 'https://www.cradle.art/workshops',
   },
@@ -75,10 +76,6 @@ export default async function WorkshopsPage() {
     w.status === 'open' && (!w.starts_at || new Date(w.starts_at) > now))
   const past = workshops.filter(w => !open.includes(w))
 
-  const today = new Date()
-  const weekDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六']
-  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`
-
   return (
     <div className="min-h-screen bg-white"
       style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
@@ -87,14 +84,7 @@ export default async function WorkshopsPage() {
       <section className="px-6 pt-8 pb-12">
         <div className="max-w-4xl mx-auto">
 
-          <div style={{ borderTop: '3px double #111827', borderBottom: '0.5px solid #111827', padding: '8px 0' }}>
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: '11px', letterSpacing: '6px', textTransform: 'uppercase', color: '#6B7280' }}>
-                Cradle · 工作坊
-              </span>
-              <span style={{ fontSize: '11px', color: '#6B7280', letterSpacing: '2px' }}>{dateStr}</span>
-            </div>
-          </div>
+          <WorkshopTabs active="courses" />
 
           <p className="text-sm mt-6 mb-10" style={{ color: '#6B7280', lineHeight: 2 }}>
             跟着艺术家动手做一件东西。工作坊由艺术家自己发起，摇篮不经手收款，报名之后由主持人与你直接联系。
@@ -166,7 +156,7 @@ export default async function WorkshopsPage() {
                         <img src={w.cover_image} alt={w.title} loading="lazy"
                           className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-2xl">🛠️</div>
+                        <div className="w-full h-full" style={{ backgroundColor: '#E5E7EB' }} />
                       )}
                       {w.photo_count > 0 && (
                         <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full"
@@ -192,8 +182,7 @@ export default async function WorkshopsPage() {
 
           {workshops.length === 0 && (
             <div className="py-20 text-center">
-              <div className="text-4xl mb-3">🛠️</div>
-              <p style={{ color: '#9CA3AF' }}>还没有工作坊，敬请期待</p>
+              <p style={{ color: '#9CA3AF' }}>还没有课程，敬请期待</p>
             </div>
           )}
         </div>

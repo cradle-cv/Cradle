@@ -4,6 +4,7 @@ import Link from 'next/link'
 import SiteNav from '@/components/SiteNav'
 import WorkshopSignup from '@/components/WorkshopSignup'
 import ShareButton from '@/components/ShareButton'
+import RelatedObjects from '@/components/RelatedObjects'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -75,12 +76,31 @@ export default async function WorkshopDetailPage({ params }) {
   return (
     <div className="min-h-screen bg-white"
       style={{ fontFamily: '"Noto Serif SC", "Source Han Serif SC", "思源宋体", serif' }}>
+      <script type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Event',
+          name: w.title,
+          description: w.summary || undefined,
+          image: w.cover_image ? [w.cover_image] : undefined,
+          startDate: w.starts_at || undefined,
+          endDate: w.ends_at || undefined,
+          eventStatus: 'https://schema.org/EventScheduled',
+          eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+          location: (w.venue || w.city) ? {
+            '@type': 'Place',
+            name: w.venue || w.city,
+            address: [w.address, w.city].filter(Boolean).join(' ') || undefined,
+          } : undefined,
+          organizer: w.artists ? { '@type': 'Person', name: w.artists.display_name } : undefined,
+          url: `https://www.cradle.art/workshops/${w.id}`,
+        }).replace(/</g, '\\u003c') }} />
       <SiteNav />
 
       <div className="max-w-3xl mx-auto px-6 pt-6 pb-14">
 
         <Link href="/workshops" className="text-sm" style={{ color: '#6B7280' }}>
-          ← 全部工作坊
+          ← 工坊优课
         </Link>
 
         {/* 主视觉：有现场照片用现场照片，没有用封面 */}
@@ -190,6 +210,9 @@ export default async function WorkshopDetailPage({ params }) {
             full={full}
             closed={isPast} />
         </div>
+
+        {/* 材料包：后台在物件里关联到这场工作坊才会出现 */}
+        <RelatedObjects targetType="workshop" targetId={w.id} variant="kit" />
 
         {/* 现场照片 */}
         {photos.length > 1 && (

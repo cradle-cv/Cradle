@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
+import RelatedObjects from '@/components/RelatedObjects'
 import { notFound } from 'next/navigation'
 import UserNav from '@/components/UserNav'
 import SiteNav from '@/components/SiteNav'
@@ -359,6 +360,13 @@ export default async function ArtistDetailPage({ params }) {
           </div>
         </section>
       )}
+
+      {/* 工坊好物：他制作的，以及后台关联到他的 */}
+      <section className="px-6">
+        <div className="max-w-6xl mx-auto">
+          <RelatedObjects targetType="artist" targetId={artist.id} includeMade />
+        </div>
+      </section>
 
       {/* 空状态 */}
       {collections.length === 0 && artworks.length === 0 && (
