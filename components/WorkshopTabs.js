@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 /**
- * 《开物》板块抬头：报纸式双线 + 三个分页（开物总览 / 工作坊 / 摇篮好物）
+ * 《开物》板块抬头：报纸式双线 + 三个分页（开物 / 摇篮优课 / 摇篮好物）
  * active: 'kaiwu' | 'courses' | 'objects'
  */
 export default function WorkshopTabs({ active = 'kaiwu' }) {
@@ -11,7 +11,7 @@ export default function WorkshopTabs({ active = 'kaiwu' }) {
 
   const tabs = [
     { key: 'kaiwu', href: '/kaiwu', label: '开物' },
-    { key: 'courses', href: '/workshops', label: '工作坊' },
+    { key: 'courses', href: '/workshops', label: '摇篮优课' },
     { key: 'objects', href: '/objects', label: '摇篮好物' },
   ]
 

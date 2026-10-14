@@ -8,12 +8,12 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export const metadata = {
-  title: '工作坊',
+  title: '摇篮优课',
   description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
   alternates: { canonical: '/workshops' },
   openGraph: {
     type: 'website',
-    title: '工作坊 · Cradle 开物',
+    title: '摇篮优课 · Cradle 开物',
     description: '跟着艺术家动手做一件东西。摇篮的工作坊在南昌与台中都有。',
     url: 'https://www.cradle.art/workshops',
   },

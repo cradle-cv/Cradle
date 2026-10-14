@@ -47,7 +47,7 @@ const SECTIONS = [
     prefixes: ['/admin/exhibitions', '/admin/dialogue', '/admin/workshops', '/admin/objects'],
     links: [
       { href: '/admin/exhibitions', icon: '🎪', label: '展览管理', matchExact: (p) => p === '/admin/exhibitions' || (p.startsWith('/admin/exhibitions/') && !p.startsWith('/admin/exhibitions/daily')) },
-      { href: '/admin/workshops', icon: '🛠️', label: '工作坊', matchExact: (p) => p.startsWith('/admin/workshops') },
+      { href: '/admin/workshops', icon: '🛠️', label: '摇篮优课', matchExact: (p) => p.startsWith('/admin/workshops') },
       { href: '/admin/objects', icon: '◇', label: '摇篮好物', matchExact: (p) => p.startsWith('/admin/objects') },
       { href: '/admin/exhibitions/daily', icon: '⭐', label: '每日一展管理' },
       { href: '/admin/dialogue', icon: '🎐', label: '本期对话排期' },
