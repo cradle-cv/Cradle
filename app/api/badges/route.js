@@ -1,16 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireUser, serviceDb } from '@/lib/serverAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const supabase = serviceDb()
 
 // POST - 检测并颁发徽章
 export async function POST(request) {
+  // 只能为自己检测徽章
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
   try {
-    const { userId, action } = await request.json()
-    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+    const { action } = await request.json()
+    const userId = auth.user.id
 
     // 1. 获取所有活跃徽章定义
     const { data: allBadges } = await supabase

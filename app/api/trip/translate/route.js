@@ -2,6 +2,7 @@
 // 同行手账：随身翻译。文字走智谱文本模型，拍照走智谱视觉模型；不需要登录，按 IP 限速
 // 环境变量：ZHIPU_API_KEY，可选 ZHIPU_TEXT_MODEL（默认 glm-4-flash）、ZHIPU_VISION_MODEL（默认 glm-4v-flash）
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/serverAuth'
 
 const KEY = process.env.ZHIPU_API_KEY
 const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash'
@@ -30,6 +31,8 @@ async function zhipu(model, content, temperature = 0.3) {
 }
 
 export async function POST(req) {
+  const __limited = await rateLimit(req, 'trip-translate', 300)
+  if (__limited) return __limited
   try {
     if (!KEY) return NextResponse.json({ error: '未配置 ZHIPU_API_KEY' }, { status: 500 })
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'

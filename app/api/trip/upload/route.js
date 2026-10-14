@@ -4,6 +4,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit } from '@/lib/serverAuth'
 
 const S3 = new S3Client({
   region: 'auto',
@@ -15,6 +16,8 @@ const MAX_SIZE = 8 * 1024 * 1024
 const ALLOWED = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' }
 
 export async function POST(request) {
+  const __limited = await rateLimit(request, 'trip-upload', 300)
+  if (__limited) return __limited
   try {
     const form = await request.formData()
     const file = form.get('file')

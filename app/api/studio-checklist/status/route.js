@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/serverAuth'
 import { NextResponse } from 'next/server'
 
 const supabase = createClient(
@@ -63,11 +64,13 @@ function extractTasksPayload(rawContent) {
 
 // 轮询:前端拿 jobId 来查。去智谱查异步结果;若完成则解析+落库,标记 done。每次都秒回,不超时。
 export async function GET(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
   try {
     const { searchParams } = new URL(request.url)
     const jobId = searchParams.get('jobId')
-    const userId = searchParams.get('userId')
-    if (!jobId || !userId) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
+    const userId = auth.user.id
+    if (!jobId) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
 
     const { data: job } = await supabase.from('studio_checklist_jobs')
       .select('*').eq('id', jobId).eq('user_id', userId).maybeSingle()

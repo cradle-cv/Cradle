@@ -1,109 +1,98 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { calculateLevel } from '@/lib/inspiration'
+import { requireUser } from '@/lib/serverAuth'
+import { award } from '@/lib/pointsServer'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
-// POST - 处理邀请注册
+/**
+ * POST —— 新用户登记邀请码（由被邀请人自己调用）
+ * 只能登记自己、只能登记一次、邮箱必须已验证；邀请人的奖励每位新用户只发一次。
+ */
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const { db, user } = auth
+
   try {
-    const { inviteCode, newUserId } = await request.json()
+    const body = await request.json()
+    const inviteCode = String(body.inviteCode || body.invite_code || '').trim()
+    if (!inviteCode) return NextResponse.json({ error: '缺少邀请码' }, { status: 400 })
 
-    if (!inviteCode || !newUserId) {
-      return NextResponse.json({ error: '缺少参数' }, { status: 400 })
+    if (!user.email_verified) {
+      return NextResponse.json({ error: '请先验证邮箱' }, { status: 400 })
     }
 
-    // 查找邀请人
-    const { data: inviter } = await supabase
-      .from('users')
-      .select('id, total_points, level')
-      .eq('invite_code', inviteCode)
-      .single()
+    const { data: me } = await db.from('users').select('id, invited_by, created_at').eq('id', user.id).single()
+    if (me.invited_by) return NextResponse.json({ error: '已经登记过邀请码' }, { status: 400 })
 
-    if (!inviter) {
-      return NextResponse.json({ error: '无效的邀请码' }, { status: 404 })
+    // 只有注册 7 天内的新用户可以登记，防止老账号互刷
+    if (Date.now() - new Date(me.created_at).getTime() > 7 * 86400 * 1000) {
+      return NextResponse.json({ error: '邀请码需在注册后 7 天内登记' }, { status: 400 })
     }
 
-    // 不能邀请自己
-    if (inviter.id === newUserId) {
-      return NextResponse.json({ error: '不能邀请自己' }, { status: 400 })
+    const { data: inviter } = await db.from('users').select('id').eq('invite_code', inviteCode).maybeSingle()
+    if (!inviter) return NextResponse.json({ error: '无效的邀请码' }, { status: 404 })
+    if (inviter.id === user.id) return NextResponse.json({ error: '不能邀请自己' }, { status: 400 })
+
+    // 用条件更新保证只登记一次（并发请求也只有一个能成功）
+    const { data: updated } = await db.from('users')
+      .update({ invited_by: inviter.id })
+      .eq('id', user.id).is('invited_by', null)
+      .select('id')
+    if (!updated || updated.length === 0) {
+      return NextResponse.json({ error: '已经登记过邀请码' }, { status: 400 })
     }
 
-    // 记录邀请关系
-    await supabase.from('user_invites').insert({
+    await db.from('user_invites').insert({
       inviter_id: inviter.id,
-      invited_user_id: newUserId,
+      invited_user_id: user.id,
       invite_code: inviteCode,
       status: 'registered',
       registered_at: new Date().toISOString(),
     })
 
-    // 更新被邀请人的 invited_by
-    await supabase
-      .from('users')
-      .update({ invited_by: inviter.id })
-      .eq('id', newUserId)
-
-    // 给邀请人 +30 灵感值
-    await supabase.from('user_points').insert({
-      user_id: inviter.id,
-      points: 30,
-      type: 'invite_register',
-      description: '邀请新用户注册',
-      reference_id: newUserId,
+    const r = await award(db, inviter.id, {
+      type: 'invite_register', points: 30, description: '邀请新用户注册',
+      ref: user.id, key: `invite:${user.id}`, dailyLimit: 20,
     })
 
-    const newTotal = (inviter.total_points || 0) + 30
-    const newLevel = calculateLevel(newTotal)
-
-    await supabase
-      .from('users')
-      .update({ total_points: newTotal, level: newLevel })
-      .eq('id', inviter.id)
-
-    return NextResponse.json({
-      success: true,
-      inviterId: inviter.id,
-      points: 30,
-    })
-  } catch (error) {
-    console.error('邀请处理错误:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, inviterId: inviter.id, points: r?.awarded ? 30 : 0 })
+  } catch (err) {
+    console.error('邀请处理错误:', err)
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }
 
-// GET - 查看我的邀请记录
+function makeCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let s = ''
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)]
+  return s
+}
+
+// GET —— 查看我的邀请记录（没有邀请码时顺便生成）
 export async function GET(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const { db, user } = auth
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+    const { data: invites } = await db.from('user_invites')
+      .select('*').eq('inviter_id', user.id).order('created_at', { ascending: false })
+    const { data: u } = await db.from('users').select('invite_code').eq('id', user.id).single()
+    let code = u?.invite_code || ''
+    // 还没有邀请码的用户，由服务器生成一个（浏览器不能自己写邀请码）
+    for (let i = 0; !code && i < 5; i++) {
+      const candidate = makeCode()
+      const { data: taken } = await db.from('users').select('id').eq('invite_code', candidate).maybeSingle()
+      if (taken) continue
+      const { data: set } = await db.from('users').update({ invite_code: candidate })
+        .eq('id', user.id).is('invite_code', null).select('invite_code')
+      code = set?.[0]?.invite_code || ''
     }
-
-    const { data: invites } = await supabase
-      .from('user_invites')
-      .select('*')
-      .eq('inviter_id', userId)
-      .order('created_at', { ascending: false })
-
-    // 获取邀请码
-    const { data: user } = await supabase
-      .from('users')
-      .select('invite_code')
-      .eq('id', userId)
-      .single()
-
     return NextResponse.json({
-      inviteCode: user?.invite_code || '',
+      inviteCode: code,
       invites: invites || [],
       totalInvited: invites?.filter(i => i.status !== 'pending').length || 0,
     })
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (err) {
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }

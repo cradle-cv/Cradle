@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 function VerifyEmailForm() {
   const router = useRouter()
@@ -80,7 +81,7 @@ function VerifyEmailForm() {
               const { data: newUser } = await supabase
                 .from('users').select('id').eq('auth_id', authUser.id).single()
               if (newUser) {
-                await fetch('/api/invite', {
+                await authFetch('/api/invite', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ inviteCode, newUserId: newUser.id }),

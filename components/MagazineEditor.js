@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { uploadImage } from '@/lib/upload'
+import { authFetch } from '@/lib/authFetch'
 
 const DEFAULT_W = 800
 const DEFAULT_H = 450
@@ -555,26 +556,26 @@ export default function MagazineEditor({ magazineId, initialSpreads = [], coverI
       else if (magazineId) {
         for (const spreadId of deletedSpreadIds) {
           try {
-            await fetch('/api/magazine', {
+            await authFetch('/api/magazine', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'delete_spread', spreadId, magazineId })
             })
           } catch (e) { console.error('删除页面失败:', e) }
         }
         setDeletedSpreadIds([])
-        await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        await authFetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId, canvasWidth: canvasW, canvasHeight: canvasH }) })
         for (let i = 0; i < spreads.length; i++) {
           const s = spreads[i]
           if (s.id && !s.id.startsWith('temp_')) {
-            await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            await authFetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'save_spread', spreadId: s.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image, spreadIndex: i }) })
           } else {
-            const resp = await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            const resp = await authFetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'add_spread', magazineId, spreadIndex: i }) })
             const data = await resp.json()
             if (data.spread) {
-              await fetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              await authFetch('/api/magazine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'save_spread', spreadId: data.spread.id, elements: s.elements, backgroundColor: s.background_color, backgroundImage: s.background_image, spreadIndex: i }) })
               setSpreads(prev => prev.map(sp => sp.id === s.id ? { ...sp, id: data.spread.id } : sp))
             }

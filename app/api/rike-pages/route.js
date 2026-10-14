@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireAdmin, serviceDb } from '@/lib/serverAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const supabase = serviceDb()
 
 // GET - 获取某篇文章的所有日课页面
 export async function GET(request) {
@@ -31,6 +28,9 @@ export async function GET(request) {
 
 // POST - 批量保存日课页面（删掉旧的，插入新的）
 export async function POST(request) {
+  // 改写日课页面只允许管理员
+  const auth = await requireAdmin(request)
+  if (auth.error) return auth.error
   try {
     const { articleId, pages } = await request.json()
 

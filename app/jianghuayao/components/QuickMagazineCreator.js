@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
+import { authFetch } from '@/lib/authFetch'
 
 export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
   const [mode, setMode] = useState('images') // images | template
@@ -72,7 +73,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
 
     try {
       // 1. 创建杂志
-      const createResp = await fetch('/api/magazine', {
+      const createResp = await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', title: title.trim(), authorId: userId })
       })
@@ -91,7 +92,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
         setProgress(Math.round(((i + 0.7) / files.length) * 100))
 
         // 创建spread
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: magId, spreadIndex: i })
         })
@@ -109,7 +110,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
         }]
 
         // 保存spread内容
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'save_spread', spreadId: addData.spread.id, elements })
         })
@@ -120,7 +121,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
       // 3. 设第一张图为封面
       if (files.length > 0) {
         const { url: coverUrl } = await uploadImage(files[0], 'magazine')
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId: magId, coverImage: coverUrl })
         })
@@ -142,12 +143,12 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
 
     try {
       // 1. 获取模板的完整数据
-      const resp = await fetch(`/api/magazine?id=${selectedTemplate.id}`)
+      const resp = await authFetch(`/api/magazine?id=${selectedTemplate.id}`)
       const templateData = await resp.json()
       if (!templateData.magazine || !templateData.spreads) throw new Error('获取模板失败')
 
       // 2. 创建新杂志
-      const createResp = await fetch('/api/magazine', {
+      const createResp = await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
@@ -161,7 +162,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
       const magId = createData.magazine.id
 
       // 3. 复制画布尺寸
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update', magazineId: magId,
@@ -173,7 +174,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
       // 4. 复制每一页
       for (let i = 0; i < templateData.spreads.length; i++) {
         const srcSpread = templateData.spreads[i]
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: magId, spreadIndex: i })
         })
@@ -186,7 +187,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
           id: 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
         }))
 
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'save_spread', spreadId: addData.spread.id,

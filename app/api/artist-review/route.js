@@ -1,16 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { requireUser } from '@/lib/serverAuth'
 
 // GET - 获取审核列表 或 用户的审核状态
 export async function GET(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const supabase = auth.db
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    // 只能查自己的审核状态；管理员可以查任何人
+    if (userId && userId !== auth.user.id && !auth.isAdmin) {
+      return NextResponse.json({ error: '没有权限' }, { status: 403 })
+    }
     const status = searchParams.get('status') || 'all'
 
     // 单个用户的审核状态
@@ -38,6 +40,7 @@ export async function GET(request) {
     }
 
     // 管理员获取审核列表
+    if (!auth.isAdmin) return NextResponse.json({ error: '没有权限' }, { status: 403 })
     let query = supabase
       .from('artist_reviews')
       .select('*, users:user_id(id, username, email, avatar_url, total_points, level)')
@@ -56,14 +59,18 @@ export async function GET(request) {
 
 // POST - 提交审核申请 / 管理员审批
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const supabase = auth.db
   try {
     const body = await request.json()
     const { action } = body
 
     // === 用户提交审核申请 ===
     if (action === 'apply') {
-      const { userId, artworkId, collectionId } = body
-      if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+      // 只能替自己申请，忽略请求体里的 userId
+      const userId = auth.user.id
+      const { artworkId, collectionId } = body
 
       // 检查是否已认证
       const { data: user } = await supabase
@@ -117,8 +124,12 @@ export async function POST(request) {
 
     // === 管理员审批 ===
     if (action === 'review') {
-      const { reviewId, decision, adminNote, adminId } = body
-      if (!reviewId || !decision) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
+      if (!auth.isAdmin) return NextResponse.json({ error: '没有权限' }, { status: 403 })
+      const { reviewId, decision, adminNote } = body
+      const adminId = auth.user.id
+      if (!reviewId || !['approved', 'rejected'].includes(decision)) {
+        return NextResponse.json({ error: '缺少参数' }, { status: 400 })
+      }
 
       // 获取审核记录
       const { data: review } = await supabase

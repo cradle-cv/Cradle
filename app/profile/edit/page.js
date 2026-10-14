@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 const INTEREST_OPTIONS = [
   '油画', '水彩', '国画', '版画', '雕塑', '摄影',
@@ -49,6 +50,9 @@ function ProfileEditForm() {
       setUserId(ud.id)
       setWasProfileCompleted(ud.profile_completed || false)
       setInviteCode(ud.invite_code || '')
+      if (!ud.invite_code) {
+        authFetch('/api/invite').then(r => r.json()).then(d => { if (d.inviteCode) setInviteCode(d.inviteCode) }).catch(() => {})
+      }
       setForm({
         username: ud.username || '',
         bio: ud.bio || '',
@@ -126,7 +130,7 @@ function ProfileEditForm() {
       // ✅ 首次完善资料 +30 灵感值
       if (!wasProfileCompleted) {
         try {
-          await fetch('/api/inspiration', {
+          await authFetch('/api/inspiration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

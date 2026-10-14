@@ -8,6 +8,7 @@ import LevelBadge from '@/components/LevelBadge'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
 import ImageGallery from '@/components/ImageGallery'
 import { useConvert } from '@/components/i18n/LanguageContext'
+import { authFetch } from '@/lib/authFetch'
 
 // ══ 关键词提取工具 ═══════════════════════════════════════════════
 function extractKeywords(openTexts) {
@@ -95,7 +96,7 @@ function KeywordWall({ keywords }) {
 async function silentlyCheckBadges(userId, onNewBadge) {
   if (!userId) return
   try {
-    const resp = await fetch('/api/badges', {
+    const resp = await authFetch('/api/badges', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -247,7 +248,7 @@ export default function GalleryDetailPage() {
         const { data: ra } = await supabase.from('articles').select('*').eq('id', w.rike_article_id).single()
         setRikeArticle(ra)
         try {
-          const rpResp = await fetch(`/api/rike-pages?articleId=${w.rike_article_id}`)
+          const rpResp = await authFetch(`/api/rike-pages?articleId=${w.rike_article_id}`)
           const rpData = await rpResp.json()
           if (Array.isArray(rpData) && rpData.length > 0) setRikePages(rpData)
         } catch (e) { console.error('加载日课页面失败:', e) }
@@ -377,7 +378,7 @@ export default function GalleryDetailPage() {
   async function awardInspirationPoints(type, points, description, referenceId) {
     if (!currentUser) return null
     try {
-      const resp = await fetch('/api/inspiration', {
+      const resp = await authFetch('/api/inspiration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,8 +388,8 @@ export default function GalleryDetailPage() {
       })
       const data = await resp.json()
       if (data.success) {
-        setCurrentUser(prev => ({ ...prev, total_points: data.totalPoints, level: data.level }))
-        showInspirationToast(`+${data.points} ${description}`)
+        setCurrentUser(prev => ({ ...prev, total_points: data.totalPoints, points: data.balance, level: data.level }))
+        showInspirationToast(`+${data.points} ${data.description || description}`)
         if (data.leveledUp) setTimeout(() => showInspirationToast('🎉 升级了！'), 2000)
         return data
       }
@@ -468,7 +469,7 @@ export default function GalleryDetailPage() {
 
       setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: null } }))
       if (responseText) setPerceptionResponses(prev => ({ ...prev, [question.id]: responseText }))
-      await awardInspirationPoints('quiz', 10, `感知题「${question.question_text.slice(0, 12)}…」`)
+      await awardInspirationPoints('quiz', 10, `感知题「${question.question_text.slice(0, 12)}…」`, question.id)
       return
     }
 
@@ -483,7 +484,7 @@ export default function GalleryDetailPage() {
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected: selectedLabel, is_correct: isCorrect } }))
     await awardInspirationPoints('quiz', earnedPoints,
-      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
+      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`, question.id)
   }
 
   async function handleOpenAnswer(question) {
@@ -500,7 +501,7 @@ export default function GalleryDetailPage() {
     } catch (err) { console.error(err) }
 
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected: null, is_correct: null, open_text: text } }))
-    await awardInspirationPoints('quiz', 10, `开放题「${question.question_text.slice(0, 12)}…」`)
+    await awardInspirationPoints('quiz', 10, `开放题「${question.question_text.slice(0, 12)}…」`, question.id)
   }
 
   function toggleMultiOption(questionId, label) {
@@ -525,7 +526,7 @@ export default function GalleryDetailPage() {
     } catch (err) { console.error(err) }
     setUserAnswers(prev => ({ ...prev, [question.id]: { selected, is_correct: isCorrect } }))
     await awardInspirationPoints('quiz', earnedPoints,
-      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`)
+      isCorrect ? `答对「${question.question_text.slice(0, 12)}…」` : `参与答题「${question.question_text.slice(0, 12)}…」`, question.id)
   }
 
   async function completePuzzle() {
@@ -533,9 +534,10 @@ export default function GalleryDetailPage() {
     const knowledgeQs = questions.filter(q => (q.question_type_v2 || 'knowledge') === 'knowledge')
     const knowledgeCorrect = knowledgeQs.filter(q => userAnswers[q.id]?.is_correct).length
     if (knowledgeQs.length > 0 && knowledgeCorrect === knowledgeQs.length) {
-      await supabase.from('users').update({
-        perfect_puzzle_count: (currentUser.perfect_puzzle_count || 0) + 1,
-      }).eq('id', currentUser.id)
+      // 满分次数由服务器核对答案后记录，浏览器不能直接改
+      try {
+        await authFetch('/api/inspiration', { method: 'POST', body: { type: 'puzzle_complete', referenceId: work.id } })
+      } catch (e) { console.error(e) }
     }
     const newProg = await saveProgress({
       puzzle_completed: true, puzzle_correct_count: cc, puzzle_total_count: questions.length, current_step: 'rike',
@@ -548,6 +550,10 @@ export default function GalleryDetailPage() {
   // ── 日课 ────────────────────────────────────────────────────
   function startRikeTimer() {
     if (rikeTimer.current) return
+    // 告诉服务器开始阅读的时间，日课满 15 秒才发放灵感值以服务器时钟为准
+    if (currentUser && work?.id) {
+      authFetch('/api/inspiration', { method: 'POST', body: { type: 'start', step: 'rike', referenceId: work.id } }).catch(() => {})
+    }
     rikeTimer.current = setInterval(() => {
       rikeSecondsRef.current += 1
       if (rikeSecondsRef.current >= 15) setRikeReady(true)

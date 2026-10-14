@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Navigation from './components/Navigation';
 import EnhancedHeroSection from './components/EnhancedHeroSection';
 import Link from 'next/link';
+import { authFetch } from '@/lib/authFetch'
 
 // 非遗项目
 const HERITAGE_PROJECTS = [
@@ -116,7 +117,7 @@ export default function JianghuayaoPage() {
 
   const loadArticles = async () => {
     try {
-      const response = await fetch('/api/jianghuayao/articles');
+      const response = await authFetch('/api/jianghuayao/articles');
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
       console.log('加载的文章:', data);

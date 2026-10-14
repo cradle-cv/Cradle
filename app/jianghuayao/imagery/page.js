@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navigation from '../components/Navigation';
+import { authFetch } from '@/lib/authFetch'
 
 const IMAGERY_TYPES = [
   { id: 'people', name: '人物', icon: '👥' },
@@ -42,7 +43,7 @@ export default function ImageryPage() {
 
   const loadArticles = async () => {
     try {
-      const response = await fetch('/api/jianghuayao/articles');
+      const response = await authFetch('/api/jianghuayao/articles');
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
       // ✅ 关键修复：related_type → relatedType

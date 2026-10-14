@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { uploadImage } from '@/lib/upload'
+import { authFetch } from '@/lib/authFetch'
 
 // BAO 固定形象(放 public/image/bao.png,或替换为你的 R2 url)
 const BAO_IMG = '/image/bao.png'
@@ -50,7 +51,7 @@ export default function ParallelPet({ userId, userLevel }) {
   // 初次加载只取 pet 基本信息(不结算)
   useEffect(() => {
     if (!userId) return
-    fetch(`/api/parallel?userId=${userId}&action=cards`)
+    authFetch(`/api/parallel?userId=${userId}&action=cards`)
       .then(r => r.json()).then(d => { setCards(d.cards || []); setSightings(d.sightings || []) }).catch(() => {})
     // 取未读/睡眠状态但不触发结算:用一个轻量 GET(这里直接结算也行,但我们要点开才结算)
   }, [userId])
@@ -74,7 +75,7 @@ export default function ParallelPet({ userId, userLevel }) {
     setActiveTab('home')
     setLoadingCards(true)
     try {
-      const resp = await fetch(`/api/parallel?userId=${userId}`)
+      const resp = await authFetch(`/api/parallel?userId=${userId}`)
       const d = await resp.json()
       setPet(d.pet)
       setSleeping(d.sleeping)
@@ -93,7 +94,7 @@ export default function ParallelPet({ userId, userLevel }) {
         setSettleTarget(d.pendingSettle)
       }
       // 刷新梦图列表
-      const cardsResp = await fetch(`/api/parallel?userId=${userId}&action=cards`)
+      const cardsResp = await authFetch(`/api/parallel?userId=${userId}&action=cards`)
       const cardsData = await cardsResp.json()
       setCards(cardsData.cards || [])
       setSightings(cardsData.sightings || [])
@@ -102,14 +103,14 @@ export default function ParallelPet({ userId, userLevel }) {
   }, [expanded, userId])
 
   async function reloadCards() {
-    const r = await fetch(`/api/parallel?userId=${userId}&action=cards`)
+    const r = await authFetch(`/api/parallel?userId=${userId}&action=cards`)
     const d = await r.json()
     setCards(d.cards || [])
     setSightings(d.sightings || [])
   }
 
   async function readCard(id) {
-    await fetch('/api/parallel', {
+    await authFetch('/api/parallel', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, action: 'read_card', cardId: id })
     })
@@ -449,7 +450,7 @@ function RecordSighting({ userId, onClose, onDone }) {
     try {
       // 上传到 R2(走现有 uploadImage,自动压缩+鉴权)
       const { url } = await uploadImage(file, 'sightings')
-      const resp = await fetch('/api/parallel', {
+      const resp = await authFetch('/api/parallel', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, action: 'record_sighting', imageUrl: url, note: trimmed })
       })
@@ -533,7 +534,7 @@ function SettleSighting({ card, userId, onDone }) {
   async function save() {
     setBusy(true)
     try {
-      const resp = await fetch('/api/parallel', {
+      const resp = await authFetch('/api/parallel', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId, action: 'settle_card', cardId: card.id,

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/serverAuth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,6 +8,8 @@ const supabase = createClient(
 
 // PUT - 更新文章
 export async function PUT(request, context) {
+  const __auth = await requireAdmin(request)
+  if (__auth.error) return __auth.error
   try {
     const { id } = await context.params;  // ✅ Next.js 15+ 需要 await
     console.log('更新文章 ID:', id);
@@ -48,6 +51,8 @@ export async function PUT(request, context) {
 
 // DELETE - 删除文章
 export async function DELETE(request, context) {
+  const __auth = await requireAdmin(request)
+  if (__auth.error) return __auth.error
   try {
     const { id } = await context.params;  // ✅ Next.js 15+ 需要 await
     console.log('删除文章 ID:', id);

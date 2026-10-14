@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ResidencyExitButton from '@/components/ResidencyExitButton'
+import { authFetch } from '@/lib/authFetch'
 
 const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`
 
@@ -138,7 +139,7 @@ export default function AtticSpace() {
       if (!profile) return
       setUserId(profile.id)
 
-      const resp = await fetch(`/api/lanterns?userId=${profile.id}`)
+      const resp = await authFetch(`/api/lanterns?userId=${profile.id}`)
       const d = await resp.json()
       if (d.lanterns) { setLanterns(d.lanterns); lanternsRef.current = d.lanterns }
       if (d.trail) {
@@ -154,7 +155,7 @@ export default function AtticSpace() {
   useEffect(() => {
     if (!userId) return
     const t = setInterval(() => {
-      fetch('/api/lanterns', {
+      authFetch('/api/lanterns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -412,7 +413,7 @@ export default function AtticSpace() {
 
     setReleasing({ text, startTime: Date.now(), posX, posY })
 
-    const resp = await fetch('/api/lanterns', {
+    const resp = await authFetch('/api/lanterns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'lantern', userId, text, posX, posY, colorHue: hue })

@@ -7,6 +7,7 @@ import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 import UserNav from '@/components/UserNav'
 import MagazineEditor from '@/components/MagazineEditor'
+import { authFetch } from '@/lib/authFetch'
 
 export default function StudioMagazineEditPage() {
   const { id } = useParams()
@@ -24,7 +25,7 @@ export default function StudioMagazineEditPage() {
 
   async function loadMagazine() {
     try {
-      const resp = await fetch(`/api/magazine?id=${id}`)
+      const resp = await authFetch(`/api/magazine?id=${id}`)
       const data = await resp.json()
       if (data.magazine) {
         setMagazine(data.magazine)
@@ -52,7 +53,7 @@ export default function StudioMagazineEditPage() {
   async function saveInfo() {
     setSaving(true)
     try {
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage })
@@ -65,7 +66,7 @@ export default function StudioMagazineEditPage() {
   async function publishMagazine() {
     if (!confirm('发布前请确认：杂志中使用的图片与文字均为你的原创，或已获得权利人授权。因侵权产生的责任由发布者承担。\n\n确定发布？发布后将提交审核，优质杂志将入选摇篮Select。')) return
     try {
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage, status: 'published' })

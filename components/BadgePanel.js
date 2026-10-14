@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 
 const SERIES_INFO = {
   exploration: { name: '探索者', icon: '🧭', color: '#2563EB', bg: '#EFF6FF' },
@@ -36,7 +37,7 @@ export default function BadgePanel({ userId }) {
 
   async function loadBadges() {
     try {
-      const resp = await fetch(`/api/badges?userId=${userId}`)
+      const resp = await authFetch(`/api/badges?userId=${userId}`)
       const data = await resp.json()
       setAllBadges(data.all || [])
       setOwnedBadges(data.owned || [])

@@ -1,10 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireUser, serviceDb } from '@/lib/serverAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+// 平行体只属于登录用户自己，忽略请求里传来的 userId
+const supabase = serviceDb()
 
 const DREAM_INTERVAL_HOURS = 12  // BAO 带回新梦图的最小间隔(半天一张)
 
@@ -12,11 +10,12 @@ const DREAM_INTERVAL_HOURS = 12  // BAO 带回新梦图的最小间隔(半天一
 // GET - 点开 BAO 时调用:结算是否带回新梦图 + 返回状态/梦图列表
 // ═══════════════════════════════════════════════
 export async function GET(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+    const userId = auth.user.id
     const action = searchParams.get('action')
-    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
 
     // 获取或创建 BAO
     let { data: pet } = await supabase
@@ -182,15 +181,20 @@ async function settleDream(userId, pet, canDream) {
 // POST - 记录所见 / 定格梦图 / 标记已读 / 命名
 // ═══════════════════════════════════════════════
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
   try {
-    const { userId, action, ...params } = await request.json()
-    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+    const { userId: _ignored, action, ...params } = await request.json()
+    const userId = auth.user.id
 
     // ─── 记录所见:存图(前端已上传R2拿到url) + 描述(≥15字) ───
     if (action === 'record_sighting') {
       const { imageUrl, note } = params
       if (!imageUrl) return NextResponse.json({ error: '缺少图片' }, { status: 400 })
-      const trimmed = (note || '').trim()
+      const trimmed = (note || '').trim().slice(0, 500)
+      if (typeof imageUrl !== 'string' || !/^https:\/\//.test(imageUrl)) {
+        return NextResponse.json({ error: '图片地址不对' }, { status: 400 })
+      }
       if (trimmed.length < 15) {
         return NextResponse.json({ error: '描述至少 15 个字' }, { status: 400 })
       }

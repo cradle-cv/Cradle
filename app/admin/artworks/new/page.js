@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
+import { authFetch } from '@/lib/authFetch'
 
 export default function NewArtworkPage() {
   const router = useRouter()
@@ -142,7 +143,7 @@ const handleSubmit = async (e) => {
         alert('需要达到 Lv.6「创作者」才能发布作品')
         return
       }
-      const costResp = await fetch('/api/inspiration/spend', {
+      const costResp = await authFetch('/api/inspiration/spend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userData.id, type: 'publish_artwork' }),

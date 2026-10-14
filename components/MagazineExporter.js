@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { authFetch } from '@/lib/authFetch'
 
 const EXPORT_SCALE = 2
 
@@ -34,7 +35,7 @@ export default function MagazineExporter({ magazine, spreads, userId, isAuthor, 
     setExporting(true)
     setProgress('验证导出权限...')
     try {
-      const resp = await fetch('/api/magazine-export', {
+      const resp = await authFetch('/api/magazine-export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ magazineId: magazine.id, userId, exportType })

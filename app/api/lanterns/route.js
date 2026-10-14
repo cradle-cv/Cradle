@@ -1,16 +1,14 @@
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/serverAuth'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+// 天灯与航迹只属于登录用户自己，忽略请求里传来的 userId
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId')
-  if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const supabase = auth.db
+  const userId = auth.user.id
 
   // 获取天灯
   const { data: lanterns } = await supabase
@@ -30,15 +28,22 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const supabase = auth.db
+  const userId = auth.user.id
   const body = await request.json()
-  const { action, userId } = body
-
-  if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+  const { action } = body
 
   // 放飞天灯
   if (action === 'lantern') {
     const { text, posX, posY, colorHue } = body
     if (!text || text.length > 50) return NextResponse.json({ error: 'Invalid text' }, { status: 400 })
+    // 每人每天最多放 20 盏，防止灌水
+    const since = new Date(Date.now() - 86400000).toISOString()
+    const { count } = await supabase.from('sky_lanterns')
+      .select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', since)
+    if ((count || 0) >= 20) return NextResponse.json({ error: '今天放的天灯够多了' }, { status: 429 })
 
     const { data, error } = await supabase
       .from('sky_lanterns')
@@ -53,6 +58,9 @@ export async function POST(request) {
   // 保存航迹 + 相机位置
   if (action === 'trail') {
     const { points, cameraX, cameraY } = body
+    if (Array.isArray(points) && points.length > 5000) {
+      return NextResponse.json({ error: 'Too many points' }, { status: 400 })
+    }
 
     // upsert: 有就更新，没有就插入
     const { data, error } = await supabase

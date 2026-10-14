@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminUserDetailPage() {
   const { id } = useParams()
@@ -290,7 +291,7 @@ export default function AdminUserDetailPage() {
                 const pwd = document.getElementById('newPassword').value
                 if (!pwd || pwd.length < 6) { alert('密码至少6位'); return }
                 if (!confirm(`确定将此用户密码重置为「${pwd}」?`)) return
-                const resp = await fetch('/api/admin/reset-password', {
+                const resp = await authFetch('/api/admin/reset-password', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ userId: id, newPassword: pwd }),

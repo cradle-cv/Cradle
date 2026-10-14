@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/authFetch'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
 import CollectionNotes from '@/components/CollectionNotes'
@@ -136,7 +137,7 @@ export default function ArtworkDetailPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const { data: user } = await supabase
-          .from('users').select('id, username, total_points')
+          .from('users').select('id, username, total_points, points')
           .eq('auth_id', session.user.id).single()
         if (user) {
           setCurrentUser(user)
@@ -178,40 +179,25 @@ export default function ArtworkDetailPage() {
   }
 
   async function selectCoin(amount) {
-    if ((currentUser.total_points || 0) < amount) { alert('金币不足'); return }
+    if ((currentUser.points || 0) < amount) { alert('金币不足'); return }
     setShowCoinPicker(false)
     setTipAmount(amount)
     setTipping(true)
     setShowCradleAnim(true)
 
     try {
-      await supabase.from('users')
-        .update({ total_points: (currentUser.total_points || 0) - amount })
-        .eq('id', currentUser.id)
-
-      const { data: tip } = await supabase.from('artwork_tips').insert({
-        artwork_id: id, user_id: currentUser.id,
-        artist_id: artist?.id, points: amount
-      }).select('*, users(username)').single()
-
-      await supabase.from('artworks')
-        .update({ tips_total: (artwork.tips_total || 0) + amount })
-        .eq('id', id)
-
-      if (artist?.id) {
-        await supabase.from('artists')
-          .update({ received_tips_total: (artist.received_tips_total || 0) + amount })
-          .eq('id', artist.id)
+      // 扣分、记录、计数全部由服务器一次完成，浏览器不能直接改余额
+      const resp = await authFetch('/api/inspiration/tip', { method: 'POST', body: { artworkId: id, amount } })
+      const data = await resp.json()
+      if (!resp.ok || !data.success) {
+        alert(data.error || '操作失败')
+        setShowCradleAnim(false); setTipping(false); setTipAmount(0)
+        return
       }
 
-      await supabase.from('user_points').insert({
-        user_id: currentUser.id, points: -amount, type: 'tip',
-        description: `摇摇作品：${artwork.title}`, reference_id: id
-      })
-
-      setCurrentUser(prev => ({ ...prev, total_points: (prev.total_points || 0) - amount }))
+      setCurrentUser(prev => ({ ...prev, points: data.balance }))
       setArtwork(prev => ({ ...prev, tips_total: (prev.tips_total || 0) + amount }))
-      if (tip) setRecentTips(prev => [tip, ...prev])
+      if (data.tip) setRecentTips(prev => [data.tip, ...prev])
       setYaoCount(prev => prev + 1)
       setHasYaoed(true)
 
@@ -375,7 +361,7 @@ export default function ArtworkDetailPage() {
             )}
             {currentUser && (
               <span className="text-sm text-amber-600 font-medium flex items-center gap-1">
-                <CoinIcon size={16} /> {currentUser.total_points || 0} 金币
+                <CoinIcon size={16} /> {currentUser.points || 0} 金币
               </span>
             )}
           </div>
@@ -420,12 +406,12 @@ export default function ArtworkDetailPage() {
               <div className="text-3xl mb-2">🌙</div>
               <h3 className="text-xl font-bold text-gray-900">摇一摇，送金币</h3>
               <p className="text-sm text-gray-500 mt-1 flex items-center justify-center gap-1">
-                当前余额：<CoinIcon size={14} /> {currentUser?.total_points || 0} 金币
+                当前余额：<CoinIcon size={14} /> {currentUser?.points || 0} 金币
               </p>
             </div>
             <div className="flex gap-6 justify-center">
               <button onClick={() => selectCoin(50)}
-                disabled={(currentUser?.total_points || 0) < 50}
+                disabled={(currentUser?.points || 0) < 50}
                 className="coin-hover-anim flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
                 style={{ borderColor: '#94A3B8', backgroundColor: '#F8FAFC', width: '150px' }}>
                 <img src={COIN_SILVER} alt="高更银币" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%', display: 'block', margin: '0 auto' }} />
@@ -435,7 +421,7 @@ export default function ArtworkDetailPage() {
                 </div>
               </button>
               <button onClick={() => selectCoin(100)}
-                disabled={(currentUser?.total_points || 0) < 100}
+                disabled={(currentUser?.points || 0) < 100}
                 className="coin-hover-anim-delay flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:animate-none"
                 style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB', width: '150px' }}>
                 <img src={COIN_GOLD} alt="梵高金币" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%', display: 'block', margin: '0 auto' }} />
@@ -590,7 +576,7 @@ export default function ArtworkDetailPage() {
               )}
               {currentUser && (
                 <p className="text-xs text-gray-400 mt-3 text-center flex items-center justify-center gap-1">
-                  当前余额 <CoinIcon size={13} /> {currentUser.total_points || 0} 金币
+                  当前余额 <CoinIcon size={13} /> {currentUser.points || 0} 金币
                   {hasYaoed && <span className="ml-2 text-purple-400">（已为此作品摇摇）</span>}
                 </p>
               )}

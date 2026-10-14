@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import InspirationToast from '@/components/InspirationToast'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AutoCheckIn() {
   const checked = useRef(false)
@@ -31,7 +32,7 @@ export default function AutoCheckIn() {
       const today = new Date().toISOString().split('T')[0]
       if (user.last_login_date === today) return
 
-      const resp = await fetch('/api/inspiration/checkin', {
+      const resp = await authFetch('/api/inspiration/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),

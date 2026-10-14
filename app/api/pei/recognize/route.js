@@ -4,6 +4,7 @@
 // 请求：POST { image: 'data:image/jpeg;base64,...', part: 'cpu' | ... | 'all', mode: 'desktop' | 'laptop' }
 // 返回：单个配件 { kind, model, price, specs? }；整单 { items: [{ part, model, price, specs? }] }
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/serverAuth'
 
 export const maxDuration = 45
 export const dynamic = 'force-dynamic'
@@ -98,6 +99,8 @@ async function ask(model, image, prompt) {
 }
 
 export async function POST(req) {
+  const __limited = await rateLimit(req, 'pei-recognize', 600)
+  if (__limited) return __limited
   if (!KEY) return NextResponse.json({ error: '未配置 ZHIPU_API_KEY' }, { status: 500 })
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (limited(ip)) return NextResponse.json({ error: '识别得太频繁了，歇一分钟再试' }, { status: 429 })

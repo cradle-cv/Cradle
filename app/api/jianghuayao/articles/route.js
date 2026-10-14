@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/serverAuth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -35,6 +36,8 @@ export async function GET(request) {
 
 // POST - 创建文章
 export async function POST(request) {
+  const __auth = await requireAdmin(request)
+  if (__auth.error) return __auth.error
   try {
     console.log('创建新文章...');
     

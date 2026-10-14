@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { createWorker } from 'tesseract.js'
+import { authFetch } from '@/lib/authFetch'
 
 export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
   const [mode, setMode] = useState('images') // images | template
@@ -134,7 +135,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
 
     try {
       setProgressMsg('创建杂志...')
-      const createResp = await fetch('/api/magazine', {
+      const createResp = await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', title: title.trim(), authorId: userId })
       })
@@ -163,7 +164,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
 
         // 创建spread
         setProgressMsg(`创建第 ${i + 1}/${files.length} 页...`)
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: magId, spreadIndex: i })
         })
@@ -203,7 +204,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
           })
         }
 
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'save_spread', spreadId: addData.spread.id, elements, backgroundColor: '#FFFFFF' })
         })
@@ -213,13 +214,13 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
 
       // 设封面
       try {
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId: magId, coverImage: previews[0]?.src ? undefined : null })
         })
         // 用第一张已上传的图做封面
         const { url: coverUrl } = await uploadImage(files[0], 'magazine-covers')
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId: magId, coverImage: coverUrl })
         })
@@ -242,11 +243,11 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
     setCloning(true)
 
     try {
-      const resp = await fetch(`/api/magazine?id=${selectedTemplate.id}`)
+      const resp = await authFetch(`/api/magazine?id=${selectedTemplate.id}`)
       const templateData = await resp.json()
       if (!templateData.magazine || !templateData.spreads) throw new Error('获取模板失败')
 
-      const createResp = await fetch('/api/magazine', {
+      const createResp = await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', title: title.trim(), authorId: userId, coverImage: templateData.magazine.cover_image || null })
       })
@@ -254,14 +255,14 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
       if (!createData.magazine) throw new Error('创建杂志失败')
       const magId = createData.magazine.id
 
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: magId, canvasWidth: templateData.magazine.canvas_width || 800, canvasHeight: templateData.magazine.canvas_height || 450 })
       })
 
       for (let i = 0; i < templateData.spreads.length; i++) {
         const srcSpread = templateData.spreads[i]
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: magId, spreadIndex: i })
         })
@@ -272,7 +273,7 @@ export default function QuickMagazineCreator({ userId, onCreated, onClose }) {
           ...el, id: 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
         }))
 
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'save_spread', spreadId: addData.spread.id, elements, backgroundColor: srcSpread.background_color || '#FFFFFF', backgroundImage: srcSpread.background_image || '' })
         })

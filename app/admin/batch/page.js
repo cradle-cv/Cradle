@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import * as XLSX from 'xlsx'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminBatchPage() {
   const [activeTab, setActiveTab] = useState('import')
@@ -148,7 +149,7 @@ export default function AdminBatchPage() {
     if (sheetData.works.length === 0) { alert('没有作品数据'); return }
     setImporting(true); setImportResult(null)
     try {
-      const resp = await fetch('/api/batch', {
+      const resp = await authFetch('/api/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'import_full',
@@ -180,7 +181,7 @@ export default function AdminBatchPage() {
     if (selectedIds.size === 0) return
     setGenerating(true); setGenerateResult(null)
     try {
-      const resp = await fetch('/api/batch', {
+      const resp = await authFetch('/api/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'ai_generate', workIds: Array.from(selectedIds), generateType })
       })
@@ -200,7 +201,7 @@ export default function AdminBatchPage() {
   async function handleBatchStatus(newStatus) {
     if (statusSelected.size === 0) return
     if (!confirm(`将 ${statusSelected.size} 个作品设为「${newStatus === 'published' ? '发布' : '草稿'}」？`)) return
-    const resp = await fetch('/api/batch', {
+    const resp = await authFetch('/api/batch', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'batch_status', ids: Array.from(statusSelected), status: newStatus, table: 'gallery_works' })
     })

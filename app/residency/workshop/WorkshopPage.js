@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import MagazineEditor from '@/components/MagazineEditor'
+import { authFetch } from '@/lib/authFetch'
 
 export default function WorkshopPage() {
   const audioRef = useRef(null)
@@ -43,7 +44,7 @@ export default function WorkshopPage() {
         const userId = userData.id
         const cachedId = localStorage.getItem('workshop_magazine_id')
         if (cachedId) {
-          const resp = await fetch(`/api/magazine?id=${cachedId}`)
+          const resp = await authFetch(`/api/magazine?id=${cachedId}`)
           const data = await resp.json()
           if (data.magazine && data.magazine.author_id === userId) {
             setMagazineId(cachedId)
@@ -55,20 +56,20 @@ export default function WorkshopPage() {
           }
         }
 
-        const resp = await fetch(`/api/magazine?authorId=${userId}&sourceType=user&status=draft`)
+        const resp = await authFetch(`/api/magazine?authorId=${userId}&sourceType=user&status=draft`)
         const data = await resp.json()
 
         if (data.magazines && data.magazines.length > 0) {
           const latest = data.magazines[0]
           localStorage.setItem('workshop_magazine_id', latest.id)
-          const dr = await fetch(`/api/magazine?id=${latest.id}`)
+          const dr = await authFetch(`/api/magazine?id=${latest.id}`)
           const dd = await dr.json()
           setMagazineId(latest.id)
           setMagazineData(dd)
           setTitle(dd.magazine?.title || '未命名画册')
           setSubtitle(dd.magazine?.subtitle || '')
         } else {
-          const cr = await fetch('/api/magazine', {
+          const cr = await authFetch('/api/magazine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'create', title: '未命名画册', authorId: userId, sourceType: 'user' })
@@ -76,7 +77,7 @@ export default function WorkshopPage() {
           const cd = await cr.json()
           if (cd.magazine) {
             localStorage.setItem('workshop_magazine_id', cd.magazine.id)
-            const dr = await fetch(`/api/magazine?id=${cd.magazine.id}`)
+            const dr = await authFetch(`/api/magazine?id=${cd.magazine.id}`)
             const dd = await dr.json()
             setMagazineId(cd.magazine.id)
             setMagazineData(dd)
@@ -95,7 +96,7 @@ export default function WorkshopPage() {
     if (!magazineId) return
     setSaveStatus('saving')
     try {
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId, title, subtitle })

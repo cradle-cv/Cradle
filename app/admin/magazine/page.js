@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminMagazinesPage() {
   const [magazines, setMagazines] = useState([])
@@ -68,7 +69,7 @@ export default function AdminMagazinesPage() {
   }
 
   async function loadMagazines() {
-    const resp = await fetch('/api/magazine?status=all')
+    const resp = await authFetch('/api/magazine?status=all')
     const data = await resp.json()
     setMagazines(data.magazines || [])
     setLoading(false)
@@ -80,7 +81,7 @@ export default function AdminMagazinesPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const { data: user } = await supabase.from('users').select('id').eq('auth_id', session.user.id).single()
 
-      const resp = await fetch('/api/magazine', {
+      const resp = await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +100,7 @@ export default function AdminMagazinesPage() {
   }
 
   async function toggleFeatured(id, current) {
-    await fetch('/api/magazine', {
+    await authFetch('/api/magazine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'toggle_featured', magazineId: id, featured: !current })
@@ -122,7 +123,7 @@ export default function AdminMagazinesPage() {
 
   async function deleteMagazine(id) {
     if (!confirm('确定删除？')) return
-    await fetch(`/api/magazine?id=${id}`, { method: 'DELETE' })
+    await authFetch(`/api/magazine?id=${id}`, { method: 'DELETE' })
     loadMagazines()
   }
 
@@ -130,7 +131,7 @@ export default function AdminMagazinesPage() {
     if (!confirm(`复制杂志「${mag.title}」？将创建一个草稿副本，包含所有页面内容。`)) return
     try {
       // 1. 获取原杂志的完整数据（含页面）
-      const resp = await fetch(`/api/magazine?id=${mag.id}`)
+      const resp = await authFetch(`/api/magazine?id=${mag.id}`)
       const data = await resp.json()
       if (!data.magazine) throw new Error('找不到原杂志')
 
@@ -139,7 +140,7 @@ export default function AdminMagazinesPage() {
       const { data: user } = await supabase.from('users').select('id').eq('auth_id', session.user.id).single()
 
       // 3. 创建新杂志
-      const createResp = await fetch('/api/magazine', {
+      const createResp = await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -166,14 +167,14 @@ export default function AdminMagazinesPage() {
       // 5. 复制所有页面
       const originalSpreads = data.spreads || []
       for (let i = 0; i < originalSpreads.length; i++) {
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: newId, spreadIndex: i })
         })
         const addData = await addResp.json()
         if (addData.spread) {
-          await fetch('/api/magazine', {
+          await authFetch('/api/magazine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

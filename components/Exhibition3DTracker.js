@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import InspirationToast from '@/components/InspirationToast'
+import { authFetch } from '@/lib/authFetch'
 
 export default function Exhibition3DTracker({ exhibitionId }) {
   const tracked = useRef(false)
@@ -46,7 +47,7 @@ export default function Exhibition3DTracker({ exhibitionId }) {
 
       if (existing) return // 已经获得过，跳过
 
-      const resp = await fetch('/api/inspiration', {
+      const resp = await authFetch('/api/inspiration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

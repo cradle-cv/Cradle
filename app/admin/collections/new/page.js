@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import { useAuth } from '@/lib/auth-context'
+import { authFetch } from '@/lib/authFetch'
 
 export default function NewCollectionPage() {
   const router = useRouter()
@@ -95,7 +96,7 @@ export default function NewCollectionPage() {
         alert('需要达到 Lv.6「创作者」才能发布作品集')
         return
       }
-      const costResp = await fetch('/api/inspiration/spend', {
+      const costResp = await authFetch('/api/inspiration/spend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userData.id, type: 'create_collection' }),

@@ -3,6 +3,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{2,20}$/
 const RESERVED_USERNAMES = ['admin', 'cradle']
@@ -253,7 +254,7 @@ function LoginForm() {
       // 4. 处理邀请码(如果填了)
       if (form.inviteCode) {
         try {
-          await fetch('/api/invite', {
+          await authFetch('/api/invite', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

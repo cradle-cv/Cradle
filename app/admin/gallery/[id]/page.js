@@ -7,6 +7,7 @@ import Link from 'next/link'
 import GalleryImageManager from '@/components/GalleryImageManager'
 import MagazineEditor from '@/components/MagazineEditor'
 import SearchableSelect from '@/components/SearchableSelect'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminGalleryEditPage() {
   const { id } = useParams()
@@ -101,7 +102,7 @@ export default function AdminGalleryEditPage() {
         if (mag) {
           setMagazineId(mag.id)
           // 加载杂志跨页
-          const resp = await fetch(`/api/magazine?id=${mag.id}`)
+          const resp = await authFetch(`/api/magazine?id=${mag.id}`)
           const magData = await resp.json()
           if (magData.spreads) setMagazineSpreads(magData.spreads)
         }
@@ -189,7 +190,7 @@ export default function AdminGalleryEditPage() {
     setAiGenerating(true)
     try {
       // 1. AI 生成日课文字
-      const aiResp = await fetch('/api/rike-pages/generate', {
+      const aiResp = await authFetch('/api/rike-pages/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -212,7 +213,7 @@ export default function AdminGalleryEditPage() {
         const { data: { session } } = await supabase.auth.getSession()
         const { data: user } = await supabase.from('users').select('id').eq('auth_id', session.user.id).single()
 
-        const createResp = await fetch('/api/magazine', {
+        const createResp = await authFetch('/api/magazine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -292,11 +293,11 @@ export default function AdminGalleryEditPage() {
 
       // 4. 保存到杂志
       // 先删除旧跨页
-      const oldResp = await fetch(`/api/magazine?id=${magId}`)
+      const oldResp = await authFetch(`/api/magazine?id=${magId}`)
       const oldData = await oldResp.json()
       if (oldData.spreads) {
         for (const s of oldData.spreads) {
-          await fetch('/api/magazine', {
+          await authFetch('/api/magazine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'delete_spread', spreadId: s.id, magazineId: magId })
@@ -307,14 +308,14 @@ export default function AdminGalleryEditPage() {
       // 创建新跨页
       const newSpreads = []
       for (let i = 0; i < spreadsData.length; i++) {
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: magId, spreadIndex: i })
         })
         const addData = await addResp.json()
         if (addData.spread) {
-          await fetch('/api/magazine', {
+          await authFetch('/api/magazine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'save_spread', spreadId: addData.spread.id, elements: spreadsData[i].elements })
@@ -338,7 +339,7 @@ export default function AdminGalleryEditPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const { data: user } = await supabase.from('users').select('id').eq('auth_id', session.user.id).single()
 
-      const resp = await fetch('/api/magazine', {
+      const resp = await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

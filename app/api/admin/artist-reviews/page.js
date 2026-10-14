@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminArtistReviewsPage() {
   const { userData } = useAuth()
@@ -17,7 +18,7 @@ export default function AdminArtistReviewsPage() {
   async function loadReviews() {
     setLoading(true)
     try {
-      const resp = await fetch(`/api/artist-review?status=${filter}`)
+      const resp = await authFetch(`/api/artist-review?status=${filter}`)
       const data = await resp.json()
       setReviews(data.reviews || [])
     } catch (err) { console.error(err) }
@@ -33,7 +34,7 @@ export default function AdminArtistReviewsPage() {
 
     setProcessingId(reviewId)
     try {
-      const resp = await fetch('/api/artist-review', {
+      const resp = await authFetch('/api/artist-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

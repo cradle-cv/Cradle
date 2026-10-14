@@ -15,6 +15,7 @@ import {
   X as IconX,
   Loader2
 } from 'lucide-react';
+import { authFetch } from '@/lib/authFetch'
 
 const HERITAGE_PROJECTS = [
   { id: 'folk', name: '民俗', icon: '🏮', color: 'blue' },
@@ -85,7 +86,7 @@ export default function AdminDashboard() {
   const loadArticles = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('/api/jianghuayao/articles');
+      const resp = await authFetch('/api/jianghuayao/articles');
       if (!resp.ok) throw new Error('加载失败');
       const data = await resp.json();
       // 转换字段名
@@ -107,7 +108,7 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
-      const resp = await fetch('/api/jianghuayao/articles', {
+      const resp = await authFetch('/api/jianghuayao/articles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(frontToApi(formData)),
@@ -136,7 +137,7 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
-      const resp = await fetch(`/api/jianghuayao/articles/${editingArticle.id}`, {
+      const resp = await authFetch(`/api/jianghuayao/articles/${editingArticle.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(frontToApi(formData)),
@@ -166,7 +167,7 @@ export default function AdminDashboard() {
     if (!confirm('确定要删除这篇文章吗？')) return;
 
     try {
-      const resp = await fetch(`/api/jianghuayao/articles/${id}`, {
+      const resp = await authFetch(`/api/jianghuayao/articles/${id}`, {
         method: 'DELETE',
       });
 

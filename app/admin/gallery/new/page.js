@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminGalleryNewPage() {
   const router = useRouter()
@@ -86,7 +87,7 @@ useEffect(() => {
 
     setAiGenerating(true)
     try {
-      const resp = await fetch('/api/rike-pages/generate', {
+      const resp = await authFetch('/api/rike-pages/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

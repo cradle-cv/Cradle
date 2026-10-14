@@ -1,91 +1,71 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireUser, serviceDb } from '@/lib/serverAuth'
+import { spend, award } from '@/lib/pointsServer'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const supabase = serviceDb()
 
+// POST —— 导出杂志：只能以自己的身份导出，扣自己的可用余额
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const user = auth.user
+  const userId = user.id
   try {
-    const { magazineId, userId, exportType } = await request.json()
-    if (!magazineId || !userId) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
+    const { magazineId, exportType } = await request.json()
+    if (!magazineId) return NextResponse.json({ error: '缺少参数' }, { status: 400 })
 
-    // 获取杂志
     const { data: magazine } = await supabase
       .from('magazines')
-      .select('id, title, author_id, source_type, allow_export')
+      .select('id, title, author_id, source_type, allow_export, status')
       .eq('id', magazineId)
       .single()
     if (!magazine) return NextResponse.json({ error: '杂志不存在' }, { status: 404 })
 
-    // 获取用户
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, username, total_points, role')
-      .eq('id', userId)
-      .single()
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
-
     const isAuthor = magazine.author_id === userId
-    const isAdmin = user.role === 'admin'
+    const isAdmin = auth.isAdmin
 
-    // ========== 情况1: 作者本人导出 ==========
+    // ========== 情况1: 作者本人或管理员导出 ==========
     if (isAuthor || isAdmin) {
       const cost = isAdmin ? 0 : 100
-      if (cost > 0 && (user.total_points || 0) < cost) {
-        return NextResponse.json({ error: `灵感值不足，导出需要 ${cost} 灵感值，当前仅有 ${user.total_points || 0}` }, { status: 400 })
-      }
-
+      let balance = user.points || 0
       if (cost > 0) {
-        await supabase.from('users').update({ total_points: (user.total_points || 0) - cost }).eq('id', userId)
-        // 记录灵感值消耗
-        try {
-          await supabase.from('inspiration_logs').insert({
-            user_id: userId, type: 'export_magazine', points: -cost,
-            description: `导出自己的杂志《${magazine.title}》`, reference_id: magazineId,
-          })
-        } catch (e) { /* 表可能不存在 */ }
+        const r = await spend(supabase, userId, {
+          cost, type: 'export_magazine', description: `导出自己的杂志《${magazine.title}》`, ref: magazineId,
+        })
+        if (!r?.spent) {
+          return NextResponse.json({ error: `灵感值不足，导出需要 ${cost} 灵感值，当前可用 ${user.points || 0}` }, { status: 400 })
+        }
+        balance = r.balance
       }
-
       return NextResponse.json({
-        success: true, exportMode: 'self',
-        username: user.username, cost,
-        remainingPoints: (user.total_points || 0) - cost,
+        success: true, exportMode: 'self', username: user.username, cost, remainingPoints: balance,
       })
     }
 
-    // ========== 情况2: 他人导出（需要授权） ==========
-    if (!magazine.allow_export) {
+    // ========== 情况2: 他人导出（需要作者开放授权，且杂志已公开） ==========
+    if (!magazine.allow_export || !['published', 'featured'].includes(magazine.status)) {
       return NextResponse.json({ error: '作者未开放此杂志的导出授权' }, { status: 403 })
     }
 
     const cost = 300
     const authorEarning = 150
 
-    if ((user.total_points || 0) < cost) {
-      return NextResponse.json({ error: `灵感值不足，导出需要 ${cost} 灵感值，当前仅有 ${user.total_points || 0}` }, { status: 400 })
+    const r = await spend(supabase, userId, {
+      cost, type: 'export_others_magazine', description: `导出他人杂志《${magazine.title}》`, ref: magazineId,
+    })
+    if (!r?.spent) {
+      return NextResponse.json({ error: `灵感值不足，导出需要 ${cost} 灵感值，当前可用 ${user.points || 0}` }, { status: 400 })
     }
 
-    // 扣除导出者灵感值
-    await supabase.from('users').update({
-      total_points: (user.total_points || 0) - cost
-    }).eq('id', userId)
-
-    // 给作者加灵感值
-    const { data: author } = await supabase
-      .from('users')
-      .select('id, total_points')
-      .eq('id', magazine.author_id)
-      .single()
-
-    if (author) {
-      await supabase.from('users').update({
-        total_points: (author.total_points || 0) + authorEarning
-      }).eq('id', magazine.author_id)
+    // 作者分润：同一位读者导出同一本杂志，作者只拿一次
+    if (magazine.author_id) {
+      await award(supabase, magazine.author_id, {
+        type: 'magazine_export_earning', points: authorEarning,
+        description: `杂志《${magazine.title}》被导出获得分润`, ref: magazineId,
+        key: `mag_export:${magazineId}:${userId}`,
+      })
     }
 
-    // 记录导出流水
     await supabase.from('magazine_exports').insert({
       magazine_id: magazineId,
       exporter_id: userId,
@@ -95,31 +75,18 @@ export async function POST(request) {
       export_type: exportType || 'download',
     })
 
-    // 记录灵感值日志
-    try {
-      await supabase.from('inspiration_logs').insert([
-        { user_id: userId, type: 'export_others_magazine', points: -cost,
-          description: `导出他人杂志《${magazine.title}》`, reference_id: magazineId },
-        { user_id: magazine.author_id, type: 'magazine_export_earning', points: authorEarning,
-          description: `杂志《${magazine.title}》被导出获得分润`, reference_id: magazineId },
-      ])
-    } catch (e) { /* 表可能不存在 */ }
-
-    // 获取作者用户名用于前端显示
     const { data: authorInfo } = await supabase
-      .from('users')
-      .select('username')
-      .eq('id', magazine.author_id)
-      .single()
+      .from('users').select('username').eq('id', magazine.author_id).single()
 
     return NextResponse.json({
       success: true, exportMode: 'authorized',
       username: user.username, cost,
       authorEarning, authorName: authorInfo?.username || '作者',
-      remainingPoints: (user.total_points || 0) - cost,
+      remainingPoints: r.balance,
     })
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('导出杂志错误:', err)
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import MagazineViewer from '@/components/MagazineViewer'
+import { authFetch } from '@/lib/authFetch'
 
 export default function MagazineViewPage() {
   const { id } = useParams()
@@ -26,7 +27,7 @@ export default function MagazineViewPage() {
 
   async function loadMagazine() {
     try {
-      const resp = await fetch(`/api/magazine?id=${id}`)
+      const resp = await authFetch(`/api/magazine?id=${id}`)
       const data = await resp.json()
       if (data.magazine) {
         setMagazine(data.magazine)

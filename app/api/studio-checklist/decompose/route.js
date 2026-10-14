@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/serverAuth'
 import { NextResponse } from 'next/server'
 
 const supabase = createClient(
@@ -42,9 +43,11 @@ const SYSTEM_PROMPT = `你是一个任务拆解助手。用户会粘贴一段文
 
 // 提交:调智谱异步接口拿 task_id,在 jobs 表存一行,秒返回我们自己的 jobId(不等AI,不超时)
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
   try {
-    const { userId, text } = await request.json()
-    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+    const { text } = await request.json()
+    const userId = auth.user.id
     if (!text || text.trim().length < 10) {
       return NextResponse.json({ error: '请粘贴要拆解的流程文字(至少 10 字)' }, { status: 400 })
     }

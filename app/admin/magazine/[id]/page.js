@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadImage } from '@/lib/upload'
 import Link from 'next/link'
 import MagazineEditor from '@/components/MagazineEditor'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminMagazineEditPage() {
   const { id } = useParams()
@@ -34,7 +35,7 @@ export default function AdminMagazineEditPage() {
 
   async function loadMagazine() {
     try {
-      const resp = await fetch(`/api/magazine?id=${id}`)
+      const resp = await authFetch(`/api/magazine?id=${id}`)
       const data = await resp.json()
       if (data.magazine) {
         setMagazine(data.magazine)
@@ -84,7 +85,7 @@ export default function AdminMagazineEditPage() {
   async function saveInfo() {
     setSaving(true)
     try {
-      await fetch('/api/magazine', {
+      await authFetch('/api/magazine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update', magazineId: id, title, subtitle, coverImage, status })
@@ -113,7 +114,7 @@ export default function AdminMagazineEditPage() {
       let rikePages = []
       if (work.rike_article_id) {
         try {
-          const rpResp = await fetch(`/api/rike-pages?articleId=${work.rike_article_id}`)
+          const rpResp = await authFetch(`/api/rike-pages?articleId=${work.rike_article_id}`)
           const rpData = await rpResp.json()
           if (Array.isArray(rpData)) rikePages = rpData
         } catch (e) { console.error(e) }
@@ -212,11 +213,11 @@ export default function AdminMagazineEditPage() {
 
       if (newSpreads.length === 0) { alert('没有找到可导入的内容'); return }
 
-      const oldResp = await fetch(`/api/magazine?id=${id}`)
+      const oldResp = await authFetch(`/api/magazine?id=${id}`)
       const oldData = await oldResp.json()
       if (oldData.spreads) {
         for (const s of oldData.spreads) {
-          await fetch('/api/magazine', {
+          await authFetch('/api/magazine', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'delete_spread', spreadId: s.id, magazineId: id })
           })
@@ -224,13 +225,13 @@ export default function AdminMagazineEditPage() {
       }
 
       for (let i = 0; i < newSpreads.length; i++) {
-        const addResp = await fetch('/api/magazine', {
+        const addResp = await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'add_spread', magazineId: id, spreadIndex: i })
         })
         const addData = await addResp.json()
         if (addData.spread) {
-          await fetch('/api/magazine', {
+          await authFetch('/api/magazine', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'save_spread', spreadId: addData.spread.id, elements: newSpreads[i].elements })
           })
@@ -239,7 +240,7 @@ export default function AdminMagazineEditPage() {
 
       if (work.cover_image && !coverImage) {
         setCoverImage(work.cover_image)
-        await fetch('/api/magazine', {
+        await authFetch('/api/magazine', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update', magazineId: id, coverImage: work.cover_image })
         })

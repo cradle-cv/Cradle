@@ -2,6 +2,7 @@
 // 驻地 · 后院花园 · 心象山水：把访客写的一句话读成一份「画面乐谱」JSON，前端据此画出一幅水墨长卷。
 // 走智谱 GLM 文本模型，不需要登录，按 IP 限速。环境变量：ZHIPU_API_KEY（已配置），可选 ZHIPU_TEXT_MODEL
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/serverAuth'
 
 const KEY = process.env.ZHIPU_API_KEY
 const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash'
@@ -63,6 +64,8 @@ async function zhipu(model, content) {
 }
 
 export async function POST(req) {
+  const __limited = await rateLimit(req, 'xinxiang', 100)
+  if (__limited) return __limited
   try {
     if (!KEY) return NextResponse.json({ error: '未配置 ZHIPU_API_KEY' }, { status: 500 })
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'

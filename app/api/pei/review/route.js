@@ -5,6 +5,7 @@
 // 请求：POST { task: { title, scenario, budget_limit, device_type }, mode: 'desktop' | 'laptop', parts: [{ id, name, model, price, specs? }], total }
 // 返回：{ score, summary, dims: [{ name, score, max, comment }], issues: [], suggestions: [], highlights: [], model }
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/serverAuth'
 
 export const maxDuration = 45
 export const dynamic = 'force-dynamic'
@@ -95,6 +96,8 @@ async function ask(model, prompt) {
 }
 
 export async function POST(req) {
+  const __limited = await rateLimit(req, 'pei-review', 300)
+  if (__limited) return __limited
   if (!KEY) return NextResponse.json({ error: '未配置 ZHIPU_API_KEY' }, { status: 500 })
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (limited(ip)) return NextResponse.json({ error: '评判得太频繁了，歇一分钟再试' }, { status: 429 })

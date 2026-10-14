@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadFile } from '@/lib/upload'
+import { authFetch } from '@/lib/authFetch'
 
 // 会员开关:以后接真实会员状态。现在默认放行(你 admin 可用)
 const MEMBER_ONLY_DECOMPOSE = false  // 将来设 true 并传入 isMember 即可限会员
@@ -44,7 +45,7 @@ export default function StudioChecklists({ isMember = true }) {
     setProcessing(true)
     try {
       // 1. 提交:秒返回 jobId(任务在智谱侧异步跑,不超时)
-      const resp = await fetch('/api/studio-checklist/decompose', {
+      const resp = await authFetch('/api/studio-checklist/decompose', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, text }),
       })
@@ -56,7 +57,7 @@ export default function StudioChecklists({ isMember = true }) {
       let done = false
       for (let i = 0; i < 60 && !done; i++) {
         await new Promise(r => setTimeout(r, 3000))
-        const sResp = await fetch(`/api/studio-checklist/status?jobId=${jobId}&userId=${userId}`)
+        const sResp = await authFetch(`/api/studio-checklist/status?jobId=${jobId}&userId=${userId}`)
         const sData = await sResp.json()
         if (sData.status === 'done') {
           done = true

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { authFetch } from '@/lib/authFetch'
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([])
@@ -223,7 +224,7 @@ export default function AdminUsersPage() {
                             <button onClick={async () => {
                               const pwd = prompt('输入新密码（至少6位）：')
                               if (!pwd || pwd.length < 6) { if (pwd) alert('密码至少6位'); return }
-                              const resp = await fetch('/api/admin/reset-password', {
+                              const resp = await authFetch('/api/admin/reset-password', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ userId: u.id, newPassword: pwd }),

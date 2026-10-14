@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/serverAuth'
 
 // POST - AI 生成日课杂志页面（DeepSeek）
 export async function POST(request) {
+  const __auth = await requireAdmin(request)
+  if (__auth.error) return __auth.error
   try {
     const body = await request.json()
 

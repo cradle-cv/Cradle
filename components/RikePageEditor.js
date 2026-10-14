@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Wand2, Save, Eye, Loader2, Upload } from 'lucide-react'
 import RikeMagazineReader from '@/components/RikeMagazineReader'
 import { uploadImage } from '@/lib/upload'
+import { authFetch } from '@/lib/authFetch'
 
 const LAYOUTS = [
   { id: 'fullscreen', name: '全屏图+浮层', icon: '🖼️', desc: '大图背景，文字叠在上面' },
@@ -58,7 +59,7 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
   async function loadPages() {
     setLoading(true)
     try {
-      const resp = await fetch(`/api/rike-pages?articleId=${articleId}`)
+      const resp = await authFetch(`/api/rike-pages?articleId=${articleId}`)
       const data = await resp.json()
       if (Array.isArray(data) && data.length > 0) setPages(data)
     } catch (err) { console.error(err) }
@@ -69,7 +70,7 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
   async function handleAIGenerate() {
     setGenerating(true)
     try {
-      const resp = await fetch('/api/rike-pages/generate', {
+      const resp = await authFetch('/api/rike-pages/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +100,7 @@ export default function RikePageEditor({ articleId, workInfo, onSaved }) {
     if (pages.length === 0) { alert('请至少添加一页'); return }
     setSaving(true)
     try {
-      const resp = await fetch('/api/rike-pages', {
+      const resp = await authFetch('/api/rike-pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ articleId, pages }),

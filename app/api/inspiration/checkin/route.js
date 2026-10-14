@@ -1,130 +1,77 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { calculateLevel } from '@/lib/inspiration'
+import { requireUser } from '@/lib/serverAuth'
+import { award, today } from '@/lib/pointsServer'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
-// POST - 每日签到
+// POST —— 每日签到（只能给自己签到，每天一次）
 export async function POST(request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+  const { db, user } = auth
+
   try {
-    const { userId } = await request.json()
-    if (!userId) return NextResponse.json({ error: '缺少 userId' }, { status: 400 })
+    const day = today()
+    const { data: u } = await db.from('users')
+      .select('total_points, points, level, consecutive_login_days, last_login_date, birthday')
+      .eq('id', user.id).single()
 
-    const today = new Date().toISOString().split('T')[0]
-
-    // 获取用户当前状态
-    const { data: user } = await supabase
-      .from('users')
-      .select('total_points, level, consecutive_login_days, last_login_date')
-      .eq('id', userId)
-      .single()
-
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
-
-    // 已经签到过
-    if (user.last_login_date === today) {
+    if (u.last_login_date === day) {
       return NextResponse.json({
         alreadyCheckedIn: true,
-        consecutiveDays: user.consecutive_login_days,
-        totalPoints: user.total_points,
-        level: user.level,
+        consecutiveDays: u.consecutive_login_days,
+        totalPoints: u.total_points,
+        balance: u.points,
+        level: u.level,
       })
     }
 
-    // 计算连续登录天数
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
-
-    let newConsecutive = 1
-    if (user.last_login_date === yesterdayStr) {
-      newConsecutive = (user.consecutive_login_days || 0) + 1
-    }
-
-    // 签到积分
-    let totalEarned = 2 // 基础每日登录
-    const rewards = [{ type: 'daily_login', points: 2, desc: '每日登录' }]
-
-    // 记录每日签到
-    await supabase.from('user_points').insert({
-      user_id: userId, points: 2,
-      type: 'daily_login', description: '每日登录'
+    // 每日登录：award_key 保证同一天只发一次，即使并发请求也不会重复
+    const base = await award(db, user.id, {
+      type: 'daily_login', points: 2, description: '每日登录', key: `login:${user.id}:${day}`,
     })
-
-    // 连续7天奖励
-    if (newConsecutive > 0 && newConsecutive % 7 === 0) {
-      totalEarned += 20
-      rewards.push({ type: 'weekly_streak', points: 20, desc: `连续登录${newConsecutive}天 · 周奖励` })
-      await supabase.from('user_points').insert({
-        user_id: userId, points: 20,
-        type: 'weekly_streak', description: `连续登录${newConsecutive}天 · 周奖励`
-      })
+    if (!base?.awarded) {
+      return NextResponse.json({ alreadyCheckedIn: true, consecutiveDays: u.consecutive_login_days,
+        totalPoints: u.total_points, balance: u.points, level: u.level })
     }
 
-    // 连续30天奖励
-    if (newConsecutive > 0 && newConsecutive % 30 === 0) {
-      totalEarned += 100
-      rewards.push({ type: 'monthly_streak', points: 100, desc: `连续登录${newConsecutive}天 · 月奖励` })
-      await supabase.from('user_points').insert({
-        user_id: userId, points: 100,
-        type: 'monthly_streak', description: `连续登录${newConsecutive}天 · 月奖励`
-      })
+    const y = new Date(Date.now() + 8 * 3600 * 1000 - 86400000).toISOString().slice(0, 10)
+    const consecutive = u.last_login_date === y ? (u.consecutive_login_days || 0) + 1 : 1
+
+    const rewards = [{ type: 'daily_login', points: 2, desc: '每日登录' }]
+    let last = base
+
+    if (consecutive % 7 === 0) {
+      const desc = `连续登录${consecutive}天 · 周奖励`
+      const r = await award(db, user.id, { type: 'weekly_streak', points: 20, description: desc, key: `weekly:${user.id}:${day}` })
+      if (r?.awarded) { rewards.push({ type: 'weekly_streak', points: 20, desc }); last = r }
+    }
+    if (consecutive % 30 === 0) {
+      const desc = `连续登录${consecutive}天 · 月奖励`
+      const r = await award(db, user.id, { type: 'monthly_streak', points: 100, description: desc, key: `monthly:${user.id}:${day}` })
+      if (r?.awarded) { rewards.push({ type: 'monthly_streak', points: 100, desc }); last = r }
+    }
+    // 生日奖励：每年一次（生日可以改，但一年只领一次）
+    if (u.birthday && String(u.birthday).slice(5, 10) === day.slice(5)) {
+      const desc = '生日快乐！🎂'
+      const r = await award(db, user.id, { type: 'birthday', points: 50, description: desc, key: `birthday:${user.id}:${day.slice(0, 4)}` })
+      if (r?.awarded) { rewards.push({ type: 'birthday', points: 50, desc }); last = r }
     }
 
-    // 生日奖励
-    if (user.birthday) {
-      const birthday = user.birthday // 'YYYY-MM-DD'
-      const todayMMDD = today.slice(5) // 'MM-DD'
-      const bdayMMDD = birthday.slice(5)
-      if (todayMMDD === bdayMMDD) {
-        totalEarned += 50
-        rewards.push({ type: 'birthday', points: 50, desc: '生日快乐！🎂' })
-        await supabase.from('user_points').insert({
-          user_id: userId, points: 50,
-          type: 'birthday', description: '生日快乐！🎂'
-        })
-      }
-    }
-
-    // 更新用户信息
-    const newTotal = (user.total_points || 0) + totalEarned
-    const newLevel = calculateLevel(newTotal)
-    const leveledUp = newLevel > (user.level || 1)
-
-    await supabase
-      .from('users')
-      .update({
-        total_points: newTotal,
-        level: newLevel,
-        consecutive_login_days: newConsecutive,
-        last_login_date: today,
-      })
-      .eq('id', userId)
-
-    // 记录每日行为
-    await supabase
-      .from('user_daily_actions')
-      .upsert({
-        user_id: userId,
-        action_date: today,
-        action_type: 'login',
-        count: 1,
-      }, { onConflict: 'user_id,action_date,action_type' })
+    await db.from('users')
+      .update({ consecutive_login_days: consecutive, last_login_date: day })
+      .eq('id', user.id)
 
     return NextResponse.json({
       success: true,
       rewards,
-      totalEarned,
-      totalPoints: newTotal,
-      level: newLevel,
-      leveledUp,
-      consecutiveDays: newConsecutive,
+      totalEarned: rewards.reduce((s, r) => s + r.points, 0),
+      totalPoints: last.total,
+      balance: last.balance,
+      level: last.level,
+      leveledUp: last.level > (u.level || 1),
+      consecutiveDays: consecutive,
     })
-  } catch (error) {
-    console.error('签到 API 错误:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (err) {
+    console.error('签到 API 错误:', err)
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }
