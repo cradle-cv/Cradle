@@ -11,8 +11,8 @@ export const maxDuration = 45
 export const dynamic = 'force-dynamic'
 
 const KEY = process.env.ZHIPU_API_KEY
-const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash-250414'
-const MODELS = [...new Set([TEXT_MODEL, 'glm-4-flash', 'glm-4.7-flash', 'glm-4.5-flash'])]
+const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4.7-flash'
+const MODELS = [...new Set([TEXT_MODEL, 'glm-4.7-flash', 'glm-4.5-flash', 'glm-4-flash-250414'])]
 const TIMEOUT_MS = 25000
 const DIMS = ['场景匹配', '硬件兼容', '预算与性价比', '配置均衡']
 

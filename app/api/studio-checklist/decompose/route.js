@@ -9,7 +9,7 @@ const supabase = createClient(
 
 // 智谱异步提交接口(任务在智谱侧跑,不占用 Vercel 时长)
 const ZHIPU_ASYNC_URL = 'https://open.bigmodel.cn/api/paas/v4/async/chat/completions'
-const ZHIPU_MODEL = 'glm-4-flash'
+const ZHIPU_MODEL = 'glm-4.7-flash'
 
 const SYSTEM_PROMPT = `你是一个任务拆解助手。用户会粘贴一段文字,可能是办事流程(如签证办理、报名手续),也可能是一份待办计划或任务罗列。
 
@@ -71,6 +71,7 @@ ${text.trim().slice(0, 8000)}
       },
       body: JSON.stringify({
         model: ZHIPU_MODEL,
+        ...(/^glm-4\.[5-9]/.test(ZHIPU_MODEL) ? { thinking: { type: 'disabled' } } : {}),
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userMessage },

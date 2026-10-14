@@ -1,12 +1,12 @@
 // 目标路径：app/api/trip/translate/route.js
 // 同行手账：随身翻译。文字走智谱文本模型，拍照走智谱视觉模型；不需要登录，按 IP 限速
-// 环境变量：ZHIPU_API_KEY，可选 ZHIPU_TEXT_MODEL（默认 glm-4-flash）、ZHIPU_VISION_MODEL（默认 glm-4v-flash）
+// 环境变量：ZHIPU_API_KEY，可选 ZHIPU_TEXT_MODEL（默认 glm-4.7-flash）、ZHIPU_VISION_MODEL（默认 glm-4.6v-flash）
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/serverAuth'
 
 const KEY = process.env.ZHIPU_API_KEY
-const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash'
-const VISION_MODEL = process.env.ZHIPU_VISION_MODEL || 'glm-4v-flash'
+const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4.7-flash'
+const VISION_MODEL = process.env.ZHIPU_VISION_MODEL || 'glm-4.6v-flash'
 const MAX_PROMPT = 4000
 
 // 简单限速：每个 IP 每分钟 20 次（实例级，够挡住误触和脚本）
@@ -23,7 +23,7 @@ async function zhipu(model, content, temperature = 0.3) {
   const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, temperature, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model, temperature, messages: [{ role: 'user', content }], ...(/^glm-4\.[5-9]/.test(model) ? { thinking: { type: 'disabled' } } : {}) }),
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error.message || '智谱调用失败')
@@ -55,9 +55,9 @@ export async function POST(req) {
       if (image.length > 6e6) return NextResponse.json({ error: '图片太大，换一张再试' }, { status: 413 })
       const b64 = image.replace(/^data:image\/\w+;base64,/, '')
       const content = [{ type: 'image_url', image_url: { url: b64 } }, { type: 'text', text: p }]
-      text = await tryModels([VISION_MODEL, 'glm-4.1v-thinking-flash', 'glm-4v-plus'], content, 0.2)
+      text = await tryModels([VISION_MODEL, 'glm-4v-flash', 'glm-4.1v-thinking-flash'], content, 0.2)
     } else {
-      text = await tryModels([TEXT_MODEL, 'glm-4.5-flash', 'glm-4-flash-250414', 'glm-4-air'], p, 0.3)
+      text = await tryModels([TEXT_MODEL, 'glm-4.5-flash', 'glm-4-flash-250414'], p, 0.3)
     }
     return NextResponse.json({ text })
   } catch (e) {

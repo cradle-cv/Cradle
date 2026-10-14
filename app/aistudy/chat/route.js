@@ -1,6 +1,6 @@
 // 目标路径：app/aistudy/chat/route.js
 // 小信对话接口：走智谱 GLM 文本模型，流式输出（边想边说），不需要登录，按 IP 限速。
-// 环境变量：ZHIPU_API_KEY（已配置），可选 ZHIPU_TEXT_MODEL（默认 glm-4-flash-250414）
+// 环境变量：ZHIPU_API_KEY（已配置），可选 ZHIPU_TEXT_MODEL（默认 glm-4.7-flash）
 // 返回：成功时是纯文本流（text/plain），出错时是 JSON { error }
 import { NextResponse } from 'next/server'
 import { systemPrompt } from '@/app/aistudy/kb'
@@ -9,9 +9,9 @@ export const maxDuration = 30
 export const dynamic = 'force-dynamic'
 
 const KEY = process.env.ZHIPU_API_KEY
-const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash-250414'
+const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4.7-flash'
 // 按顺序尝试：前两个是免费快模型；GLM-4.7/4.5 默认会先「深度思考」，这里关掉，只要直接回答
-const MODELS = [...new Set([TEXT_MODEL, 'glm-4-flash', 'glm-4.7-flash', 'glm-4.5-flash'])]
+const MODELS = [...new Set([TEXT_MODEL, 'glm-4.7-flash', 'glm-4.5-flash', 'glm-4-flash-250414'])]
 const FIRST_TOKEN_MS = 9000 // 一个模型 9 秒内还没吐出第一个字，就换下一个
 const MAX_TURNS = 12
 const MAX_CHARS = 1200

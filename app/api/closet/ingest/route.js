@@ -16,7 +16,7 @@ const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN;
 const ZHIPU_KEY = process.env.ZHIPU_API_KEY;
 
 // 智谱 GLM-4V-Flash：免费视觉模型，OpenAI 兼容格式
-const ZHIPU_VISION_MODEL = process.env.ZHIPU_VISION_MODEL || 'glm-4v-flash';
+const ZHIPU_VISION_MODEL = process.env.ZHIPU_VISION_MODEL || 'glm-4.6v-flash';
 
 const REMBG_VERSION =
   'a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc';

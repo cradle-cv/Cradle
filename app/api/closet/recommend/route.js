@@ -7,8 +7,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const ZHIPU_KEY = process.env.ZHIPU_API_KEY;
-// 文本模型：复用智谱，便宜。glm-4-flash 免费，够用；想更强可设 ZHIPU_TEXT_MODEL=glm-4-plus
-const ZHIPU_TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash';
+// 文本模型：复用智谱，便宜。默认 glm-4.7-flash（免费）
+const ZHIPU_TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4.7-flash';
 
 async function getUser(req) {
   const authHeader = req.headers.get('authorization') || '';
@@ -32,6 +32,7 @@ async function askZhipu(prompt) {
     },
     body: JSON.stringify({
       model: ZHIPU_TEXT_MODEL,
+      ...(/^glm-4\.[5-9]/.test(ZHIPU_TEXT_MODEL) ? { thinking: { type: 'disabled' } } : {}),
       temperature: 0.7,
       messages: [{ role: 'user', content: prompt }],
     }),

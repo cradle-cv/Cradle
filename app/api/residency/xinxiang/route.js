@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/serverAuth'
 
 const KEY = process.env.ZHIPU_API_KEY
-const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4-flash'
+const TEXT_MODEL = process.env.ZHIPU_TEXT_MODEL || 'glm-4.7-flash'
 
 // 每个 IP 每分钟 8 次（实例级，挡住误触和刷接口）
 const hits = new Map()
@@ -54,7 +54,7 @@ async function zhipu(model, content) {
   const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, temperature: 0.8, max_tokens: 800, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model, temperature: 0.8, max_tokens: 800, messages: [{ role: 'user', content }], ...(/^glm-4\.[5-9]/.test(model) ? { thinking: { type: 'disabled' } } : {}) }),
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error.message || '智谱调用失败')
@@ -75,7 +75,7 @@ export async function POST(req) {
     if (!text) return NextResponse.json({ error: '缺少内容' }, { status: 400 })
     // 免费模型高峰期常报「访问量过大」，按顺序换模型再试
     let last = null
-    for (const m of [TEXT_MODEL, 'glm-4.5-flash', 'glm-4-flash-250414', 'glm-4-air']) {
+    for (const m of [TEXT_MODEL, 'glm-4.5-flash', 'glm-4-flash-250414']) {
       try { return NextResponse.json({ scene: await zhipu(m, promptFor(text)) }) } catch (err) { last = err }
     }
     throw last || new Error('没有可用的模型')
