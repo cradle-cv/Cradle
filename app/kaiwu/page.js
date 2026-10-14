@@ -184,7 +184,7 @@ export default async function KaiwuPage() {
                     </Link>
                     {(host || w.venue || w.city) && (
                       <p className="mt-3 text-sm" style={{ color: '#4B5563', letterSpacing: '1px' }}>
-                        {[host && `主持 ${host}`, w.venue, w.city].filter(Boolean).join(' · ')}
+                        {[host, w.venue, w.city].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {w.summary && <p className="mt-5 line-clamp-5" style={{ fontSize: '15px', color: '#374151', lineHeight: 2 }}>{w.summary}</p>}
