@@ -351,6 +351,57 @@ table.t th{font-size:.78rem;color:var(--muted);font-weight:600}
 .fx-stage .fx-sub{width:min(100%,330px)}
 .kp .fx p,.kp .fx b{color:var(--w-ink)}
 .route .c7{grid-column:1/-1}
+
+/* ---------- 同步课堂 ---------- */
+.lab,.qc,.scrolly{scroll-margin-top:72px}
+.live-tools{display:none;gap:6px;flex-wrap:wrap;align-items:center}
+html.live-teacher .live-tools{display:inline-flex}
+.live-tools.abs{position:absolute;top:8px;right:10px;z-index:3}
+.qc,.scrolly{position:relative}
+.live-tools.blk{margin-top:16px}
+.live-btn{border:1px solid var(--line2,rgba(140,160,210,.3));background:rgba(8,12,24,.7);color:#C9D3EA;border-radius:999px;padding:3px 10px;font-size:.74rem;cursor:pointer;white-space:nowrap;font-family:var(--f-sans)}
+.live-btn:hover{border-color:var(--acc);color:#fff}
+.live-btn.push{display:none;border-color:rgba(176,124,255,.6);color:#E3D4FF}
+html.live-host .live-btn.push{display:inline-block}
+.live-current{outline:2px solid rgba(176,124,255,.75);outline-offset:4px}
+.live-flash{animation:liveFlash 3.2s ease-out}
+@keyframes liveFlash{0%,30%{box-shadow:0 0 0 4px var(--acc),0 0 60px -6px var(--acc)}100%{box-shadow:0 0 0 0 transparent}}
+.live-toast{position:fixed;left:50%;top:70px;font-family:var(--f-sans);line-height:1.6;transform:translateX(-50%);z-index:260;max-width:calc(100vw - 32px);padding:10px 18px;border-radius:12px;background:rgba(20,14,40,.95);border:1px solid rgba(176,124,255,.6);color:#F1E8FF;font-size:.95rem;box-shadow:0 14px 40px -10px rgba(0,0,0,.8)}
+.live-pill{position:fixed;left:16px;bottom:60px;z-index:150;display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;border:1px dashed rgba(140,160,210,.35);background:rgba(8,12,24,.85);color:#9AA6C2;font-size:.8rem;cursor:pointer;font-family:var(--f-sans)}
+.live-pill:hover{color:#EAF0FF}
+.live-pill.on{border-style:solid;border-color:rgba(176,124,255,.6);color:#E3D4FF}
+.live-pill .dot{width:8px;height:8px;border-radius:50%;background:#B07CFF;box-shadow:0 0 8px #B07CFF;animation:livePulse 1.6s infinite}
+.live-pill.lock{border-color:rgba(255,195,77,.6);color:#FFE3A3}
+@keyframes livePulse{50%{opacity:.35}}
+.live-lockbar{position:fixed;left:0;right:0;top:0;font-family:var(--f-sans);z-index:240;padding:10px 16px;text-align:center;background:linear-gradient(90deg,rgba(60,40,0,.95),rgba(40,26,70,.95));border-bottom:1px solid rgba(255,195,77,.45);color:#FFE7B0;font-size:.92rem}
+html.live-lock .live-path>*:not(.live-path):not(.live-target){display:none!important}
+html.live-lock .live-target{margin-top:132px!important;opacity:1!important;transform:none!important}
+html.live-lock .kp.live-path{padding-top:0}
+.live-panel{position:fixed;right:16px;bottom:16px;z-index:160;width:min(340px,calc(100vw - 32px));padding:12px 14px;border-radius:16px;background:rgba(10,8,22,.95);border:1px solid rgba(176,124,255,.5);box-shadow:0 20px 60px -20px rgba(0,0,0,.9);color:#EAF0FF;font-family:var(--f-sans);font-size:.86rem;display:grid;gap:10px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.live-panel.idle{width:auto;padding:0;background:none;border:0;box-shadow:none}
+.live-panel.fold{gap:0}
+.live-start{border:1px solid rgba(176,124,255,.6);background:rgba(20,14,40,.92);color:#E3D4FF;border-radius:999px;padding:8px 16px;cursor:pointer;font-size:.86rem;font-family:var(--f-sans);box-shadow:0 10px 30px -12px #B07CFF}
+.live-start:hover{color:#fff;border-color:#B07CFF}
+.lp-h{display:flex;align-items:center;gap:10px}
+.lp-h b{font-size:.95rem}
+.lp-code{font-size:1.5rem;font-weight:900;letter-spacing:.12em;color:#D6C2FF}
+.lp-n{margin-left:auto;color:#9AA6C2;font-size:.8rem}
+.lp-x{border:0;background:none;color:#9AA6C2;cursor:pointer;font-size:1rem;padding:0 2px}
+.lp-link{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:.78rem;color:#C9D3EA;word-break:break-all}
+.lp-cur{display:grid;gap:2px;padding:8px 10px;border-radius:10px;border:1px solid rgba(140,160,210,.18)}
+.lp-cur div{font-weight:700}
+.lp-cur .note,.live-panel .note{font-size:.76rem;color:#9AA6C2;line-height:1.5}
+.lp-lock{display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:.84rem}
+.lp-lock input{margin-top:4px;accent-color:#B07CFF}
+.lp-lock small{display:block;color:#9AA6C2;font-size:.74rem}
+.lp-btns{display:flex;gap:6px;flex-wrap:wrap}
+.lp-btns .ghost{font-size:.76rem;padding:4px 10px}
+.lp-end{margin-left:auto;border-color:rgba(255,90,106,.5)!important;color:#FFB3BC!important}
+.lp-list{display:flex;flex-wrap:wrap;gap:5px;max-height:180px;overflow:auto}
+.lp-p{font-size:.74rem;padding:2px 8px;border-radius:999px;border:1px solid rgba(140,160,210,.25);color:#C9D3EA}
+.lp-p.ok{border-color:rgba(55,217,158,.6);color:#9FF0CF}
+.lp-p.off{opacity:.45}
+@media (max-width:560px){.live-pill{bottom:58px;font-size:.76rem}.live-tools.abs{position:static;margin-top:8px}}
 `
 
 /* ============================== 页面内容 ============================== */
@@ -3227,6 +3278,106 @@ W.fileops=function(el){const body=$('.lab-b',el);
     o.forEach((t,i)=>{const b=h('button',{class:'opt'},'ABCD'[i]+'．'+t);b.onclick=()=>{if(first){done++;if(i===a)right++;first=false;score();track('test',null,i===a,{n:n+1})}if(i===a){b.classList.add('right');$$('.opt',opts).forEach(x=>x.disabled=true);box.append(h('div',{class:'why'},'✓ '+why))}else{b.classList.add('wrong');b.disabled=true}};opts.append(b)});box.append(opts);list.append(box)});score()}
   build();const sl=$('.short-list');S.forEach(([q,a],i)=>{const ans=h('div',{class:'why',hidden:''},a);const b=h('button',{class:'ghost',style:'margin-top:6px'},'看答案');b.onclick=()=>{ans.hidden=!ans.hidden;b.textContent=ans.hidden?'看答案':'收起'};sl.append(h('div',{class:'qc',style:'margin:0;max-width:none'},h('div',{class:'q'},'（'+(i+1)+'）'+q),b,ans))});
 })();
+/* ================= 同步课堂：老师把实验推送到学生的课件页面 ================= */
+function initLive(){
+  const html=document.documentElement,root=$('.aistudy')||document.body;
+  const LS={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+  const FRESH=10*3600*1000,BASE=location.origin+'/aistudy/course';
+  // ---------- 可推送的位置：每个章节开头、每个实践、每个课堂一问 ----------
+  const REG=new Map(),KEY=new Map(),cnt={};
+  $$('.opener, .lab, .qc, .scrolly',root).forEach(el=>{
+    if(el.closest('.lab-b, .quiz-list, .short-list'))return;if(el.classList.contains('qc')&&el.dataset.ans==null)return;
+    const anc=el.classList.contains('opener')&&el.id?el.id:((el.closest('.kp[id]')||{}).id||(el.closest('.chapter')||{dataset:{}}).dataset.chapter);if(!anc)return;
+    cnt[anc]=(cnt[anc]||0);const k=anc+':'+cnt[anc]++;REG.set(k,el);KEY.set(el,k)});
+  const labelOf=el=>{
+    if(el.classList.contains('lab')){const t=$('.lab-h .t',el),b=t&&$('b',t);if(!t)return '实践';return b?(b.textContent.trim()+' '+t.textContent.replace(b.textContent,'').trim()).trim():t.textContent.trim()}
+    if(el.classList.contains('qc')){const q=(($('.q',el)||{}).textContent||'').trim();return '课堂一问：'+(q.length>30?q.slice(0,30)+'…':q)}
+    if(el.classList.contains('opener'))return ((($('.k',el)||{}).textContent||'')+' '+(($('h2',el)||{}).textContent||'')).trim();
+    const kp=el.closest('.kp');return kp?((($('.eyebrow',kp)||{}).textContent||'')+' 演示').trim():'演示'};
+  const anchorOf=k=>k.split(':')[0];
+  const copy=async t=>{try{await navigator.clipboard.writeText(t);return true}catch(e){const a=h('textarea',{style:'position:fixed;left:-9999px'});a.value=t;document.body.append(a);a.select();let ok=false;try{ok=document.execCommand('copy')}catch(x){}a.remove();return ok}};
+  const toastEl=h('div',{class:'live-toast',hidden:''});document.body.append(toastEl);let tt;
+  function toast(t,ms=3600){toastEl.textContent=t;toastEl.hidden=false;clearTimeout(tt);tt=setTimeout(()=>toastEl.hidden=true,ms)}
+  // ---------- 跳到某个位置 ----------
+  function goTarget(k,flash=true){const el=REG.get(k);if(!el)return false;const ch=el.closest('.chapter');
+    if(ch&&ch.hidden)showChapter(ch.dataset.chapter,false);
+    try{history.replaceState(null,'',location.pathname+location.search+'#'+anchorOf(k))}catch(e){}
+    el.classList.add('in');$$('.rv',el).forEach(x=>x.classList.add('in'));
+    setTimeout(()=>{if(html.classList.contains('live-lock'))scrollTo({top:0});else el.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});if(flash){el.classList.remove('live-flash');void el.offsetWidth;el.classList.add('live-flash');setTimeout(()=>el.classList.remove('live-flash'),3400)}},90);return true}
+  // ---------- 锁定：只显示推送的那一块 ----------
+  const lockBar=h('div',{class:'live-lockbar',hidden:''});document.body.append(lockBar);let lockedKey=null;
+  function setLock(k,label){if(k===lockedKey){if(k)lockBar.textContent='🔒 老师已把你锁定在「'+(label||'当前练习')+'」，做完等老师下一步';return}
+    $$('.live-path, .live-target').forEach(e=>e.classList.remove('live-path','live-target'));lockedKey=null;html.classList.remove('live-lock');lockBar.hidden=true;
+    const el=k&&REG.get(k);if(!el)return;lockedKey=k;el.classList.add('live-target','in');let p=el.parentElement;while(p&&p!==document.body){p.classList.add('live-path');p=p.parentElement}
+    html.classList.add('live-lock');lockBar.hidden=false;lockBar.textContent='🔒 老师已把你锁定在「'+(label||'当前练习')+'」，做完等老师下一步';const ch=el.closest('.chapter');if(ch&&ch.hidden)showChapter(ch.dataset.chapter,false);setTimeout(()=>scrollTo({top:0}),30)}
+  // ---------- 老师端：每块内容旁边的「推送 / 复制链接」 ----------
+  REG.forEach((el,k)=>{
+    const push=h('button',{type:'button',class:'live-btn push',title:'让同步课堂里的学生页面直接跳到这里'},'📡 推送给学生');
+    const link=h('button',{type:'button',class:'live-btn',title:'复制这一块的网址，可以发到极域消息里'},'🔗 复制链接');
+    push.onclick=e=>{e.stopPropagation();hostPush(k,labelOf(el))};
+    link.onclick=async e=>{e.stopPropagation();const ok=await copy(BASE+'#'+anchorOf(k));toast(ok?'已复制：'+BASE+'#'+anchorOf(k):'复制失败，请手动复制地址栏')};
+    const box=h('span',{class:'live-tools'},push,link);
+    if(el.classList.contains('lab')){const hd=$('.lab-h',el);if(hd)hd.append(box);else{box.classList.add('abs');el.append(box)}}
+    else if(el.classList.contains('opener')){box.classList.add('blk');el.append(box)}
+    else{box.classList.add('abs');el.append(box)}});
+  // ---------- 老师端面板 ----------
+  const panel=h('div',{class:'live-panel',hidden:''});document.body.append(panel);
+  let host=LS.get('xiaoxin:live-host');if(host&&Date.now()-host.at>FRESH){host=null;LS.set('xiaoxin:live-host',null)}
+  let hs=null,fold=false,showList=false,lockNext=false,hostTimer=null;
+  async function hostStart(){try{const tc=getTeacher()||{};const r=await sbRpc('aistudy_live_create',{p_teacher:tc.name||''});host={code:r.code,key:r.host_key,at:Date.now()};LS.set('xiaoxin:live-host',host);hs={status:'open',seq:0,people:[]};fold=false;paintHost();hostPoll()}catch(e){toast('开始失败，请检查网络后再试')}}
+  async function hostPush(k,label){if(!host){toast('先点右下角「📡 同步上课」开课，再推送');return}
+    try{const r=await sbRpc('aistudy_live_push',{p_code:host.code,p_key:host.key,p_target:k,p_label:label,p_lock:lockNext});if(!r.ok)throw 0;hs=Object.assign(hs||{},{target:k,label,seq:r.seq,locked:r.locked});paintHost();markCurrent();toast('已推送：'+label)}catch(e){toast('推送失败，请重试')}}
+  async function hostLock(v){lockNext=v;if(!host)return paintHost();try{const r=await sbRpc('aistudy_live_push',{p_code:host.code,p_key:host.key,p_target:null,p_label:null,p_lock:v});if(r.ok&&hs)hs.locked=r.locked}catch(e){}paintHost()}
+  async function hostEnd(){if(!host)return;if(!confirm('结束同步课堂？学生页面会解除锁定，不再跟随。'))return;try{await sbRpc('aistudy_live_end',{p_code:host.code,p_key:host.key})}catch(e){}host=null;hs=null;LS.set('xiaoxin:live-host',null);markCurrent();paintHost()}
+  async function hostPoll(){if(!host)return;try{const r=await sbRpc('aistudy_live_host',{p_code:host.code,p_key:host.key});if(!r.ok||r.status!=='open'){host=null;hs=null;LS.set('xiaoxin:live-host',null);toast('同步课堂已结束');markCurrent()}else{hs=r;lockNext=!!r.locked}}catch(e){}paintHost();markCurrent()}
+  function markCurrent(){$$('.live-current').forEach(e=>e.classList.remove('live-current'));if(hs&&hs.target&&REG.get(hs.target))REG.get(hs.target).classList.add('live-current')}
+  function paintHost(){const tc=isTeacher();html.classList.toggle('live-teacher',tc);html.classList.toggle('live-host',!!(tc&&host));
+    if(!tc){panel.hidden=true;return}panel.hidden=false;panel.innerHTML='';
+    if(!host){panel.className='live-panel idle';panel.append(h('button',{type:'button',class:'live-start',onclick:hostStart,title:'开一个课堂码，学生打开链接后，你推送哪个实验，学生页面就跳到哪个'},'📡 同步上课'));return}
+    panel.className='live-panel'+(fold?' fold':'');
+    const ppl=(hs&&hs.people)||[],on=ppl.filter(p=>p.on),cur=hs&&hs.seq?on.filter(p=>p.seq>=hs.seq).length:0,link=BASE+'?k='+host.code;
+    const head=h('div',{class:'lp-h'},h('b',{},'同步课堂'),h('span',{class:'lp-code mono'},host.code),h('span',{class:'lp-n'},'在线 '+on.length+' 人'),h('button',{type:'button',class:'lp-x',title:fold?'展开':'收起',onclick:()=>{fold=!fold;paintHost()}},fold?'▴':'▾'));
+    panel.append(head);if(fold)return;
+    const linkRow=h('div',{class:'lp-link'},h('span',{class:'mono'},link.replace(/^https?:\/\//,'')),h('button',{type:'button',class:'live-btn',onclick:async()=>toast((await copy(link))?'学生链接已复制，可以粘贴到极域消息里发给全班':'复制失败')},'复制'));
+    const curRow=h('div',{class:'lp-cur'},hs&&hs.target?[h('span',{class:'note'},'当前推送'),h('div',{},hs.label||hs.target),h('span',{class:'note'},'已跟上 '+cur+' / '+on.length+' 人')]:h('span',{class:'note'},'还没推送。在课件里任何一个实践、课堂一问或章节开头旁边点「📡 推送给学生」。'));
+    const ck=h('input',{type:'checkbox'});ck.checked=lockNext;ck.onchange=()=>hostLock(ck.checked);
+    const lockRow=h('label',{class:'lp-lock'},ck,h('span',{},'锁定学生在推送的内容上',h('small',{},'学生页面只显示这一块，不能翻到别处')));
+    const btns=h('div',{class:'lp-btns'},h('button',{type:'button',class:'ghost',onclick:()=>{showList=!showList;paintHost()}},showList?'收起名单':'学生名单'),h('button',{type:'button',class:'ghost',onclick:()=>hs&&hs.target&&goTarget(hs.target)},'回到当前'),h('button',{type:'button',class:'ghost lp-end',onclick:hostEnd},'结束上课'));
+    panel.append(linkRow,curRow,lockRow,btns);
+    if(showList){const L=h('div',{class:'lp-list'});if(!ppl.length)L.append(h('span',{class:'note'},'还没有学生加入。把上面的链接发给学生，或让学生点左下角「加入同步课堂」输入 '+host.code+'。'));
+      ppl.forEach(p=>L.append(h('span',{class:'lp-p'+(p.on?'':' off')+(hs.seq&&p.seq>=hs.seq?' ok':'')},(p.name||'未登记')+(p.cls?' · '+p.cls:''))));panel.append(L)}}
+  // ---------- 学生端 ----------
+  const pill=h('button',{type:'button',class:'live-pill',hidden:''});document.body.append(pill);
+  let join=LS.get('xiaoxin:live-join');if(join&&Date.now()-join.at>FRESH){join=null;LS.set('xiaoxin:live-join',null)}
+  const qk=new URLSearchParams(location.search).get('k');
+  if(qk&&/^\d{4}$/.test(qk)){if(!join||join.code!==qk)join={code:qk,at:Date.now(),seq:0};LS.set('xiaoxin:live-join',join);try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}}
+  let st=null,busy=false;
+  const sid=()=>{const me=getMe();if(me&&me.id)return String(me.id);let s=LS.get('xiaoxin:sid');if(!s){s='d'+Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS.set('xiaoxin:sid',s)}return s};
+  function paintPill(){if(isTeacher()){pill.hidden=true;return}pill.hidden=false;
+    if(join){pill.className='live-pill on'+(st&&st.locked?' lock':'');pill.innerHTML='';pill.append(h('span',{class:'dot'}),'同步课堂 '+join.code+(st&&st.locked?' · 已锁定':' · 跟随老师中'))}
+    else{pill.className='live-pill';pill.textContent='＋ 加入同步课堂'}}
+  pill.onclick=()=>{if(join){if(st&&st.locked){toast('老师锁定中，暂时不能退出');return}if(confirm('退出同步课堂？退出后老师推送的内容不会再跳过来。')){join=null;st=null;LS.set('xiaoxin:live-join',null);setLock(null);paintPill()}return}askCode()};
+  function askCode(){const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
+    ov.innerHTML='<form class="me-box"><div class="k mono">同步课堂</div><b>输入老师给的课堂码</b><input name="c" inputmode="numeric" maxlength="4" placeholder="4 位数字" autocomplete="off"><p class="note">加入后，老师推送哪个练习，你的页面就自动跳到哪个。</p><p class="err" hidden></p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="ghost" data-x>取消</button><button class="btn">加入</button></div></form>';
+    const f=$('form',ov);ov.addEventListener('click',e=>{if(e.target===ov||e.target.hasAttribute('data-x'))ov.remove()});
+    f.onsubmit=async e=>{e.preventDefault();const c=f.c.value.trim(),er=$('.err',f);if(!/^\d{4}$/.test(c)){er.hidden=false;er.textContent='课堂码是 4 位数字';return}
+      try{const r=await sbRpc('aistudy_live_poll',{p_code:c,p_sid:sid(),p_name:'',p_cls:'',p_seq:0});if(!r.ok||r.status!=='open'){er.hidden=false;er.textContent='没找到这个课堂，或老师已经结束了';return}
+        join={code:c,at:Date.now(),seq:0};LS.set('xiaoxin:live-join',join);ov.remove();toast('已加入同步课堂 '+c);studentPoll()}catch(x){er.hidden=false;er.textContent='加入失败，请检查网络后再试'}};
+    document.body.append(ov);setTimeout(()=>f.c.focus(),50)}
+  async function studentPoll(){if(!join||busy||isTeacher()){paintPill();return}busy=true;
+    try{const me=getMe()||{};const r=await sbRpc('aistudy_live_poll',{p_code:join.code,p_sid:sid(),p_name:me.name||'',p_cls:me.cls||'',p_seq:join.seq||0});
+      if(!r.ok||r.status!=='open'){if(st||r.ok)toast('老师已结束同步课堂');join=null;st=null;LS.set('xiaoxin:live-join',null);setLock(null)}
+      else{st=r;if(r.seq>(join.seq||0)&&r.target){join.seq=r.seq;LS.set('xiaoxin:live-join',join);if(r.locked)setLock(r.target,r.label);else setLock(null);goTarget(r.target);toast('老师推送：'+(r.label||'新的练习'))}
+        else setLock(r.locked?r.target:null,r.label)}}catch(e){}
+    busy=false;paintPill()}
+  // ---------- 定时刷新 ----------
+  let tick=0;const timer=setInterval(()=>{if(!document.body.contains(root)){clearInterval(timer);[panel,pill,toastEl,lockBar].forEach(x=>x.remove());html.classList.remove('live-lock','live-teacher','live-host');return}
+    tick++;if(isTeacher()){if(join){join=null;LS.set('xiaoxin:live-join',null);setLock(null)}paintPill();if(host&&tick%2===0)hostPoll();else if(!host)paintHost()}else{if(host||html.classList.contains('live-teacher'))paintHost();studentPoll()}},2500);
+  paintHost();paintPill();if(host)hostPoll();if(join&&!isTeacher())studentPoll();
+  // 锁定时不响应 → / PageDown 翻页
+  document.addEventListener('keydown',e=>{if(html.classList.contains('live-lock')&&['ArrowRight','ArrowLeft','PageDown','PageUp'].includes(e.key)&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')){e.stopImmediatePropagation();e.preventDefault()}},true);
+}
+
 /* boot */
 (function(){
   function go(first){const hs=decodeURIComponent((location.hash||'').slice(1));
@@ -3236,6 +3387,7 @@ W.fileops=function(el){const body=$('.lab-b',el);
     if(first)showChapter(store.get('tab','t1'),false)}
   go(true);addEventListener('hashchange',()=>go(false));
   try{initIdentity()}catch(e){console.error('identity',e)}
+  try{initLive()}catch(e){console.error('live',e)}
 })();
 
 }
