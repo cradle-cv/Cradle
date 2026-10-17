@@ -1,7 +1,7 @@
 'use client'
 
 // 目标路径：app/aistudy/course/page.js
-// 信息技术基础互动课堂（cradle.art/aistudy/course）：六个任务的滚动叙事式交互课件。
+// 信息技术基础互动课堂（cradle.art/aistudy/course）：七个任务的滚动叙事式交互课件。
 // 结构：CSS（样式）→ HTML（页面内容）→ runAistudy（全部交互代码）→ 页面组件。
 // 修改文字：在 HTML 里改；修改交互：在 runAistudy 里改。
 
@@ -37,6 +37,7 @@ body{background:#06080F!important}
 .c4{--acc:#B07CFF;--acc2:#3FD5FF;--acc-soft:rgba(176,124,255,.15)}
 .c5{--acc:#3FD5FF;--acc2:#37D99E;--acc-soft:rgba(63,213,255,.14)}
 .c6{--acc:#FF7ACB;--acc2:#B07CFF;--acc-soft:rgba(255,122,203,.14)}
+.c7{--acc:#A3E635;--acc2:#37D99E;--acc-soft:rgba(163,230,53,.14)}
 .cq{--acc:#37D99E;--acc2:#3FD5FF;--acc-soft:rgba(55,217,158,.14)}
 html{font-size:var(--fs);scroll-behavior:smooth}
 html.lecture{--fs:20px;--col:860px;--wide:1360px}
@@ -252,6 +253,104 @@ table.t th{font-size:.78rem;color:var(--muted);font-weight:600}
   .opener .big{font-size:5rem;top:56px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.js .rv{opacity:1;transform:none}}
+
+/* ---------- 任务七：文件资源管理器模拟（浅色 Win11 风格） ---------- */
+.fx{color-scheme:light;--w-bg:#F3F3F3;--w-pane:#FFFFFF;--w-ink:#1B1B1B;--w-muted:#5F6368;--w-line:#E0E0E0;--w-hover:#E8EEF7;--w-sel:#CCE4F7;--w-blue:#0067C0;
+  color:var(--w-ink);font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;font-size:.86rem;line-height:1.45}
+.aistudy .fx input,.aistudy .fx select{color:var(--w-ink)!important}
+.fx button{color:var(--w-ink)}
+.fx-wrap{min-width:0}
+.fx-grid{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.fx-grid{grid-template-columns:1fr}}
+.fx-side{display:grid;gap:8px;align-content:start}
+.fx-tasks{display:grid;gap:6px}
+.fx-task{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:.88rem;line-height:1.55}
+.fx-task.ok{border-color:var(--good);background:var(--good-soft)}
+.fx-task.no{border-color:var(--bad);background:var(--bad-soft)}
+.fx-n{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-size:.75rem;background:var(--acc-soft);color:var(--acc);font-weight:800;margin-top:1px}
+.fx-task.ok .fx-n{background:var(--good);color:#06080F}
+.fx-task.no .fx-n{background:var(--bad);color:#fff}
+.fx-why{margin-top:4px;font-size:.8rem;color:#FFC0C6}
+.fx-task.ok .fx-why{color:var(--good)}
+.fx-win{position:relative;background:var(--w-bg);border-radius:10px;border:1px solid #C8C8C8;box-shadow:0 24px 60px -24px rgba(0,0,0,.7);overflow:hidden;outline:none;user-select:none;-webkit-user-select:none;min-width:0}
+.fx-win:focus-visible{box-shadow:0 0 0 2px var(--acc),0 24px 60px -24px rgba(0,0,0,.7)}
+.fx-title{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#EEF1F6;border-bottom:1px solid var(--w-line);font-size:.82rem}
+.fx-title svg{display:block}
+.fx-wbtn{margin-left:auto;color:var(--w-muted);letter-spacing:.2em;font-size:.78rem}
+.fx-cmd{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:6px 8px;background:var(--w-pane);border-bottom:1px solid var(--w-line)}
+.fx-cb{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.fx-cb:hover:not(:disabled){background:var(--w-hover)}
+.fx-cb:disabled{opacity:.38;cursor:default}
+.fx-cb.pri{background:var(--w-blue);color:#fff;font-weight:600}
+.fx-cb.pri:hover:not(:disabled){background:#005AA9}
+.fx-vsep{width:1px;height:20px;background:var(--w-line);margin:0 4px}
+.fx-nav{display:flex;align-items:center;gap:4px;padding:6px 8px;background:var(--w-pane);border-bottom:1px solid var(--w-line)}
+.fx-ic{border:0;background:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:.95rem}
+.fx-ic:hover:not(:disabled){background:var(--w-hover)}
+.fx-ic:disabled{opacity:.3;cursor:default}
+.fx-addr{flex:1;min-width:0;display:flex;align-items:center;gap:2px;border:1px solid var(--w-line);border-radius:6px;padding:2px 6px;background:#FBFBFB;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.fx-crumb{border:0;background:none;padding:2px 5px;border-radius:4px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.fx-crumb:hover{background:var(--w-hover)}
+.fx-gt{color:var(--w-muted);font-size:.8rem}
+.fx-search{display:flex;align-items:center;gap:4px;border:1px solid var(--w-line);border-radius:6px;padding:2px 8px;background:#FBFBFB;width:170px;flex:none}
+.fx-search span{color:var(--w-muted)}
+.fx-search input{border:0;outline:0;background:none;width:100%;font-size:.8rem;padding:2px 0;font-family:inherit}
+@media (max-width:560px){.fx-search{width:110px}}
+.fx-main{display:grid;grid-template-columns:180px minmax(0,1fr);min-height:330px;background:var(--w-pane)}
+@media (max-width:560px){.fx-main{grid-template-columns:1fr}.fx-tree{border-right:0;border-bottom:1px solid var(--w-line);max-height:150px}}
+.fx-tree{border-right:1px solid var(--w-line);padding:6px 4px;overflow:auto;max-height:420px;background:#FAFAFA}
+.fx-tn{display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;text-align:left;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.fx-tn svg{display:block;flex:none}
+.fx-tn:hover{background:var(--w-hover)}
+.fx-tn.on{background:var(--w-sel)}
+.fx-tn.hid{opacity:.55}
+.fx-pane{display:flex;flex-direction:column;min-width:0}
+.fx-head,.fx-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 56px;gap:8px;align-items:center;padding:0 12px}
+.fx-head{font-size:.75rem;color:var(--w-muted);border-bottom:1px solid var(--w-line);padding-top:5px;padding-bottom:5px}
+.fx-list{flex:1;overflow:auto;max-height:390px;padding:3px 4px 30px}
+.fx-row{min-height:30px;border-radius:5px;cursor:default;border:1px solid transparent}
+.fx-row:hover{background:var(--w-hover)}
+.fx-row.on{background:var(--w-sel);border-color:#99C9EF}
+.fx-row.hid,.fx-row.cut{opacity:.55}
+.fx-nm{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-nm svg{display:block;flex:none}
+.fx-nm>span:last-child{overflow:hidden;text-overflow:ellipsis}
+.fx-ty{color:var(--w-muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-at{color:var(--w-muted);font-size:.75rem}
+.fx-ren{border:1px solid var(--w-blue);border-radius:3px;padding:2px 5px;font-size:.82rem;font-family:inherit;background:#fff;min-width:0;width:100%;outline:none}
+.fx-empty{padding:30px 12px;text-align:center;color:var(--w-muted);font-size:.82rem}
+.fx-status{padding:4px 12px;font-size:.75rem;color:var(--w-muted);background:var(--w-bg);border-top:1px solid var(--w-line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-toast{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);background:#2B2B2B;color:#fff;padding:7px 14px;border-radius:8px;font-size:.8rem;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:6;pointer-events:none}
+.fx-menu{position:absolute;z-index:8;min-width:210px;background:#FBFBFB;border:1px solid #D6D6D6;border-radius:8px;padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.fx-menu button{display:flex;justify-content:space-between;gap:20px;width:100%;border:0;background:none;padding:6px 10px;border-radius:5px;cursor:pointer;text-align:left;font-size:.8rem}
+.fx-menu button:hover:not(:disabled){background:var(--w-hover)}
+.fx-menu button:disabled{opacity:.38;cursor:default}
+.fx-k{color:var(--w-muted);font-size:.74rem}
+.fx-sep{height:1px;background:var(--w-line);margin:4px 2px}
+.fx-ov{position:absolute;inset:0;background:rgba(0,0,0,.28);display:grid;place-items:center;z-index:10;padding:12px}
+.fx-dlg{background:#F9F9F9;border:1px solid #BDBDBD;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,.35);color:var(--w-ink);width:min(100%,420px);overflow:hidden}
+.fx-dlg-t{padding:8px 14px;font-size:.82rem;background:#fff;border-bottom:1px solid var(--w-line)}
+.fx-dlg-b{padding:14px;font-size:.84rem}
+.fx-dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;background:#F0F0F0;border-top:1px solid var(--w-line)}
+.fx-btn{border:1px solid #C4C4C4;background:#fff;border-radius:5px;padding:5px 16px;cursor:pointer;font-size:.8rem;min-width:72px}
+.fx-btn:hover:not(:disabled){background:#F3F6FA}
+.fx-btn:disabled{opacity:.5;cursor:default}
+.fx-btn.pri{background:var(--w-blue);border-color:var(--w-blue);color:#fff}
+.fx-btn.pri:hover:not(:disabled){background:#005AA9}
+.fx-tabs{display:flex;gap:2px;border-bottom:1px solid var(--w-line)}
+.fx-tabs span{padding:4px 12px;font-size:.78rem;color:var(--w-muted);border:1px solid transparent;border-bottom:0;border-radius:5px 5px 0 0}
+.fx-tabs span.on{color:var(--w-ink);background:#fff;border-color:var(--w-line);margin-bottom:-1px}
+.fx-kv{display:grid;grid-template-columns:64px minmax(0,1fr);gap:4px 8px;font-size:.82rem;word-break:break-all}
+.fx-kv>span:nth-child(odd){color:var(--w-muted)}
+.fx-ck{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:.82rem}
+.fx-ck input{accent-color:var(--w-blue);width:15px;height:15px;margin:0}
+.fx-fs{border:1px solid var(--w-line);border-radius:6px;padding:8px 12px 10px;display:grid;gap:6px;margin:0}
+.fx-fs legend{font-size:.78rem;color:var(--w-muted);padding:0 4px}
+.fx-stage{position:relative;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;padding:22px;border-radius:12px;background:linear-gradient(135deg,#2D5B8C,#1C3B5E 60%,#162D48)}
+.fx-stage .fx-dlg{width:min(100%,360px)}
+.fx-stage .fx-sub{width:min(100%,330px)}
+.kp .fx p,.kp .fx b{color:var(--w-ink)}
+.route .c7{grid-column:1/-1}
 `
 
 /* ============================== 页面内容 ============================== */
@@ -267,6 +366,7 @@ const HTML = String.raw`
       <button class="tab" role="tab" data-go="t4" aria-selected="false"><span class="n">04</span>AI 时代</button>
       <button class="tab" role="tab" data-go="t5" aria-selected="false"><span class="n">05</span>网络基础</button>
       <button class="tab" role="tab" data-go="t6" aria-selected="false"><span class="n">06</span>操作系统</button>
+      <button class="tab" role="tab" data-go="t7" aria-selected="false"><span class="n">07</span>文件管理</button>
       <button class="tab" role="tab" data-go="quiz" aria-selected="false"><span class="n">✓</span>小测</button>
     </nav>
     <button class="ghost" id="lectureBtn" aria-pressed="false" title="放大字号，适合投屏">讲课模式</button>
@@ -288,6 +388,7 @@ const HTML = String.raw`
         <button class="c4" data-go="t4"><span class="n">任务四</span><b>AI 时代新工作</b><span class="d">大模型、Vibe Coding、AI 视频、智能体与未来十年</span></button>
         <button class="c5" data-go="t5"><span class="n">任务五</span><b>网络基础</b><span class="d">分层模型、MAC 与 IP、数据封装、DNS，打开命令行亲手查</span></button>
         <button class="c6" data-go="t6"><span class="n">任务六</span><b>操作系统与 Windows 11</b><span class="d">进程内存、路径盘符、装软件避坑、C 盘自救、Linux 命令</span></button>
+        <button class="c7" data-go="t7"><span class="n">任务七</span><b>文件与文件夹管理</b><span class="d">命名规则、复制移动、属性快捷方式、通配符搜索，最后在考生文件夹模拟器里做 6 套真题，交卷当场评分</span></button>
       </div>
     </div>
   </section>
@@ -1235,6 +1336,137 @@ const HTML = String.raw`
   </section>
 </div>
 
+<div class="chapter c7" data-chapter="t7" hidden>
+  <div class="opener" id="t7">
+    <div class="big" aria-hidden="true">07</div>
+    <div class="k">任务七</div>
+    <h2>文件与文件夹 <span class="grad">管理实操</span></h2>
+    <p>计算机一级考试的 Windows 操作题考的就是这一节：在「考生文件夹」里新建、复制、移动、改名、删除、设属性、建快捷方式。每个操作都不难，丢分大多丢在细节上，比如扩展名没显示出来、复制做成了移动、快捷方式的名字没改。先把每个操作弄明白，最后在模拟器里做完 6 套真题，交卷当场评分。</p>
+    <div class="goals"><span>说清文件命名规则</span><span>会选定、会改查看方式</span><span>新建文件扩展名不出错</span><span>分清复制和移动</span><span>会设隐藏和存档属性</span><span>会建快捷方式</span><span>会用通配符搜索</span></div>
+  </div>
+
+  <section class="kp" id="k7-1">
+    <div class="col">
+      <p class="eyebrow">7.1 文件和文件夹</p>
+      <h3>文件名＝主文件名＋扩展名，文件夹一层套一层</h3>
+      <p><span class="term">文件</span>是存在磁盘上、有名字的一组数据。文件名由<b>主文件名</b>和<b>扩展名</b>组成，中间用圆点隔开，比如 HWA.DOC、XINGMING.TXT，扩展名告诉系统这是什么类型、用哪个软件打开。<span class="term">文件夹</span>（也叫目录）用来分门别类地放文件，文件夹里还能再建文件夹，从磁盘根目录出发一层层分叉，像一棵倒过来的树，所以 Windows 的文件夹结构叫<b>树形结构</b>。考题里的 DULY\SEED 就是「DULY 文件夹里的 SEED 文件夹」，从左往右是从外往里。</p>
+      <p>命名规则记三条：文件名最长 255 个字符，汉字、字母、数字、空格都能用；有 9 个字符不能用：<span class="kbd">\ / : * ? " &lt; &gt; |</span>；Windows 不区分大小写，xin.doc 和 XIN.DOC 是同一个名字，所以同一个文件夹里不能有两个这样的文件，放在不同文件夹里就没问题。</p>
+    </div>
+    <div class="lab" data-w="tf" data-set="fname">
+      <div class="lab-h"><span class="t"><b>实践 7.1</b>这个说法对吗？</span><span class="hint">关于文件名和文件夹的 8 个说法</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-2">
+    <div class="col">
+      <p class="eyebrow">7.2 文件资源管理器：打开、选定、查看</p>
+      <h3>动手之前先选定，做题之前先改两处设置</h3>
+      <p>按 <span class="kbd">Win</span>+<span class="kbd">E</span> 打开文件资源管理器：左边是导航窗格（文件夹树），右边是当前文件夹里的内容，上方是地址栏和搜索框。任何操作都要先<b>选定</b>对象：单击选一个；按住 <span class="kbd">Ctrl</span> 逐个单击，选几个不相邻的；单击第一个，再按住 <span class="kbd">Shift</span> 单击最后一个，选连续的一段；<span class="kbd">Ctrl</span>+<span class="kbd">A</span> 全选。</p>
+      <p>做操作题前，先在「查看」→「显示」里勾上<b>文件扩展名</b>和<b>隐藏的项目</b>。不显示扩展名，改名时就会把文件改成 XIN.DOC.txt 这样的名字；不显示隐藏的项目，设成隐藏的文件会从列表里「消失」，容易误以为删掉了。显示方式可以切成大图标、列表、详细信息，用「详细信息」能看到类型、大小和修改日期。</p>
+    </div>
+    <div class="lab" data-w="pairs" data-set="explorer">
+      <div class="lab-h"><span class="t"><b>实践 7.2</b>操作配对</span><span class="hint">先点左边的按键，再点右边它的作用</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-3">
+    <div class="col">
+      <p class="eyebrow">7.3 新建文件和文件夹</p>
+      <h3>新建菜单里没有的类型，就新建一个再连扩展名一起改</h3>
+      <p>在空白处右键 →「新建」→「文件夹」，名字处于可编辑状态，直接输入 PPT 再按回车。新建文件也是右键 →「新建」，但菜单里只有几种常见类型：文本文档（.txt）、Word 文档（.docx）、Excel 工作表（.xlsx）等。题目要的 XIN.DOC、BIAO.TXT 怎么建？先任选一种新建，再<b>连同扩展名一起改名</b>：比如新建一个文本文档，把「新建 文本文档.txt」整个改成 XIN.DOC，弹出「改变扩展名可能会导致文件不可用」时点「是」。</p>
+      <p>路径要一层层点进去：「在 DULY\SEED 文件夹中建立 WOMAN 文件夹」，先双击 DULY，再双击 SEED，在 SEED 里面新建。建错位置是这类题最常见的失分。</p>
+    </div>
+    <div class="qc" data-ans="1" data-why="扩展名被隐藏时，你只改了「新建 文本文档」这一段，系统自动保留了原来的 .txt，所以真实名字是 XIN.DOC.txt，评分时不算对。先打开「文件扩展名」再改名。">
+      <div class="t">课堂一问</div><div class="q">没有打开「文件扩展名」显示，把新建的文本文档改名为 XIN.DOC，它的真实文件名是什么？</div>
+      <div class="opts"><button class="opt">XIN.DOC</button><button class="opt">XIN.DOC.txt</button><button class="opt">新建 文本文档.DOC</button><button class="opt">XIN.txt</button></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-4">
+    <div class="col">
+      <p class="eyebrow">7.4 复制和移动</p>
+      <h3>复制完原来的还在，移动完原来的就没了</h3>
+      <p><span class="term">复制</span>后原来位置的文件还在，目标位置多一份；<span class="term">移动</span>后原来位置就没有了。用键盘最稳：复制按 <span class="kbd">Ctrl</span>+<span class="kbd">C</span>，移动按 <span class="kbd">Ctrl</span>+<span class="kbd">X</span>（剪切），再进入目标文件夹按 <span class="kbd">Ctrl</span>+<span class="kbd">V</span> 粘贴。右键菜单里的「复制」「剪切」「粘贴」是一样的效果。</p>
+      <p>用鼠标拖动最容易出错：在<b>同一个磁盘</b>里直接拖，默认是移动；拖到<b>另一个磁盘</b>（比如 U 盘），默认是复制。按住 <span class="kbd">Ctrl</span> 拖一定是复制，按住 <span class="kbd">Shift</span> 拖一定是移动。考生文件夹里的东西都在同一个盘上，直接拖就是移动，所以题目要求复制时别直接拖。</p>
+    </div>
+    <div class="lab" data-w="classify" data-set="copymove">
+      <div class="lab-h"><span class="t"><b>实践 7.3</b>这样操作是复制还是移动？</span><span class="hint">先点情景，再点类别</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-5">
+    <div class="col">
+      <p class="eyebrow">7.5 重命名和删除</p>
+      <h3>F2 改名，Delete 进回收站，Shift + Delete 永久删除</h3>
+      <p>选中后按 <span class="kbd">F2</span>，或右键 →「重命名」，输入新名字后回车。「移动并改名」的题目（把 XINGMING.TXT 移到 WANG 并改名为 SUI.DOC）分两步做：先剪切粘贴到 WANG，再在 WANG 里改名；顺序反过来也可以，评分只看最后的结果：WANG 里有 SUI.DOC，QUEN 里没有 XINGMING.TXT。</p>
+      <p>删除：选中按 <span class="kbd">Delete</span>，文件进<b>回收站</b>，删错了可以在回收站里还原；<span class="kbd">Shift</span>+<span class="kbd">Delete</span> 是永久删除，不进回收站。删除一个文件夹，会把里面的文件和子文件夹一起删掉。题目说「删除 KING 文件夹中的 THINK.TXT」，只删这个文件，别把 KING 文件夹也删了。</p>
+    </div>
+    <div class="lab" data-w="tf" data-set="renamedel">
+      <div class="lab-h"><span class="t"><b>实践 7.4</b>真的还是假的？</span><span class="hint">关于重命名和删除的 6 个说法</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-6">
+    <div class="col">
+      <p class="eyebrow">7.6 文件属性：只读、隐藏、存档</p>
+      <h3>只读和隐藏在「常规」页，存档藏在「高级」按钮里</h3>
+      <p>右键 →「属性」，「常规」页下方有两个复选框：<b>只读</b>（能看不能保存修改）和<b>隐藏</b>（不显示隐藏的项目时看不见它）。<b>存档</b>属性不在这一页，要点「高级」按钮，里面的「可以存档文件」就是存档属性。存档的意思是这个文件新建或修改过、还没有备份过，备份软件靠它判断哪些文件需要备份，所以新建的文件默认都带存档属性。</p>
+      <p>因此「设置成隐藏属性并取消存档属性」要改两个地方：常规页勾上「隐藏」→ 点「高级」取消「可以存档文件」→ 确定 → 确定。给文件夹改属性时，还会多问一句「仅将更改应用于此文件夹」还是「将更改应用于此文件夹、子文件夹和文件」，题目只说了这个文件夹，选哪一个都可以。</p>
+    </div>
+    <div class="lab" data-w="attrs">
+      <div class="lab-h"><span class="t"><b>实践 7.5</b>属性对话框</span><span class="hint">照题目把属性设好，点「确定」看对不对</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-7">
+    <div class="col">
+      <p class="eyebrow">7.7 快捷方式</p>
+      <h3>快捷方式只是一个指向原文件的「路标」</h3>
+      <p><span class="term">快捷方式</span>是一个指向原文件或文件夹的小文件（扩展名 .lnk，系统不显示），图标左下角有个小箭头。双击它等于打开原文件；删掉快捷方式，原文件不受影响；原文件删了或挪走了，快捷方式就失效了。</p>
+      <p>题目「为 KUAN 文件夹中的 LIN.EXE 建立名为 LINA 的快捷方式，存放在考生文件夹中」，最快的做法：在 KUAN 里右键 LIN.EXE →「显示更多选项」→「创建快捷方式」，原位置会多出一个「LIN.EXE - 快捷方式」，把它剪切到考生文件夹，再改名为 LINA。另一种做法：在考生文件夹空白处右键 →「新建」→「快捷方式」→「浏览」找到 LIN.EXE → 下一步 → 名称填 LINA → 完成。名字只写 LINA，不用加 .lnk。</p>
+    </div>
+    <div class="lab" data-w="order" data-set="lnksteps">
+      <div class="lab-h"><span class="t"><b>实践 7.6</b>建快捷方式的顺序</span><span class="hint">按做题的先后点</span></div>
+      <div class="lab-b"></div>
+    </div>
+    <div class="qc" data-ans="2" data-why="快捷方式只是一个指向原文件的小文件，删除它不影响原文件 LIN.EXE；反过来，原文件被删或移走，快捷方式才会失效。">
+      <div class="t">课堂一问</div><div class="q">把考生文件夹里的快捷方式 LINA 删掉，KUAN 文件夹里的 LIN.EXE 会怎样？</div>
+      <div class="opts"><button class="opt">一起被删除</button><button class="opt">变成快捷方式</button><button class="opt">不受影响，还在原处</button><button class="opt">被移到回收站</button></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-8">
+    <div class="col">
+      <p class="eyebrow">7.8 搜索文件与通配符</p>
+      <h3>不知道文件藏在哪，就从考生文件夹搜起</h3>
+      <p>题目说「搜索考生文件夹下的 HEL.PPT」，意思是它藏在某个子文件夹里，不告诉你在哪。先进入考生文件夹，在右上角搜索框里输入 HEL.PPT，系统会把当前文件夹<b>连同所有子文件夹</b>都找一遍。结果出来后可以直接在结果里剪切、复制，也可以右键「打开文件所在的位置」再操作。没写通配符时，搜索找的是「名字里含有这段文字」的文件，所以要看清哪个名字完全一样。</p>
+      <p>搜索时可以用<span class="term">通配符</span>：<b>*</b> 代表任意多个字符（也可以是 0 个），<b>?</b> 正好代表 1 个字符。*.TXT 是所有文本文件，H*.* 是所有 H 开头的文件，A?.DOC 是 A 后面只跟一个字符的 Word 文档。</p>
+    </div>
+    <div class="lab" data-w="wildcard">
+      <div class="lab-h"><span class="t"><b>实践 7.7</b>通配符搜一搜</span><span class="hint">输入搜索条件，看哪些文件被找出来</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+
+  <section class="kp" id="k7-9">
+    <div class="col">
+      <p class="eyebrow">7.9 综合实操：考生文件夹</p>
+      <h3>6 套真题，做完交卷，当场看分</h3>
+      <p>下面是一个模拟的文件资源管理器，题目来自计算机一级的 Windows 操作题，共 6 套，每套 5 小题，每小题 20 分。右键菜单、工具栏、快捷键都能用，删错了可以去回收站还原。做完点「交卷评分」，哪一小题错在哪里会一条条写出来。评分和考试一样只看结果：文件在不在、名字对不对、属性对不对，不管你用的是哪种方法。</p>
+    </div>
+    <div class="keys"><div class="t">做题前 30 秒</div><ul><li>先在「查看」里打开「文件扩展名」和「隐藏的项目」</li><li>读题圈出四样东西：从哪里、做什么、到哪里、叫什么</li><li>复制和移动用键盘做，别直接拖</li><li>设存档属性记得点「高级」</li><li>做完对照题目逐条检查一遍再交卷</li></ul></div>
+    <div class="lab" data-w="fileops">
+      <div class="lab-h"><span class="t"><b>实践 7.8</b>考生文件夹模拟器</span><span class="hint">选一套题，在右边的窗口里完成 5 个操作</span></div>
+      <div class="lab-b"></div>
+    </div>
+  </section>
+</div>
+
 <div class="chapter cq" data-chapter="quiz" hidden>
   <div class="opener" id="quiz">
     <div class="big" aria-hidden="true">✓</div>
@@ -1250,7 +1482,7 @@ const HTML = String.raw`
   </section>
 </div>
 
-<div class="foot">信息技术基础互动课堂 · 内容更新至 2026 年 10 月 9 日。键盘 <span class="kbd">→</span> <span class="kbd">PageDown</span> 跳到下一个知识点，<span class="kbd">←</span> <span class="kbd">PageUp</span> 回到上一个，适合用翻页笔讲课。</div>
+<div class="foot">信息技术基础互动课堂 · 内容更新至 2026 年 10 月 17 日。键盘 <span class="kbd">→</span> <span class="kbd">PageDown</span> 跳到下一个知识点，<span class="kbd">←</span> <span class="kbd">PageUp</span> 回到上一个，适合用翻页笔讲课。</div>
   </div>
 </main>
 
@@ -2610,6 +2842,341 @@ W.checklist=function(el){const body=$('.lab-b',el);const L=['打开文件扩展�
   body.append(h('div',{class:'split'},list,g));paint();
 };
 
+/* ================= 任务七 · 文件与文件夹管理 ================= */
+Object.assign(SETS,{
+  copymove:{buckets:[['复制','原来的还在，目标位置多一份'],['移动','原来的没了，搬到了目标位置']],
+    items:[['选中后 Ctrl + C，到目标文件夹 Ctrl + V',0],['选中后 Ctrl + X，到目标文件夹 Ctrl + V',1],['把 D 盘的文件直接拖到 D 盘另一个文件夹',1],['把 D 盘的文件直接拖到 U 盘',0],['按住 Ctrl 拖到同一个盘的文件夹里',0],['按住 Shift 拖到 U 盘',1],['右键拖过去，松手后选「复制到当前位置」',0],['在考生文件夹里把文件直接拖进另一个子文件夹',1]],
+    tip:{0:'复制：原位置保留，目标位置多一份。Ctrl + C / V、跨盘拖动、按住 Ctrl 拖动都是复制。',1:'移动：原位置不再有它。Ctrl + X / V、同盘直接拖动、按住 Shift 拖动都是移动。'}}
+});
+Object.assign(TFS,{
+  fname:[['XIN.DOC 里，XIN 是主文件名，DOC 是扩展名。',true,'圆点前面是主文件名，最后一个圆点后面是扩展名。'],['文件名里可以有空格，比如「期末 作业.docx」。',true,'空格、汉字、数字都可以用。'],['「作业?.docx」是合法的文件名。',false,'问号不能出现在文件名里。不能用的 9 个字符是 \\ / : * ? " < > |。'],['同一个文件夹里可以同时有 xin.doc 和 XIN.DOC 两个文件。',false,'Windows 不区分大小写，它们是同一个名字。'],['不同的文件夹里可以有同名的文件。',true,'完整路径不同就是两个文件，比如 TAI\\HWA.DOC 和 DOC\\HWA.DOC。'],['文件夹里还能再建文件夹，所以 Windows 的文件夹结构是树形结构。',true,'从盘符根目录出发一层层分叉，像一棵倒过来的树。'],['文件名最长只能有 8 个字符。',false,'那是几十年前 DOS 的「8.3」规则，现在最长 255 个字符。'],['DULY\\SEED 表示 SEED 文件夹里的 DULY 文件夹。',false,'从左往右是从外到里：DULY 文件夹里的 SEED 文件夹。']],
+  renamedel:[['选中文件按 F2 就能重命名。',true,'也可以右键 →「重命名」。'],['把 LAO.DOC 改名成 YE.C 时弹出「可能导致文件不可用」，要点「是」才会改成功。',true,'改扩展名时 Windows 都会提醒一句，题目要求改就点「是」。'],['按 Delete 删掉的文件，还能在回收站里还原。',true,'在回收站里右键 →「还原」，文件回到原来的位置。'],['Shift + Delete 删除的文件也会进回收站。',false,'Shift + Delete 是永久删除，不进回收站。'],['删除一个文件夹，里面的文件会留在原地。',false,'文件夹连同里面的文件和子文件夹会一起被删掉。'],['「移动并改名」必须先改名再移动，顺序反了就算错。',false,'先后都行，评分只看最后的结果：目标文件夹里是新名字，原文件夹里没有它。']]
+});
+Object.assign(PAIRS,{explorer:[['Win + E','打开文件资源管理器'],['Ctrl + 单击','选几个不相邻的文件'],['Shift + 单击','选连续的一段文件'],['Ctrl + A','全选'],['F2','重命名'],['Delete','删除到回收站'],['Shift + Delete','永久删除'],['Alt + Enter','打开属性']]});
+Object.assign(ORDERS,{lnksteps:{items:[['进入 KUAN 文件夹，右键 LIN.EXE',1],['选「显示更多选项」→「创建快捷方式」',2],['选中生成的「LIN.EXE - 快捷方式」，按 Ctrl + X',3],['回到考生文件夹，按 Ctrl + V',4],['按 F2 改名为 LINA，回车',5]],start:'题目：为 KUAN 文件夹中的 LIN.EXE 建立名为 LINA 的快捷方式，存放在考生文件夹中。按做题顺序点。',done:'✓ 顺序正确'}});
+
+/* 7.x 文件图标（模拟器和属性练习共用） */
+const FX_COL={doc:'#2B579A',docx:'#2B579A',wps:'#2B579A',xls:'#217346',xlsx:'#217346',ppt:'#C43E1C',pptx:'#C43E1C',txt:'#6B7280',exe:'#7C3AED',bat:'#7C3AED'};
+function fxIcon(kind,ex,lnk){
+  const arrow=lnk?'<g transform="translate(1 13)"><rect width="9" height="9" rx="1.5" fill="#fff" stroke="#0067C0"/><path d="M2.8 6.6l3.6-3.6M3.6 2.9h3v3" stroke="#0067C0" stroke-width="1.3" fill="none"/></g>':'';
+  if(kind==='dir')return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h4.2l2 2h8.8A2.5 2.5 0 0 1 22 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5z" fill="#E8A92B"/><path d="M2 9h20v8.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5z" fill="#FFCB4D"/>${arrow}</svg>`;
+  const c=FX_COL[ex]||'#475569',l=(ex||'?').toUpperCase().slice(0,3);
+  return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 2h8l5 5v15H6z" fill="#fff" stroke="#9AA3B2"/><path d="M14 2v5h5" fill="none" stroke="#9AA3B2"/><rect x="4" y="11" width="14" height="7" rx="1.5" fill="${c}"/><text x="11" y="16.4" font-size="${l.length>2?4.2:5}" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-weight="700">${l}</text>${arrow}</svg>`}
+
+/* 7.6 属性对话框练习 */
+W.attrs=function(el){const body=$('.lab-b',el);
+  const R=[['TONG','QUSSN.MAP','设置成隐藏和存档属性',{ro:false,hid:false,arc:false},{hid:true,arc:true}],['ABC','SHU.EXE','设置成隐藏属性，并取消存档属性',{ro:false,hid:false,arc:true},{hid:true,arc:false}],['考生文件夹','NEWS','（文件夹）设置属性为隐藏，并取消存档属性',{ro:false,hid:false,arc:true,dir:true},{hid:true,arc:false}],['LUI','LINH.DOC','设置为存档和隐藏属性',{ro:false,hid:false,arc:false},{hid:true,arc:true}]];
+  let k=0,ok=0;const box=h('div');body.append(box);
+  const LBL={ro:'只读',hid:'隐藏',arc:'存档'};
+  function show(){
+    if(k>=R.length){box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div class="mono note">完成</div><div style="font-size:2rem;font-weight:900" class="grad">${ok} / ${R.length}</div><p>一次就设对 ${ok} 个。记住：只读和隐藏在「常规」页，存档在「高级」里。</p><button class="btn" id="atAgain">再来一次</button></div>`;$('#atAgain',box).onclick=()=>{k=0;ok=0;show()};return}
+    const[dir,name,task,init,want]=R[k];const a={ro:init.ro,hid:init.hid,arc:init.arc};let tmpArc=a.arc;const isDir=!!init.dir;
+    box.innerHTML='';const fb=h('div',{class:'fb'});
+    const cb=(key,txt)=>{const i=h('input',{type:'checkbox'});i.checked=a[key];i.onchange=()=>{a[key]=i.checked};return h('label',{class:'fx-ck'},i,' '+txt)};
+    const advBox=h('div',{class:'fx-dlg fx-sub',hidden:''});
+    const advCk=h('input',{type:'checkbox'});
+    advBox.append(h('div',{class:'fx-dlg-t'},'高级属性'),h('div',{class:'fx-dlg-b'},h('p',{style:'margin:0 0 8px'},'为该'+(isDir?'文件夹':'文件')+'选择你想要的设置。'),h('fieldset',{class:'fx-fs'},h('legend',{},'存档和索引属性'),h('label',{class:'fx-ck'},advCk,' 可以存档'+(isDir?'文件夹':'文件')),h('label',{class:'fx-ck',style:'opacity:.6'},h('input',{type:'checkbox',checked:'',disabled:''}),' 除了文件属性外，还允许索引此'+(isDir?'文件夹':'文件')+'的内容'))),
+      h('div',{class:'fx-dlg-f'},h('button',{class:'fx-btn pri',onclick:()=>{a.arc=advCk.checked;advBox.hidden=true}},'确定'),h('button',{class:'fx-btn',onclick:()=>{advBox.hidden=true}},'取消')));
+    const dlg=h('div',{class:'fx-dlg'},h('div',{class:'fx-dlg-t'},name+' 属性'),
+      h('div',{class:'fx-dlg-b'},h('div',{class:'fx-tabs'},h('span',{class:'on'},'常规'),h('span',{},'安全'),h('span',{},'详细信息')),
+        h('div',{class:'row',style:'gap:10px;margin:10px 0'},h('span',{html:fxIcon(isDir?'dir':'file',isDir?'':name.split('.').pop().toLowerCase())}),h('b',{},name)),
+        h('div',{class:'fx-kv'},h('span',{},'类型：'),h('span',{},isDir?'文件夹':'文件'),h('span',{},'位置：'),h('span',{},'考生文件夹'+(dir==='考生文件夹'?'':'\\'+dir))),
+        h('div',{class:'fx-kv',style:'margin-top:10px;align-items:center'},h('span',{},'属性：'),h('div',{class:'row',style:'gap:14px'},cb('ro','只读'),cb('hid','隐藏'),h('button',{class:'fx-btn',onclick:()=>{advCk.checked=a.arc;advBox.hidden=false}},'高级(D)...')))),
+      h('div',{class:'fx-dlg-f'},h('button',{class:'fx-btn pri',onclick:check},'确定'),h('button',{class:'fx-btn',onclick:()=>{show()}},'取消')));
+    function check(){const miss=[];for(const key of ['ro','hid','arc']){const exp=key in want?want[key]:init[key];if(a[key]!==exp)miss.push(`${LBL[key]}应该${exp?'勾上':'不勾'}`)}
+      const right=!miss.length;if(right)ok++;fb.className='fb '+(right?'good':'bad');
+      fb.textContent=right?'✓ 设对了。'+(want.arc!==undefined?'存档属性藏在「高级」按钮里，这一步最容易漏。':''):'✗ '+miss.join('，')+'。'+(miss.some(m=>m.startsWith('存档'))?'存档属性在「高级」按钮里。':'');
+      $$('button',dlg).forEach(b=>b.disabled=true);nx.hidden=false}
+    const nx=h('button',{class:'btn',hidden:'',style:'margin-top:10px',onclick:()=>{k++;show()}},k<R.length-1?'下一题 →':'看结果');
+    box.append(h('div',{class:'mono note'},`第 ${k+1} / ${R.length} 题`),h('div',{style:'font-size:1.12rem;font-weight:700;margin:4px 0 12px'},`将考生文件夹下 ${dir==='考生文件夹'?'':dir+' 文件夹中的'}${isDir?'':'文件 '}${name} ${task}。`),h('div',{class:'fx fx-stage'},dlg,advBox),fb,nx)}
+  show();
+};
+
+/* 7.8 通配符搜索 */
+W.wildcard=function(el){const body=$('.lab-b',el);
+  const F=['HEL.PPT','HELLO.PPTX','HWA.DOC','HWB.DOC','XIN.DOC','A1.DOC','AB.DOC','ABC.DOCX','ER.TXT','PER.TXT','BIAO.TXT','IP.TXT','BAT.BAS','TODAY.BAS','LIN.EXE','SHU.EXE','ME.XLS','CAR.DOC','QUSSN.MAP','ENE.SIN'];
+  const inp=h('input',{type:'text',value:'*.TXT',autocomplete:'off',spellcheck:'false',style:'font-family:var(--f-mono);font-size:1.05rem;width:100%'}),out=h('div',{style:'margin-top:12px'}),msg=h('p',{class:'note',style:'margin:10px 0 0'});
+  const ex=h('div',{class:'row',style:'gap:6px;margin-top:8px'},h('span',{class:'note'},'试试：'),...['*.TXT','*.DOC','H*.*','A?.DOC','??.DOC','*.?AS','*A*.*','ER.TXT'].map(p=>h('button',{class:'ghost mono',onclick:()=>{inp.value=p;run()}},p)));
+  function run(){const p=inp.value.trim();let re=null,wild=/[*?]/.test(p);
+    if(p)re=wild?new RegExp('^'+p.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$','i'):null;
+    const hit=n=>p?(wild?re.test(n):n.toLowerCase().includes(p.toLowerCase())):false;const n=F.filter(hit).length;
+    out.innerHTML='';out.append(h('div',{class:'pool',style:'border-style:solid'},...F.map(f=>h('span',{class:'chip'+(hit(f)?' ok':''),style:'cursor:default;font-family:var(--f-mono);'+(hit(f)?'':'opacity:.45')},f))));
+    msg.innerHTML=!p?'输入一个搜索条件。':wild?`找到 <b style="color:var(--good)">${n}</b> 个。* 代表任意多个字符（可以是 0 个），? 正好代表 1 个字符。`:`找到 <b style="color:var(--good)">${n}</b> 个。没写通配符时，搜索框找的是「名字里含有这段文字」的文件${p.toUpperCase()==='ER.TXT'?'，所以 PER.TXT 也被找了出来。题目让你搜 ER.TXT 时，要看清结果里哪一个名字完全一样':''}。`}
+  inp.oninput=run;body.append(inp,ex,out,msg);run();
+};
+
+/* 7.9 考生文件夹模拟器：6 套 Windows 操作题，交卷自动评分 */
+W.fileops=function(el){const body=$('.lab-b',el);
+  const KNOWN=new Set(['txt','doc','docx','xls','xlsx','ppt','pptx','exe','jpg','png','pdf','zip','mp3','mp4','wps','bat']);
+  const TYPE={txt:'文本文档',doc:'Microsoft Word 97-2003 文档',docx:'Microsoft Word 文档',xls:'Microsoft Excel 97-2003 工作表',xlsx:'Microsoft Excel 工作表',ppt:'Microsoft PowerPoint 97-2003 演示文稿',pptx:'Microsoft PowerPoint 演示文稿',exe:'应用程序',wps:'WPS 文字文档',bat:'Windows 批处理文件',jpg:'JPG 图片文件',png:'PNG 图片文件',pdf:'PDF 文档',zip:'压缩(zipped)文件夹'};
+  const BAD=/[\\/:*?"<>|]/;
+  const ext=n=>{const i=n.lastIndexOf('.');return i>0?n.slice(i+1).toLowerCase():''};
+  const stem=n=>{const i=n.lastIndexOf('.');return i>0?n.slice(0,i):n};
+  const low=s=>String(s).toLowerCase();
+  const pk=p=>p.map(low).join('/');
+  const sp=s=>s?s.split(/[\\/]/).filter(Boolean):[];
+  // ---------- 六套题 ----------
+  // files：路径以 / 结尾是文件夹；attr：初始属性（没写的默认：不只读、不隐藏、带存档）
+  const SETS7=[
+    {files:['TAI/HWA.DOC','TAI/HWB.DOC','ZUO/XIAN/HEL.PPT','ZUO/XIAN/HELP.TXT','ZUO/LIST.XLS','KUAN/LIN.EXE','KUAN/LIN.TXT','考试说明.TXT'],
+     tasks:[['在考生文件夹中分别建立 PPT 和 DOC 两个文件夹。',F=>F.all(F.mkdir('PPT'),F.mkdir('DOC'))],
+       ['在 DOC 文件夹中新建一个名为 XIN.DOC 的文件。',F=>F.mkfile('DOC/XIN.DOC')],
+       ['将考生文件夹下 TAI 文件夹中的 HWA.DOC 文件复制到考生文件夹下 DOC 文件夹中。',F=>F.copy('TAI/HWA.DOC','DOC/HWA.DOC')],
+       ['搜索考生文件夹下的 HEL.PPT 文件，然后将其移动到考生文件夹下的 PPT 文件夹中。',F=>F.move('ZUO/XIAN/HEL.PPT','PPT/HEL.PPT')],
+       ['为考生文件夹下 KUAN 文件夹中的 LIN.EXE 文件建立名为 LINA 的快捷方式，存放在考生文件夹中。',F=>F.lnk('','LINA','KUAN/LIN.EXE')]]},
+    {files:['QUEN/XINGMING.TXT','QUEN/XINGMING.BAK','WANG/','WATER/BAT.BAS','WATER/RUN.BAT','SEEE/','KING/THINK.TXT','KING/THANK.TXT','DENG/ME.XLS','DENG/YOU.XLS'],
+     tasks:[['将考生文件夹下 QUEN 文件夹中的 XINGMING.TXT 文件移动到考生文件夹下 WANG 文件夹中，并改名为 SUI.DOC。',F=>F.move('QUEN/XINGMING.TXT','WANG/SUI.DOC')],
+       ['在考生文件夹下创建文件夹 NEWS，并设置属性为隐藏并取消存档属性。',F=>F.all(F.mkdir('NEWS'),F.attr('NEWS',{hid:true,arc:false}))],
+       ['将考生文件夹下 WATER 文件夹中的 BAT.BAS 文件复制到考生文件夹下 SEEE 文件夹中。',F=>F.copy('WATER/BAT.BAS','SEEE/BAT.BAS')],
+       ['将考生文件夹下 KING 文件夹中的 THINK.TXT 文件删除。',F=>F.del('KING/THINK.TXT')],
+       ['在考生文件夹下为 DENG 文件夹中的 ME.XLS 文件建立名为 MEKU 的快捷方式。',F=>F.lnk('','MEKU','DENG/ME.XLS')]]},
+    {files:['SOCK/XING.WPS','SOCK/MING.WPS','DULY/SEED/','DULY/README.TXT','WANG/LIU/CAR.DOC','WANG/LIU/BUS.DOC','ZHANG/','TONG/QUSSN.MAP','TONG/QUSSN.TXT','TESS/LAO.DOC','SANG/'],attr:{'TONG/QUSSN.MAP':{arc:false}},
+     tasks:[['将考生文件夹下 SOCK 文件夹中的文件 XING.WPS 删除。',F=>F.del('SOCK/XING.WPS')],
+       ['在考生文件夹下 DULY\\SEED 文件夹中建立一个名为 WOMAN 的新文件夹。',F=>F.mkdir('DULY/SEED/WOMAN')],
+       ['将考生文件夹下 WANG\\LIU 文件夹中的文件 CAR.DOC 复制到考生文件夹下 ZHANG 文件夹中。',F=>F.copy('WANG/LIU/CAR.DOC','ZHANG/CAR.DOC')],
+       ['将考生文件夹下 TONG 文件夹中的文件 QUSSN.MAP 设置成隐藏和存档属性。',F=>F.attr('TONG/QUSSN.MAP',{hid:true,arc:true})],
+       ['将考生文件夹下 TESS 文件夹中的文件 LAO.DOC 移动到考生文件夹下 SANG 文件夹中，并改名为 YE.C。',F=>F.move('TESS/LAO.DOC','SANG/YE.C')]]},
+    {files:['GUANG/','ABC/SHU.EXE','ABC/SHU.TXT','BOOK/MEN/ER.TXT','BOOK/HER.DOC','TXT/','AIR/WIND.TXT','AIR/CLOUD/','CHU/DATA.XLS','SHOU/'],
+     tasks:[['在考生文件夹下 GUANG 文件夹中新建名为 BIAO.TXT 的文件。',F=>F.mkfile('GUANG/BIAO.TXT')],
+       ['将考生文件夹下 ABC 文件夹中的文件 SHU.EXE 设置成隐藏属性，并取消存档属性。',F=>F.attr('ABC/SHU.EXE',{hid:true,arc:false})],
+       ['搜索考生文件夹下的 ER.TXT 文件，然后将其复制到考生文件夹下的 TXT 文件夹中。',F=>F.copy('BOOK/MEN/ER.TXT','TXT/ER.TXT')],
+       ['删除考生文件夹下 AIR 文件夹。',F=>F.del('AIR')],
+       ['为考生文件夹下的 CHU 文件夹建立名为 CHUB 的快捷方式，存放在考生文件夹下的 SHOU 文件夹中。',F=>F.lnk('SHOU','CHUB','CHU')]]},
+    {files:['SONGG/EEEN.TXT','SONGG/EEEN.DOC','EN/','ERST/IP.TXT','SENG/','DAY/TIME/TODAY.BAS','DAY/TIME/NOW.BAS','YER/','SINGLE/ONE.TXT','SINGLE/TWO/'],attr:{'ERST/IP.TXT':{arc:false}},
+     tasks:[['将考生文件夹下 SONGG 文件夹中的文件 EEEN.TXT 复制到考生文件夹下 EN 文件夹中。',F=>F.copy('SONGG/EEEN.TXT','EN/EEEN.TXT')],
+       ['将考生文件夹下 ERST 文件夹中的文件 IP.TXT 设置成为隐藏和存档属性。',F=>F.attr('ERST/IP.TXT',{hid:true,arc:true})],
+       ['在考生文件夹下 SENG 文件夹中建立一个名为 YI 的新文件夹。',F=>F.mkdir('SENG/YI')],
+       ['将考生文件夹下 DAY\\TIME 文件夹中的文件 TODAY.BAS 移动到考生文件夹下 YER 文件夹中，并改名为 TULE.C。',F=>F.move('DAY/TIME/TODAY.BAS','YER/TULE.C')],
+       ['将考生文件夹下 SINGLE 文件夹删除。',F=>F.del('SINGLE')]]},
+    {files:['FENG/AI/','FENG/AI.TXT','HING/NY/XIENG.NEW','HING/NY/XIENG.OLD','ZUIWO/','TSAN/ENE.SIN','TSAN/ENE.COS','XUE/','PHU/MU/ITK.DAT','PHU/MU/ITK.BAK','LUI/LINH.DOC'],attr:{'LUI/LINH.DOC':{arc:false}},
+     tasks:[['在考生文件夹下 FENG\\AI 文件夹中建立一个新文件夹 HTUOUT。',F=>F.mkdir('FENG/AI/HTUOUT')],
+       ['将考生文件夹下 HING\\NY 文件夹中的文件 XIENG.NEW 移动到考生文件夹下 ZUIWO 文件夹中，并将该文件改名为 SUIM.ENG。',F=>F.move('HING/NY/XIENG.NEW','ZUIWO/SUIM.ENG')],
+       ['将考生文件夹下 TSAN 文件夹中的文件 ENE.SIN 复制到考生文件夹下 XUE 文件夹中。',F=>F.copy('TSAN/ENE.SIN','XUE/ENE.SIN')],
+       ['将考生文件夹下 PHU\\MU 文件夹中的文件 ITK.DAT 删除。',F=>F.del('PHU/MU/ITK.DAT')],
+       ['将考生文件夹下 LUI 文件夹中的文件 LINH.DOC 设置为存档和隐藏属性。',F=>F.attr('LUI/LINH.DOC',{hid:true,arc:true})]]}];
+  const NUM='一二三四五六';
+  // ---------- 文件树 ----------
+  const mk=(name,dir)=>({name,dir:!!dir,kids:dir?[]:null,ro:false,hid:false,arc:true,lnk:false,target:null});
+  function build(s){const root=mk('考生文件夹',true);for(const f of s.files){const parts=sp(f),isDir=f.endsWith('/');let cur=root;parts.forEach((p,i)=>{const last=i===parts.length-1;let n=cur.kids.find(k=>low(k.name)===low(p));if(!n){n=mk(p,!last||isDir);cur.kids.push(n)}cur=n})}
+    for(const[p,a]of Object.entries(s.attr||{})){const n=get(root,sp(p));if(n)Object.assign(n,a)}return root}
+  function get(root,path){let cur=root;for(const p of path){if(!cur||!cur.dir)return null;cur=cur.kids.find(k=>low(k.name)===low(p));if(!cur)return null}return cur}
+  const clone=n=>({...n,kids:n.kids?n.kids.map(clone):null,target:n.target?n.target.slice():null});
+  const walk=(n,path,fn)=>{fn(n,path);if(n.dir)n.kids.forEach(k=>walk(k,path.concat(k.name),fn))};
+  // ---------- 评分工具 ----------
+  function grader(root){const G=p=>get(root,sp(p)),where=p=>'考生文件夹'+(p.length?'\\'+p.join('\\'):''),parentOf=p=>sp(p).slice(0,-1).join('/');
+    const findAll=pred=>{const r=[];walk(root,[],(n,p)=>{if(p.length&&pred(n,p))r.push(p)});return r};
+    const nm=p=>sp(p).pop();
+    const F={
+      all:(...rs)=>{const bad=rs.filter(r=>!r[0]);return bad.length?[false,bad.map(r=>r[1]).join('；')]:[true,rs.map(r=>r[1]).filter(Boolean).join('；')]},
+      mkdir(p){const n=G(p);if(n&&n.dir)return[true,''];if(n)return[false,`${nm(p)} 是个文件，题目要的是文件夹`];
+        const par=parentOf(p);if(par&&!G(par))return[false,`找不到 ${where(sp(par))}，上级文件夹被删掉或改名了`];
+        const other=findAll((x,q)=>x.dir&&low(x.name)===low(nm(p)));if(other.length)return[false,`${nm(p)} 建在了 ${where(other[0].slice(0,-1))}，应该建在 ${where(sp(par))}`];
+        const near=G(par||'')?.kids.find(k=>k.dir&&low(k.name).startsWith(low(nm(p))));if(near)return[false,`${where(sp(par))} 里的文件夹叫「${near.name}」，名字不对`];
+        return[false,`${where(sp(par))} 里没有 ${nm(p)} 文件夹`]},
+      mkfile(p){const n=G(p);if(n&&!n.dir&&!n.lnk)return[true,''];if(n&&n.dir)return[false,`${nm(p)} 建成了文件夹，题目要的是文件`];
+        const par=G(parentOf(p));if(!par)return[false,`找不到 ${where(sp(parentOf(p)))}`];
+        const near=par.kids.find(k=>!k.dir&&low(k.name).startsWith(low(nm(p))));if(near)return[false,`${where(sp(parentOf(p)))} 里的文件真实名字是「${near.name}」，扩展名不对。改名前要先在「查看」里打开「文件扩展名」，把整个名字连扩展名一起改`];
+        const st=par.kids.find(k=>!k.dir&&low(stem(k.name))===low(stem(nm(p))));if(st)return[false,`找到的是「${st.name}」，扩展名应该是 .${ext(nm(p)).toUpperCase()}`];
+        const other=findAll((x)=>!x.dir&&low(x.name)===low(nm(p)));if(other.length)return[false,`${nm(p)} 建在了 ${where(other[0].slice(0,-1))}`];
+        return[false,`${where(sp(parentOf(p)))} 里没有 ${nm(p)}`]},
+      copy(src,dst){const a=G(src),b=G(dst);if(b&&!b.dir&&a)return[true,''];
+        if(b&&!a)return[false,`${where(sp(parentOf(dst)))} 里有了，但 ${where(sp(parentOf(src)))} 里的原文件没了——这是移动，不是复制`];
+        if(!b){const par=G(parentOf(dst));if(!par)return[false,`找不到目标文件夹 ${where(sp(parentOf(dst)))}`];
+          const lk=par.kids.find(k=>k.lnk&&low(k.name).includes(low(stem(nm(dst)))));if(lk)return[false,`目标文件夹里放的是快捷方式「${lk.name}」，要的是文件本身`];
+          const other=findAll((x,q)=>!x.dir&&!x.lnk&&low(x.name)===low(nm(dst))&&pk(q)!==pk(sp(src)));if(other.length)return[false,`复制到了 ${where(other[0].slice(0,-1))}，目标应该是 ${where(sp(parentOf(dst)))}`];
+          if(!a)return[false,`原文件 ${nm(src)} 不见了，目标文件夹里也没有`];return[false,`${where(sp(parentOf(dst)))} 里没有 ${nm(dst)}`]}
+        return[false,'目标位置的名字被占用了']},
+      move(src,dst){const a=G(src),b=G(dst);if(b&&!b.dir&&!a)return[true,''];
+        const par=G(parentOf(dst));if(!par)return[false,`找不到目标文件夹 ${where(sp(parentOf(dst)))}`];
+        if(b&&a)return[false,`目标里有了，但原文件还在 ${where(sp(parentOf(src)))}——这是复制，不是移动`];
+        const renamedSrc=low(nm(src))!==low(nm(dst));
+        if(renamedSrc){const old=par.kids.find(k=>!k.dir&&low(k.name)===low(nm(src)));if(old)return[false,`已经移到 ${where(sp(parentOf(dst)))}，但还叫 ${old.name}，没改名为 ${nm(dst)}`];
+          const near=par.kids.find(k=>!k.dir&&low(k.name).startsWith(low(nm(dst))));if(near)return[false,`改名后的真实名字是「${near.name}」，扩展名不对。要先打开「文件扩展名」再改名`];
+          const st=par.kids.find(k=>!k.dir&&low(stem(k.name))===low(stem(nm(dst))));if(st)return[false,`改成了「${st.name}」，扩展名应该是 .${ext(nm(dst)).toUpperCase()}`]}
+        if(a)return[false,`${nm(src)} 还在原来的 ${where(sp(parentOf(src)))}，没有移动`];
+        const other=findAll((x,q)=>!x.dir&&(low(x.name)===low(nm(dst))||low(x.name)===low(nm(src))));if(other.length)return[false,`文件到了 ${where(other[0].slice(0,-1))}，应该在 ${where(sp(parentOf(dst)))}`];
+        return[false,`${nm(src)} 不见了，${where(sp(parentOf(dst)))} 里也没有 ${nm(dst)}（是不是删掉了？可以去回收站还原）`]},
+      del(p){const n=G(p),par=parentOf(p);if(n)return[false,`${where(sp(p))} 还在${n.hid?'（只是被设成了隐藏，并没有删掉）':''}`];if(par&&!G(par))return[false,`删多了：整个 ${where(sp(par))} 都被删掉了`];return[true,'']},
+      attr(p,want){const n=G(p);if(!n)return[false,`找不到 ${where(sp(p))}`];const L={ro:'只读',hid:'隐藏',arc:'存档'},bad=[];
+        for(const k of ['hid','arc','ro'])if(k in want&&n[k]!==want[k])bad.push(`${L[k]}应该${want[k]?'勾上':'取消'}`);
+        return bad.length?[false,bad.join('，')+(bad.some(b=>b.startsWith('存档'))?'（存档在「属性 → 高级」里）':'')]:[true,'']},
+      lnk(dir,name,target){const par=G(dir);if(!par)return[false,`找不到 ${where(sp(dir))}`];const tk=pk(sp(target));
+        const lk=par.kids.filter(k=>k.lnk);const okOne=lk.find(k=>low(k.name)===low(name)&&k.target&&pk(k.target)===tk);if(okOne)return[true,''];
+        const sameTarget=lk.find(k=>k.target&&pk(k.target)===tk);if(sameTarget)return[false,`快捷方式叫「${sameTarget.name}」，应该改名为 ${name}`];
+        const sameName=lk.find(k=>low(k.name)===low(name));if(sameName)return[false,`${name} 指向的不是 ${target.replace(/\//g,'\\')}`];
+        const elsewhere=findAll((x,q)=>x.lnk&&x.target&&pk(x.target)===tk);if(elsewhere.length)return[false,`快捷方式放在了 ${where(elsewhere[0].slice(0,-1))}，应该放在 ${where(sp(dir))}`];
+        const plain=par.kids.find(k=>!k.lnk&&low(stem(k.name))===low(name));if(plain)return[false,`${where(sp(dir))} 里的「${plain.name}」是普通${plain.dir?'文件夹':'文件'}，不是快捷方式`];
+        return[false,`${where(sp(dir))} 里没有名为 ${name} 的快捷方式`]}};
+    return F}
+  // ---------- 状态 ----------
+  const best=store.get('fileops-best',{});
+  const S={set:0,root:null,cwd:[],hist:[],sel:new Set(),anchor:null,clip:null,bin:[],showExt:false,showHid:false,q:'',inBin:false,editing:null,graded:null};
+  const saved={};
+  function clearUI(){$$('.fx-ov',win).forEach(o=>o.remove());closeMenu()}
+  function load(i){clearUI();if(S.root)saved[S.set]={root:S.root,bin:S.bin};S.set=i;const sv=saved[i];S.root=sv?sv.root:build(SETS7[i]);S.bin=sv?sv.bin:[];S.cwd=[];S.hist=[];S.sel.clear();S.clip=null;S.q='';S.inBin=false;S.editing=null;S.graded=null;paintAll()}
+  function reset(){clearUI();delete saved[S.set];S.root=null;const i=S.set;S.root=build(SETS7[i]);S.bin=[];S.cwd=[];S.hist=[];S.sel.clear();S.clip=null;S.q='';S.inBin=false;S.editing=null;S.graded=null;paintAll()}
+  const cwdNode=()=>get(S.root,S.cwd);
+  const show=n=>S.showHid||!n.hid;
+  const dispName=n=>n.dir||n.lnk?n.name:(S.showExt||!KNOWN.has(ext(n.name))?n.name:stem(n.name));
+  const typeOf=n=>n.lnk?'快捷方式':n.dir?'文件夹':(TYPE[ext(n.name)]||(ext(n.name)?ext(n.name).toUpperCase()+' 文件':'文件'));
+  const iconOf=n=>{if(n.lnk){const t=n.target&&get(S.root,n.target);return fxIcon(t&&t.dir?'dir':'file',t&&!t.dir?ext(t.name):'',true)}return fxIcon(n.dir?'dir':'file',ext(n.name),false)};
+  const attrStr=n=>[n.ro?'R':'',n.hid?'H':'',n.arc?'A':''].filter(Boolean).join(' ')||'—';
+  function entries(){if(S.inBin)return S.bin.map((b,i)=>({node:b.node,path:null,bin:i,from:b.from}));
+    const cur=cwdNode();if(!cur)return[];
+    if(S.q){const q=S.q.trim(),wild=/[*?]/.test(q),re=wild?new RegExp('^'+q.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$','i'):null;const r=[];
+      const rec=(n,p)=>{for(const k of n.kids){if(!show(k))continue;const kp=p.concat(k.name);const nmv=k.lnk?k.name:k.name;if(wild?re.test(nmv):low(nmv).includes(low(q)))r.push({node:k,path:kp});if(k.dir)rec(k,kp)}};rec(cur,S.cwd.slice());return r}
+    return cur.kids.filter(show).slice().sort((a,b)=>(b.dir-a.dir)||a.name.localeCompare(b.name,'zh')).map(k=>({node:k,path:S.cwd.concat(k.name)}))}
+  const selected=()=>entries().filter(e=>S.sel.has(e.path?pk(e.path):'bin'+e.bin));
+  const keyOf=e=>e.path?pk(e.path):'bin'+e.bin;
+  // ---------- DOM ----------
+  const wrap=h('div',{class:'fx-wrap'});
+  const setBar=h('div',{class:'seg'},...SETS7.map((s,i)=>h('button',{'aria-pressed':String(i===0)},'第'+NUM[i]+'套')));
+  const taskBox=h('div',{class:'fx-tasks'}),scoreBox=h('div');
+  const side=h('div',{class:'fx-side'},h('div',{class:'row',style:'justify-content:space-between;gap:8px'},h('b',{},'本套题目'),h('span',{class:'note'},'每小题 20 分')),taskBox,
+    h('div',{class:'row',style:'gap:8px;margin-top:10px'},h('button',{class:'btn',onclick:grade},'交卷评分'),h('button',{class:'ghost',onclick:()=>{if(confirmReset())reset()}},'重做本套')),scoreBox,
+    h('p',{class:'note',style:'margin:10px 0 0;font-size:.8rem'},'模拟器里可以右键、用工具栏，也可以用快捷键：Ctrl + C / X / V、F2、Delete、Shift + Delete、Alt + Enter、Backspace 返回上一级。'));
+  const win=h('div',{class:'fx fx-win',tabindex:'0'});const wf=()=>{try{win.focus({preventScroll:true})}catch(e){}};
+  wrap.append(h('div',{class:'row',style:'justify-content:space-between;gap:10px;margin-bottom:12px'},setBar,h('span',{class:'note',id:'fxBest'})),h('div',{class:'fx-grid'},side,win));
+  body.append(wrap);
+  seg(setBar,i=>load(i));
+  function confirmReset(){return true}
+  // 窗口骨架
+  const cmd=h('div',{class:'fx-cmd'}),addr=h('div',{class:'fx-addr'}),tree=h('div',{class:'fx-tree'}),list=h('div',{class:'fx-list'}),status=h('div',{class:'fx-status'}),toastEl=h('div',{class:'fx-toast',hidden:''});
+  const searchIn=h('input',{type:'text',placeholder:'搜索',autocomplete:'off',spellcheck:'false'});
+  const backBtn=h('button',{class:'fx-ic',title:'返回 (Backspace)',onclick:back},'←'),upBtn=h('button',{class:'fx-ic',title:'上一级',onclick:up},'↑');
+  win.append(h('div',{class:'fx-title'},h('span',{html:fxIcon('dir','',false)}),h('span',{id:'fxTitle'},'考生文件夹'),h('span',{class:'fx-wbtn'},'—　☐　✕')),cmd,h('div',{class:'fx-nav'},backBtn,upBtn,addr,h('div',{class:'fx-search'},h('span',{},'⌕'),searchIn)),h('div',{class:'fx-main'},tree,h('div',{class:'fx-pane'},h('div',{class:'fx-head'},h('span',{},'名称'),h('span',{},'类型'),h('span',{},'属性')),list)),status,toastEl);
+  let tt;function toast(t){toastEl.textContent=t;toastEl.hidden=false;clearTimeout(tt);tt=setTimeout(()=>toastEl.hidden=true,2600)}
+  // 通用弹窗
+  function modal(title,content,buttons){return new Promise(res=>{const ov=h('div',{class:'fx-ov'});const d=h('div',{class:'fx-dlg',style:'min-width:300px;max-width:440px'},h('div',{class:'fx-dlg-t'},title),h('div',{class:'fx-dlg-b'},content),h('div',{class:'fx-dlg-f'},...buttons.map((b,i)=>h('button',{class:'fx-btn'+(i===0?' pri':''),onclick:()=>{close();res(i)}},b))));ov.append(d);function close(){ov.remove();const prev=$$('.fx-ov',win).pop();const b=prev&&$('.fx-btn',prev);if(b)b.focus({preventScroll:true});else wf()}ov.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();res(buttons.length-1)}});win.append(ov);setTimeout(()=>{const b=$('.fx-btn',d);b&&b.focus()},20)})}
+  // 菜单
+  let menu=null;function closeMenu(){if(menu){menu.remove();menu=null}}
+  function openMenu(x,y,items){closeMenu();const r=win.getBoundingClientRect();menu=h('div',{class:'fx-menu'});
+    items.forEach(it=>{if(it==='-'){menu.append(h('div',{class:'fx-sep'}));return}const[t,fn,dis,k]=it;menu.append(h('button',{disabled:dis?'':null,onclick:()=>{closeMenu();fn()}},h('span',{},t),k?h('span',{class:'fx-k'},k):''))});
+    win.append(menu);const mw=menu.offsetWidth,mh=menu.offsetHeight;menu.style.left=Math.min(x-r.left,r.width-mw-6)+'px';menu.style.top=Math.min(y-r.top,r.height-mh-6)+'px'}
+  document.addEventListener('pointerdown',e=>{if(menu&&!menu.contains(e.target))closeMenu()},true);
+  // ---------- 渲染 ----------
+  function paintAll(){paintTasks();paintCmd();paintAddr();paintTree();paintList();const b=best[S.set];$('#fxBest',wrap).textContent=b!=null?`本套最高 ${b} 分`:''}
+  function paintTasks(){taskBox.innerHTML='';SETS7[S.set].tasks.forEach(([t],i)=>{const g=S.graded&&S.graded[i];taskBox.append(h('div',{class:'fx-task'+(g?(g[0]?' ok':' no'):'')},h('span',{class:'fx-n'},g?(g[0]?'✓':'✗'):String(i+1)),h('div',{},h('div',{},t),g&&g[1]?h('div',{class:'fx-why'},g[1]):null)))});
+    scoreBox.innerHTML='';if(S.graded){const sc=S.graded.filter(g=>g[0]).length*20;scoreBox.append(h('div',{class:'card',style:'margin-top:10px;text-align:center'},h('div',{class:'mono note'},'本次得分'),h('div',{class:sc===100?'grad':'',style:'font-size:2.2rem;font-weight:900;line-height:1.2'},sc+' 分'),h('p',{style:'margin:4px 0 0'},sc===100?'全对！可以换一套继续练。':'对照上面标 ✗ 的小题改一改，再交一次。')))}}
+  function paintCmd(){cmd.innerHTML='';const sel=selected(),one=sel.length===1,any=sel.length>0,inB=S.inBin;
+    const B=(t,fn,dis,title)=>h('button',{class:'fx-cb',disabled:dis?'':null,title:title||t,onclick:fn},t);
+    cmd.append(h('button',{class:'fx-cb pri',disabled:inB?'':null,onclick:e=>{const r=e.currentTarget.getBoundingClientRect();openMenu(r.left,r.bottom+2,newItems())}},'＋ 新建 ▾'),h('span',{class:'fx-vsep'}),
+      B('✂ 剪切',()=>doClip('cut'),!any||inB||S.editing,'剪切 (Ctrl+X)'),B('⧉ 复制',()=>doClip('copy'),!any||inB||S.editing,'复制 (Ctrl+C)'),B('📋 粘贴',paste,!S.clip||inB||!!S.q,'粘贴 (Ctrl+V)'),
+      B('✎ 重命名',()=>startRename(),!one||inB,'重命名 (F2)'),B('🗑 删除',()=>del(false),!any||inB,'删除 (Delete)'),h('span',{class:'fx-vsep'}),
+      B('🔗 创建快捷方式',mkShortcut,!any||inB),B('ⓘ 属性',()=>props(),!one||inB,'属性 (Alt+Enter)'),h('span',{class:'fx-vsep'}),
+      h('button',{class:'fx-cb',onclick:e=>{const r=e.currentTarget.getBoundingClientRect();openMenu(r.left,r.bottom+2,[[`${S.showExt?'☑':'☐'} 文件扩展名`,()=>{S.showExt=!S.showExt;paintAll()}],[`${S.showHid?'☑':'☐'} 隐藏的项目`,()=>{S.showHid=!S.showHid;S.sel.clear();paintAll()}]])}},'👁 查看 ▾'));
+    if(inB)cmd.append(h('span',{class:'fx-vsep'}),B('↩ 还原选定的项目',restore,!any),B('清空回收站',emptyBin,!S.bin.length))}
+  function paintAddr(){addr.innerHTML='';backBtn.disabled=!S.hist.length;upBtn.disabled=S.inBin||!S.cwd.length;
+    if(S.inBin){addr.append(h('span',{class:'fx-crumb'},'🗑 回收站'));$('#fxTitle',win).textContent='回收站';return}
+    const parts=['考生文件夹',...S.cwd];parts.forEach((p,i)=>{if(i)addr.append(h('span',{class:'fx-gt'},'›'));addr.append(h('button',{class:'fx-crumb',onclick:()=>go(S.cwd.slice(0,i))},p))});
+    if(S.q)addr.append(h('span',{class:'fx-gt'},'›'),h('span',{class:'fx-crumb'},'「'+S.q+'」的搜索结果'));
+    $('#fxTitle',win).textContent=S.q?'「'+S.q+'」的搜索结果':(parts[parts.length-1])}
+  function paintTree(){tree.innerHTML='';const row=(n,path,d)=>{if(!n.dir||!show(n))return;const on=!S.inBin&&pk(path)===pk(S.cwd)&&!S.q;
+      tree.append(h('button',{class:'fx-tn'+(on?' on':'')+(n.hid?' hid':''),style:`padding-left:${8+d*14}px`,onclick:()=>go(path)},h('span',{html:fxIcon('dir','',false)}),n.name));
+      n.kids.filter(k=>k.dir).sort((a,b)=>a.name.localeCompare(b.name,'zh')).forEach(k=>row(k,path.concat(k.name),d+1))};
+    row(S.root,[],0);tree.append(h('div',{class:'fx-sep',style:'margin:6px 0'}),h('button',{class:'fx-tn'+(S.inBin?' on':''),onclick:()=>{pushHist();S.inBin=true;S.q='';searchIn.value='';S.sel.clear();paintAll()}},'🗑 回收站'+(S.bin.length?`（${S.bin.length}）`:'')))}
+  function paintList(){list.innerHTML='';const es=entries();
+    if(!es.length)list.append(h('div',{class:'fx-empty'},S.inBin?'回收站是空的。':S.q?'没有与搜索条件匹配的项。':'此文件夹为空。'));
+    es.forEach((e,idx)=>{const n=e.node,k=keyOf(e),on=S.sel.has(k),cut=S.clip&&S.clip.mode==='cut'&&e.path&&S.clip.items.some(c=>pk(c)===k);
+      const nameCell=h('span',{class:'fx-nm'},h('span',{html:iconOf(n)}));
+      if(S.editing&&e.path&&pk(S.editing)===k){const showFull=n.dir||n.lnk||S.showExt||!KNOWN.has(ext(n.name));const inp=h('input',{type:'text',class:'fx-ren',value:showFull?n.name:stem(n.name),spellcheck:'false'});
+        let done=false;const finish=ok=>{if(done)return;done=true;if(ok)commitRename(e,inp.value,showFull);else{S.editing=null;paintList();wf()}};
+        inp.onkeydown=ev=>{ev.stopPropagation();if(ev.key==='Enter'){ev.preventDefault();finish(true)}else if(ev.key==='Escape'){ev.preventDefault();finish(false)}};inp.onblur=()=>finish(true);
+        nameCell.append(inp);setTimeout(()=>{inp.focus();const v=inp.value,dot=showFull&&!n.dir&&!n.lnk?v.lastIndexOf('.'):-1;inp.setSelectionRange(0,dot>0?dot:v.length)},10)}
+      else nameCell.append(h('span',{},dispName(n)));
+      const row=h('div',{class:'fx-row'+(on?' on':'')+(n.hid?' hid':'')+(cut?' cut':''),'data-k':k},nameCell,h('span',{class:'fx-ty'},S.inBin?'原位置：'+('考生文件夹'+(e.from.length?'\\'+e.from.join('\\'):'')):S.q?('考生文件夹'+(e.path.length>1?'\\'+e.path.slice(0,-1).join('\\'):'')):typeOf(n)),h('span',{class:'fx-at mono'},attrStr(n)));
+      row.onpointerdown=ev=>{if(ev.button===2&&S.sel.has(k))return;if(S.editing)return;clickSel(ev,k,es,idx)};
+      row.ondblclick=()=>openEntry(e);
+      row.oncontextmenu=ev=>{ev.preventDefault();if(!S.sel.has(k)){S.sel=new Set([k]);S.anchor=idx;paintSel()}itemMenu(ev,e)};
+      list.append(row)});
+    paintStatus(es)}
+  function paintStatus(es){es=es||entries();const sel=es.filter(e=>S.sel.has(keyOf(e))).length;status.textContent=`${es.length} 个项目`+(sel?`　　选中 ${sel} 个项目`:'')+(S.clip?`　　剪贴板：${S.clip.mode==='cut'?'剪切':'复制'}了 ${S.clip.items.length} 项`:'')}
+  function paintSel(){$$('.fx-row',list).forEach(r=>r.classList.toggle('on',S.sel.has(r.dataset.k)));paintStatus();paintCmd()}
+  list.onpointerdown=e=>{if(e.target===list||e.target.classList.contains('fx-empty')){if(S.editing)return;S.sel.clear();paintSel();wf()}};
+  list.oncontextmenu=e=>{if(e.target!==list&&!e.target.classList.contains('fx-empty'))return;e.preventDefault();if(S.inBin)return;S.sel.clear();paintList();paintCmd();
+    openMenu(e.clientX,e.clientY,[['粘贴',paste,!S.clip||!!S.q,'Ctrl+V'],'-',...newItems().map(([t,f])=>['新建 '+t.replace(/^\S+ /,''),f]),'-',['查看：'+(S.showExt?'隐藏':'显示')+'文件扩展名',()=>{S.showExt=!S.showExt;paintAll()}],['查看：'+(S.showHid?'不显示':'显示')+'隐藏的项目',()=>{S.showHid=!S.showHid;paintAll()}]])};
+  function clickSel(ev,k,es,idx){if(ev.shiftKey&&S.anchor!=null){S.sel=new Set(es.slice(Math.min(S.anchor,idx),Math.max(S.anchor,idx)+1).map(keyOf))}else if(ev.ctrlKey||ev.metaKey){S.sel.has(k)?S.sel.delete(k):S.sel.add(k);S.anchor=idx}else{S.sel=new Set([k]);S.anchor=idx}paintSel();wf()}
+  function itemMenu(ev,e){if(S.inBin){openMenu(ev.clientX,ev.clientY,[['还原',restore],['删除（永久）',()=>emptyBin(true)]]);return}
+    const one=selected().length===1;openMenu(ev.clientX,ev.clientY,[['打开',()=>openEntry(e),!one],...(S.q?[['打开文件所在的位置',()=>{const p=e.path.slice(0,-1);clearSearch();go(p);S.sel=new Set([pk(e.path)]);paintList();paintCmd()}]]:[]),'-',['剪切',()=>doClip('cut'),0,'Ctrl+X'],['复制',()=>doClip('copy'),0,'Ctrl+C'],'-',['创建快捷方式',mkShortcut],['删除',()=>del(false),0,'Delete'],['重命名',()=>startRename(),!one,'F2'],'-',['属性',()=>props(),!one,'Alt+Enter']])}
+  function newItems(){return[['📁 文件夹',()=>mkNew('dir')],['🔗 快捷方式',shortcutWizard],['📄 文本文档',()=>mkNew('txt')],['📄 Microsoft Word 文档',()=>mkNew('docx')],['📄 Microsoft Excel 工作表',()=>mkNew('xlsx')],['📄 Microsoft PowerPoint 演示文稿',()=>mkNew('pptx')]]}
+  // ---------- 导航 ----------
+  function pushHist(){S.hist.push({cwd:S.cwd.slice(),inBin:S.inBin,q:S.q});if(S.hist.length>50)S.hist.shift()}
+  function go(path){if(S.editing)return;pushHist();S.cwd=path.slice();S.inBin=false;clearSearch(true);S.sel.clear();paintAll();wf()}
+  function back(){const p=S.hist.pop();if(!p)return;S.cwd=p.cwd;S.inBin=p.inBin;S.q=p.q||'';searchIn.value=S.q;if(!get(S.root,S.cwd))S.cwd=[];S.sel.clear();paintAll()}
+  function up(){if(S.inBin||!S.cwd.length)return;go(S.cwd.slice(0,-1))}
+  function clearSearch(silent){S.q='';searchIn.value='';if(!silent)paintAll()}
+  function openEntry(e){if(!e.path)return;const n=e.node;if(n.dir)return go(e.path);if(n.lnk){const t=n.target&&get(S.root,n.target);if(!t)return toast('快捷方式指向的项目已被移动或删除，无法打开。');if(t.dir)return go(n.target);return toast(`打开快捷方式 → 等于打开 ${t.name}（模拟环境里不真的打开文件）`)}toast('这是模拟环境，不能真的打开文件。')}
+  searchIn.oninput=()=>{S.q=searchIn.value;S.inBin=false;S.sel.clear();paintAddr();paintList();paintCmd();paintTree()};
+  searchIn.onkeydown=e=>{e.stopPropagation();if(e.key==='Escape'){clearSearch()}};
+  // ---------- 操作 ----------
+  const unique=(par,name,isDir)=>{const has=n=>par.kids.some(k=>low(k.name)===low(n));if(!has(name))return name;const st=isDir?name:stem(name),ex=isDir?'':(ext(name)?'.'+name.slice(name.lastIndexOf('.')+1):'');for(let i=2;;i++){const n=`${st} (${i})${ex}`;if(!has(n))return n}};
+  function mkNew(kind){if(S.q)clearSearch(true);const par=cwdNode();const base={dir:'新建文件夹',txt:'新建 文本文档.txt',docx:'新建 Microsoft Word 文档.docx',xlsx:'新建 Microsoft Excel 工作表.xlsx',pptx:'新建 Microsoft PowerPoint 演示文稿.pptx'}[kind];
+    const n=mk(unique(par,base,kind==='dir'),kind==='dir');par.kids.push(n);const p=S.cwd.concat(n.name);S.sel=new Set([pk(p)]);S.editing=p;paintAll()}
+  function startRename(){const s=selected();if(s.length!==1||!s[0].path)return;S.editing=s[0].path;paintList()}
+  async function commitRename(e,val,showFull){const n=e.node,old=n.name;let nv=val.trim();S.editing=null;
+    if(!nv){paintList();return}
+    if(!showFull)nv=nv+'.'+old.slice(old.lastIndexOf('.')+1);
+    if(BAD.test(nv)){paintList();toast('文件名不能包含下列任何字符：\\ / : * ? " < > |');return}
+    const par=get(S.root,e.path.slice(0,-1));if(par.kids.some(k=>k!==n&&low(k.name)===low(nv))){paintList();toast(`此位置已经包含名为「${nv}」的${n.dir?'文件夹':'文件'}。`);return}
+    if(!n.dir&&!n.lnk&&showFull&&ext(nv)!==ext(old)){const c=await modal('重命名',h('p',{style:'margin:0'},'如果改变文件扩展名，可能会导致文件不可用。',h('br'),'确实要更改吗？'),['是(Y)','否(N)']);if(c!==0){paintList();wf();return}}
+    n.name=nv;const np=e.path.slice(0,-1).concat(nv);if(S.clip)S.clip.items=S.clip.items.map(c=>pk(c)===pk(e.path)?np:c);S.sel=new Set([pk(np)]);paintAll();wf()}
+  function doClip(mode){const s=selected().filter(e=>e.path);if(!s.length)return;S.clip={mode,items:s.map(e=>e.path.slice())};paintList();paintCmd();toast(mode==='cut'?`已剪切 ${s.length} 项，到目标文件夹按 Ctrl + V 粘贴`:`已复制 ${s.length} 项，到目标文件夹按 Ctrl + V 粘贴`)}
+  async function paste(){if(!S.clip||S.inBin)return;if(S.q)return toast('不能粘贴到搜索结果里，先进入目标文件夹。');const dest=cwdNode(),mode=S.clip.mode;let n=0;const newSel=[];
+    for(const p of S.clip.items){const src=get(S.root,p);if(!src)continue;const srcPar=get(S.root,p.slice(0,-1)),same=pk(p.slice(0,-1))===pk(S.cwd);
+      if(src.dir&&pk(S.cwd).startsWith(pk(p))&&(pk(S.cwd)===pk(p)||pk(S.cwd).startsWith(pk(p)+'/'))){toast('目标文件夹是源文件夹的子文件夹，不能这样'+(mode==='cut'?'移动':'复制')+'。');continue}
+      if(mode==='cut'&&same)continue;
+      let item=mode==='cut'?src:clone(src);
+      if(mode==='copy'&&same){item.name=(src.dir?src.name:stem(src.name))+' - 副本'+(src.dir||!ext(src.name)?'':src.name.slice(src.name.lastIndexOf('.')));item.name=unique(dest,item.name,src.dir)}
+      const ex=dest.kids.find(k=>low(k.name)===low(item.name));
+      if(ex){const c=await modal('替换或跳过文件',h('p',{style:'margin:0'},`目标已包含一个名为「${item.name}」的${ex.dir?'文件夹':'文件'}`),['替换目标中的文件','跳过该文件']);if(c!==0)continue;dest.kids.splice(dest.kids.indexOf(ex),1)}
+      if(mode==='cut')srcPar.kids.splice(srcPar.kids.indexOf(src),1);
+      dest.kids.push(item);n++;newSel.push(pk(S.cwd.concat(item.name)))}
+    if(mode==='cut')S.clip=null;S.sel=new Set(newSel);paintAll();wf();if(n)toast(`已${mode==='cut'?'移动':'复制'} ${n} 项到「${S.cwd.length?S.cwd[S.cwd.length-1]:'考生文件夹'}」`)}
+  async function del(perm){const s=selected().filter(e=>e.path);if(!s.length)return;
+    if(perm){const c=await modal('删除'+(s.length>1?'多个项目':s[0].node.dir?'文件夹':'文件'),h('p',{style:'margin:0'},`确实要永久删除${s.length>1?'这 '+s.length+' 项':'「'+dispName(s[0].node)+'」'}吗？永久删除后无法从回收站还原。`),['是(Y)','否(N)']);if(c!==0){wf();return}}
+    for(const e of s){const par=get(S.root,e.path.slice(0,-1));if(!par)continue;const i=par.kids.indexOf(e.node);if(i<0)continue;par.kids.splice(i,1);if(!perm)S.bin.unshift({node:e.node,from:e.path.slice(0,-1)})}
+    S.sel.clear();if(S.clip)S.clip.items=S.clip.items.filter(c=>get(S.root,c));if(S.clip&&!S.clip.items.length)S.clip=null;paintAll();wf();toast(perm?`已永久删除 ${s.length} 项`:`已删除 ${s.length} 项，可以在回收站里还原`)}
+  function restore(){const idx=selected().map(e=>e.bin).filter(i=>i!=null).sort((a,b)=>b-a);for(const i of idx){const b=S.bin[i],par=get(S.root,b.from);if(!par){toast('原来的文件夹已经不在了，无法还原 '+b.node.name);continue}b.node.name=unique(par,b.node.name,b.node.dir);par.kids.push(b.node);S.bin.splice(i,1)}S.sel.clear();paintAll()}
+  async function emptyBin(onlySel){const c=await modal('删除多个项目',h('p',{style:'margin:0'},onlySel?'确实要永久删除选定的项目吗？':'确实要永久删除回收站里的所有项目吗？'),['是(Y)','否(N)']);if(c!==0)return;if(onlySel===true){const idx=selected().map(e=>e.bin).sort((a,b)=>b-a);idx.forEach(i=>S.bin.splice(i,1))}else S.bin=[];S.sel.clear();paintAll()}
+  function mkShortcut(){const s=selected().filter(e=>e.path);if(!s.length)return;const made=[];
+    for(const e of s){const par=get(S.root,e.path.slice(0,-1));const n=mk(unique(par,dispName(e.node)+' - 快捷方式',true),false);n.lnk=true;n.target=e.node.lnk&&e.node.target?e.node.target.slice():e.path.slice();par.kids.push(n);made.push(pk(e.path.slice(0,-1).concat(n.name)))}
+    if(!S.q)S.sel=new Set(made);paintAll();toast(`已在原位置创建快捷方式「${s.length===1?dispName(s[0].node)+' - 快捷方式':s.length+' 个'}」`)}
+  async function shortcutWizard(){if(S.q)clearSearch(true);const all=[];walk(S.root,[],(n,p)=>{if(p.length&&!n.lnk)all.push(p)});
+    const selEl=h('select',{style:'width:100%;color:#1B1B1B!important;background:#fff;border:1px solid #8A8A8A;border-radius:4px;padding:6px'},h('option',{value:''},'（点「浏览」选择一个文件或文件夹）'),...all.map((p,i)=>h('option',{value:String(i)},'考生文件夹\\'+p.join('\\'))));
+    const nameIn=h('input',{type:'text',class:'fx-ren',style:'width:100%',spellcheck:'false'});selEl.onchange=()=>{const p=all[+selEl.value];if(p){const n=get(S.root,p);nameIn.value=n.dir?n.name:stem(n.name)}};
+    const c=await modal('创建快捷方式',h('div',{style:'display:grid;gap:8px'},h('b',{},'想为哪个对象创建快捷方式？'),h('span',{style:'font-size:.85rem'},'请键入对象的位置：'),selEl,h('b',{style:'margin-top:6px'},'想将快捷方式命名为什么？'),h('span',{style:'font-size:.85rem'},'键入该快捷方式的名称：'),nameIn),['完成','取消']);
+    if(c!==0||selEl.value==='')return;const nm=nameIn.value.trim();if(!nm)return toast('快捷方式的名称不能为空。');if(BAD.test(nm))return toast('文件名不能包含下列任何字符：\\ / : * ? " < > |');
+    const par=cwdNode();if(par.kids.some(k=>low(k.name)===low(nm)))return toast(`此位置已经包含名为「${nm}」的项目。`);
+    const n=mk(nm,false);n.lnk=true;n.target=all[+selEl.value].slice();par.kids.push(n);S.sel=new Set([pk(S.cwd.concat(nm))]);paintAll()}
+  async function props(){const s=selected();if(s.length!==1||!s[0].path)return;const e=s[0],n=e.node,isDir=n.dir&&!n.lnk;const a={ro:n.ro,hid:n.hid,arc:n.arc};
+    const ck=(k,t)=>{const i=h('input',{type:'checkbox'});i.checked=a[k];i.onchange=()=>{a[k]=i.checked};return h('label',{class:'fx-ck'},i,' '+t)};
+    const loc='考生文件夹'+(e.path.length>1?'\\'+e.path.slice(0,-1).join('\\'):'');let cnt='';if(isDir){let f=0,d=0;walk(n,[],(x,p)=>{if(p.length)x.dir?d++:f++});cnt=`${f} 个文件，${d} 个文件夹`}
+    const advBtn=h('button',{class:'fx-btn'},'高级(D)...');
+    const content=h('div',{},h('div',{class:'fx-tabs'},h('span',{class:'on'},'常规'),n.lnk?h('span',{},'快捷方式'):null,h('span',{},'安全')),
+      h('div',{class:'row',style:'gap:10px;margin:10px 0'},h('span',{html:iconOf(n)}),h('b',{},dispName(n))),
+      h('div',{class:'fx-kv'},h('span',{},'类型：'),h('span',{},typeOf(n)),h('span',{},'位置：'),h('span',{},loc),...(isDir?[h('span',{},'包含：'),h('span',{},cnt)]:[]),...(n.lnk?[h('span',{},'目标：'),h('span',{},n.target?'考生文件夹\\'+n.target.join('\\'):'（无）')]:[])),
+      h('div',{class:'fx-kv',style:'margin-top:12px;align-items:center'},h('span',{},'属性：'),h('div',{class:'row',style:'gap:14px'},ck('ro','只读'),ck('hid','隐藏'),advBtn)));
+    advBtn.onclick=async()=>{const i=h('input',{type:'checkbox'});i.checked=a.arc;const c=await modal('高级属性',h('div',{},h('p',{style:'margin:0 0 8px'},'为该'+(isDir?'文件夹':'文件')+'选择你想要的设置。'),h('fieldset',{class:'fx-fs'},h('legend',{},'存档和索引属性'),h('label',{class:'fx-ck'},i,' 可以存档'+(isDir?'文件夹':'文件')),h('label',{class:'fx-ck',style:'opacity:.6'},h('input',{type:'checkbox',checked:'',disabled:''}),' 除了文件属性外，还允许索引此'+(isDir?'文件夹':'文件')+'的内容'))),['确定','取消']);if(c===0)a.arc=i.checked};
+    const c=await modal(dispName(n)+' 属性',content,['确定','取消']);if(c!==0){wf();return}
+    const changed=a.ro!==n.ro||a.hid!==n.hid||a.arc!==n.arc;if(!changed){wf();return}
+    let toAll=false;if(isDir&&n.kids.length){const r1=h('input',{type:'radio',name:'fxap',checked:''}),r2=h('input',{type:'radio',name:'fxap'});
+      const c2=await modal('确认属性更改',h('div',{style:'display:grid;gap:6px'},h('p',{style:'margin:0'},'你已经选择对属性进行以下更改：'+[a.hid!==n.hid?(a.hid?'隐藏':'取消隐藏'):'',a.arc!==n.arc?(a.arc?'存档':'取消存档'):'',a.ro!==n.ro?(a.ro?'只读':'取消只读'):''].filter(Boolean).join('、')),h('label',{class:'fx-ck'},r1,' 仅将更改应用于此文件夹'),h('label',{class:'fx-ck'},r2,' 将更改应用于此文件夹、子文件夹和文件')),['确定','取消']);if(c2!==0){wf();return}toAll=r2.checked}
+    const apply=x=>{x.ro=a.ro;x.hid=a.hid;x.arc=a.arc};apply(n);if(toAll)walk(n,[],(x,p)=>{if(p.length)apply(x)});
+    if(a.hid&&!S.showHid){S.sel.clear();toast('已设为隐藏：没打开「查看 → 隐藏的项目」时它就看不见了，但并没有被删除。')}paintAll();wf()}
+  // ---------- 评分 ----------
+  function grade(){const F=grader(S.root);S.graded=SETS7[S.set].tasks.map(([,fn])=>{try{return fn(F)}catch(e){console.error(e);return[false,'评分出错']}});
+    const sc=S.graded.filter(g=>g[0]).length*20;if(best[S.set]==null||sc>best[S.set]){best[S.set]=sc;store.set('fileops-best',best)}
+    track('game','k7-9',sc===100,{game:'files',level:String(S.set+1),score:sc,total:100});paintAll()}
+  // ---------- 键盘 ----------
+  win.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||$('.fx-ov',win))return;const k=e.key,c=e.ctrlKey||e.metaKey;
+    if(c&&low(k)==='c'){e.preventDefault();doClip('copy')}else if(c&&low(k)==='x'){e.preventDefault();doClip('cut')}else if(c&&low(k)==='v'){e.preventDefault();paste()}
+    else if(c&&low(k)==='a'){e.preventDefault();S.sel=new Set(entries().map(keyOf));paintSel()}
+    else if(k==='F2'){e.preventDefault();startRename()}else if(k==='Delete'){e.preventDefault();if(S.inBin)emptyBin(true);else del(e.shiftKey)}
+    else if(k==='Enter'&&e.altKey){e.preventDefault();props()}else if(k==='Enter'){const s=selected();if(s.length===1){e.preventDefault();openEntry(s[0])}}
+    else if(k==='Backspace'){e.preventDefault();if(S.hist.length)back();else up()}else if(k==='Escape'){closeMenu();if(S.q)clearSearch()}});
+  load(0);
+};
+
 /* ================= quiz ================= */
 (function(){
   const Q=[
@@ -2638,7 +3205,12 @@ W.checklist=function(el){const body=$('.lab-b',el);const L=['打开文件扩展�
     ['能上 QQ 却打不开任何网页，最可能出问题的是（  ）。',['网线','DNS','显卡驱动','内存'],1,'QQ 直接用 IP 通信，网页要先把域名翻译成 IP——DNS 坏了就是这个症状。'],
     ['软件卡死时，打开任务管理器的快捷键是（  ）。',['Win + I','Win + V','Ctrl + Shift + Esc','Win + Shift + S'],2,'Ctrl + Shift + Esc 直接打开任务管理器，按内存或 CPU 排序找到元凶后结束任务。'],
     ['U 盘要在 Windows 和 Mac 之间拷贝一个 6 GB 的视频，应格式化为（  ）。',['FAT32','NTFS','exFAT','ext4'],2,'FAT32 单文件最大 4 GB，NTFS 在 Mac 上只读，exFAT 两边都能读写。'],
-    ['操作系统在硬盘上划出一块空间当作内存使用，这叫（  ）。',['高速缓存','虚拟内存','回收站','系统还原点'],1,'虚拟内存也叫页面文件，内存不够时顶上，但比内存慢几十倍。']];
+    ['操作系统在硬盘上划出一块空间当作内存使用，这叫（  ）。',['高速缓存','虚拟内存','回收站','系统还原点'],1,'虚拟内存也叫页面文件，内存不够时顶上，但比内存慢几十倍。'],
+    ['在 Windows 中，下列字符可以出现在文件名里的是（  ）。',['?','*','_','|'],2,'不能用的 9 个字符是 \\ / : * ? " < > |，下划线可以用。'],
+    ['在同一个磁盘内，用鼠标直接把文件拖到另一个文件夹，完成的是（  ）。',['复制','移动','创建快捷方式','删除'],1,'同盘直接拖是移动，跨盘直接拖是复制；按住 Ctrl 拖一定是复制。'],
+    ['文件的「存档」属性要在属性对话框的（  ）里设置。',['常规页的复选框','「高级」按钮','安全选项卡','详细信息选项卡'],1,'只读和隐藏在常规页，存档在「高级」里的「可以存档文件」。'],
+    ['删除一个快捷方式后，它指向的原文件（  ）。',['一起被删除','移到回收站','不受影响','变成只读'],2,'快捷方式只是指向原文件的小文件。'],
+    ['搜索时，「A?.DOC」能找到的文件是（  ）。',['A.DOC','AB.DOC','ABC.DOC','BA.DOC'],1,'? 正好代表 1 个字符，* 才代表任意多个。']];
   const S=[['硬盘和内存的区别是什么？','内存（RAM）速度快、容量小，存放正在运行的程序和数据，断电后内容消失；硬盘属于外存，速度慢、容量大，断电不丢失。CPU 只能直接处理内存中的数据。'],
     ['CPU 的作用是什么？主要性能指标有哪些？AI PC 里还有哪些处理器？','CPU 包括运算器和控制器，负责执行指令并指挥各部件工作。指标有主频、字长、核心数和高速缓存。AI PC 里还有擅长并行计算的 GPU 和专门低功耗运行 AI 的 NPU。'],
     ['将十进制数 256 转换成二进制数。','256 ＝ 2⁸，结果是 100000000B。'],
@@ -2647,7 +3219,8 @@ W.checklist=function(el){const body=$('.lab-b',el);const L=['打开文件扩展�
     ['列出三条预防计算机病毒和网络诈骗的方法。','例如：及时安装系统补丁；开启杀毒软件和防火墙；不打开来历不明的附件、链接和 U 盘；强密码加两步验证；定期离线备份；涉及转账先用原号码核实。'],
     ['AI 时代最重要的两项基本功是什么？','清晰表达需求，和判断结果好坏。'],
     ['在浏览器里输入网址按下回车，到网页显示出来要经过哪几步？','输入网址 → DNS 解析把域名翻译成 IP → 和服务器建立 TCP 连接 → 发送 HTTP 请求、服务器返回数据 → 浏览器渲染显示。'],
-    ['为什么软件开多了电脑会卡？怎么办？','进程太多、内存占满后，系统只能把一部分数据放到硬盘的虚拟内存里，硬盘比内存慢几十倍，于是卡顿。办法：用任务管理器结束占用高的进程，长期看加内存条最管用。']];
+    ['为什么软件开多了电脑会卡？怎么办？','进程太多、内存占满后，系统只能把一部分数据放到硬盘的虚拟内存里，硬盘比内存慢几十倍，于是卡顿。办法：用任务管理器结束占用高的进程，长期看加内存条最管用。'],
+    ['题目要求「将 QUEN 文件夹中的 XINGMING.TXT 移动到 WANG 文件夹中，并改名为 SUI.DOC」，怎样做？做完怎么检查？','先在「查看」里打开「文件扩展名」。进入 QUEN，选中 XINGMING.TXT 按 Ctrl + X，进入 WANG 按 Ctrl + V，再按 F2 把整个名字改成 SUI.DOC，提示改扩展名时点「是」。检查：WANG 里有 SUI.DOC，QUEN 里已经没有 XINGMING.TXT。']];
   const list=$('.quiz-list'),sc=$('.quiz-score');let done=0,right=0;
   function score(){sc.innerHTML=`<div><div class="note">选择题</div><div class="mono" style="font-size:1.8rem;font-weight:900">${right} <span class="note">/ ${Q.length} 答对</span></div></div><div class="note">已作答 ${done} 题</div><button class="ghost" id="quizReset">重新做</button>`;$('#quizReset').onclick=build}
   function build(){list.innerHTML='';done=0;right=0;Q.forEach(([q,o,a,why],n)=>{const box=h('div',{class:'qc',style:'margin:0;max-width:none'},h('div',{class:'t'},'第 '+(n+1)+' 题'),h('div',{class:'q'},q));const opts=h('div',{class:'opts'});let first=true;
