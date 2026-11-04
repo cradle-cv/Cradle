@@ -4,6 +4,9 @@ import Link from 'next/link'
 import SiteNav from '@/components/SiteNav'
 import OnsiteHero from '@/components/OnsiteHero'
 
+// 留言超过这个字数，就不再压在照片上，改为接在照片下方
+const VOICE_OVERLAY_MAX = 36
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -109,34 +112,52 @@ export default async function OnsitePage({ params }) {
               </span>
             </div>
 
-            <div style={{ columnCount: 2, columnGap: '16px' }} className="voices-masonry">
-              {voices.map(v => (
+            {/* 手机上单列，卡片够宽，文字才不会把照片盖满；平板以上两列瀑布流 */}
+            <div style={{ columnGap: '16px' }} className="voices-masonry columns-1 sm:columns-2">
+              {voices.map(v => {
+                // 留言短：压在照片下沿；留言长：照片保持完整，文字接在照片下面，不再遮挡
+                const long = (v.quote || '').trim().length > VOICE_OVERLAY_MAX
+                const quoteStyle = {
+                  fontSize: long ? 'clamp(15px, 1.9vw, 20px)' : 'clamp(16px, 2.6vw, 28px)',
+                  color: 'rgba(255,255,255,0.96)',
+                  lineHeight: long ? 1.8 : 1.5,
+                  whiteSpace: 'pre-line',
+                  textShadow: long ? 'none' : '0 1px 12px rgba(0,0,0,0.5)',
+                }
+                const nameStyle = {
+                  fontSize: long ? 'clamp(18px, 2.4vw, 26px)' : 'clamp(20px, 3.2vw, 36px)',
+                  color: '#FFFFFF', lineHeight: 1.3,
+                  textShadow: long ? 'none' : '0 1px 12px rgba(0,0,0,0.5)',
+                }
+                return (
                 <div key={v.id} className="mb-4" style={{ breakInside: 'avoid' }}>
                   <div className="relative rounded-lg overflow-hidden" style={{ backgroundColor: '#111827' }}>
                     <img src={v.photo_url} alt={v.person_name || ''} loading="lazy"
-                      className="w-full block" style={{ opacity: 0.92 }} />
+                      className="w-full block" style={{ opacity: long ? 1 : 0.92 }} />
+                    {long ? (
+                      <div className="px-5 pt-4 pb-5">
+                        <p className="mb-3" style={quoteStyle}>{v.quote}</p>
+                        {v.person_name && <p style={nameStyle}>{v.person_name}</p>}
+                      </div>
+                    ) : (v.quote || v.person_name) && (
                     <div className="absolute inset-x-0 bottom-0 px-5 pb-5 pt-20"
                       style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 15%, rgba(0,0,0,0.6) 55%, rgba(0,0,0,0))' }}>
                       {v.quote && (
-                        <p className="mb-2" style={{
-                          fontSize: '28px', color: 'rgba(255,255,255,0.96)', lineHeight: 1.5,
-                          textShadow: '0 1px 12px rgba(0,0,0,0.5)',
-                        }}>
+                        <p className="mb-2" style={quoteStyle}>
                           {v.quote}
                         </p>
                       )}
                       {v.person_name && (
-                        <p style={{
-                          fontSize: '36px', color: '#FFFFFF', lineHeight: 1.3,
-                          textShadow: '0 1px 12px rgba(0,0,0,0.5)',
-                        }}>{v.person_name}</p>
+                        <p style={nameStyle}>{v.person_name}</p>
                       )}
                     </div>
+                    )}
                     {v.label && (
                       <span className="absolute top-3 left-3 px-3 py-1"
                         style={{
-                          fontSize: '24px',
+                          fontSize: 'clamp(13px, 1.9vw, 24px)',
                           color: 'rgba(255,255,255,0.9)',
+                          backgroundColor: 'rgba(0,0,0,0.18)',
                           border: '0.5px solid rgba(255,255,255,0.55)',
                           letterSpacing: '2px',
                         }}>
@@ -145,7 +166,8 @@ export default async function OnsitePage({ params }) {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
