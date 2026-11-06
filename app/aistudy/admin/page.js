@@ -71,6 +71,170 @@ function GamesCard({ g }) {
   )
 }
 
+/* ============================== 文件操作实训成绩 ============================== */
+// 六套题的题目文字，和课件 course/page.js 里 SETS7 的顺序一致；改了课件里的题目这里也要跟着改
+const FILE_TASKS = [
+  ['建立 PPT 和 DOC 两个文件夹', '在 DOC 中新建 XIN.DOC', '复制 TAI\\HWA.DOC 到 DOC', '搜索 HEL.PPT 并移动到 PPT', '为 KUAN\\LIN.EXE 建快捷方式 LINA'],
+  ['移动 XINGMING.TXT 到 WANG 并改名 SUI.DOC', '新建 NEWS，设隐藏、取消存档', '复制 WATER\\BAT.BAS 到 SEEE', '删除 KING\\THINK.TXT', '为 DENG\\ME.XLS 建快捷方式 MEKU'],
+  ['删除 SOCK\\XING.WPS', '在 DULY\\SEED 中新建 WOMAN', '复制 WANG\\LIU\\CAR.DOC 到 ZHANG', 'QUSSN.MAP 设隐藏和存档', '移动 LAO.DOC 到 SANG 并改名 YE.C'],
+  ['在 GUANG 中新建 BIAO.TXT', 'SHU.EXE 设隐藏、取消存档', '搜索 ER.TXT 并复制到 TXT', '删除 AIR 文件夹', '为 CHU 文件夹建快捷方式 CHUB（放 SHOU）'],
+  ['复制 SONGG\\EEEN.TXT 到 EN', 'IP.TXT 设隐藏和存档', '在 SENG 中新建 YI', '移动 TODAY.BAS 到 YER 并改名 TULE.C', '删除 SINGLE 文件夹'],
+  ['在 FENG\\AI 中新建 HTUOUT', '移动 XIENG.NEW 到 ZUIWO 并改名 SUIM.ENG', '复制 TSAN\\ENE.SIN 到 XUE', '删除 PHU\\MU\\ITK.DAT', 'LINH.DOC 设存档和隐藏'],
+]
+const FILE_SETS = Object.keys(GAMES.files?.levels || { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6 })
+const setName = lv => GAMES.files?.levels?.[lv] || '第 ' + lv + ' 套'
+const normName = v => String(v || '').replace(/\s+/g, '')
+const scoreSt = b => (b == null ? 'none' : b >= 100 ? 'good' : b >= 60 ? 'warn' : 'bad')
+const SCORE_T = { good: '满分', warn: '及格', bad: '不及格', none: '未做' }
+
+// 名单和登记过的学生按姓名对上（同名时再看学号）；不在名单里的学生排在后面，标「名单外」
+function fileRows(f) {
+  const roster = f?.roster || [], studs = (f?.students || []).slice()
+  const used = new Set()
+  const pick = r => {
+    const k = normName(r.name)
+    let s = studs.find(x => !used.has(x.id) && normName(x.name) === k && r.sno && x.sno && String(x.sno) === String(r.sno))
+    if (!s) s = studs.find(x => !used.has(x.id) && normName(x.name) === k)
+    if (s) used.add(s.id)
+    return s
+  }
+  const rows = roster.map(r => { const s = pick(r); return { name: r.name, sno: r.sno || s?.sno || '', s, out: false } })
+  studs.filter(x => !used.has(x.id)).forEach(s => rows.push({ name: s.name, sno: s.sno || '', s, out: true }))
+  return rows.map(r => { const m = {}; (r.s?.sets || []).forEach(x => { m[String(x.lv)] = x }); return { ...r, sets: m } })
+}
+function setSummary(rows, lv) {
+  const done = rows.filter(r => r.sets[lv]), b = done.map(r => r.sets[lv].best)
+  const inRoster = rows.filter(r => !r.out)
+  return {
+    done: done.length, avg: b.length ? Math.round(b.reduce((a, x) => a + x, 0) / b.length * 10) / 10 : null,
+    full: b.filter(x => x >= 100).length, pass: b.filter(x => x >= 60).length, fail: b.filter(x => x < 60).length,
+    miss: inRoster.filter(r => !r.sets[lv]).length, plays: done.reduce((a, r) => a + r.sets[lv].n, 0),
+  }
+}
+
+async function exportFiles(cls, rows, f) {
+  const XLSX = await import('xlsx')
+  const wb = XLSX.utils.book_new()
+  const add = (name, aoa, cols) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = cols.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, name) }
+  add('说明', [
+    ['文件操作实训成绩', cls], ['导出时间', new Date().toLocaleString('zh-CN')],
+    ['最高分', '每个学生在这一套上所有交卷里的最高分，满分 100，每道小题 20 分'], ['交卷次数', '这一套点「交卷评分」的次数'],
+    ['未做', '在班级名单里，但这一套一次都没交过卷'], ['名单外', '登记的班级和这个班一样，但名字没在班级名单里，可能是名字打错了'],
+    ['小题正确率', '按每个学生这一套最好的那次交卷统计；只有更新之后的交卷才有小题记录'],
+  ], [14, 70])
+  add('各套汇总', [['套', '做过人数', '平均分（最高分平均）', '满分人数', '及格人数（≥60）', '不及格人数', '名单里没做的人数', '交卷总次数'],
+    ...FILE_SETS.map(lv => { const x = setSummary(rows, lv); return [setName(lv), x.done, x.avg ?? '', x.full, x.pass, x.fail, x.miss, x.plays] })], [10, 10, 20, 10, 16, 12, 18, 12])
+  add('全班总表', [['学号', '姓名', ...FILE_SETS.map(setName), '做过几套', '备注'],
+    ...rows.map(r => [r.sno, r.name, ...FILE_SETS.map(lv => r.sets[lv] ? r.sets[lv].best : '未做'), FILE_SETS.filter(lv => r.sets[lv]).length, r.out ? '名单外' : !r.s ? '没登记过' : ''])],
+    [14, 10, ...FILE_SETS.map(() => 9), 10, 10])
+  FILE_SETS.forEach(lv => {
+    add(setName(lv), [['学号', '姓名', '最高分', '交卷次数', '最近一次交卷', '情况'],
+      ...rows.map(r => { const x = r.sets[lv]; return [r.sno, r.name, x ? x.best : '', x ? x.n : 0, x ? new Date(x.last).toLocaleString('zh-CN') : '', (x ? SCORE_T[scoreSt(x.best)] : '未做') + (r.out ? '（名单外）' : '')] })],
+      [14, 10, 8, 10, 20, 14])
+  })
+  const tk = []
+  FILE_SETS.forEach(lv => {
+    const t = (f?.tasks || []).find(x => String(x.lv) === String(lv))
+    ;(FILE_TASKS[lv - 1] || []).forEach((name, i) => {
+      const errs = (f?.whys || []).filter(w => String(w.lv) === String(lv) && w.i === i + 1).map(w => `${w.msg}（${w.n} 次）`).join('；')
+      tk.push([setName(lv), i + 1, name, t ? t.n : 0, t ? t.ok[i] : '', t && t.n ? Math.round(t.ok[i] / t.n * 100) + '%' : '', errs])
+    })
+  })
+  add('小题正确率', [['套', '小题', '内容', '统计人数', '做对人数', '正确率', '常见错误'], ...tk], [8, 6, 36, 10, 10, 8, 60])
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  a.download = `文件操作实训成绩_${cls}.xlsx`
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+
+function FilesCard({ f, cls, loading }) {
+  const [sel, setSel] = useState('1')
+  const [show, setShow] = useState('all')
+  const rows = useMemo(() => fileRows(f), [f])
+  if (!cls) return (
+    <section className="db-card" id="files">
+      <h2>文件操作实训 · 每套成绩</h2>
+      <div className="db-empty">在上方先选一个班级，这里会列出全班每个人每一套的最高分</div>
+    </section>
+  )
+  const sums = FILE_SETS.map(lv => ({ lv, ...setSummary(rows, lv) }))
+  const rosterN = rows.filter(r => !r.out).length
+  const t = (f?.tasks || []).find(x => String(x.lv) === sel)
+  const names = FILE_TASKS[sel - 1] || []
+  const list = rows.filter(r => { const x = r.sets[sel]; return show === 'all' || (show === 'miss' ? !x && !r.out : show === 'fail' ? x && x.best < 60 : x && x.best < 100) })
+  const cnt = { all: rows.length, miss: rows.filter(r => !r.sets[sel] && !r.out).length, fail: rows.filter(r => r.sets[sel] && r.sets[sel].best < 60).length, nf: rows.filter(r => r.sets[sel] && r.sets[sel].best < 100).length }
+  return (
+    <section className="db-card" id="files">
+      <div className="db-row" style={{ justifyContent: 'space-between' }}>
+        <h2>文件操作实训 · 每套成绩</h2>
+        <button className="db-ghost" onClick={() => exportFiles(cls, rows, f)} disabled={!f || loading}>导出这个班的成绩（Excel）</button>
+      </div>
+      <p className="db-muted">每个学生每一套取所有交卷里的<b>最高分</b>，不按交卷次数算。班级名单 {rosterN} 人{rows.length > rosterN ? `，另有 ${rows.length - rosterN} 人登记了这个班但名字不在名单里（标「名单外」）` : ''}。点一套看全班明细。</p>
+      {!f && <div className="db-muted">加载中…</div>}
+      {f && <>
+        <div className="db-tablewrap">
+          <table className="db-table" style={{ minWidth: 640 }}>
+            <thead><tr><th>套</th><th>做过</th><th>平均分</th><th>满分</th><th>及格 ≥60</th><th>不及格</th><th>名单里没做</th><th>交卷次数</th></tr></thead>
+            <tbody>{sums.map(x => (
+              <tr key={x.lv} className={sel === x.lv ? 'on' : ''} onClick={() => { setSel(x.lv); setShow('all') }} tabIndex={0} onKeyDown={e => e.key === 'Enter' && setSel(x.lv)}>
+                <td><b>{setName(x.lv)}</b></td>
+                <td className="db-mono">{x.done}{rosterN ? ` / ${rosterN}` : ''}</td>
+                <td className="db-mono">{x.avg ?? '—'}</td>
+                <td className="db-mono">{x.full}</td><td className="db-mono">{x.pass}</td>
+                <td className="db-mono">{x.fail ? <span className="db-no">{x.fail}</span> : 0}</td>
+                <td className="db-mono">{x.miss}</td><td className="db-mono">{x.plays}</td>
+              </tr>))}</tbody>
+          </table>
+        </div>
+
+        <h3>{setName(sel)} · 每道小题全班做对多少</h3>
+        {t && t.n ? (
+          <div className="db-fq">
+            {names.map((name, i) => {
+              const ok = t.ok[i] || 0, p = pct(ok, t.n), st = STATUS[p >= 80 ? 'good' : p >= 60 ? 'warn' : 'bad']
+              const errs = (f.whys || []).filter(w => String(w.lv) === sel && w.i === i + 1)
+              return (
+                <div key={i} className="db-fq-i">
+                  <div className="db-fq-h"><span className="db-mono">{i + 1}</span><span>{name}</span><span className="db-badge" style={{ '--s': st.c }}>{p}% · {ok}/{t.n}</span></div>
+                  <span className="bar"><i style={{ width: p + '%', background: st.c }} /></span>
+                  {errs.length > 0 && <ul>{errs.map((w, k) => <li key={k}>{w.msg}<span className="db-muted"> · {w.n} 次</span></li>)}</ul>}
+                </div>
+              )
+            })}
+            <p className="db-muted">按 {t.n} 个学生这一套最好的那次交卷统计。「常见错误」是评分时给出的原因，统计的是所有交卷。</p>
+          </div>
+        ) : <div className="db-empty">这一套还没有小题记录。小题对错从这次更新之后开始记录，之前的交卷只有总分。</div>}
+
+        <div className="db-row" style={{ justifyContent: 'space-between', marginTop: 16 }}>
+          <h3 style={{ margin: 0 }}>{setName(sel)} · 全班明细</h3>
+          <div className="db-row">
+            {[['all', '全部'], ['miss', '没做'], ['nf', '没满分'], ['fail', '不及格']].map(([k, n]) => (
+              <button key={k} className={`db-ghost${show === k ? ' on' : ''}`} onClick={() => setShow(k)} aria-pressed={show === k}>{n} {cnt[k]}</button>
+            ))}
+          </div>
+        </div>
+        <div className="db-tablewrap" style={{ marginTop: 8 }}>
+          <table className="db-table" style={{ minWidth: 560 }}>
+            <thead><tr><th>学号</th><th>姓名</th><th>最高分</th><th>交卷次数</th><th>最近一次</th><th>情况</th></tr></thead>
+            <tbody>
+              {list.map((r, i) => { const x = r.sets[sel], k = scoreSt(x?.best), st = STATUS[k]; return (
+                <tr key={i} className={x ? '' : 'idle'} style={{ cursor: 'default' }}>
+                  <td className="db-mono">{r.sno || '—'}</td>
+                  <td><b>{r.name}</b>{r.out && <span className="db-chip">名单外</span>}{!r.s && <span className="db-chip">没登记过</span>}</td>
+                  <td className="db-mono">{x ? x.best : '—'}</td>
+                  <td className="db-mono">{x ? x.n : 0}</td>
+                  <td>{x ? fmtTime(x.last) : '—'}</td>
+                  <td><span className="db-badge" style={{ '--s': st.c }}>{SCORE_T[k]}</span></td>
+                </tr>) })}
+              {!list.length && <tr><td colSpan={6} className="db-empty">没有符合的学生</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </>}
+    </section>
+  )
+}
+
 async function rpc(fn, args) {
   const { data, error } = await supabase.rpc(fn, args)
   if (error) throw new Error(error.message || '请求失败')
@@ -250,6 +414,7 @@ function Dashboard({ token, onOut }) {
   const [labFilter, setLabFilter] = useState('')
   const [teachers, setTeachers] = useState([])
   const [games, setGames] = useState(null)
+  const [files, setFiles] = useState(null)
 
   async function load() {
     setLoading(true); setErr('')
@@ -257,6 +422,8 @@ function Dashboard({ token, onOut }) {
       setData(await rpc('aistudy_dash', { p_token: token, p_cls: cls || null, p_days: days }))
       rpc('aistudy_dash_teachers', { p_token: token }).then(t => setTeachers(t || []), () => {})
       rpc('aistudy_dash_games', { p_token: token, p_cls: cls || null, p_days: days }).then(setGames, () => {})
+      setFiles(null)
+      if (cls) rpc('aistudy_dash_files', { p_token: token, p_cls: cls }).then(setFiles, () => setFiles({ roster: [], students: [], tasks: [], whys: [] }))
     }
     catch (e) { if (/unauthorized/.test(e.message)) onOut(); else setErr('数据加载失败：' + e.message) }
     finally { setLoading(false) }
@@ -374,6 +541,7 @@ function Dashboard({ token, onOut }) {
         </section>
 
         <GamesCard g={games} />
+        <FilesCard f={files} cls={cls} loading={loading} />
 
         <div className="db-grid2">
           <section className="db-card">
@@ -579,6 +747,16 @@ body{background:#06080F!important}
 .db-gs span{display:grid;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:.84rem}
 .db-gs i{font-style:normal;color:var(--muted);font-size:.76rem}
 .db-gs em{font-style:normal;color:#8CC4FF;font-size:.78rem}
+.db-table tbody tr.on{background:rgba(77,163,255,.14)}
+.db-table tbody tr.on td:first-child{box-shadow:inset 3px 0 0 var(--a)}
+.db-ghost.on{color:var(--ink)!important;border-color:var(--a);background:rgba(77,163,255,.14)}
+.db-fq{display:grid;gap:10px}
+.db-fq-i{display:grid;gap:6px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.db-fq-h{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:.88rem}
+.db-fq-h .db-mono{color:var(--muted)}
+.db-fq .bar{display:block;height:8px;border-radius:4px;background:rgba(140,160,210,.12);overflow:hidden}
+.db-fq .bar i{display:block;height:100%;border-radius:4px}
+.db-fq ul{margin:0;padding-left:1.2em;font-size:.82rem;color:#FFB4BC;display:grid;gap:2px}
 .db-foot{font-size:.78rem;color:var(--faint);text-align:center;padding-top:10px}
 @media (max-width:980px){.db-map{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.db-grid2{grid-template-columns:1fr}.db-tiles.sm{grid-template-columns:1fr 1fr 1fr}.db-tile b{font-size:1.5rem}}
