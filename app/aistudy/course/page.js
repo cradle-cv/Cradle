@@ -377,6 +377,10 @@ html.live-host .live-btn.push{display:inline-block}
 html.live-lock .live-path>*:not(.live-path):not(.live-target){display:none!important}
 html.live-lock .live-target{margin-top:132px!important;opacity:1!important;transform:none!important}
 html.live-lock .kp.live-path{padding-top:0}
+html.solo .me-pill,html.solo .me-modal{display:none!important}
+html.solo body::before,html.solo body::after{display:none}
+html.solo .live-target{margin:10px auto!important}
+html.solo .lab::before{display:none}
 .live-panel{position:fixed;right:16px;bottom:16px;z-index:160;width:min(340px,calc(100vw - 32px));padding:12px 14px;border-radius:16px;background:rgba(10,8,22,.95);border:1px solid rgba(176,124,255,.5);box-shadow:0 20px 60px -20px rgba(0,0,0,.9);color:#EAF0FF;font-family:var(--f-sans);font-size:.86rem;display:grid;gap:10px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .live-panel.idle{width:auto;padding:0;background:none;border:0;box-shadow:none}
 .live-panel.fold{gap:0}
@@ -1663,7 +1667,8 @@ function getMe(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:me')||'nul
 function getTeacher(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:teacher')||'null');if(v&&v.tno)return v}catch(e){}try{if(localStorage.getItem('xiaoxin:admin'))return{tno:'admin',name:'管理员',admin:true}}catch(e){}return null}
 function isTeacher(){return !!getTeacher()}
 function tTitle(t){return t.admin?'管理员':(/老师$/.test(t.name)?t.name:t.name+'老师')}
-function track(type,lab=null,ok=null,detail=null){if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
+function embedPost(d){try{if(window.parent&&window.parent!==window)window.parent.postMessage(Object.assign({src:'aistudy'},d),location.origin)}catch(e){}}
+function track(type,lab=null,ok=null,detail=null){embedPost({type,lab,ok,detail});if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
 function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
 /* 班级名单（和 app/aistudy/roster.js 同一套逻辑）：班级输关键字选，姓名从本班名单里挑；班里有重名才出现学号框 */
 const roster={classes:null,names:new Map(),
@@ -2920,7 +2925,7 @@ W.attrs=function(el){const body=$('.lab-b',el);
   let k=0,ok=0;const box=h('div');body.append(box);
   const LBL={ro:'只读',hid:'隐藏',arc:'存档'};
   function show(){
-    if(k>=R.length){box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div class="mono note">完成</div><div style="font-size:2rem;font-weight:900" class="grad">${ok} / ${R.length}</div><p>一次就设对 ${ok} 个。记住：只读和隐藏在「常规」页，存档在「高级」里。</p><button class="btn" id="atAgain">再来一次</button></div>`;$('#atAgain',box).onclick=()=>{k=0;ok=0;show()};return}
+    if(k>=R.length){embedPost({type:'lab',lab:'k7-6',score:ok,total:R.length,done:true});box.innerHTML=`<div class="card" style="text-align:center;padding:26px"><div class="mono note">完成</div><div style="font-size:2rem;font-weight:900" class="grad">${ok} / ${R.length}</div><p>一次就设对 ${ok} 个。记住：只读和隐藏在「常规」页，存档在「高级」里。</p><button class="btn" id="atAgain">再来一次</button></div>`;$('#atAgain',box).onclick=()=>{k=0;ok=0;show()};return}
     const[dir,name,task,init,want]=R[k];const a={ro:init.ro,hid:init.hid,arc:init.arc};let tmpArc=a.arc;const isDir=!!init.dir;
     box.innerHTML='';const fb=h('div',{class:'fb'});
     const cb=(key,txt)=>{const i=h('input',{type:'checkbox'});i.checked=a[key];i.onchange=()=>{a[key]=i.checked};return h('label',{class:'fx-ck'},i,' '+txt)};
@@ -3217,7 +3222,7 @@ W.fileops=function(el){const body=$('.lab-b',el);
   // ---------- 评分 ----------
   function grade(){const F=grader(S.root);S.graded=SETS7[S.set].tasks.map(([,fn])=>{try{return fn(F)}catch(e){console.error(e);return[false,'评分出错']}});
     const sc=S.graded.filter(g=>g[0]).length*20;if(best[S.set]==null||sc>best[S.set]){best[S.set]=sc;store.set('fileops-best',best)}
-    track('game','k7-9',sc===100,{game:'files',level:String(S.set+1),score:sc,total:100});paintAll()}
+    track('game','k7-9',sc===100,{game:'files',level:String(S.set+1),score:sc,total:100,t:S.graded.map(g=>g[0]?'1':'0').join(''),w:S.graded.map(g=>g[0]?'':String(g[1]||'没做对').slice(0,80))});paintAll()}
   // ---------- 键盘 ----------
   win.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||$('.fx-ov',win))return;const k=e.key,c=e.ctrlKey||e.metaKey;
     if(c&&low(k)==='c'){e.preventDefault();doClip('copy')}else if(c&&low(k)==='x'){e.preventDefault();doClip('cut')}else if(c&&low(k)==='v'){e.preventDefault();paste()}
@@ -3295,6 +3300,10 @@ function initLive(){
     if(el.classList.contains('opener'))return ((($('.k',el)||{}).textContent||'')+' '+(($('h2',el)||{}).textContent||'')).trim();
     const kp=el.closest('.kp');return kp?((($('.eyebrow',kp)||{}).textContent||'')+' 演示').trim():'演示'};
   const anchorOf=k=>k.split(':')[0];
+  // 课堂互动内嵌：?solo=k7-9:0 只显示这一块，不显示身份胶囊和同步课堂按钮
+  const soloKey=new URLSearchParams(location.search).get('solo');
+  if(soloKey&&REG.get(soloKey)){html.classList.add('solo');const el=REG.get(soloKey);el.classList.add('live-target','in');let p=el.parentElement;while(p&&p!==document.body){p.classList.add('live-path');p=p.parentElement}
+    html.classList.add('live-lock');const ch=el.closest('.chapter');if(ch&&ch.hidden)showChapter(ch.dataset.chapter,false);setTimeout(()=>scrollTo({top:0}),50);return}
   const copy=async t=>{try{await navigator.clipboard.writeText(t);return true}catch(e){const a=h('textarea',{style:'position:fixed;left:-9999px'});a.value=t;document.body.append(a);a.select();let ok=false;try{ok=document.execCommand('copy')}catch(x){}a.remove();return ok}};
   const toastEl=h('div',{class:'live-toast',hidden:''});document.body.append(toastEl);let tt;
   function toast(t,ms=3600){toastEl.textContent=t;toastEl.hidden=false;clearTimeout(tt);tt=setTimeout(()=>toastEl.hidden=true,ms)}
