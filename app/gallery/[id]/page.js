@@ -645,7 +645,7 @@ export default function GalleryDetailPage() {
   function LeftPanel({ children }) {
     return (
       <div className="md:sticky md:top-28 md:self-start">
-        <ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} />
+        <ImageGallery coverImage={work.cover_image} images={workImages} title={work.title} motion={work.motion_image} />
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{convert(work.title)}</h1>
           {work.title_en && (
