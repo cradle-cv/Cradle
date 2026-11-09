@@ -1,7 +1,7 @@
 'use client'
 
 // 目标路径：app/aistudy/points.js
-// 小信 · 积分与积分商城（首页 #points 这一块，数据看板也用这里的规则说明和明细文字）
+// 小信 · 积分与小信有礼（首页 #points 这一块，数据看板也用这里的规则说明和明细文字）
 // 积分全部在 Supabase 里按使用记录换算（aistudy_points_items），同一件事只给一次分；前端只负责显示。
 // 兑换：老师在数据看板里给某个班开放一段时间，学生在这段时间里兑换；兑换过的资料随时可以再下载。
 // 资料文件在私有存储桶里，下载链接由 aistudy-shop 函数临时生成（5 分钟有效）。
@@ -11,9 +11,9 @@ import { supabase } from '@/lib/supabase'
 import { LABS, GAMES } from './kb'
 
 export const POINT_RULES = [
-  ['第一次看一个知识点', '+2', '课件里每个知识点算一次'],
-  ['课堂一问第一次答对', '+3', '每个知识点的课堂一问算一次'],
-  ['课件小测，某道题答对', '+2', '每道题算一次'],
+  ['第一次看一个知识点', '+1', '在课件里停留 5 秒算看过，每个知识点算一次'],
+  ['课堂一问第一次作答就答对', '+3', '只看第一次作答，刷新重答不算'],
+  ['课件小测，某道题第一次作答就答对', '+2', '只看第一次作答，点「重新做」不算'],
   ['陪练第一次就答对一道新题', '+1', '每天最多算 10 分'],
   ['向小信提问', '+1', '每天最多算 5 分'],
   ['文件操作实训，某一套第一次及格', '+10', '第一次满分再加 10，六套最多 120'],
@@ -65,6 +65,7 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
   const [rules, setRules] = useState(false)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState(null)
+  const [gift, setGift] = useState(null)
 
   const load = useCallback(async () => {
     if (!me?.id) { setD(null); return }
@@ -84,15 +85,15 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
     try {
       const { data, error } = await supabase.rpc('aistudy_shop_buy', { p_student: me.id, p_item: it.id })
       if (error) throw error
-      setMsg({ id: it.id, ok: !!data?.ok, t: data?.msg || '兑换失败' })
-      if (data?.ok) { await load(); try { await downloadItem({ student: me.id, item: it.id }) } catch (e) { setMsg({ id: it.id, ok: false, t: e.message }) } }
+      if (data?.ok && !data.already) { setGift({ it, balance: data.balance }); await load() }
+      else { setMsg({ id: it.id, ok: !!data?.ok, t: data?.msg || '兑换失败' }); if (data?.ok) await load() }
     } catch (e) { setMsg({ id: it.id, ok: false, t: '兑换失败，请检查网络' }) }
     finally { setBusy('') }
   }
   async function dl(it) {
     if (busy) return
     setBusy(it.id); setMsg(null)
-    try { await downloadItem({ student: me.id, item: it.id }) } catch (e) { setMsg({ id: it.id, ok: false, t: e.message }) }
+    try { await downloadItem({ student: me.id, item: it.id }) } catch (e) { setMsg({ id: it.id, ok: false, t: e.message }); throw e }
     finally { setBusy('') }
   }
 
@@ -106,11 +107,11 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
   return (
     <section className="xx-sec xp" id="points">
       <style dangerouslySetInnerHTML={{ __html: PCSS }} />
-      <div className="xx-sec-h"><div className="xx-k">积分商城</div><h2>做练习攒积分，期末换学习资料</h2></div>
+      <div className="xx-sec-h"><div className="xx-k">小信有礼</div><h2>做练习攒积分，期末换学习资料</h2></div>
 
       {!me && (
         <div className="xp-empty">
-          {teacher ? <>老师模式下不计积分。学生登记身份后，会在这里看到自己的积分、班级排名和积分商城。</> : <>登记身份以后，你在课件和小信里做的每个练习都会自动攒积分。以前做过的练习也算。</>}
+          {teacher ? <>老师模式下不计积分。学生登记身份后，会在这里看到自己的积分、班级排名和小信有礼。</> : <>登记身份以后，你在课件和小信里做的每个练习都会自动攒积分。以前做过的练习也算。</>}
           {!teacher && <button className="xx-btn" onClick={onRegister}>登记身份，看我的积分</button>}
         </div>
       )}
@@ -133,7 +134,7 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
                 {POINT_RULES.map(([a, b, c]) => <tr key={a}><td>{a}</td><td className="xp-pts">{b}</td><td className="xp-muted">{c}</td></tr>)}
               </tbody></table>
             )}
-            {rules && <p className="xp-muted" style={{ marginTop: 8 }}>同一件事只给一次分，反复刷不会多得。答错不扣分。</p>}
+            {rules && <p className="xp-muted" style={{ marginTop: 8 }}>同一件事只给一次分，反复刷不会多得；题目只看第一次作答，所以先想清楚再选。答错不扣分。</p>}
           </div>
 
           <div className="xp-card">
@@ -152,7 +153,7 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
               <ul className="xp-ledger">
                 {(all ? ledger : ledger.slice(0, 8)).map((x, i) => <li key={i}><span className="d">{fmtDay(x.at)}</span><span className="t">{x.t}</span><span className={'p' + (x.pts < 0 ? ' neg' : '')}>{x.pts > 0 ? '+' + x.pts : x.pts}</span></li>)}
               </ul>
-            ) : <div className="xp-muted">还没有积分。去课件里看一个知识点，马上就有 2 分。</div>}
+            ) : <div className="xp-muted">还没有积分。去课件里做一道课堂一问，答对就有 3 分。</div>}
             {ledger.length > 8 && <button className="xp-link" onClick={() => setAll(!all)}>{all ? '收起' : `看全部 ${ledger.length} 条`}</button>}
           </div>
         </div>
@@ -174,7 +175,7 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
                   {it.intro && <p>{it.intro}</p>}
                   <div className="xp-foot">
                     <span className="xp-cost"><b>{it.cost}</b> 积分</span>
-                    {has ? <button className="xx-btn" onClick={() => dl(it)} disabled={busy === it.id}>{busy === it.id ? '准备中…' : '下载'}</button>
+                    {has ? <button className="xx-btn" onClick={() => dl(it).catch(() => {})} disabled={busy === it.id}>{busy === it.id ? '准备中…' : '下载'}</button>
                       : !d.open ? <span className="xp-lock">{lack > 0 ? `还差 ${lack} 分` : '积分够了，等开放'}</span>
                       : lack > 0 ? <span className="xp-lock">还差 {lack} 分</span>
                       : <button className="xx-btn" onClick={() => buy(it)} disabled={!!busy}>{busy === it.id ? '兑换中…' : '兑换'}</button>}
@@ -187,7 +188,66 @@ export default function PointsSection({ me, teacher, onRegister, bump, onSum }) 
           </div>
         ) : <div className="xp-empty">老师还在准备资料，很快上架。</div>}
       </>}
+      {gift && <GiftBox it={gift.it} balance={gift.balance} onDownload={() => dl(gift.it)} onClose={() => setGift(null)} />}
     </section>
+  )
+}
+
+/* ---------- 兑换成功：拆礼包 ---------- */
+// 礼盒先轻轻晃，点一下（或按回车）盒盖飞起、光芒转开、彩纸散落，资料卡从盒子里升起来
+const CONFETTI = ['#FFD36E', '#FF9F43', '#4DA3FF', '#B07CFF', '#37D99E', '#FF7ACB', '#FFFFFF']
+function chime() {
+  try {
+    const A = window.AudioContext || window.webkitAudioContext; if (!A) return
+    const ctx = new A(), t0 = ctx.currentTime
+    ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f
+      const t = t0 + i * 0.09; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7)
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.75)
+    })
+    setTimeout(() => ctx.close(), 1500)
+  } catch (e) {}
+}
+function GiftBox({ it, balance, onDownload, onClose }) {
+  const [open, setOpen] = useState(false)
+  const [dlState, setDl] = useState('')
+  const bits = useState(() => Array.from({ length: 70 }, (_, i) => {
+    const a = Math.random() * Math.PI * 2, r = 140 + Math.random() * 260
+    return { k: i, dx: Math.cos(a) * r, dy: Math.sin(a) * r * 0.8 - 120, rot: Math.random() * 720 - 360, c: CONFETTI[i % CONFETTI.length], d: Math.random() * 0.25, w: 6 + Math.random() * 7, round: Math.random() < 0.3 }
+  }))[0]
+  function pop() { if (open) return; setOpen(true); chime() }
+  useEffect(() => {
+    const on = e => { if (e.key === 'Escape') onClose(); else if ((e.key === 'Enter' || e.key === ' ') && !open) { e.preventDefault(); pop() } }
+    window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on)
+  })
+  async function get() { setDl('ing'); try { await onDownload(); setDl('ok') } catch (e) { setDl('err') } }
+  return (
+    <div className={'xg' + (open ? ' open' : '')} role="dialog" aria-modal="true" aria-label="兑换成功，拆开礼包" onClick={e => { if (e.target === e.currentTarget && open) onClose() }}>
+      <div className="xg-rays" aria-hidden="true" />
+      <div className="xg-stage">
+        {!open && <div className="xg-tip">你的礼包到了，点一下拆开</div>}
+        <button type="button" className="xg-box" onClick={pop} aria-label="拆开礼包" disabled={open}>
+          <span className="xg-lid"><i /></span>
+          <span className="xg-body"><i /></span>
+          <span className="xg-bow" />
+        </button>
+        <div className="xg-bits" aria-hidden="true">
+          {bits.map(b => <i key={b.k} style={{ '--dx': b.dx + 'px', '--dy': b.dy + 'px', '--rot': b.rot + 'deg', '--c': b.c, '--d': b.d + 's', '--w': b.w + 'px', borderRadius: b.round ? '50%' : '2px' }} />)}
+        </div>
+        <div className="xg-card" aria-hidden={!open}>
+          <div className="xg-hi">恭喜你，兑换成功</div>
+          {it.kind && <span className="xp-kind">{it.kind}</span>}
+          <b className="xg-title">{it.title}</b>
+          <p className="xp-muted">花掉 {it.cost} 积分{balance != null ? `，还剩 ${balance} 分` : ''}。这份资料已经放进你的兑换记录，以后随时能再下载。</p>
+          <div className="xg-row">
+            <button type="button" className="xx-btn" onClick={get} disabled={dlState === 'ing' || !open}>{dlState === 'ing' ? '准备中…' : dlState === 'ok' ? '再下载一次' : '下载资料'}</button>
+            <button type="button" className="xx-ghost" onClick={onClose} disabled={!open}>收下了</button>
+          </div>
+          {dlState === 'ok' && <div className="xp-ok">开始下载了，留意浏览器的下载栏</div>}
+          {dlState === 'err' && <div className="xp-err">下载没成功，关掉后在资料卡片上点「下载」再试</div>}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -251,6 +311,40 @@ const PCSS = String.raw`
 .xp-toasts{position:fixed;right:18px;bottom:18px;z-index:200;display:grid;gap:8px;justify-items:end;pointer-events:none}
 .xp-toast{pointer-events:auto;font-family:var(--xx-mono,ui-monospace);font-weight:900;font-size:1.05rem;color:#1a1200!important;background:linear-gradient(100deg,#FFD36E,#FF9F43);padding:8px 16px;border-radius:999px;box-shadow:0 10px 30px -10px #FF9F43;animation:xpUp 2.6s ease forwards;text-decoration:none}
 @keyframes xpUp{0%{opacity:0;transform:translateY(12px) scale(.9)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+.xg{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:radial-gradient(circle at 50% 45%,rgba(40,24,70,.92),rgba(3,5,12,.94));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);overflow:hidden;animation:xgIn .3s ease}
+@keyframes xgIn{from{opacity:0}to{opacity:1}}
+.xg-rays{position:absolute;left:50%;top:45%;width:1400px;height:1400px;margin:-700px 0 0 -700px;background:repeating-conic-gradient(rgba(255,210,110,.16) 0 10deg,transparent 10deg 20deg);border-radius:50%;-webkit-mask:radial-gradient(circle,#000 0,transparent 60%);mask:radial-gradient(circle,#000 0,transparent 60%);opacity:0;transform:scale(.3)}
+.xg.open .xg-rays{animation:xgRays 16s linear infinite,xgRaysIn .8s ease forwards}
+@keyframes xgRays{to{rotate:360deg}}
+@keyframes xgRaysIn{to{opacity:1;transform:scale(1)}}
+.xg-stage{position:relative;display:grid;justify-items:center;width:min(420px,100%);min-height:440px;align-content:center}
+.xg-tip{position:absolute;top:0;left:0;right:0;text-align:center;font-weight:800;font-size:1.1rem;color:#FFE3A3;animation:xgPulse 1.6s ease-in-out infinite}
+@keyframes xgPulse{50%{opacity:.55}}
+.xg-box{position:relative;width:170px;height:170px;border:0;background:none;padding:0;cursor:pointer;animation:xgWobble 1.4s ease-in-out infinite;transform-origin:50% 90%}
+.xg-box:disabled{cursor:default}
+.xg.open .xg-box{animation:xgDrop .6s .25s ease forwards}
+@keyframes xgWobble{0%,60%,100%{transform:rotate(0)}68%{transform:rotate(-7deg) scale(1.03)}76%{transform:rotate(6deg)}84%{transform:rotate(-4deg)}92%{transform:rotate(2deg)}}
+@keyframes xgDrop{to{transform:translateY(130px) scale(.8);opacity:.0}}
+.xg-body{position:absolute;left:10px;right:10px;bottom:0;height:110px;border-radius:10px;background:linear-gradient(160deg,#FF8A5B,#E2445C);box-shadow:inset 0 -14px 0 rgba(0,0,0,.12),0 20px 40px -14px rgba(226,68,92,.8)}
+.xg-body i,.xg-lid i{position:absolute;left:50%;top:0;bottom:0;width:22px;margin-left:-11px;background:linear-gradient(#FFE08A,#FFC24D)}
+.xg-lid{position:absolute;left:0;right:0;top:34px;height:40px;z-index:2;border-radius:10px;background:linear-gradient(160deg,#FF9B6B,#EE5468);box-shadow:0 6px 12px -4px rgba(0,0,0,.35);transition:transform .7s cubic-bezier(.2,1.6,.4,1),opacity .7s}
+.xg-bow{position:absolute;left:50%;top:6px;z-index:3;width:70px;height:34px;margin-left:-35px;transition:transform .7s cubic-bezier(.2,1.6,.4,1),opacity .7s}
+.xg-bow::before,.xg-bow::after{content:"";position:absolute;top:0;width:32px;height:30px;border:7px solid #FFC24D;border-radius:50% 50% 10% 50%}
+.xg-bow::before{left:0;transform:rotate(-20deg)}
+.xg-bow::after{right:0;transform:scaleX(-1) rotate(-20deg)}
+.xg.open .xg-lid{transform:translate(40px,-190px) rotate(38deg);opacity:0}
+.xg.open .xg-bow{transform:translate(-60px,-210px) rotate(-50deg);opacity:0}
+.xg-bits{position:absolute;left:50%;top:55%;width:0;height:0}
+.xg-bits i{position:absolute;left:0;top:0;width:var(--w);height:calc(var(--w) * .6);background:var(--c);opacity:0}
+.xg.open .xg-bits i{animation:xgBit 1.6s var(--d) cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes xgBit{0%{opacity:1;transform:translate(0,0) rotate(0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--dx),calc(var(--dy) + 160px)) rotate(var(--rot))}}
+.xg-card{position:absolute;left:0;right:0;top:50%;display:grid;gap:10px;justify-items:center;text-align:center;padding:24px 22px;border-radius:20px;background:linear-gradient(180deg,rgba(30,24,52,.97),rgba(14,18,34,.97));border:1px solid rgba(255,200,100,.5);box-shadow:0 30px 80px -20px rgba(255,160,60,.5);opacity:0;transform:translateY(-10%) scale(.6);pointer-events:none}
+.xg.open .xg-card{animation:xgCard .7s .45s cubic-bezier(.2,1.4,.4,1) forwards;pointer-events:auto}
+@keyframes xgCard{to{opacity:1;transform:translateY(-50%) scale(1)}}
+.xg-title{font-size:1.35rem;line-height:1.4;background:linear-gradient(100deg,#FFE08A,#FF9F43);-webkit-background-clip:text;background-clip:text;color:transparent}
+.xg-hi{font-size:1rem;font-weight:800;letter-spacing:.12em;color:#FFC861}
+.xg-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+@media (prefers-reduced-motion:reduce){.xg-box,.xg.open .xg-rays,.xg-tip{animation:none!important}.xg.open .xg-bits i{animation:none}.xg.open .xg-card{animation:none;opacity:1;transform:translateY(-50%)}.xg.open .xg-box{animation:none;opacity:0}}
 @media (max-width:980px){.xp-top{grid-template-columns:1fr 1fr}.xp-me{grid-column:1/-1}}
 @media (max-width:620px){.xp-top{grid-template-columns:1fr}.xp-big b{font-size:2.5rem}}
 @media (prefers-reduced-motion:reduce){.xp-toast{animation:none}}
