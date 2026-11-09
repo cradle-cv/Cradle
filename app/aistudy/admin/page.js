@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TASKS, LABS, QUIZ, GAMES } from '../kb'
+import PointsAdmin from './points'
 
 const TOKEN_KEY = 'xiaoxin:admin'
 const labById = id => LABS.find(l => l.id === id)
@@ -542,6 +543,8 @@ function Dashboard({ token, onOut }) {
 
         <GamesCard g={games} />
         <FilesCard f={files} cls={cls} loading={loading} />
+
+        <PointsAdmin token={token} cls={cls} />
 
         <div className="db-grid2">
           <section className="db-card">
