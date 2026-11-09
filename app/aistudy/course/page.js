@@ -377,7 +377,15 @@ html.live-host .live-btn.push{display:inline-block}
 html.live-lock .live-path>*:not(.live-path):not(.live-target){display:none!important}
 html.live-lock .live-target{margin-top:132px!important;opacity:1!important;transform:none!important}
 html.live-lock .kp.live-path{padding-top:0}
-html.solo .me-pill,html.solo .me-modal{display:none!important}
+html.solo .me-pill,html.solo .me-modal,html.solo .pt-pill,html.solo .pt-toasts{display:none!important}
+.pt-pill{position:fixed;left:16px;bottom:104px;z-index:150;display:inline-flex;align-items:baseline;gap:5px;padding:5px 13px;border-radius:999px;border:1px solid rgba(255,190,90,.5);background:rgba(30,20,6,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#FFE3A3!important;font-size:.78rem;text-decoration:none;box-shadow:0 10px 30px -12px #000}
+.pt-pill[hidden]{display:none}
+.pt-pill b{font-family:var(--f-mono,ui-monospace,monospace);font-size:1rem;color:#FFC861}
+.pt-pill:hover{border-color:#FFC861}
+.pt-toasts{position:fixed;right:18px;top:76px;z-index:270;display:grid;gap:8px;justify-items:end;pointer-events:none}
+.pt-toast{pointer-events:auto;font-family:var(--f-mono,ui-monospace,monospace);font-weight:900;font-size:1.05rem;color:#1a1200!important;background:linear-gradient(100deg,#FFD36E,#FF9F43);padding:8px 16px;border-radius:999px;box-shadow:0 10px 30px -10px #FF9F43;animation:ptUp 2.7s ease forwards;text-decoration:none}
+@keyframes ptUp{0%{opacity:0;transform:translateY(12px) scale(.9)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+@media (prefers-reduced-motion:reduce){.pt-toast{animation:none}}
 html.solo body::before,html.solo body::after{display:none}
 html.solo .live-target{margin:10px auto!important}
 html.solo .lab::before{display:none}
@@ -1668,7 +1676,12 @@ function getTeacher(){try{const v=JSON.parse(localStorage.getItem('xiaoxin:teach
 function isTeacher(){return !!getTeacher()}
 function tTitle(t){return t.admin?'管理员':(/老师$/.test(t.name)?t.name:t.name+'老师')}
 function embedPost(d){try{if(window.parent&&window.parent!==window)window.parent.postMessage(Object.assign({src:'aistudy'},d),location.origin)}catch(e){}}
-function track(type,lab=null,ok=null,detail=null){embedPost({type,lab,ok,detail});if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).catch(()=>{})}
+function track(type,lab=null,ok=null,detail=null){embedPost({type,lab,ok,detail});if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log_pts',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).then(n=>{if(n>0)ptsGain(n)}).catch(()=>{})}
+// 积分：左下角显示总积分（点了回小信首页的积分商城），新得分时右下角弹「+N 积分」
+let ptsPill=null,ptsNow=null;
+function ptsPaint(){if(!ptsPill)return;const show=!isTeacher()&&!!getMe()&&ptsNow!=null;ptsPill.hidden=!show;if(show)ptsPill.innerHTML='<b>'+ptsNow+'</b> 积分 ›'}
+function ptsLoad(){const me=getMe();if(!me||isTeacher()){ptsNow=null;ptsPaint();return}sbRpc('aistudy_points_mini',{p_student:me.id}).then(r=>{ptsNow=r&&r.balance!=null?r.balance:null;ptsPaint()}).catch(()=>{})}
+function ptsGain(n){if(ptsNow!=null){ptsNow+=n;ptsPaint()}else ptsLoad();if(document.documentElement.classList.contains('solo'))return;const t=document.createElement('a');t.className='pt-toast';t.href='/aistudy#points';t.textContent='+'+n+' 积分';(document.querySelector('.pt-toasts')||document.body.appendChild(Object.assign(document.createElement('div'),{className:'pt-toasts'}))).append(t);setTimeout(()=>t.remove(),2700)}
 function trackVisit(){if(!getMe())return;const k='xiaoxin:visit-course',t=new Date().toDateString();try{if(localStorage.getItem(k)===t)return;localStorage.setItem(k,t)}catch(e){}track('visit',null,null,{page:'course'})}
 /* 班级名单（和 app/aistudy/roster.js 同一套逻辑）：班级输关键字选，姓名从本班名单里挑；班里有重名才出现学号框 */
 const roster={classes:null,names:new Map(),
@@ -1705,7 +1718,7 @@ function rosterAttach(f){
   roster.classList().then(l=>{classes=l;if(l.length)ci.placeholder='班级：输关键字选，如 电商 1';if(open==='cls')paintCls();loadNames()})}
 function initIdentity(){
   const pill=h('button',{class:'me-pill',type:'button'});document.body.append(pill);
-  function paint(){const tc=getTeacher();if(tc){pill.innerHTML=`<span class="dot t"></span>老师模式 · ${tTitle(tc)}`;pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
+  function paint(){ptsLoad();const tc=getTeacher();if(tc){pill.innerHTML=`<span class="dot t"></span>老师模式 · ${tTitle(tc)}`;pill.classList.remove('need');return}const me=getMe();pill.innerHTML=me?`<span class="dot"></span>${me.cls} · ${me.name}`:'<span class="dot off"></span>登记身份，老师能看到你的学习进度';pill.classList.toggle('need',!me)}
   function open(){const me=getMe()||{};const ov=h('div',{class:'me-modal',role:'dialog','aria-modal':'true'});
     ov.innerHTML=`<form class="me-box"><div class="k mono">小信 · 学习记录</div><b>先告诉小信你是谁</b><input name="cls" maxlength="40" placeholder="班级，如 电商2401"><input name="name" maxlength="12" placeholder="姓名"><input name="sno" maxlength="20" placeholder="学号（选填）"><p class="note">你在课件里看过的知识点和课堂一问的作答，任课老师能在数据看板里看到；其他同学看不到。</p><p class="err" hidden></p><div class="row" style="justify-content:space-between;gap:8px"><a class="note" href="#" data-t style="text-decoration:none">我是老师 →</a><span class="row" style="gap:8px"><button type="button" class="ghost" data-x>稍后再说</button><button class="btn">进入</button></span></div></form>`;
     const f=$('form',ov);f.cls.value=me.cls||'';f.name.value=me.name||'';f.sno.value=me.sno||'';rosterAttach(f);
@@ -1724,6 +1737,7 @@ function initIdentity(){
       try{const id=await sbRpc('aistudy_teacher_register',{p_tno:t,p_name:n});if(!id)throw 0;localStorage.setItem('xiaoxin:teacher',JSON.stringify({id,tno:t,name:n}));ov.remove();paint()}
       catch(x){er.hidden=false;er.textContent='进入失败，请检查网络后再试'}};
     document.body.append(ov);if(f)setTimeout(()=>f.tno.focus(),50)}
+  ptsPill=h('a',{class:'pt-pill',href:'/aistudy#points',title:'积分商城在小信首页'});ptsPill.hidden=true;document.body.append(ptsPill);
   pill.onclick=()=>{if(isTeacher())openTeacher();else open()};paint();if(isTeacher()){}else if(!getMe())setTimeout(()=>{if(!getMe()&&!isTeacher())open()},2500);else trackVisit();
   // 知识点浏览：一个知识点在屏幕中间停留满 5 秒记一次
   const seen=new Set(),timers=new Map();
