@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { qrMatrix, qrSvgPath } from '@/app/zhitiao/qr'
 import { TASKS, LABS, TOOLS, TOOL_CATS, toolList, QUIZ, matchLabs, matchTool, WISH_CATS, wishProblem, WISH_PATH } from './kb'
 import { getMe, register, logEvent, logVisit, isTeacher, getTeacher, teacherEnter, teacherLogout } from './track'
+import PointsSection, { PointsToast } from './points'
 import { RosterFields, ROSTER_CSS } from './roster'
 
 const COURSE = '/aistudy/course'
@@ -540,6 +541,8 @@ export default function XiaoXinHome() {
   const [me, setMe] = useState(null)
   const [showId, setShowId] = useState(false)
   const [teacher, setTeacher] = useState(null)
+  const [pts, setPts] = useState(null)
+  const [ptsBump, setPtsBump] = useState(0)
   const pendingRef = useRef(null)
   const listRef = useRef(null), idRef = useRef(1), quizRef = useRef({ queue: [], cur: null, tries: 0 }), stateTimer = useRef(null)
 
@@ -569,6 +572,12 @@ export default function XiaoXinHome() {
     if (fn) setTimeout(fn, 50)
   }
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight }, [msgs])
+  // 新得了积分：刷新积分区（稍等一下，让数据库先写完）
+  useEffect(() => {
+    let t; const on = () => { clearTimeout(t); t = setTimeout(() => setPtsBump(n => n + 1), 400) }
+    window.addEventListener('xiaoxin:points', on)
+    return () => { window.removeEventListener('xiaoxin:points', on); clearTimeout(t) }
+  }, [])
 
   const mood = (s, ms) => { clearTimeout(stateTimer.current); setState(s); if (ms) stateTimer.current = setTimeout(() => setState('idle'), ms) }
 
@@ -732,6 +741,7 @@ export default function XiaoXinHome() {
           <a className="xx-logo" href="/aistudy"><b>AISTUDY</b> · 小信</a>
           <nav className="xx-nav">
             <a href={COURSE}>课件</a>
+            <a href="#points">积分商城</a>
             <a href="#map">课件地图</a>
             <a href="#tools">课堂工具</a>
             <a href="#wish">许愿池</a>
@@ -761,6 +771,7 @@ export default function XiaoXinHome() {
               <div><b>{score.right}</b><span>陪练答对</span></div>
               <div><b>{score.streak}</b><span>连对</span></div>
               <div><b>{wrongBook.length}</b><span>错题本</span></div>
+              {me && !teacher && <a className="xx-pts" href="#points"><b>{pts ?? '·'}</b><span>积分</span></a>}
             </div>
             {teacher
               ? <div className="xx-me xx-me-t"><i>老师模式</i><span>{tTitle(teacher)}</span><button type="button" onClick={outTeacher}>退出</button></div>
@@ -821,6 +832,8 @@ export default function XiaoXinHome() {
           </div>
         </section>
 
+        <PointsSection me={teacher ? null : me} teacher={!!teacher} onRegister={() => setShowId(true)} bump={ptsBump} onSum={s => setPts(s?.balance ?? null)} />
+
         <section className="xx-sec" id="map">
           <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>按任务找知识点，每一个都能动手做实验</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
           <div className="xx-map">
@@ -838,6 +851,7 @@ export default function XiaoXinHome() {
         <WishPool onWish={onWish} />
         <footer className="xx-foot">小信的回答由智谱 GLM 生成，仅供学习参考，重要信息以课件和老师讲解为准。点一下小信，它会跟你打招呼。</footer>
       </main>
+      <PointsToast />
       {showId && <IdentityModal me={me} onDone={onRegistered} onTeacher={onTeacherIn} onClose={() => { setShowId(false); pendingRef.current = null }} />}
     </div>
   )
@@ -888,6 +902,9 @@ body{background:#06080F!important}
 .xx-score div{display:grid;justify-items:center;border:1px solid var(--line);border-radius:12px;padding:6px 14px;background:rgba(0,0,0,.2)}
 .xx-score b{font-family:var(--xx-mono);font-size:1.3rem}
 .xx-score span{font-size:.72rem;color:var(--muted)}
+.xx-score .xx-pts{display:grid;justify-items:center;border:1px solid rgba(255,190,90,.45);border-radius:12px;padding:6px 14px;background:rgba(255,170,60,.08);text-decoration:none}
+.xx-score .xx-pts b{color:#FFC861}
+.xx-score .xx-pts:hover{border-color:#FFC861}
 
 /* ---- 小信 ---- */
 .xx-bot{position:relative;width:min(340px,82%);aspect-ratio:300/340;cursor:pointer;--orb:#3FD5FF;align-self:center;user-select:none;-webkit-user-select:none}
@@ -1086,7 +1103,7 @@ ${ROSTER_CSS}
   .xx-me{grid-column:2;justify-self:start;margin-top:4px;padding:0}
   .xx-halo{left:70px;top:50%;width:180px;height:180px}
   .xx-name{text-align:left}.xx-title{font-size:1.6rem}
-  .xx-score{margin-top:6px}.xx-score div{padding:4px 10px}
+  .xx-score{margin-top:6px}.xx-score div,.xx-score .xx-pts{padding:4px 10px}
   .xx-chat{min-height:520px;max-height:none;height:75vh}
   .xx-map{grid-template-columns:repeat(2,minmax(0,1fr))}
   .xx-nav a:nth-child(n+2){display:none}
