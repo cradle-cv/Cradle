@@ -45,12 +45,15 @@ export async function register(cls, name, sno) {
 
 export function forgetMe() { try { localStorage.removeItem(KEY) } catch (e) {} }
 
-// 记一条使用事件：type 为 visit / chat / quiz / qc / kp / test；失败不影响页面
+// 记一条使用事件：type 为 visit / chat / quiz / qc / kp / test / game；失败不影响页面
 export function logEvent(type, lab = null, ok = null, detail = null) {
   if (isTeacher()) return
   const me = getMe(); if (!me) return
   try {
-    supabase.rpc('aistudy_log', { p_student: me.id, p_type: type, p_lab: lab, p_ok: ok, p_detail: detail }).then(() => {}, () => {})
+    // 记录的同时返回这次新得了多少积分，页面上用 xiaoxin:points 事件弹「+N 积分」
+    supabase.rpc('aistudy_log_pts', { p_student: me.id, p_type: type, p_lab: lab, p_ok: ok, p_detail: detail }).then(({ data }) => {
+      if (data > 0 && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('xiaoxin:points', { detail: { pts: data, type } }))
+    }, () => {})
   } catch (e) {}
 }
 
