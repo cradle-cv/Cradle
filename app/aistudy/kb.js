@@ -140,6 +140,7 @@ export const TOOL_CATS = {
   game: { name: '互动游戏', color: '#FF7ACB' },
 }
 export const TOOLS = {
+  play: { name: '课堂互动', icon: '📡', cat: 'interact', tasks: ['t7'], status: 'beta', action: '开一场课堂互动', desc: '老师大屏一题一题放，学生机同步投票、抢答、归类、填空、动手实操，大屏实时出分布和排行榜；极域「打开网页」一键推到全班', url: '/aistudy/play/host', student: '/aistudy/play', code: false, kw: ['课堂互动', '投票', '抢答', '大屏', '极域', '排行榜'] },
   zhitiao: { name: '纸条', icon: '📝', cat: 'interact', tasks: [], status: 'live', action: '开一场纸条', desc: '匿名头脑风暴，写完才能看别人的，大屏按热度排', url: 'https://cradle.art/zhitiao', student: 'https://cradle.art/zhitiao', code: true, kw: ['纸条', '头脑风暴', '匿名', '传纸条'] },
   migong: { name: '迷宫', icon: '🧩', cat: 'interact', tasks: [], status: 'live', action: '开一场迷宫赛', desc: '全班迷宫赛，扫码闯关，按用时排名', url: 'https://cradle.art/migong', student: 'https://cradle.art/migong', code: true, kw: ['迷宫', '闯关', '比赛', '游戏'] },
   qiandao: { name: '签到', icon: '✅', cat: 'interact', tasks: [], status: 'live', action: '开一场签到', desc: '选班级出码，学生扫码输动态签到码，大屏实时显示已到、迟到、未到名单，可补签、导出', url: '/aistudy/checkin', student: '/aistudy/checkin', code: true, kw: ['签到', '点名', '考勤', '到课', '出勤'] },
@@ -155,6 +156,7 @@ export const TOOLS = {
 export const GAMES = {
   virus: { name: '病毒攻防', lab: 'k3-4', levels: {} },
   net: { name: '网络闯关', lab: 'k5-6', levels: { 1: '数据包怎么走', 2: 'IP 与域名', 3: '网络设备与拓扑', 4: '上网安全' } },
+  class: { name: '课堂互动', lab: null, levels: {} },
   files: { name: '文件操作实训', lab: 'k7-9', levels: { 1: '第一套', 2: '第二套', 3: '第三套', 4: '第四套', 5: '第五套', 6: '第六套' } },
   base: { name: '进制闯关', lab: 'k2-2', levels: { 1: '0~15 翻译工坊', 2: '二进制→十进制', 3: '十进制→二进制', 4: '十六进制', 5: '八进制', 6: '60 秒挑战' } },
 }
