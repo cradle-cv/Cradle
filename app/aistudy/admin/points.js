@@ -1,7 +1,7 @@
 'use client'
 
 // 目标路径：app/aistudy/admin/points.js
-// 数据看板 · 积分与商城：一个班的积分表、给学生加减分、开放兑换、上架资料、兑换记录
+// 数据看板 · 积分与小信有礼：一个班的积分表、给学生加减分、开放兑换、上架资料、兑换记录
 // 数据来自 Supabase 函数 aistudy_dash_points / aistudy_dash_points_student；写操作 aistudy_points_adjust、aistudy_shop_* ；
 // 资料文件通过 aistudy-shop 函数上传到私有存储桶（演示账号只能看，不能改）。
 
@@ -89,7 +89,7 @@ function ItemForm({ token, it, onDone, onCancel }) {
         <label>价格（积分）<input className="db-input" type="number" min={0} value={f.cost} onChange={set('cost')} /></label>
         <label>排序<input className="db-input" type="number" value={f.sort} onChange={set('sort')} title="数字小的排在前面" /></label>
       </div>
-      <label>介绍（学生在商城里看到的说明）<textarea className="db-input" rows={3} value={f.intro} onChange={set('intro')} maxLength={500} placeholder="里面有什么、适合谁用" /></label>
+      <label>介绍（学生在小信有礼里看到的说明）<textarea className="db-input" rows={3} value={f.intro} onChange={set('intro')} maxLength={500} placeholder="里面有什么、适合谁用" /></label>
       <label>{it?.file ? `文件（现在是 ${it.file}，选新文件会替换）` : '文件（PDF、Word、压缩包都行，不超过 50 MB）'}<input type="file" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
       {err && <div className="db-err">{err}</div>}
       <div className="db-row" style={{ justifyContent: 'flex-end' }}>
@@ -168,7 +168,7 @@ export default function PointsAdmin({ token, cls }) {
   return (
     <section className="db-card" id="points">
       <div className="db-row" style={{ justifyContent: 'space-between' }}>
-        <h2>积分与商城</h2>
+        <h2>积分与小信有礼</h2>
         <div className="db-row">
           <button className="db-ghost" onClick={() => setRules(!rules)}>{rules ? '收起规则' : '积分规则'}</button>
           {cls && <button className="db-ghost" onClick={exportXlsx} disabled={!students.length}>导出这个班的积分（Excel）</button>}
@@ -225,9 +225,9 @@ export default function PointsAdmin({ token, cls }) {
         <p className="db-muted">点一行看这个学生每一笔积分是怎么来的；老师加减的分可以在那里撤销。</p>
       </>}
 
-      {/* 商城资料 */}
+      {/* 小信有礼的资料 */}
       <div className="db-row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
-        <h3 style={{ margin: 0 }}>商城资料（所有班共用）</h3>
+        <h3 style={{ margin: 0 }}>小信有礼的资料（所有班共用）</h3>
         {edit !== 'new' && <button className="db-btn" onClick={() => setEdit('new')}>+ 上架新资料</button>}
       </div>
       {edit === 'new' && <ItemForm token={token} onDone={() => { setEdit(null); load(); setMsg('已保存，记得点「上架」') }} onCancel={() => setEdit(null)} />}
