@@ -1677,7 +1677,7 @@ function isTeacher(){return !!getTeacher()}
 function tTitle(t){return t.admin?'管理员':(/老师$/.test(t.name)?t.name:t.name+'老师')}
 function embedPost(d){try{if(window.parent&&window.parent!==window)window.parent.postMessage(Object.assign({src:'aistudy'},d),location.origin)}catch(e){}}
 function track(type,lab=null,ok=null,detail=null){embedPost({type,lab,ok,detail});if(isTeacher())return;const me=getMe();if(!me)return;sbRpc('aistudy_log_pts',{p_student:me.id,p_type:type,p_lab:lab,p_ok:ok,p_detail:detail}).then(n=>{if(n>0)ptsGain(n)}).catch(()=>{})}
-// 积分：左下角显示总积分（点了回小信首页的积分商城），新得分时右下角弹「+N 积分」
+// 积分：左下角显示总积分（点了回小信首页的小信有礼），新得分时右下角弹「+N 积分」
 let ptsPill=null,ptsNow=null;
 function ptsPaint(){if(!ptsPill)return;const show=!isTeacher()&&!!getMe()&&ptsNow!=null;ptsPill.hidden=!show;if(show)ptsPill.innerHTML='<b>'+ptsNow+'</b> 积分 ›'}
 function ptsLoad(){const me=getMe();if(!me||isTeacher()){ptsNow=null;ptsPaint();return}sbRpc('aistudy_points_mini',{p_student:me.id}).then(r=>{ptsNow=r&&r.balance!=null?r.balance:null;ptsPaint()}).catch(()=>{})}
@@ -1737,7 +1737,7 @@ function initIdentity(){
       try{const id=await sbRpc('aistudy_teacher_register',{p_tno:t,p_name:n});if(!id)throw 0;localStorage.setItem('xiaoxin:teacher',JSON.stringify({id,tno:t,name:n}));ov.remove();paint()}
       catch(x){er.hidden=false;er.textContent='进入失败，请检查网络后再试'}};
     document.body.append(ov);if(f)setTimeout(()=>f.tno.focus(),50)}
-  ptsPill=h('a',{class:'pt-pill',href:'/aistudy#points',title:'积分商城在小信首页'});ptsPill.hidden=true;document.body.append(ptsPill);
+  ptsPill=h('a',{class:'pt-pill',href:'/aistudy#points',title:'去小信首页的「小信有礼」'});ptsPill.hidden=true;document.body.append(ptsPill);
   pill.onclick=()=>{if(isTeacher())openTeacher();else open()};paint();if(isTeacher()){}else if(!getMe())setTimeout(()=>{if(!getMe()&&!isTeacher())open()},2500);else trackVisit();
   // 知识点浏览：一个知识点在屏幕中间停留满 5 秒记一次
   const seen=new Set(),timers=new Map();
