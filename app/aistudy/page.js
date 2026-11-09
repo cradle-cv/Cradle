@@ -741,8 +741,8 @@ export default function XiaoXinHome() {
           <a className="xx-logo" href="/aistudy"><b>AISTUDY</b> · 小信</a>
           <nav className="xx-nav">
             <a href={COURSE}>课件</a>
-            <a href="#points">积分商城</a>
-            <a href="#map">课件地图</a>
+            <a href="#points">小信有礼</a>
+            <a href="#map">知识图谱</a>
             <a href="#tools">课堂工具</a>
             <a href="#wish">许愿池</a>
           </nav>
@@ -835,7 +835,7 @@ export default function XiaoXinHome() {
         <PointsSection me={teacher ? null : me} teacher={!!teacher} onRegister={() => setShowId(true)} bump={ptsBump} onSum={s => setPts(s?.balance ?? null)} />
 
         <section className="xx-sec" id="map">
-          <div className="xx-sec-h"><div className="xx-k">课件地图</div><h2>按任务找知识点，每一个都能动手做实验</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
+          <div className="xx-sec-h"><div className="xx-k">知识图谱</div><h2>按任务找知识点，每一个都能动手做实验</h2><a className="xx-btn" href={COURSE}>打开完整课件 →</a></div>
           <div className="xx-map">
             {TASKS.map(t => (
               <div key={t.id} className="xx-task" style={{ '--c': t.color }}>
