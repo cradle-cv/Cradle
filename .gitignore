@@ -42,3 +42,6 @@ wrangler.toml
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pdfjs 运行时文件，由 scripts/copy-pdfjs.mjs 在构建前从 node_modules 复制
+/public/pdfjs/
