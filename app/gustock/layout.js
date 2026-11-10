@@ -59,6 +59,8 @@ export default function GustockLayout({ children }) {
                       paddingBottom: 16, borderBottom: '1px solid #eee', marginBottom: 24 }}>
           <a href="/gustock" style={{ fontWeight: 600, fontSize: 16,
               color: '#1a1a1a', textDecoration: 'none' }}>谷股</a>
+          <a href="/gustock/my" style={{ fontSize: 13, color: '#666',
+              textDecoration: 'none' }}>我的持倉</a>
           <a href="/gustock/new" style={{ fontSize: 13, color: '#666',
               textDecoration: 'none' }}>+ 貼入報告</a>
           <button onClick={() => { localStorage.removeItem('gustock_key'); location.reload(); }}
