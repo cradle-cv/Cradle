@@ -140,8 +140,7 @@ const dataDoubt = a => !!a?.check && (a.check.trusted === false || (a.check.csv?
 
 function Card({ h, a, onEdit, open, onToggle, onUpload, onClearCsv }) {
   const doubt = dataDoubt(a);
-  const NEUTRAL = { bg: '#f5f5f5', fg: '#444', bd: '#e2e2e2' };
-  const tone = doubt ? TONE.warn : a?.stopBroken ? TONE.bad : NEUTRAL;
+  const tone = doubt ? TONE.warn : (TONE[a?.tone] || { bg: '#f5f5f5', fg: '#777', bd: '#e5e5e5' });
   const cur = CUR[h.market] || '';
   return (
     <div style={{ border: '1px solid #eee', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
@@ -181,17 +180,17 @@ function Card({ h, a, onEdit, open, onToggle, onUpload, onClearCsv }) {
           {a.ok && doubt && (
             <div style={{ background: '#fdecea', border: '1px solid #f3c4bf', borderRadius: 8, padding: '10px 12px',
               marginBottom: 12, fontSize: 13, color: '#8f2f27' }}>
-              <b>这只票的数据没对上。</b>不一致的日期和数值见最下面「数据核对」。
+              <b>这只票的数据没对上,先别按下面的结论操作。</b>看最下面「数据核对」里是哪几天不一致,和同花顺对一下。
             </div>
           )}
           {a.ok && (
             <>
               <div style={{ background: tone.bg, border: `1px solid ${tone.bd}`, borderRadius: 8,
                 padding: '10px 12px', marginBottom: 12 }}>
-                <div style={{ fontSize: 14, color: tone.fg, fontWeight: 600, marginBottom: 6 }}>{a.title}</div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: '#555', lineHeight: 1.7 }}>
-                  {(a.facts || []).map((f, k) => <li key={k}>{f}</li>)}
-                </ul>
+                <div style={{ fontSize: 14, color: tone.fg, fontWeight: 600, marginBottom: 4 }}>
+                  {a.title}:{a.action}
+                </div>
+                <div style={{ fontSize: 12.5, color: '#666' }}>{a.why}</div>
               </div>
 
               <div style={{ fontSize: 11.5, color: '#888', marginBottom: 4, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -209,7 +208,7 @@ function Card({ h, a, onEdit, open, onToggle, onUpload, onClearCsv }) {
                   你的成本 {fmt(h.cost)} 离现在的价格太远,没画进图里。</p>
               )}
 
-              <div style={{ fontSize: 13, fontWeight: 600, margin: '14px 0 6px' }}>关键价位</div>
+              <div style={{ fontSize: 13, fontWeight: 600, margin: '14px 0 6px' }}>接下来只盯这几个数(都看收盘价)</div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <tbody>
                   {a.watch.map((w, k) => (
@@ -319,7 +318,7 @@ export default function MyHoldings() {
   list.forEach(h => { (groups[h.market] = groups[h.market] || []).push(h); });
   const order = ['cn', 'us', 'hk'].filter(m => groups[m]);
   // 需要处理的排前面
-  const attention = list.filter(h => !dataDoubt(ana[h.code]) && ana[h.code]?.stopBroken);
+  const attention = list.filter(h => !dataDoubt(ana[h.code]) && ['bad', 'warn'].includes(ana[h.code]?.tone) && Number(h.shares) > 0);
   const doubtful = list.filter(h => dataDoubt(ana[h.code]));
 
   const input = (k, ph, type = 'text') => (
@@ -340,21 +339,21 @@ export default function MyHoldings() {
           background: '#1a1a1a', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>+ 加一只</button>
       </div>
       <p style={{ fontSize: 12.5, color: '#999', margin: '0 0 16px' }}>
-这里只描述位置:每只票的价格在均线的哪一边、均线朝哪个方向、离线多远、历史上到过多远。不给买卖建议,不预测涨跌。
+        这里只回答一件事:每只票现在在均线的哪一边、按规则该盯哪个数。它不预测涨跌,也不是投资建议。
       </p>
 
       {attention.length > 0 && (
         <div style={{ background: '#fdecea', border: '1px solid #f3c4bf', borderRadius: 8, padding: '10px 12px',
           marginBottom: 18, fontSize: 13, color: '#8f2f27' }}>
-          <b>现价低于你自己设的保底线的 {attention.length} 只:</b>
-          {attention.map(h => h.name).join('、')}
+          <b>今天要看的 {attention.length} 只:</b>
+          {attention.map(h => `${h.name}(${ana[h.code].title})`).join('、')}
         </div>
       )}
 
       {doubtful.length > 0 && (
         <div style={{ background: '#fdf3e2', border: '1px solid #f0d9a8', borderRadius: 8, padding: '10px 12px',
           marginBottom: 18, fontSize: 13, color: '#7a4f0c' }}>
-          <b>数据没对上的 {doubtful.length} 只:</b>{doubtful.map(h => h.name).join('、')}。不一致的日期和数值见各自的「数据核对」。
+          <b>数据没对上的 {doubtful.length} 只:</b>{doubtful.map(h => h.name).join('、')}。点开看「数据核对」,核实之前不要按结论操作。
         </div>
       )}
 
@@ -404,14 +403,14 @@ export default function MyHoldings() {
                   {hs.filter(h => ana[h.code]?.value).map((h, k) => {
                     const w = ana[h.code].value / total;
                     return <div key={h.code} title={`${h.name} ${(w * 100).toFixed(0)}%`}
-                      style={{ width: `${w * 100}%`, background: w > 0.15 ? '#6b6b6b' : (k % 2 ? '#c9c9c9' : '#b5b5b5'),
+                      style={{ width: `${w * 100}%`, background: w > 0.3 ? '#D85A30' : w > 0.15 ? '#E0A040' : (k % 2 ? '#c9c9c9' : '#b5b5b5'),
                         borderRight: '1px solid #fff' }} />;
                   })}
                 </div>
                 {heavy.length > 0 && (
-                  <p style={{ fontSize: 12, color: '#777', margin: '5px 0 0' }}>
-                    占比较大:{heavy.map(h => `${h.name} ${((ana[h.code].value / total) * 100).toFixed(0)}%`).join('、')}
-                    。(占该市场持仓市值超过 15% 的)
+                  <p style={{ fontSize: 12, color: '#9a6410', margin: '5px 0 0' }}>
+                    仓位偏重:{heavy.map(h => `${h.name} ${((ana[h.code].value / total) * 100).toFixed(0)}%`).join('、')}
+                    。一只票超过 15%,它跌一成,这个账户就要掉 1.5% 以上。
                   </p>
                 )}
               </div>
