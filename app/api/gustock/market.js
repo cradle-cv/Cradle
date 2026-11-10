@@ -161,11 +161,16 @@ export function analyze(rows, holding = {}) {
   for (let k = i; k >= 0 && trend[k] != null; k--) {
     if ((close[k] >= trend[k]) === above) streak++; else break;
   }
-  // 最近 10 天有没有摸到趋势线、没站上去、之后又跌了 2% 以上(反弹失败)
+  // 反弹失败:最近 10 天里,价格从线下往上弹、摸到趋势线没站上去,之后又跌了 2% 以上。
+  // 必须是"从下面弹上来"——前一天收盘就在线下;从线上跌穿下来的那天不算。
+  // 而且最近 3 天不能是明显在涨(那是新一轮反弹,不是失败)。
   let touchedAndFailed = false;
-  if (!above) {
-    for (let k = Math.max(0, i - 10); k < i; k++) {
-      if (trend[k] != null && rows[k].high >= trend[k] * 0.99 && close[k] < trend[k] && c < close[k] * 0.98) {
+  const recentUp = i >= 3 && c > close[i - 3] * 1.03;
+  if (!above && !recentUp) {
+    for (let k = Math.max(1, i - 10); k < i; k++) {
+      if (trend[k] == null || trend[k - 1] == null) continue;
+      const fromBelow = close[k - 1] < trend[k - 1];
+      if (fromBelow && rows[k].high >= trend[k] * 0.99 && close[k] < trend[k] && c < close[k] * 0.98) {
         touchedAndFailed = true;
       }
     }
@@ -226,6 +231,10 @@ export function analyze(rows, holding = {}) {
       state = 'near_line'; tone = 'warn'; title = '反弹到线边上';
       action = held ? '线还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。' : '还不是买点。要等它站上线、而且线自己走平。';
       why = `${trendName}${DIR_TXT[dirT] || '方向未明'},价格只比线低 ${r1(Math.abs(bias))}%,在线下已连续 ${streak} 天。`;
+    } else if (recentUp) {
+      state = 'rebounding'; tone = 'info'; title = '线下反弹中';
+      action = held ? '在反弹,但价格还在线下面、线也没转向上。反弹到线附近是规则里减仓的位置,不是加仓的位置。' : '还不是买点。反弹能不能站上线、线会不会走平,要再看。';
+      why = `最近三天涨了 ${r1((c / close[i - 3] - 1) * 100)}%,但${trendName}${DIR_TXT[dirT] || '方向未明'},价格仍在线下方 ${r1(Math.abs(bias))}%。`;
     } else {
       state = 'downtrend'; tone = 'bad'; title = dirT === 'flat' ? '线下横着' : '下跌趋势';
       action = held
