@@ -135,10 +135,11 @@ export function analyze(rows, holding = {}) {
   const i = n - 1;
   const c = close[i], prev = close[i - 1] ?? c;
 
-  // 趋势线:够 60 根用 MA60(红线);不够就退到 MA30,并明说
+  // 趋势线:够 60 根用 60日均线;不够就退到 30日均线,并明说
   const hasRed = ma60[i] != null;
   const trend = hasRed ? ma60 : ma30;
-  const trendName = hasRed ? '红线(60日均价)' : '蓝线(30日均价,数据不足60天)';
+  const trendName = hasRed ? '60日均线' : '30日均线(数据不足60天,暂代60日均线)';
+  const trendShort = hasRed ? '60日均线' : '30日均线';
   const T = trend[i];
   if (T == null) {
     return { ok: false, reason: `只有 ${n} 个交易日的数据,不够算均线,暂时没法判断。` };
@@ -185,9 +186,9 @@ export function analyze(rows, holding = {}) {
   const rebPct = (c / low10 - 1) * 100;
   const rebounding = rebPct >= 5 && i >= 2 && c > close[i - 2];
 
-  // 头顶最近的一条均线(蓝线或红线里,在现价上方、离得最近的那条)
+  // 头顶最近的一条均线(30日或60日均线里,在现价上方、离得最近的那条)
   let overhead = null;
-  for (const [nm, v, dv] of [['蓝线(30日均价)', ma30[i], dir30], [trendName, T, dirT]]) {
+  for (const [nm, v, dv] of [['30日均线', ma30[i], dir30], [trendName, T, dirT]]) {
     if (v != null && v > c && (overhead == null || v < overhead.value)) overhead = { name: nm, value: v, dir: dv };
   }
   const gapOver = overhead ? (overhead.value - c) / c * 100 : null;
@@ -196,7 +197,7 @@ export function analyze(rows, holding = {}) {
   // 而且现在不在反弹中。必须是"从下面弹上来"——前一天收盘就在线下;从线上跌穿下来的那天不算。
   let failedAt = null;
   if (!above && !rebounding) {
-    for (const [nm, ma] of [['蓝线(30日均价)', ma30], [trendName, trend]]) {
+    for (const [nm, ma] of [['30日均线', ma30], [trendName, trend]]) {
       for (let k = Math.max(1, i - 5); k < i; k++) {
         if (ma[k] == null || ma[k - 1] == null) continue;
         const fromBelow = close[k - 1] < ma[k - 1];
@@ -258,7 +259,7 @@ export function analyze(rows, holding = {}) {
       action = held ? '最近反弹碰到线又掉头,这是规则里的出场点。' : '不买。';
       why = `最近五天反弹摸到过${failedAt},没站上去,又掉头跌了。`;
     } else if (gapOver != null && gapOver < 3) {
-      const ln = overhead.name.slice(0, 2);
+      const ln = overhead.name.slice(0, 5);
       state = 'near_line'; tone = 'warn'; title = `反弹到${ln}边上`;
       action = held ? `${ln}还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。` : '还不是买点。要等它站上线、而且线自己走平。';
       why = `头顶最近的是${overhead.name} ${r2(overhead.value)},${DIR_TXT[overhead.dir] || '方向未明'},价格离它只差 ${r1(gapOver)}%。`;
@@ -279,7 +280,7 @@ export function analyze(rows, holding = {}) {
   // 接下来盯哪几个数
   const watch = [];
   watch.push({ label: trendName, value: r2(T), note: above ? '收盘跌破它,趋势就有问题' : '收盘站上它并站住,才谈得上修复' });
-  if (hasRed && ma30[i] != null) watch.push({ label: '蓝线(30日均价)', value: r2(ma30[i]), note: `现在${DIR_TXT[dir30] || ''}` });
+  if (hasRed && ma30[i] != null) watch.push({ label: '30日均线', value: r2(ma30[i]), note: `现在${DIR_TXT[dir30] || ''}` });
   if (hiExt != null) watch.push({ label: '冲太高线', value: r2(T * (1 + hiExt / 100)), note: `离线 +${r1(hiExt)}%,到这里卖一半` });
   if (stop != null) watch.push({ label: '你的保底线', value: stop, note: '收盘跌破就走' });
 
@@ -302,7 +303,7 @@ export function analyze(rows, holding = {}) {
     ok: true,
     asof: rows[i].date, price: r2(c), pct: r2((c - prev) / prev * 100),
     ma20: r2(ma20[i]), ma30: r2(ma30[i]), ma60: r2(ma60[i]), ma120: r2(ma120[i]),
-    trendName, trendValue: r2(T), trendDir: dirT, bias: r1(bias),
+    trendName, trendShort, trendValue: r2(T), trendDir: dirT, bias: r1(bias),
     biasHi: r1(hiExt), biasLo: r1(loExt), streak, above,
     state, tone, title, action, why, watch,
     marks: marks.slice(-6), series, bars: n,
