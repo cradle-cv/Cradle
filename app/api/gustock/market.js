@@ -147,13 +147,31 @@ export function analyze(rows, holding = {}) {
   const dir30 = dirOf(ma30, i);
   const bias = (c - T) / T * 100;
 
-  // 这只票自己的"离线太远"标准:历史乖离的 5% / 95% 分位
-  const biasHist = [];
-  for (let k = 0; k < n; k++) if (trend[k] != null) biasHist.push((close[k] - trend[k]) / trend[k] * 100);
-  const sorted = [...biasHist].sort((a, b) => a - b);
-  const enough = sorted.length >= 80;
-  const hiExt = enough ? quantile(sorted, 0.95) : null;
-  const loExt = enough ? quantile(sorted, 0.05) : null;
+  // 这只票自己的"离线太远"标准:
+  // 把历史切成一段段"在线上"和"在线下"的行情(至少持续 5 天、至少离线 3%),
+  // 看每一段最远走到离线多少就回头,取这些数的中位数。正在进行的这一段不算进去。
+  // 不用分位数,是因为一轮特别长的大行情会把分位数整体拉偏。
+  const biasAll = [];
+  for (let k = 0; k < n; k++) biasAll.push(trend[k] == null ? null : (close[k] - trend[k]) / trend[k] * 100);
+  const upPeaks = [], dnTroughs = [];
+  {
+    let cur = null, ext = 0, len = 0;
+    for (let k = 0; k < n; k++) {
+      const v = biasAll[k];
+      if (v == null) continue;
+      const sg = v >= 0;
+      if (cur === null || sg !== cur) {
+        if (cur !== null && len >= 5 && Math.abs(ext) >= 3) (cur ? upPeaks : dnTroughs).push(ext);
+        cur = sg; ext = v; len = 1;
+      } else {
+        len++;
+        if (sg ? v > ext : v < ext) ext = v;
+      }
+    }
+  }
+  const median = arr => arr.length ? quantile([...arr].sort((a, b) => a - b), 0.5) : null;
+  const hiExt = upPeaks.length >= 2 ? median(upPeaks) : null;
+  const loExt = dnTroughs.length >= 2 ? median(dnTroughs) : null;
 
   // 连续在趋势线上/下方的天数
   const above = c >= T;
@@ -161,20 +179,32 @@ export function analyze(rows, holding = {}) {
   for (let k = i; k >= 0 && trend[k] != null; k--) {
     if ((close[k] >= trend[k]) === above) streak++; else break;
   }
-  // 反弹失败:最近 10 天里,价格从线下往上弹、摸到趋势线没站上去,之后又跌了 2% 以上。
-  // 必须是"从下面弹上来"——前一天收盘就在线下;从线上跌穿下来的那天不算。
-  // 而且最近 3 天不能是明显在涨(那是新一轮反弹,不是失败)。
-  let touchedAndFailed = false;
-  const recentUp = i >= 3 && c > close[i - 3] * 1.03;
-  if (!above && !recentUp) {
-    for (let k = Math.max(1, i - 10); k < i; k++) {
-      if (trend[k] == null || trend[k - 1] == null) continue;
-      const fromBelow = close[k - 1] < trend[k - 1];
-      if (fromBelow && rows[k].high >= trend[k] * 0.99 && close[k] < trend[k] && c < close[k] * 0.98) {
-        touchedAndFailed = true;
+  // 线下反弹中:比最近 10 天的最低收盘价高出 5% 以上,而且比两天前高
+  let low10 = c;
+  for (let k = Math.max(0, i - 9); k <= i; k++) low10 = Math.min(low10, close[k]);
+  const rebPct = (c / low10 - 1) * 100;
+  const rebounding = rebPct >= 5 && i >= 2 && c > close[i - 2];
+
+  // 头顶最近的一条均线(蓝线或红线里,在现价上方、离得最近的那条)
+  let overhead = null;
+  for (const [nm, v, dv] of [['蓝线(30日均价)', ma30[i], dir30], [trendName, T, dirT]]) {
+    if (v != null && v > c && (overhead == null || v < overhead.value)) overhead = { name: nm, value: v, dir: dv };
+  }
+  const gapOver = overhead ? (overhead.value - c) / c * 100 : null;
+
+  // 反弹失败:最近 5 天里,价格从线下往上弹、摸到头顶那条线没站上去,之后又跌了 2% 以上,
+  // 而且现在不在反弹中。必须是"从下面弹上来"——前一天收盘就在线下;从线上跌穿下来的那天不算。
+  let failedAt = null;
+  if (!above && !rebounding) {
+    for (const [nm, ma] of [['蓝线(30日均价)', ma30], [trendName, trend]]) {
+      for (let k = Math.max(1, i - 5); k < i; k++) {
+        if (ma[k] == null || ma[k - 1] == null) continue;
+        const fromBelow = close[k - 1] < ma[k - 1];
+        if (fromBelow && rows[k].high >= ma[k] * 0.99 && close[k] < ma[k] && c < close[k] * 0.98) failedAt = nm;
       }
     }
   }
+  const touchedAndFailed = failedAt != null;
 
   // ── 状态判定(顺序即优先级)──
   const held = Number(holding.shares) > 0;
@@ -188,11 +218,11 @@ export function analyze(rows, holding = {}) {
   } else if (hiExt != null && bias >= hiExt && bias > 0) {
     state = 'too_high'; tone = 'warn'; title = '冲太高';
     action = held ? '离线太远了,按规则这里卖一半,剩下的看它回不回到线上。' : '不追。离线这么远的地方买,多半要先挨一段回落。';
-    why = `现在比${trendName}高 ${r1(bias)}%,这只票历史上 95% 的时间都没离这么远(它的上限大约 ${r1(hiExt)}%)。`;
-  } else if (loExt != null && bias <= loExt && bias < 0) {
+    why = `现在比${trendName}高 ${r1(bias)}%。这只票过去一年每次冲上去,一般冲到离线 ${r1(hiExt)}% 左右就回头了。`;
+  } else if (loExt != null && bias <= loExt && bias < 0 && !rebounding) {
     state = 'too_low'; tone = 'info'; title = '超跌';
     action = held ? '趋势没变,但这里是离线最远的位置,不是卖的地方。等它弹回线附近再处理。' : '只适合做短线反弹,赚一口就走;趋势线还没转向,不是长拿的买点。';
-    why = `现在比${trendName}低 ${r1(Math.abs(bias))}%,这只票历史上 95% 的时间都没跌离这么远(它的下限大约 ${r1(loExt)}%)。`;
+    why = `现在比${trendName}低 ${r1(Math.abs(bias))}%。这只票过去一年每次跌下去,一般跌到离线 ${r1(Math.abs(loExt))}% 左右就会弹一下。`;
   } else if (above && dirT !== 'down') {
     if (streak <= 5) {
       state = 'breakout'; tone = 'good'; title = '突破';
@@ -226,15 +256,17 @@ export function analyze(rows, holding = {}) {
     if (touchedAndFailed) {
       state = 'rebound_fail'; tone = 'bad'; title = '反弹失败';
       action = held ? '最近反弹碰到线又掉头,这是规则里的出场点。' : '不买。';
-      why = `最近十天反弹摸到过${trendName},没站上去。`;
-    } else if (bias > -3) {
-      state = 'near_line'; tone = 'warn'; title = '反弹到线边上';
-      action = held ? '线还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。' : '还不是买点。要等它站上线、而且线自己走平。';
-      why = `${trendName}${DIR_TXT[dirT] || '方向未明'},价格只比线低 ${r1(Math.abs(bias))}%,在线下已连续 ${streak} 天。`;
-    } else if (recentUp) {
+      why = `最近五天反弹摸到过${failedAt},没站上去,又掉头跌了。`;
+    } else if (gapOver != null && gapOver < 3) {
+      const ln = overhead.name.slice(0, 2);
+      state = 'near_line'; tone = 'warn'; title = `反弹到${ln}边上`;
+      action = held ? `${ln}还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。` : '还不是买点。要等它站上线、而且线自己走平。';
+      why = `头顶最近的是${overhead.name} ${r2(overhead.value)},${DIR_TXT[overhead.dir] || '方向未明'},价格离它只差 ${r1(gapOver)}%。`;
+    } else if (rebounding) {
       state = 'rebounding'; tone = 'info'; title = '线下反弹中';
       action = held ? '在反弹,但价格还在线下面、线也没转向上。反弹到线附近是规则里减仓的位置,不是加仓的位置。' : '还不是买点。反弹能不能站上线、线会不会走平,要再看。';
-      why = `最近三天涨了 ${r1((c / close[i - 3] - 1) * 100)}%,但${trendName}${DIR_TXT[dirT] || '方向未明'},价格仍在线下方 ${r1(Math.abs(bias))}%。`;
+      why = `从最近十天的最低收盘价已经弹了 ${r1(rebPct)}%,但${trendName}${DIR_TXT[dirT] || '方向未明'},价格仍在线下方 ${r1(Math.abs(bias))}%` +
+        (overhead ? `;头顶最近的是${overhead.name} ${r2(overhead.value)}。` : '。');
     } else {
       state = 'downtrend'; tone = 'bad'; title = dirT === 'flat' ? '线下横着' : '下跌趋势';
       action = held
