@@ -131,15 +131,15 @@ const DIR_TXT = { up: '向上', down: '向下', flat: '走平' };
 export function analyze(rows, holding = {}) {
   const n = rows.length;
   const close = rows.map(r => r.close);
-  const ma20 = sma(close, 20), ma30 = sma(close, 30), ma60 = sma(close, 60), ma120 = sma(close, 120);
+  const ma5 = sma(close, 5), ma20 = sma(close, 20), ma30 = sma(close, 30), ma60 = sma(close, 60), ma120 = sma(close, 120);
   const i = n - 1;
   const c = close[i], prev = close[i - 1] ?? c;
 
   // 趋势线:够 60 根用 60日均线;不够就退到 30日均线,并明说
   const hasRed = ma60[i] != null;
   const trend = hasRed ? ma60 : ma30;
-  const trendName = hasRed ? '60日均线' : '30日均线(数据不足60天,暂代60日均线)';
-  const trendShort = hasRed ? '60日均线' : '30日均线';
+  const trendName = hasRed ? 'MA60' : 'MA30(数据不足60天,暂代MA60)';
+  const trendShort = hasRed ? 'MA60' : 'MA30';
   const T = trend[i];
   if (T == null) {
     return { ok: false, reason: `只有 ${n} 个交易日的数据,不够算均线,暂时没法判断。` };
@@ -188,7 +188,7 @@ export function analyze(rows, holding = {}) {
 
   // 头顶最近的一条均线(30日或60日均线里,在现价上方、离得最近的那条)
   let overhead = null;
-  for (const [nm, v, dv] of [['30日均线', ma30[i], dir30], [trendName, T, dirT]]) {
+  for (const [nm, v, dv] of [['MA30', ma30[i], dir30], [trendName, T, dirT]]) {
     if (v != null && v > c && (overhead == null || v < overhead.value)) overhead = { name: nm, value: v, dir: dv };
   }
   const gapOver = overhead ? (overhead.value - c) / c * 100 : null;
@@ -197,7 +197,7 @@ export function analyze(rows, holding = {}) {
   // 而且现在不在反弹中。必须是"从下面弹上来"——前一天收盘就在线下;从线上跌穿下来的那天不算。
   let failedAt = null;
   if (!above && !rebounding) {
-    for (const [nm, ma] of [['30日均线', ma30], [trendName, trend]]) {
+    for (const [nm, ma] of [['MA30', ma30], [trendName, trend]]) {
       for (let k = Math.max(1, i - 5); k < i; k++) {
         if (ma[k] == null || ma[k - 1] == null) continue;
         const fromBelow = close[k - 1] < ma[k - 1];
@@ -259,7 +259,7 @@ export function analyze(rows, holding = {}) {
       action = held ? '最近反弹碰到线又掉头,这是规则里的出场点。' : '不买。';
       why = `最近五天反弹摸到过${failedAt},没站上去,又掉头跌了。`;
     } else if (gapOver != null && gapOver < 3) {
-      const ln = overhead.name.slice(0, 5);
+      const ln = overhead.name.slice(0, 4);
       state = 'near_line'; tone = 'warn'; title = `反弹到${ln}边上`;
       action = held ? `${ln}还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。` : '还不是买点。要等它站上线、而且线自己走平。';
       why = `头顶最近的是${overhead.name} ${r2(overhead.value)},${DIR_TXT[overhead.dir] || '方向未明'},价格离它只差 ${r1(gapOver)}%。`;
@@ -280,7 +280,8 @@ export function analyze(rows, holding = {}) {
   // 接下来盯哪几个数
   const watch = [];
   watch.push({ label: trendName, value: r2(T), note: above ? '收盘跌破它,趋势就有问题' : '收盘站上它并站住,才谈得上修复' });
-  if (hasRed && ma30[i] != null) watch.push({ label: '30日均线', value: r2(ma30[i]), note: `现在${DIR_TXT[dir30] || ''}` });
+  if (hasRed && ma30[i] != null) watch.push({ label: 'MA30', value: r2(ma30[i]), note: `现在${DIR_TXT[dir30] || ''}` });
+  if (ma5[i] != null) watch.push({ label: 'MA5', value: r2(ma5[i]), note: c >= ma5[i] ? '现价在它上面' : '现价在它下面' });
   if (hiExt != null) watch.push({ label: '冲太高线', value: r2(T * (1 + hiExt / 100)), note: `离线 +${r1(hiExt)}%,到这里卖一半` });
   if (stop != null) watch.push({ label: '你的保底线', value: stop, note: '收盘跌破就走' });
 
@@ -294,7 +295,7 @@ export function analyze(rows, holding = {}) {
   }
   const series = [];
   for (let k = s0; k < n; k++) {
-    series.push({ d: rows[k].date, c: r2(close[k]), m30: r2(ma30[k]), m60: r2(ma60[k]) });
+    series.push({ d: rows[k].date, c: r2(close[k]), m5: r2(ma5[k]), m30: r2(ma30[k]), m60: r2(ma60[k]) });
   }
 
   const cost = holding.cost != null ? Number(holding.cost) : null;
@@ -302,7 +303,7 @@ export function analyze(rows, holding = {}) {
   return {
     ok: true,
     asof: rows[i].date, price: r2(c), pct: r2((c - prev) / prev * 100),
-    ma20: r2(ma20[i]), ma30: r2(ma30[i]), ma60: r2(ma60[i]), ma120: r2(ma120[i]),
+    ma5: r2(ma5[i]), ma20: r2(ma20[i]), ma30: r2(ma30[i]), ma60: r2(ma60[i]), ma120: r2(ma120[i]),
     trendName, trendShort, trendValue: r2(T), trendDir: dirT, bias: r1(bias),
     biasHi: r1(hiExt), biasLo: r1(loExt), streak, above,
     state, tone, title, action, why, watch,

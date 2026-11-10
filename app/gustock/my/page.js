@@ -64,6 +64,7 @@ function Chart({ a, cost, stop }) {
       {hline(cost, PURP, '成本')}
       {hline(stop, '#b3392f', '保底')}
       <path d={path('m60')} fill="none" stroke={RED} strokeWidth="2.2" />
+      <path d={path('m5')} fill="none" stroke="#9aa0a6" strokeWidth="1" />
       <path d={path('m30')} fill="none" stroke={BLUE} strokeWidth="1.8" />
       <path d={path('c')} fill="none" stroke={GRAY} strokeWidth="1.5" />
       {(a.marks || []).map((m, k) => {
@@ -195,8 +196,9 @@ function Card({ h, a, onEdit, open, onToggle, onUpload, onClearCsv }) {
 
               <div style={{ fontSize: 11.5, color: '#888', marginBottom: 4, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                 <span><b style={{ color: GRAY }}>━</b> 每天收盘价</span>
-                <span><b style={{ color: BLUE }}>━</b> 30日均线:最近 30 个交易日收盘价的平均</span>
-                <span><b style={{ color: RED }}>━</b> 60日均线:最近 60 个交易日收盘价的平均</span>
+                <span><b style={{ color: '#9aa0a6' }}>━</b> MA5:最近 5 天收盘价的平均</span>
+                <span><b style={{ color: BLUE }}>━</b> MA30:最近 30 天收盘价的平均</span>
+                <span><b style={{ color: RED }}>━</b> MA60:最近 60 天收盘价的平均</span>
                 <span>▲▼ 收盘价穿过{a.trendShort || '均线'}的日子</span>
               </div>
               <Chart a={a} cost={h.cost != null ? Number(h.cost) : null}
@@ -365,7 +367,7 @@ export default function MyHoldings() {
             <label style={{ fontSize: 12, color: '#666' }}>股数(没买填 0){input('shares', '0', 'number')}</label>
             <label style={{ fontSize: 12, color: '#666' }}>成本价{input('cost', '', 'number')}</label>
             <label style={{ fontSize: 12, color: '#666' }}>保底线(收盘跌破就走){input('stop_close', '', 'number')}</label>
-            <label style={{ fontSize: 12, color: '#666' }}>备注{input('note', '比如:碰30日均线卖一半')}</label>
+            <label style={{ fontSize: 12, color: '#666' }}>备注{input('note', '比如:碰MA30卖一半')}</label>
           </div>
           <p style={{ fontSize: 11.5, color: '#aaa', margin: '8px 0 0' }}>
             A股直接填 6 位数字;指数要带前缀,如 sh000905(中证500);美股填字母;港股填数字。
