@@ -84,8 +84,63 @@ function Chart({ a, cost, stop }) {
   );
 }
 
-function Card({ h, a, onEdit, open, onToggle }) {
-  const tone = TONE[a?.tone] || { bg: '#f5f5f5', fg: '#777', bd: '#e5e5e5' };
+// 读用户选的 CSV:先按 UTF-8,读出乱码再按 GBK(同花顺旧版导出是 GBK)
+async function readCsvFile(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch { return new TextDecoder('gbk').decode(buf); }
+}
+
+function DataCheck({ h, a, onUpload, onClearCsv }) {
+  const fileRef = useRef(null);
+  const ck = a.check;
+  if (!ck) return null;
+  const line = { fontSize: 12.5, margin: '3px 0' };
+  const bad = { ...line, color: '#b3392f' }, ok = { ...line, color: '#1d7a55' }, dim = { ...line, color: '#999' };
+  return (
+    <div style={{ marginTop: 14, padding: '10px 12px', background: '#fafafa', border: '1px solid #eee', borderRadius: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>数据核对</div>
+      {ck.last5?.length > 0 && (
+        <p style={{ ...line, color: '#555' }}>
+          最近 5 天收盘(可以和同花顺对一眼):
+          {ck.last5.map(r => `${r.date.slice(5)} ${fmt(r.close)}`).join(' · ')}
+        </p>
+      )}
+      {ck.remoteError && <p style={bad}>自动取行情失败:{ck.remoteError}。现在只用了你上传的数据。</p>}
+      {ck.cross == null
+        ? <p style={dim}>第二个来源(东方财富)今天没连上,没做交叉核对。</p>
+        : ck.cross.diffs.length === 0
+          ? <p style={ok}>腾讯财经和东方财富最近 {ck.cross.overlap} 天的收盘价一致。</p>
+          : <p style={bad}>两个来源对不上:{ck.cross.diffs.map(d => `${d.date.slice(5)} 腾讯 ${fmt(d.a)} / 东财 ${fmt(d.b)}`).join(';')}</p>}
+      {ck.csv && (
+        ck.csv.diffs.length === 0
+          ? <p style={ok}>你上传的数据({ck.csv.first} 到 {ck.csv.last},{ck.csv.days} 天)和自动取的对比了 {ck.csv.overlap} 天,全部一致。这些日子用的是你上传的。</p>
+          : <p style={bad}>你上传的和自动取的有 {ck.csv.diffs.length} 天对不上(已按你上传的算):
+              {ck.csv.diffs.slice(-4).map(d => `${d.date.slice(5)} 你的 ${fmt(d.csv)} / 自动 ${fmt(d.auto)}`).join(';')}
+              {ck.csv.diffs.length > 4 ? ' 等' : ''}。如果你导出的是不复权价格,分红除权日之前会有这种差别。</p>
+      )}
+      {!ck.csv && h.market === 'cn' && <p style={dim}>还没上传过这只票的 CSV,现在全部用自动取的数据。</p>}
+      {h.market === 'cn' && (
+        <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+            onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onUpload(h.code, await readCsvFile(f)); }} />
+          <button onClick={() => fileRef.current?.click()} style={{ fontSize: 12, color: '#fff', background: '#1a1a1a',
+            border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>上传同花顺日K(CSV)</button>
+          {ck.csv && <button onClick={() => onClearCsv(h.code)} style={{ fontSize: 12, color: '#666', background: '#fff',
+            border: '1px solid #ddd', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>清掉上传的,回到自动取</button>}
+          <span style={{ fontSize: 11.5, color: '#aaa' }}>上传过的日子以你的为准;之后的新交易日自动接上。</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 数据有疑问:两个来源对不上,或你上传的和自动取的对不上
+const dataDoubt = a => !!a?.check && (a.check.trusted === false || (a.check.csv?.diffs?.length > 0));
+
+function Card({ h, a, onEdit, open, onToggle, onUpload, onClearCsv }) {
+  const doubt = dataDoubt(a);
+  const tone = doubt ? TONE.warn : (TONE[a?.tone] || { bg: '#f5f5f5', fg: '#777', bd: '#e5e5e5' });
   const cur = CUR[h.market] || '';
   return (
     <div style={{ border: '1px solid #eee', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
@@ -113,7 +168,7 @@ function Card({ h, a, onEdit, open, onToggle }) {
         <div style={{ minWidth: 108, textAlign: 'right' }}>
           <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: 999, fontSize: 12.5,
             background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}` }}>
-            {!a ? '载入中…' : a.error ? '行情失败' : a.ok ? a.title : '数据不足'}
+            {!a ? '载入中…' : a.error ? '行情失败' : doubt ? '数据待核对' : a.ok ? a.title : '数据不足'}
           </span>
         </div>
       </div>
@@ -122,6 +177,12 @@ function Card({ h, a, onEdit, open, onToggle }) {
         <div style={{ borderTop: '1px solid #f2f2f2', padding: '14px 14px 16px' }}>
           {a.error && <p style={{ fontSize: 13, color: '#b3392f' }}>没拿到行情:{a.error}</p>}
           {!a.error && !a.ok && <p style={{ fontSize: 13, color: '#777' }}>{a.reason}</p>}
+          {a.ok && doubt && (
+            <div style={{ background: '#fdecea', border: '1px solid #f3c4bf', borderRadius: 8, padding: '10px 12px',
+              marginBottom: 12, fontSize: 13, color: '#8f2f27' }}>
+              <b>这只票的数据没对上,先别按下面的结论操作。</b>看最下面「数据核对」里是哪几天不一致,和同花顺对一下。
+            </div>
+          )}
           {a.ok && (
             <>
               <div style={{ background: tone.bg, border: `1px solid ${tone.bd}`, borderRadius: 8,
@@ -166,6 +227,7 @@ function Card({ h, a, onEdit, open, onToggle }) {
               </p>
             </>
           )}
+          {!a.error && <DataCheck h={h} a={a} onUpload={onUpload} onClearCsv={onClearCsv} />}
           {h.note && <p style={{ fontSize: 12.5, color: '#777', margin: '10px 0 0' }}>备注:{h.note}</p>}
           <button onClick={() => onEdit(h)} style={{ marginTop: 10, fontSize: 12, color: '#666',
             border: '1px solid #ddd', background: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
@@ -229,6 +291,19 @@ export default function MyHoldings() {
     if (r.error) { alert(r.error); return; }
     setForm(null); load();
   };
+  const uploadCsv = async (code, csv) => {
+    const r = await fetch('/api/gustock/bars', {
+      method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ code, csv })
+    }).then(r => r.json()).catch(e => ({ error: e.message }));
+    if (r.error) { alert(r.error); return; }
+    alert(`存好了:${r.first} 到 ${r.last},共 ${r.days} 天。` + (r.skippedToday ? '今天还没收盘,今天那一行是盘中价,没有存。' : ''));
+    refreshOne(code);
+  };
+  const clearCsv = async code => {
+    if (!confirm('清掉这只票上传过的数据,回到全部自动取?')) return;
+    await fetch('/api/gustock/bars?code=' + encodeURIComponent(code), { method: 'DELETE', headers: headers() });
+    refreshOne(code);
+  };
   const remove = async code => {
     if (!confirm('从清单里删掉这只?只是不再跟踪,不影响你的真实持仓。')) return;
     await fetch('/api/gustock/holdings?code=' + encodeURIComponent(code), { method: 'DELETE', headers: headers() });
@@ -243,7 +318,8 @@ export default function MyHoldings() {
   list.forEach(h => { (groups[h.market] = groups[h.market] || []).push(h); });
   const order = ['cn', 'us', 'hk'].filter(m => groups[m]);
   // 需要处理的排前面
-  const attention = list.filter(h => ['bad', 'warn'].includes(ana[h.code]?.tone) && Number(h.shares) > 0);
+  const attention = list.filter(h => !dataDoubt(ana[h.code]) && ['bad', 'warn'].includes(ana[h.code]?.tone) && Number(h.shares) > 0);
+  const doubtful = list.filter(h => dataDoubt(ana[h.code]));
 
   const input = (k, ph, type = 'text') => (
     <input value={form[k] ?? ''} placeholder={ph} type={type}
@@ -271,6 +347,13 @@ export default function MyHoldings() {
           marginBottom: 18, fontSize: 13, color: '#8f2f27' }}>
           <b>今天要看的 {attention.length} 只:</b>
           {attention.map(h => `${h.name}(${ana[h.code].title})`).join('、')}
+        </div>
+      )}
+
+      {doubtful.length > 0 && (
+        <div style={{ background: '#fdf3e2', border: '1px solid #f0d9a8', borderRadius: 8, padding: '10px 12px',
+          marginBottom: 18, fontSize: 13, color: '#7a4f0c' }}>
+          <b>数据没对上的 {doubtful.length} 只:</b>{doubtful.map(h => h.name).join('、')}。点开看「数据核对」,核实之前不要按结论操作。
         </div>
       )}
 
@@ -333,7 +416,7 @@ export default function MyHoldings() {
               </div>
             )}
             {hs.map(h => (
-              <Card key={h.code} h={h} a={ana[h.code]} open={!!open[h.code]}
+              <Card key={h.code} h={h} a={ana[h.code]} open={!!open[h.code]} onUpload={uploadCsv} onClearCsv={clearCsv}
                 onToggle={() => setOpen(o => ({ ...o, [h.code]: !o[h.code] }))}
                 onEdit={hh => { setForm({ ...EMPTY, ...hh, shares: hh.shares ?? '', cost: hh.cost ?? '', stop_close: hh.stop_close ?? '', note: hh.note ?? '' }); window.scrollTo?.(0, 0); }} />
             ))}

@@ -311,3 +311,56 @@ export function analyze(rows, holding = {}) {
     pnlPct: (cost != null && cost > 0) ? r1((c - cost) / cost * 100) : null
   };
 }
+
+// ───────── 数据核对 ─────────
+// 解析用户上传的日K CSV。支持同花顺导出格式(时间,星期,开盘,最高,最低,收盘,…)
+// 以及通用的 date,open,high,low,close 表头。
+export function parseCsv(text) {
+  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return [];
+  const head = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const find = (...names) => head.findIndex(h => names.includes(h));
+  const iD = find('时间', '日期', 'date'), iO = find('开盘', 'open'), iH = find('最高', 'high'),
+        iL = find('最低', 'low'), iC = find('收盘', 'close'), iV = find('总手', '成交量', 'volume');
+  if (iD < 0 || iC < 0) return [];
+  const out = [];
+  for (const line of lines.slice(1)) {
+    const r = line.split(',');
+    const m = (r[iD] || '').match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    const c = Number(r[iC]);
+    if (!m || !isFinite(c) || c <= 0) continue;
+    const num = k => (k >= 0 && isFinite(Number(r[k]))) ? Number(r[k]) : null;
+    out.push({
+      date: `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`,
+      open: num(iO) ?? c, high: num(iH) ?? c, low: num(iL) ?? c, close: c, volume: num(iV) ?? 0
+    });
+  }
+  return out.sort((a, b) => a.date < b.date ? -1 : 1);
+}
+
+// 两份日K在重叠日期上的收盘价对比。today 那一根盘中还在变,不比。
+export function compareBars(a, b, { skipDate = null, lastN = 60, tol = 0.5 } = {}) {
+  const mb = new Map(b.map(r => [r.date, r.close]));
+  const diffs = []; let overlap = 0;
+  for (const r of a.slice(-lastN)) {
+    if (r.date === skipDate || !mb.has(r.date)) continue;
+    overlap++;
+    const o = mb.get(r.date);
+    const pct = Math.abs(r.close - o) / o * 100;
+    if (pct > tol) diffs.push({ date: r.date, a: r.close, b: o, pct: Math.round(pct * 100) / 100 });
+  }
+  return { overlap, diffs };
+}
+
+// 合并:用户上传的日子以上传的为准;其余日子(主要是上传之后的新交易日)用自动取的。
+export function mergeBars(remote, csv) {
+  if (!csv?.length) return remote || [];
+  const m = new Map((remote || []).map(r => [r.date, r]));
+  for (const r of csv) m.set(r.date, r);
+  return [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1);
+}
+
+// 只取东方财富最近几天,用来和腾讯交叉核对(取不到就返回 null,不影响主流程)
+export async function fetchCrossCheck(code, market) {
+  try { return (await eastmoneyKline(code, market, 12)).rows; } catch { return null; }
+}
