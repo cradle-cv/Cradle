@@ -206,82 +206,78 @@ export function analyze(rows, holding = {}) {
   }
   const touchedAndFailed = failedAt != null;
 
-  // ── 状态判定(顺序即优先级)──
+  // ── 位置描述 ──
+  // 只陈述事实:价格在哪条线的哪一边、线朝哪个方向、离线多远、历史上到过多远。
+  // 不给"买/卖/拿着"之类的建议,标题也只描述位置。
   const held = Number(holding.shares) > 0;
   const stop = holding.stop_close != null ? Number(holding.stop_close) : null;
-  let state, tone, title, action, why;
+  const tl = trendName.slice(0, 2);            // "红线" 或 "蓝线"
+  const side = above ? '上方' : '下方';
+  const absBias = r1(Math.abs(bias));
+  let state, title;
 
   if (stop != null && c < stop) {
-    state = 'stop'; tone = 'bad'; title = '保底线已破';
-    action = held ? `你自己定的保底线是 ${stop},现在 ${r2(c)} 在它下面。按规则,收盘还在下面就该走,不再讨论。` : `已跌破你设的 ${stop}。`;
-    why = '保底线是你在冷静时定的数字,它被碰到的那天一定是最难看的那天,这正是它存在的理由。';
+    state = 'stop'; title = '低于你设的保底线';
   } else if (hiExt != null && bias >= hiExt && bias > 0) {
-    state = 'too_high'; tone = 'warn'; title = '冲太高';
-    action = held ? '离线太远了,按规则这里卖一半,剩下的看它回不回到线上。' : '不追。离线这么远的地方买,多半要先挨一段回落。';
-    why = `现在比${trendName}高 ${r1(bias)}%。这只票过去一年每次冲上去,一般冲到离线 ${r1(hiExt)}% 左右就回头了。`;
+    state = 'far_above'; title = `${tl}上方 ${absBias}%(历史各段最远值的中位数 +${r1(hiExt)}%)`;
   } else if (loExt != null && bias <= loExt && bias < 0 && !rebounding) {
-    state = 'too_low'; tone = 'info'; title = '超跌';
-    action = held ? '趋势没变,但这里是离线最远的位置,不是卖的地方。等它弹回线附近再处理。' : '只适合做短线反弹,赚一口就走;趋势线还没转向,不是长拿的买点。';
-    why = `现在比${trendName}低 ${r1(Math.abs(bias))}%。这只票过去一年每次跌下去,一般跌到离线 ${r1(Math.abs(loExt))}% 左右就会弹一下。`;
-  } else if (above && dirT !== 'down') {
-    if (streak <= 5) {
-      state = 'breakout'; tone = 'good'; title = '突破';
-      action = held ? '刚站回线上且线没有向下,继续拿,看它能不能站稳三天以上。' : '这是规则里的买点:线走平或向上,价格刚站上来。可以小仓位试,跌回线下就认错。';
-      why = `${trendName}${DIR_TXT[dirT] || ''},价格站上来第 ${streak} 天。`;
-    } else if (bias < 3) {
-      state = 'pullback'; tone = 'good'; title = '回踩';
-      action = held ? '价格回到线附近,线还在往上托,不用动。收盘跌破线再说。' : '线向上、价格回到线边上,是规则里的回踩买点。跌破线就认错。';
-      why = `${trendName}${DIR_TXT[dirT] || ''},价格只比线高 ${r1(bias)}%。`;
-    } else {
-      state = 'uptrend'; tone = 'good'; title = '趋势向上';
-      action = held ? '拿着。卖出信号只有两个:收盘跌破线,或者离线太远。' : '趋势是对的,但已经离线一段了,等回踩到线附近再买更稳。';
-      why = `${trendName}${DIR_TXT[dirT] || ''},价格在线上方 ${r1(bias)}%,已连续 ${streak} 天。`;
-    }
-  } else if (above && dirT === 'down') {
-    state = 'fake_break'; tone = 'warn'; title = '站上了,但线还在向下';
-    action = held ? '可以当作减仓的窗口:线向下时价格冲到线上,常常站不住。' : '不算买点。要等线自己走平。';
-    why = `价格比${trendName}高 ${r1(bias)}%,但线还在向下,这种站上容易是假突破。`;
-  } else if (!above && dirT === 'up') {
-    if (streak <= 3) {
-      state = 'fake_drop'; tone = 'info'; title = '跌破,但线还向上';
-      action = held ? '先不卖。线还向上时的跌破常是假跌破,给它三天,收不回来再走。' : '观察。三天内收回线上,是假跌破买点。';
-      why = `跌到${trendName}下面第 ${streak} 天,线还在向上。`;
-    } else {
-      state = 'broken'; tone = 'bad'; title = '跌破没收回';
-      action = held ? '已经超过三天没收回,按规则该减。线一旦转平向下就是确认。' : '不买。';
-      why = `在${trendName}下面已 ${streak} 天。`;
-    }
+    state = 'far_below'; title = `${tl}下方 ${absBias}%(历史各段最远值的中位数 ${r1(loExt)}%)`;
+  } else if (above && streak <= 5) {
+    state = 'just_above'; title = `站上${tl}第 ${streak} 天,${tl}${DIR_TXT[dirT] || ''}`;
+  } else if (above) {
+    state = 'above'; title = `${tl}上方 ${absBias}%,${tl}${DIR_TXT[dirT] || ''}`;
+  } else if (streak <= 3) {
+    state = 'just_below'; title = `跌到${tl}下方第 ${streak} 天,${tl}${DIR_TXT[dirT] || ''}`;
+  } else if (touchedAndFailed) {
+    state = 'touched_back'; title = `近 5 天触及${failedAt.slice(0, 2)}后回落`;
+  } else if (gapOver != null && gapOver < 3) {
+    state = 'near_line'; title = `${tl === overhead.name.slice(0, 2) ? '' : tl + '下方,'}距${overhead.name.slice(0, 2)} ${r1(gapOver)}%`;
+  } else if (rebounding) {
+    state = 'rebounding'; title = `${tl}下方 ${absBias}%,较十日低点回升 ${r1(rebPct)}%`;
   } else {
-    // 线向下或走平,价格在线下
-    if (touchedAndFailed) {
-      state = 'rebound_fail'; tone = 'bad'; title = '反弹失败';
-      action = held ? '最近反弹碰到线又掉头,这是规则里的出场点。' : '不买。';
-      why = `最近五天反弹摸到过${failedAt},没站上去,又掉头跌了。`;
-    } else if (gapOver != null && gapOver < 3) {
-      const ln = overhead.name.slice(0, 2);
-      state = 'near_line'; tone = 'warn'; title = `反弹到${ln}边上`;
-      action = held ? `${ln}还没转向上,反弹到线附近是规则里减仓的位置:碰线先卖一半,剩下的看它能不能连着三天站在线上。` : '还不是买点。要等它站上线、而且线自己走平。';
-      why = `头顶最近的是${overhead.name} ${r2(overhead.value)},${DIR_TXT[overhead.dir] || '方向未明'},价格离它只差 ${r1(gapOver)}%。`;
-    } else if (rebounding) {
-      state = 'rebounding'; tone = 'info'; title = '线下反弹中';
-      action = held ? '在反弹,但价格还在线下面、线也没转向上。反弹到线附近是规则里减仓的位置,不是加仓的位置。' : '还不是买点。反弹能不能站上线、线会不会走平,要再看。';
-      why = `从最近十天的最低收盘价已经弹了 ${r1(rebPct)}%,但${trendName}${DIR_TXT[dirT] || '方向未明'},价格仍在线下方 ${r1(Math.abs(bias))}%` +
-        (overhead ? `;头顶最近的是${overhead.name} ${r2(overhead.value)}。` : '。');
-    } else {
-      state = 'downtrend'; tone = 'bad'; title = dirT === 'flat' ? '线下横着' : '下跌趋势';
-      action = held
-        ? '出场的位置是反弹到线附近的时候,或者你定的保底线;没有保底线的话,先定一个。'
-        : (dirT === 'flat' ? '不买。线走平了,但价格还在线下,要等它站上来。' : '不买。看起来便宜,但线还在往下压。');
-      why = `${trendName}${DIR_TXT[dirT] || '方向未明'},价格在线下方 ${r1(Math.abs(bias))}%,已连续 ${streak} 天。`;
-    }
+    state = 'below'; title = `${tl}下方 ${absBias}%,${tl}${DIR_TXT[dirT] || ''}`;
   }
 
-  // 接下来盯哪几个数
+  // 事实清单
+  const fmtList = arr => arr.map(v => (v > 0 ? '+' : '') + r1(v) + '%').join('、');
+  const facts = [];
+  facts.push(`现价 ${r2(c)},${trendName} ${r2(T)},现价在线${side} ${absBias}%,已连续 ${streak} 个交易日在线${side}。`);
+  if (i >= 5 && trend[i - 5] != null) {
+    facts.push(`${tl}方向:5 个交易日前 ${r2(trend[i - 5])},现在 ${r2(T)},判定为${DIR_TXT[dirT] || '未明'}(变化不到 ±0.3% 算走平)。`);
+  }
+  if (hasRed && ma30[i] != null) {
+    const g = (c - ma30[i]) / ma30[i] * 100;
+    facts.push(`蓝线(30日均价) ${r2(ma30[i])},${DIR_TXT[dir30] || '方向未明'},现价在它${g >= 0 ? '上方' : '下方'} ${r1(Math.abs(g))}%。`);
+  }
+  if (ma20[i] != null) {
+    const g = (c - ma20[i]) / ma20[i] * 100;
+    facts.push(`20日均价 ${r2(ma20[i])},现价在它${g >= 0 ? '上方' : '下方'} ${r1(Math.abs(g))}%。`);
+  }
+  facts.push(`最近 10 个交易日最低收盘 ${r2(low10)},现价比它高 ${r1(rebPct)}%。`);
+  if (touchedAndFailed) facts.push(`最近 5 个交易日内,最高价触及过${failedAt},当天收盘仍在线下,之后收盘价又低了 2% 以上。`);
+  if (upPeaks.length) {
+    facts.push(`过去约一年,价格在${tl}上方的 ${upPeaks.length} 段行情里,离线最远分别到过 ${fmtList(upPeaks)}` +
+      (hiExt != null ? `,中位数 +${r1(hiExt)}%。` : '。') + '(只统计持续 5 天以上、离线超过 3% 的行情,不含正在进行的这一段)');
+  }
+  if (dnTroughs.length) {
+    facts.push(`同一时期,价格在${tl}下方的 ${dnTroughs.length} 段行情里,离线最远分别到过 ${fmtList(dnTroughs)}` +
+      (loExt != null ? `,中位数 ${r1(loExt)}%。` : '。'));
+  }
+  if (!upPeaks.length && !dnTroughs.length) facts.push('历史数据不够长,暂无"离线最远到过多少"的统计。');
+  if (stop != null) {
+    const g = (c - stop) / stop * 100;
+    facts.push(`你设的保底线 ${stop},现价${g >= 0 ? '高于' : '低于'}它 ${r1(Math.abs(g))}%。`);
+  }
+
+  // 关键价位:只列数值和现价到它的距离
+  const dist = v => { const g = (v - c) / c * 100; return `距现价 ${g >= 0 ? '+' : ''}${r1(g)}%`; };
   const watch = [];
-  watch.push({ label: trendName, value: r2(T), note: above ? '收盘跌破它,趋势就有问题' : '收盘站上它并站住,才谈得上修复' });
-  if (hasRed && ma30[i] != null) watch.push({ label: '蓝线(30日均价)', value: r2(ma30[i]), note: `现在${DIR_TXT[dir30] || ''}` });
-  if (hiExt != null) watch.push({ label: '冲太高线', value: r2(T * (1 + hiExt / 100)), note: `离线 +${r1(hiExt)}%,到这里卖一半` });
-  if (stop != null) watch.push({ label: '你的保底线', value: stop, note: '收盘跌破就走' });
+  watch.push({ label: trendName, value: r2(T), note: `${DIR_TXT[dirT] || '方向未明'} · ${dist(T)}` });
+  if (hasRed && ma30[i] != null) watch.push({ label: '蓝线(30日均价)', value: r2(ma30[i]), note: `${DIR_TXT[dir30] || '方向未明'} · ${dist(ma30[i])}` });
+  if (ma20[i] != null) watch.push({ label: '20日均价', value: r2(ma20[i]), note: dist(ma20[i]) });
+  if (hiExt != null) { const v = T * (1 + hiExt / 100); watch.push({ label: `${tl}上方 ${r1(hiExt)}%(历史上方各段最远值的中位数)`, value: r2(v), note: dist(v) }); }
+  if (loExt != null) { const v = T * (1 + loExt / 100); watch.push({ label: `${tl}下方 ${r1(Math.abs(loExt))}%(历史下方各段最远值的中位数)`, value: r2(v), note: dist(v) }); }
+  if (stop != null) watch.push({ label: '你设的保底线', value: stop, note: dist(stop) });
 
   // 图上标记:趋势线的穿越点(只留最近 6 个)
   const W = Math.min(n, 130), s0 = n - W;
@@ -304,7 +300,7 @@ export function analyze(rows, holding = {}) {
     ma20: r2(ma20[i]), ma30: r2(ma30[i]), ma60: r2(ma60[i]), ma120: r2(ma120[i]),
     trendName, trendValue: r2(T), trendDir: dirT, bias: r1(bias),
     biasHi: r1(hiExt), biasLo: r1(loExt), streak, above,
-    state, tone, title, action, why, watch,
+    state, title, facts, watch, stopBroken: state === 'stop', held,
     marks: marks.slice(-6), series, bars: n,
     value: shares ? r2(shares * c) : null,
     pnl: (shares && cost != null) ? r2(shares * (c - cost)) : null,
