@@ -378,6 +378,61 @@ function NextQuizRound({onPush,busy}){
   </details>
 }
 
+const DISCUSSION_BANK_KEY="lulu-discussion-bank-v1"
+const DEFAULT_DISCUSSIONS=[
+    {topic:"在农产品销售表中，想要对“实付金额“大于500的产品，定为”热销产品“，使用MAX函数能实现吗？"},
+    {topic:"已知农产品销售情况表包含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用IF 函数完成逻辑判断，要求如下：1.判断规则：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」；2.写出对应单元格的 IF 函数公式"},
+].map((q,i)=>({...q,id:"default-discussion-"+i}))
+function readDiscussionBank(){
+  try {
+    const rows=JSON.parse(window.localStorage.getItem(DISCUSSION_BANK_KEY)||"null")
+    return Array.isArray(rows)?rows:DEFAULT_DISCUSSIONS
+  } catch {return DEFAULT_DISCUSSIONS}
+}
+
+function DiscussionBank(){
+  const [items,setItems]=useState(null)
+  const [draft,setDraft]=useState(null)
+  const [error,setError]=useState("")
+  useEffect(()=>setItems(readDiscussionBank()),[])
+  function write(next){
+    try {
+      window.localStorage.setItem(DISCUSSION_BANK_KEY,JSON.stringify(next))
+      setItems(next);setDraft(null);setError("")
+    } catch {setError("无法保存到此浏览器，请检查浏览器设置。")}
+  }
+  function save(){
+    const topic=draft.topic.trim()
+    if(!topic) return
+    const item={topic,id:draft.id||globalThis.crypto.randomUUID()}
+    write(draft.id?items.map(q=>q.id===draft.id?item:q):[...items,item])
+  }
+  if(!items) return null
+  return <div style={{maxWidth:800,margin:"24px auto",padding:"0 16px"}}>
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}>
+        <strong>讨论题库 · {items.length} 道题</strong>
+        <Btn small color={C.purple} onClick={()=>{setDraft({topic:""});setError("")}}>＋ 新增讨论题</Btn>
+      </div>
+      <p style={{fontSize:13,color:C.muted}}>题库保存在当前浏览器。加入课堂的讨论题会随房间保存。</p>
+      {error&&<p role="alert" style={{color:C.red,fontSize:13}}>{error}</p>}
+      {draft&&<div style={{display:"grid",gap:10,marginBottom:14}}>
+        <textarea aria-label="讨论题目" rows={4} placeholder="输入讨论题目" style={inp()}
+          value={draft.topic} onChange={e=>setDraft({...draft,topic:e.target.value})}/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn small color={C.purple} disabled={!draft.topic.trim()} onClick={save}>保存</Btn>
+          <Btn small color={C.muted} onClick={()=>{setDraft(null);setError("")}}>取消</Btn>
+        </div>
+      </div>}
+      {items.map(q=><div key={q.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 0",borderTop:"1px solid "+C.border}}>
+        <span style={{flex:1,whiteSpace:"pre-wrap"}}>{q.topic}</span>
+        <Btn small color={C.purple} onClick={()=>{setDraft(q);setError("")}}>编辑</Btn>
+        <Btn small color={C.red} onClick={()=>{if(window.confirm("删除这道讨论题？")) write(items.filter(item=>item.id!==q.id))}}>删除</Btn>
+      </div>)}
+    </Card>
+  </div>
+}
+
 function TSetup({onCreate}){
   const [title,setTitle]=useState("信息技术基础教学课堂")
   const [timeLab,setTimeLab]=useState(600)
@@ -390,10 +445,10 @@ function TSetup({onCreate}){
   useEffect(()=>setQuizBank(readQuizBank()),[])
   const qs=selectedQuizIds.map(id=>quizBank.find(q=>q.id===id)).filter(Boolean)
   const toggleQuiz=id=>setSelectedQuizIds(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id])
-  const [discussions,setDiscussions]=useState([
-    {topic:"在农产品销售表中，想要对“实付金额“大于500的产品，定为”热销产品“，使用MAX函数能实现吗？"},
-    {topic:"已知农产品销售情况表包含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用IF 函数完成逻辑判断，要求如下：1.判断规则：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」；2.写出对应单元格的 IF 函数公式"},
-])
+  const [discussionBank,setDiscussionBank]=useState([])
+  const [selectedDiscussionIds,setSelectedDiscussionIds]=useState([])
+  useEffect(()=>setDiscussionBank(readDiscussionBank()),[])
+
   const [tab,setTab]=useState("groups")
   const [loading,setLoading]=useState(false)
   const [layoutTasks,setLayoutTasks]=useState([])
@@ -409,7 +464,6 @@ function TSetup({onCreate}){
   const addGroup=()=>{const s=groups.length+1;setGroups(p=>[...p,{seq:s,name:`第${s}组`,color:GROUP_COLORS[(s-1)%GROUP_COLORS.length]}])}
   const updGroup=(i,f,v)=>setGroups(p=>p.map((g,idx)=>idx===i?{...g,[f]:v}:g))
   const delGroup=i=>setGroups(p=>p.filter((_,idx)=>idx!==i).map((g,j)=>({...g,seq:j+1})))
-  const updDis=(i,v)=>setDiscussions(p=>p.map((d,idx)=>idx===i?{...d,topic:v}:d))
   async function create(){
     if(!title.trim()){alert("请填写课堂名称");return}
     setLoading(true)
@@ -426,8 +480,12 @@ function TSetup({onCreate}){
       )
       if(quizError) alert("课堂已建立，但抢答题未保存。可在本堂抢答页面重新加入题目。")
     }
-    const validDis=discussions.filter(d=>d.topic.trim())
-    if(validDis.length)await sb.from("lulu_discussions").insert(validDis.map(d=>({topic:d.topic,session_id:sess.id})))
+    const discussionRows=selectedDiscussionIds.map(id=>discussionBank.find(d=>d.id===id))
+      .filter(Boolean).map(d=>({topic:d.topic,session_id:sess.id}))
+    if(discussionRows.length){
+      const {error:discussionError}=await sb.from("lulu_discussions").insert(discussionRows)
+      if(discussionError) alert("课堂已建立，但讨论题未保存。")
+    }
     onCreate(sess)
   }
   const tabBtn=(t,label)=>(
@@ -533,17 +591,19 @@ function TSetup({onCreate}){
         )}
         {tab==="discuss"&&(
           <Card style={{marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
-              <span style={{flex:1,fontSize:13,color:C.muted}}>{discussions.length} 个议题</span>
-              <Btn small onClick={()=>setDiscussions(p=>[...p,{topic:""}])} color={C.purple}>＋ 新增</Btn>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+              <strong style={{flex:1}}>从讨论题库选题 · 已选 {selectedDiscussionIds.length} 道</strong>
+              <Btn small color={C.purple} disabled={!discussionBank.length||selectedDiscussionIds.length===discussionBank.length}
+                onClick={()=>setSelectedDiscussionIds(discussionBank.map(q=>q.id))}>全选</Btn>
+              <Btn small color={C.muted} disabled={!selectedDiscussionIds.length} onClick={()=>setSelectedDiscussionIds([])}>清空</Btn>
             </div>
-            {discussions.map((d,i)=>(
-              <div key={i} style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
-                <input value={d.topic} onChange={e=>updDis(i,e.target.value)} placeholder="输入讨论议题…" style={{...inp(),flex:1}}/>
-                <button onClick={()=>setDiscussions(p=>p.filter((_,idx)=>idx!==i))}
-                  style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:18}}>×</button>
-              </div>
-            ))}
+            <p style={{fontSize:13,color:C.muted}}>不勾选也可以建课。</p>
+            {!discussionBank.length&&<p style={{fontSize:13,color:C.muted}}>题库还没有题目，请先到「讨论题库」新增。</p>}
+            {discussionBank.map(q=><label key={q.id} style={{display:"flex",gap:10,padding:"10px 0",borderTop:"1px solid "+C.border,cursor:"pointer"}}>
+              <input type="checkbox" checked={selectedDiscussionIds.includes(q.id)}
+                onChange={()=>setSelectedDiscussionIds(ids=>ids.includes(q.id)?ids.filter(id=>id!==q.id):[...ids,q.id])}/>
+              <span style={{flex:1,whiteSpace:"pre-wrap"}}>{q.topic}</span>
+            </label>)}
           </Card>
         )}
         <div style={{marginTop:24}}>
@@ -4057,6 +4117,7 @@ function TBackend(){
           {tabBtn("new","新建课堂",C.accent)}
           {tabBtn("tasks","排版题库",C.gold)}
           {tabBtn("quizBank","抢答题库",C.blue)}
+          {tabBtn("discussionBank","讨论题库",C.purple)}
           {tabBtn("excel","表格题库","#d97706")}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
@@ -4065,6 +4126,7 @@ function TBackend(){
       {tab==="new"&&<TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="tasks"&&<LayoutTaskLibrary onEdit={t=>setEditingTask(t||"new")} selectedId={null}/>}
       {tab==="quizBank"&&<QuizBank/>}
+      {tab==="discussionBank"&&<DiscussionBank/>}
       {tab==="excel"&&<ExcelTaskLibrary/>}
       {tab==="history"&&<THistory onResume={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="settings"&&<TSettings/>}
