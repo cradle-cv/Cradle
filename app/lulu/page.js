@@ -636,7 +636,14 @@ function TDash({session:init,onBack}){
     sb.from("word_lab_checkins").select().eq("session_id",init.id).then(({data})=>data&&setCheckins(data))
     sb.from("word_lab_answers").select().eq("session_id",init.id).then(({data})=>data&&setAnswers(data))
     sb.from("lulu_posts").select().eq("session_id",init.id).order("created_at").then(({data})=>data&&setPosts(data))
-    sb.from("word_lab_submissions").select().eq("session_id",init.id).then(({data})=>data&&setSubmissions(data))
+    let active=true, scoreVersion=0
+    async function refreshScores(){
+      const version=++scoreVersion
+      const {data}=await sb.from("word_lab_submissions").select("id,student_name,phase,score,submitted").eq("session_id",init.id)
+      if(active&&data&&version===scoreVersion) setSubmissions(data)
+    }
+    refreshScores()
+    const scorePoll=setInterval(refreshScores,3000)
     const ch=sb.channel(`tdash-${init.id}`)
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"word_lab_checkins",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setCheckins(p=>[...p.filter(x=>x.student_name!==r.student_name),r]))
@@ -649,7 +656,12 @@ function TDash({session:init,onBack}){
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"lulu_discussions",filter:`session_id=eq.${init.id}`},
         ({new:r})=>setDiscussions(p=>p.map(x=>x.id===r.id?r:x)))
       .on("postgres_changes",{event:"*",schema:"public",table:"word_lab_submissions",filter:`session_id=eq.${init.id}`},
-        ({new:r,eventType})=>setSubmissions(p=>eventType==="INSERT"?[...p,r]:p.map(x=>x.id===r.id?r:x)))
+        ({new:r,eventType})=>{
+          if((eventType==="INSERT"||eventType==="UPDATE")&&r?.id){
+            scoreVersion++
+            setSubmissions(p=>[...p.filter(x=>x.id!==r.id),r])
+          }
+        })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"word_lab_sessions",filter:`id=eq.${init.id}`},
         ({new:r})=>setSess(r))
       .subscribe()
@@ -658,7 +670,7 @@ function TDash({session:init,onBack}){
       sb.from("word_lab_checkins").select().eq("session_id",init.id)
         .then(({data})=>data&&setCheckins(data))
     },6000)
-    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
+    return()=>{active=false;sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef);clearInterval(scorePoll)}
   },[init.id])
   useEffect(()=>{
     if(sess.phase==="quiz"&&sess.current_question>0){
@@ -2968,6 +2980,9 @@ function SMain({session:init,studentName}){
   const [labTime,setLabTime]=useState(init.time_limit)
   const [submitted,setSubmitted]=useState(false)
   const [subId,setSubId]=useState(null)
+  const submitting=useRef(false)
+  const submitRef=useRef(null)
+  const [submitError,setSubmitError]=useState("")
   const [finalScore,setFinalScore]=useState(0)
   const [labScore,setLabScore]=useState(0)
   const [excelScore,setExcelScore]=useState(0)
@@ -3056,11 +3071,13 @@ function SMain({session:init,studentName}){
             }
             if(s.current_question===0) setCurQ(null)
             if(s.phase==="lab"){
-              // upsert to avoid duplicate error if student reconnects
-              const {data:sub}=await sb.from("word_lab_submissions").upsert(
+              await sb.from("word_lab_submissions").upsert(
                 {session_id:s.id,student_name:studentName,score:0,max_score:((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0),completed_tasks:[],phase:'lab'},
-                {onConflict:"session_id,student_name",ignoreDuplicates:false}
-              ).select().single()
+                {onConflict:"session_id,student_name,phase",ignoreDuplicates:true}
+              )
+              const {data:sub}=await sb.from("word_lab_submissions").select("id,submitted,score")
+                .eq("session_id",s.id).eq("student_name",studentName).eq("phase","lab").maybeSingle()
+              if(sub?.submitted){setFinalScore(sub.score);setSubmitted(true)}
               if(sub) setSubId(sub.id)
             }
           } catch(e){ console.error("session listener error",e) }
@@ -3118,9 +3135,14 @@ function SMain({session:init,studentName}){
 
   useEffect(()=>{
     if(sess.phase!=="lab"||submitted) return
-    const t=setInterval(()=>setLabTime(v=>{if(v<=1){clearInterval(t);handleSubmit();return 0}return v-1}),1000)
+    const t=setInterval(()=>setLabTime(v=>Math.max(0,v-1)),1000)
     return()=>clearInterval(t)
   },[sess.phase,submitted])
+
+  useEffect(()=>{submitRef.current=handleSubmit})
+  useEffect(()=>{
+    if(sess.phase==="lab"&&labTime===0&&!submitted&&labInitialized) submitRef.current?.()
+  },[sess.phase,labTime,submitted,labInitialized])
 
   useEffect(()=>{
     if(sess.phase!=="lab"||!subId||submitted) return
@@ -3203,16 +3225,29 @@ function SMain({session:init,studentName}){
       score,completed_tasks:[...done],
       html_content:editorRef.current?.innerHTML||"",
       last_active:new Date().toISOString()
-    }).eq("id",subId)
+    }).eq("id",subId).eq("submitted",false)
   }
 
   async function handleSubmit(){
-    if(submitted) return
-    await save()
-    const taskReqs=(activeTask?.requirements)||TASK.reqs
-    const score=calcScore(taskReqs)
-    await sb.from("word_lab_submissions").update({submitted:true,score,phase:'lab'}).eq("id",subId)
-    setFinalScore(score);setSubmitted(true)
+    const editor=editorRef.current
+    if(submitted||submitting.current||!labInitialized||!editor) return
+    submitting.current=true
+    setSubmitError("")
+    try {
+      const reqs=activeTask?.requirements||TASK.reqs
+      const {score,measure}=scoreReqs(editor,reqs,activeTask?.raw_html||TASK.rawHtml)
+      const {data,error}=await sb.from("word_lab_submissions").upsert({
+        session_id:init.id,student_name:studentName,phase:"lab",submitted:true,score,
+        max_score:reqs.reduce((sum,r)=>sum+r.pts,0),
+        completed_tasks:reqs.filter(r=>measure[r.id]?.ok).map(r=>r.id),
+        html_content:editor.innerHTML,last_active:new Date().toISOString()
+      },{onConflict:"session_id,student_name,phase"}).select("score").single()
+      if(error||!data) throw error||new Error("Submission was not saved")
+      setFinalScore(data.score);setSubmitted(true)
+    } catch(error) {
+      console.error("Layout submission failed",error)
+      setSubmitError("答卷未提交，请重试")
+    } finally { submitting.current=false }
   }
 
   function insertTable(){
@@ -3623,6 +3658,7 @@ function SMain({session:init,studentName}){
           <span style={{fontSize:15,color:"white",fontWeight:900,fontFamily:FM}}>
             {score}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)}</span>
           </span>
+          {submitError&&<span role="alert" style={{fontSize:12,color:"#fecaca"}}>{submitError}</span>}
           {!submitted&&<Btn small onClick={handleSubmit} color="#f59e0b">提交答卷</Btn>}
           {submitted&&<span style={{fontSize:12,color:"#6ee7b7",fontWeight:700}}>✓ 已提交</span>}
         </div>
