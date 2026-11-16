@@ -273,6 +273,90 @@ function Home({onTeacher,onStudent}){
     </div>
   )
 }
+const QUIZ_BANK_KEY="lulu-quiz-bank-v1"
+const emptyQuiz=()=>({question:"",options:["","","",""],correct_index:0,points:10,time_limit:15})
+function readQuizBank(){
+  try {
+    const rows=JSON.parse(window.localStorage.getItem(QUIZ_BANK_KEY)||"null")
+    return Array.isArray(rows)?rows:DEFAULT_QS.map((q,i)=>({...q,id:"default-"+i}))
+  } catch { return DEFAULT_QS.map((q,i)=>({...q,id:"default-"+i})) }
+}
+function quizPayload(q,seq){
+  return {seq,question:q.question,options:[...q.options],correct_index:q.correct_index,
+    points:q.points,time_limit:q.time_limit}
+}
+function QuizBankPicker({onAdd,disabled}){
+  const [items,setItems]=useState([])
+  const [selected,setSelected]=useState("")
+  useEffect(()=>setItems(readQuizBank()),[])
+  const q=items.find(item=>item.id===selected)
+  return <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
+    <select aria-label="选择抢答题" value={selected} onChange={e=>setSelected(e.target.value)}
+      style={inp({width:320,maxWidth:"100%"})}>
+      <option value="">从抢答题库选题</option>
+      {items.map(item=><option key={item.id} value={item.id}>{item.question}</option>)}
+    </select>
+    <Btn small color={C.blue} disabled={!q||disabled} onClick={()=>{if(q) onAdd(q)}}>加入本堂</Btn>
+  </div>
+}
+function QuizBank(){
+  const [items,setItems]=useState(null)
+  const [draft,setDraft]=useState(null)
+  const [error,setError]=useState("")
+  useEffect(()=>setItems(readQuizBank()),[])
+  function write(next){
+    try {
+      window.localStorage.setItem(QUIZ_BANK_KEY,JSON.stringify(next))
+      setItems(next);setDraft(null);setError("")
+    } catch {setError("无法保存到此浏览器，请检查浏览器设置。")}
+  }
+  function save(){
+    const question=draft.question.trim()
+    const options=draft.options.map(o=>o.trim())
+    if(!question||options.some(o=>!o)||!Number.isInteger(draft.points)||draft.points<1||
+      !Number.isInteger(draft.time_limit)||draft.time_limit<5){
+      setError("请填写题干、四个选项、有效分值及至少 5 秒的时限。");return
+    }
+    const item={...quizPayload({...draft,question,options},0),id:draft.id||globalThis.crypto.randomUUID()}
+    write(draft.id?items.map(q=>q.id===draft.id?item:q):[...items,item])
+  }
+  if(!items) return null
+  return <div style={{maxWidth:800,margin:"24px auto",padding:"0 16px"}}>
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:12}}>
+        <strong>抢答题库 · {items.length} 道题</strong>
+        <Btn small color={C.blue} onClick={()=>{setDraft(emptyQuiz());setError("")}}>＋ 新增题目</Btn>
+      </div>
+      <p style={{fontSize:13,color:C.muted}}>题库保存在当前浏览器。加入课堂后的题目会随房间保存。</p>
+      {error&&<p role="alert" style={{color:C.red,fontSize:13}}>{error}</p>}
+      {draft&&<div style={{padding:16,border:"1px solid "+C.border,borderRadius:10,marginBottom:16,display:"grid",gap:10}}>
+        <textarea aria-label="题干" placeholder="输入题干" style={inp()} value={draft.question}
+          onChange={e=>setDraft({...draft,question:e.target.value})}/>
+        {draft.options.map((opt,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"center"}}>
+          <label style={{minWidth:80,fontSize:12}}><input type="radio" name="quiz-correct"
+            checked={draft.correct_index===i} onChange={()=>setDraft({...draft,correct_index:i})}/>
+            {"ABCD"[i]} 正解</label>
+          <input aria-label={"选项 "+"ABCD"[i]} value={opt} style={inp()}
+            onChange={e=>setDraft({...draft,options:draft.options.map((o,j)=>i===j?e.target.value:o)})}/>
+        </div>)}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+          <label>分值 <input type="number" min={1} style={inp({width:70})} value={draft.points}
+            onChange={e=>setDraft({...draft,points:Number(e.target.value)})}/></label>
+          <label>秒数 <input type="number" min={5} style={inp({width:70})} value={draft.time_limit}
+            onChange={e=>setDraft({...draft,time_limit:Number(e.target.value)})}/></label>
+          <Btn small onClick={save}>保存</Btn>
+          <Btn small color={C.muted} onClick={()=>{setDraft(null);setError("")}}>取消</Btn>
+        </div>
+      </div>}
+      {items.map(q=><div key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:"1px solid "+C.border}}>
+        <span style={{flex:1}}>{q.question}</span>
+        <Btn small onClick={()=>{setDraft(q);setError("")}}>编辑</Btn>
+        <Btn small color={C.red} onClick={()=>{if(window.confirm("删除这道题？")) write(items.filter(item=>item.id!==q.id))}}>删除</Btn>
+      </div>)}
+    </Card>
+  </div>
+}
+
 function TSetup({onCreate}){
   const [title,setTitle]=useState("信息技术基础教学课堂")
   const [timeLab,setTimeLab]=useState(600)
@@ -407,6 +491,7 @@ function TSetup({onCreate}){
               <span style={{flex:1,fontSize:13,color:C.muted}}>{qs.length} 道题</span>
               <Btn small onClick={addQ} color={C.blue}>＋ 新增题目</Btn>
             </div>
+            <QuizBankPicker onAdd={q=>setQs(p=>[...p,quizPayload(q,p.length+1)])}/>
             {qs.map((q,i)=>(
               <div key={i} style={{marginBottom:10,borderRadius:10,border:`1px solid ${editQ===i?C.accent:C.border}`,overflow:"hidden"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",
@@ -672,18 +757,48 @@ function TDash({session:init,onBack}){
     },6000)
     return()=>{active=false;sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef);clearInterval(scorePoll)}
   },[init.id])
+  const timedQuestion=questions.find(x=>x.seq===sess.current_question)
   useEffect(()=>{
     if(sess.phase==="quiz"&&sess.current_question>0){
-      const q=questions.find(x=>x.seq===sess.current_question)
+      const q=timedQuestion
       if(!q)return
       setQTimer(q.time_limit)
       clearInterval(timerRef.current)
       timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
     }
     return()=>clearInterval(timerRef.current)
-  },[sess.phase,sess.current_question,questions])
+  },[sess.phase,sess.current_question,timedQuestion])
   const setPhase=async p=>{await sb.from("word_lab_sessions").update({phase:p}).eq("id",sess.id)}
-  const pushQ=async seq=>{await sb.from("word_lab_sessions").update({current_question:seq}).eq("id",sess.id)}
+  const [quizBusy,setQuizBusy]=useState(false)
+  const [quizError,setQuizError]=useState("")
+  const quizLock=useRef(false)
+  const pushQ=async seq=>{
+    if(quizLock.current) return
+    quizLock.current=true;setQuizBusy(true);setQuizError("")
+    try {
+      const {data,error}=await sb.from("word_lab_sessions").update({current_question:seq})
+        .eq("id",sess.id).select().single()
+      if(error||!data) throw error||new Error("Question not pushed")
+      setSess(p=>({...p,current_question:data.current_question}))
+    } catch {setQuizError("推送失败，请重试。")}
+    finally {quizLock.current=false;setQuizBusy(false)}
+  }
+  async function addRoomQuiz(q){
+    if(quizLock.current) return
+    quizLock.current=true;setQuizBusy(true);setQuizError("")
+    try {
+      const list=await sb.from("word_lab_questions").select("seq").eq("session_id",sess.id)
+        .order("seq",{ascending:false}).limit(1)
+      if(list.error) throw list.error
+      const seq=(list.data?.[0]?.seq||0)+1
+      const {data,error}=await sb.from("word_lab_questions").insert({
+        ...quizPayload(q,seq),session_id:sess.id
+      }).select().single()
+      if(error||!data) throw error||new Error("Question not added")
+      setQuestions(p=>[...p.filter(item=>item.id!==data.id),data].sort((a,b)=>a.seq-b.seq))
+    } catch {setQuizError("未能加入本堂，请重试。")}
+    finally {quizLock.current=false;setQuizBusy(false)}
+  }
   const toggleDis=async d=>{
     const newActive=!d.is_active
     setDiscussions(p=>p.map(x=>({...x,is_active:x.id===d.id?newActive:false})))
@@ -692,6 +807,7 @@ function TDash({session:init,onBack}){
   }
   const endSession=async()=>{await sb.from("word_lab_sessions").update({phase:"finished",status:"finished"}).eq("id",sess.id)}
   const curQ=questions.find(q=>q.seq===sess.current_question)
+  const nextQuiz=questions.find(q=>q.seq>(sess.current_question||0))
   const curAnswers=answers.filter(a=>a.question_id===curQ?.id)
   const activeDis=discussions.find(d=>d.is_active)
   const activePosts=posts.filter(p=>p.discussion_id===activeDis?.id)
@@ -767,16 +883,19 @@ function TDash({session:init,onBack}){
             <div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20,alignItems:"center"}}>
                 {questions.map(q=>(
-                  <button key={q.seq} onClick={()=>pushQ(q.seq)} style={{
+                  <button key={q.id} disabled={quizBusy||q.seq===sess.current_question} onClick={()=>pushQ(q.seq)} style={{
                     padding:"10px 18px",borderRadius:9,border:`2px solid ${sess.current_question===q.seq?C.accent:C.border}`,
                     background:sess.current_question===q.seq?"rgba(37,99,235,.08)":"transparent",
                     color:sess.current_question===q.seq?C.accent:C.muted,
                     cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:FM}}>Q{q.seq}</button>
                 ))}
+                <Btn small disabled={!nextQuiz||quizBusy} onClick={()=>pushQ(nextQuiz.seq)} color={C.blue}>推送下一题</Btn>
                 <Btn small onClick={()=>{setPhase("quiz_result");pushQ(0)}} color={C.gold}>📊 结算</Btn>
                 <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 讨论</Btn>
                 <Btn small onClick={()=>{setPhase("lab");pushQ(0)}} color={C.accent}>→ 排版</Btn>
               </div>
+              <QuizBankPicker onAdd={addRoomQuiz} disabled={quizBusy}/>
+              {quizError&&<p role="alert" style={{color:C.red,fontSize:13}}>{quizError}</p>}
               {curQ&&(
                 <Card>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
@@ -3060,16 +3179,6 @@ function SMain({session:init,studentName}){
               sb.from("word_lab_sessions").select("excel_task_id").eq("id",init.id).single()
                 .then(({data})=>{ if(data?.excel_task_id) init.excel_task_id=data.excel_task_id })
             }
-            if(s.phase==="quiz"&&s.current_question>0){
-              const {data:q}=await sb.from("word_lab_questions").select()
-                .eq("session_id",s.id).eq("seq",s.current_question).single()
-              if(q){
-                setCurQ(q);setQTimer(q.time_limit)
-                clearInterval(timerRef.current)
-                timerRef.current=setInterval(()=>setQTimer(t=>{if(t<=1){clearInterval(timerRef.current);return 0}return t-1}),1000)
-              }
-            }
-            if(s.current_question===0) setCurQ(null)
             if(s.phase==="lab"){
               await sb.from("word_lab_submissions").upsert(
                 {session_id:s.id,student_name:studentName,score:0,max_score:((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0),completed_tasks:[],phase:'lab'},
@@ -3125,6 +3234,27 @@ function SMain({session:init,studentName}){
     return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
 
+  useEffect(()=>{
+    let active=true, timer
+    setCurQ(null)
+    setQTimer(0)
+    if(sess.phase==="quiz"&&sess.current_question>0){
+      sb.from("word_lab_questions").select()
+        .eq("session_id",init.id).eq("seq",sess.current_question).single()
+        .then(({data:q})=>{
+          if(!active||!q) return
+          setCurQ(q);setQTimer(q.time_limit)
+          let seconds=q.time_limit
+          timer=setInterval(()=>{
+            seconds-=1
+            setQTimer(Math.max(0,seconds))
+            if(seconds<=0) clearInterval(timer)
+          },1000)
+        })
+    }
+    return()=>{active=false;clearInterval(timer)}
+  },[init.id,sess.phase,sess.current_question])
+
   // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
   useEffect(()=>{
     if(sess.phase==="lab" && taskLoaded && editorRef.current && !labInitialized){
@@ -3157,7 +3287,7 @@ function SMain({session:init,studentName}){
   }
 
   async function answerQ(q,idx){
-    if(answered[q.id]!==undefined||qTimer===0) return
+    if(q.seq!==sess.current_question||answered[q.id]!==undefined||qTimer===0) return
     // Optimistically update UI first
     const ok=idx===q.correct_index
     setAnswered(p=>({...p,[q.id]:idx}))
@@ -3886,6 +4016,7 @@ function TBackend(){
         <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
           {tabBtn("tasks","排版题库",C.gold)}
+          {tabBtn("quizBank","抢答题库",C.blue)}
           {tabBtn("excel","表格题库","#d97706")}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
@@ -3893,6 +4024,7 @@ function TBackend(){
       </div>
       {tab==="new"&&<TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="tasks"&&<LayoutTaskLibrary onEdit={t=>setEditingTask(t||"new")} selectedId={null}/>}
+      {tab==="quizBank"&&<QuizBank/>}
       {tab==="excel"&&<ExcelTaskLibrary/>}
       {tab==="history"&&<THistory onResume={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="settings"&&<TSettings/>}
