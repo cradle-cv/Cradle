@@ -364,12 +364,15 @@ function TSetup({onCreate}){
     {seq:1,name:"第一组",color:GROUP_COLORS[0]},{seq:2,name:"第二组",color:GROUP_COLORS[1]},
     {seq:3,name:"第三组",color:GROUP_COLORS[2]},{seq:4,name:"第四组",color:GROUP_COLORS[3]},
   ])
-  const [qs,setQs]=useState(DEFAULT_QS.map(q=>({...q,options:[...q.options]})))
+  const [quizBank,setQuizBank]=useState([])
+  const [selectedQuizIds,setSelectedQuizIds]=useState([])
+  useEffect(()=>setQuizBank(readQuizBank()),[])
+  const qs=selectedQuizIds.map(id=>quizBank.find(q=>q.id===id)).filter(Boolean)
+  const toggleQuiz=id=>setSelectedQuizIds(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id])
   const [discussions,setDiscussions]=useState([
     {topic:"在农产品销售表中，想要对“实付金额“大于500的产品，定为”热销产品“，使用MAX函数能实现吗？"},
     {topic:"已知农产品销售情况表包含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用IF 函数完成逻辑判断，要求如下：1.判断规则：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」；2.写出对应单元格的 IF 函数公式"},
 ])
-  const [editQ,setEditQ]=useState(null)
   const [tab,setTab]=useState("groups")
   const [loading,setLoading]=useState(false)
   const [layoutTasks,setLayoutTasks]=useState([])
@@ -385,10 +388,6 @@ function TSetup({onCreate}){
   const addGroup=()=>{const s=groups.length+1;setGroups(p=>[...p,{seq:s,name:`第${s}组`,color:GROUP_COLORS[(s-1)%GROUP_COLORS.length]}])}
   const updGroup=(i,f,v)=>setGroups(p=>p.map((g,idx)=>idx===i?{...g,[f]:v}:g))
   const delGroup=i=>setGroups(p=>p.filter((_,idx)=>idx!==i).map((g,j)=>({...g,seq:j+1})))
-  const updQ=(i,f,v)=>setQs(p=>p.map((q,idx)=>idx===i?{...q,[f]:v}:q))
-  const updOpt=(qi,oi,v)=>setQs(p=>p.map((q,idx)=>idx===qi?{...q,options:q.options.map((o,j)=>j===oi?v:o)}:q))
-  const addQ=()=>setQs(p=>{const n=[...p,{seq:p.length+1,question:"",options:["","","",""],correct_index:0,points:10,time_limit:15}];setEditQ(n.length-1);return n})
-  const delQ=i=>{setQs(p=>p.filter((_,idx)=>idx!==i).map((q,j)=>({...q,seq:j+1})));setEditQ(null)}
   const updDis=(i,v)=>setDiscussions(p=>p.map((d,idx)=>idx===i?{...d,topic:v}:d))
   async function create(){
     if(!title.trim()){alert("请填写课堂名称");return}
@@ -400,8 +399,12 @@ function TSetup({onCreate}){
     }).select().single()
     if(error){alert("创建失败:"+error.message);setLoading(false);return}
     await sb.from("lulu_groups").insert(groups.map(g=>({...g,session_id:sess.id})))
-    const validQs=qs.filter(q=>q.question.trim())
-    if(validQs.length)await sb.from("word_lab_questions").insert(validQs.map(q=>({...q,session_id:sess.id})))
+    if(qs.length){
+      const {error:quizError}=await sb.from("word_lab_questions").insert(
+        qs.map((q,i)=>({...quizPayload(q,i+1),session_id:sess.id}))
+      )
+      if(quizError) alert("课堂已建立，但抢答题未保存。可在本堂抢答页面重新加入题目。")
+    }
     const validDis=discussions.filter(d=>d.topic.trim())
     if(validDis.length)await sb.from("lulu_discussions").insert(validDis.map(d=>({topic:d.topic,session_id:sess.id})))
     onCreate(sess)
@@ -487,53 +490,24 @@ function TSetup({onCreate}){
         )}
         {tab==="quiz"&&(
           <Card style={{marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
-              <span style={{flex:1,fontSize:13,color:C.muted}}>{qs.length} 道题</span>
-              <Btn small onClick={addQ} color={C.blue}>＋ 新增题目</Btn>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+              <strong style={{flex:1}}>从抢答题库选题 · 已选 {qs.length} 道</strong>
+              <Btn small disabled={!quizBank.length||qs.length===quizBank.length} onClick={()=>setSelectedQuizIds(ids=>[
+                ...ids,...quizBank.map(q=>q.id).filter(id=>!ids.includes(id))
+              ])}>全选</Btn>
+              <Btn small color={C.muted} disabled={!qs.length} onClick={()=>setSelectedQuizIds([])}>清空</Btn>
             </div>
-            <QuizBankPicker onAdd={q=>setQs(p=>[...p,quizPayload(q,p.length+1)])}/>
-            {qs.map((q,i)=>(
-              <div key={i} style={{marginBottom:10,borderRadius:10,border:`1px solid ${editQ===i?C.accent:C.border}`,overflow:"hidden"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",
-                  background:editQ===i?"rgba(37,99,235,.05)":"rgba(0,0,0,.015)",cursor:"pointer"}}
-                  onClick={()=>setEditQ(editQ===i?null:i)}>
-                  <span style={{fontSize:12,color:C.accent,fontFamily:FM,minWidth:22}}>Q{q.seq}</span>
-                  <span style={{flex:1,fontSize:13}}>{q.question||"未填写"}</span>
-                  <span style={{fontSize:11,color:C.muted}}>{q.points}分·{q.time_limit}s</span>
-                </div>
-                {editQ===i&&(
-                  <div style={{padding:14,borderTop:`1px solid ${C.border}`}}>
-                    <textarea value={q.question} onChange={e=>updQ(i,"question",e.target.value)} rows={2}
-                      style={{...inp(),resize:"vertical",marginBottom:12}}/>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                      {q.options.map((opt,j)=>(
-                        <div key={j} style={{display:"flex",gap:8,alignItems:"center"}}>
-                          <button onClick={()=>updQ(i,"correct_index",j)} style={{
-                            width:28,height:28,borderRadius:7,
-                            border:`2px solid ${j===q.correct_index?C.accent:C.border}`,
-                            background:j===q.correct_index?"rgba(37,99,235,.15)":"transparent",
-                            color:j===q.correct_index?C.accent:C.muted,cursor:"pointer",
-                            fontSize:12,fontWeight:700,fontFamily:FM,flexShrink:0}}>{"ABCD"[j]}</button>
-                          <input value={opt} onChange={e=>updOpt(i,j,e.target.value)} style={inp()}/>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:11,color:C.muted,marginBottom:5}}>分值</div>
-                        <input type="number" value={q.points} onChange={e=>updQ(i,"points",Number(e.target.value))} min={1} style={inp({width:70,color:C.accent})}/>
-                      </div>
-                      <div>
-                        <div style={{fontSize:11,color:C.muted,marginBottom:5}}>时限(秒)</div>
-                        <input type="number" value={q.time_limit} onChange={e=>updQ(i,"time_limit",Number(e.target.value))} min={5} style={inp({width:70})}/>
-                      </div>
-                      <div style={{flex:1}}/>
-                      <Btn small onClick={()=>delQ(i)} style={{background:C.red}}>删除</Btn>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            <p style={{fontSize:13,color:C.muted}}>按勾选顺序排题。不勾选也可以建课。</p>
+            {!quizBank.length&&<p style={{fontSize:13,color:C.muted}}>题库还没有题目，请先到「抢答题库」新增。</p>}
+            {quizBank.map(q=>{
+              const order=selectedQuizIds.indexOf(q.id)+1
+              return <label key={q.id} style={{display:"flex",gap:10,alignItems:"center",padding:"10px 0",borderTop:"1px solid "+C.border,cursor:"pointer"}}>
+                <input type="checkbox" checked={order>0} onChange={()=>toggleQuiz(q.id)}/>
+                {order>0&&<span style={{color:C.blue,fontFamily:FM}}>Q{order}</span>}
+                <span style={{flex:1,fontSize:14}}>{q.question}</span>
+                <span style={{fontSize:12,color:C.muted}}>{q.points} 分 · {q.time_limit} 秒</span>
+              </label>
+            })}
           </Card>
         )}
         {tab==="discuss"&&(
@@ -559,6 +533,21 @@ function TSetup({onCreate}){
   )
 }
 // ── FINAL RANK SCREEN ───────────────────────────────────────
+function groupAverages(groups,studentRank,submissions){
+  const excelScores=new Map()
+  for(const row of submissions){
+    if(row.phase==="excel") excelScores.set(row.student_name,(excelScores.get(row.student_name)||0)+(row.score||0))
+  }
+  return groups.map(g=>{
+    const members=studentRank.filter(student=>student.group_id===g.id)
+    const avg=fn=>members.length?members.reduce((sum,student)=>sum+fn(student),0)/members.length:0
+    return {...g,memberCount:members.length,quizAvg:avg(s=>s.quiz),
+      labAvg:avg(s=>s.lab),bonusAvg:avg(s=>s.bonus),excelAvg:avg(s=>excelScores.get(s.name)||0),
+      total:avg(s=>s.total)}
+  }).sort((a,b)=>b.total-a.total||b.memberCount-a.memberCount)
+}
+const showGroupScore=score=>Number(score.toFixed(2))
+
 function FinalRankScreen({studentRank,groupRank,groups,sess}){
   const [show,setShow]=useState(false)
   const [showPodium,setShowPodium]=useState(false)
@@ -640,7 +629,7 @@ function FinalRankScreen({studentRank,groupRank,groups,sess}){
         {/* Group ranking */}
         <div>
           <div style={{fontSize:13,letterSpacing:2,color:"rgba(255,255,255,.4)",
-            marginBottom:14,fontFamily:FM,fontWeight:700}}>小组排名</div>
+            marginBottom:14,fontFamily:FM,fontWeight:700}}>小组综合平均分</div>
           {groupRank.map((g,i)=>(
             <div key={g.id} style={{
               marginBottom:10,padding:"14px 18px",borderRadius:12,
@@ -655,11 +644,11 @@ function FinalRankScreen({studentRank,groupRank,groups,sess}){
               <div style={{flex:1}}>
                 <div style={{fontSize:15,fontWeight:900}}>{g.name}</div>
                 <div style={{fontSize:11,color:"rgba(255,255,255,.4)",marginTop:2}}>
-                  抢答{g.quizSum} · 排版均分{g.labAvg} · {g.memberCount}人
+                  {g.memberCount} 人 · 抢答均分 {showGroupScore(g.quizAvg)} · 实操均分 {showGroupScore(g.labAvg)} · 讨论均分 {showGroupScore(g.bonusAvg)}
                 </div>
               </div>
               <div style={{fontSize:30,fontWeight:900,color:i===0?"#f59e0b":"white",fontFamily:FM}}>
-                {g.total}
+                {showGroupScore(g.total)}
               </div>
             </div>
           ))}
@@ -820,13 +809,7 @@ function TDash({session:init,onBack}){
     const bonus=ci?.bonus_pts||0
     return{name,group_id:ci?.group_id,quiz:quizScores[name]||0,lab:labScores[name]||0,bonus,total:(quizScores[name]||0)+(labScores[name]||0)+bonus}
   }).sort((a,b)=>b.total-a.total)
-  const groupRank=groups.map(g=>{
-    const members=checkins.filter(c=>c.group_id===g.id)
-    const names=members.map(m=>m.student_name)
-    const labAvg=names.length?Math.round(names.reduce((s,n)=>s+(labScores[n]||0),0)/names.length):0
-    const quizSum=names.reduce((s,n)=>s+(quizScores[n]||0),0)
-    return{...g,memberCount:names.length,labAvg,quizSum,total:quizSum+labAvg}
-  }).sort((a,b)=>b.total-a.total)
+  const groupRank=groupAverages(groups,studentRank,submissions)
   const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","Word排版"],["excel","Excel制表"],["files","文件审阅"],["finished","结果"]]
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
@@ -923,7 +906,7 @@ function TDash({session:init,onBack}){
               )}
               {!curQ&&<Card style={{textAlign:"center",padding:40,color:C.muted}}>点击上方题号推送给学生</Card>}
             </div>
-            <GroupRankPanel groupRank={groupRank} label="小组抢答积分"/>
+            <GroupRankPanel groupRank={groupRank} label="小组抢答平均分" scoreKey="quizAvg"/>
           </div>
         )}
         {sess.phase==="quiz_result"&&(
@@ -1042,7 +1025,7 @@ function TDash({session:init,onBack}){
                 )
               })}
             </div>
-            <GroupRankPanel groupRank={groupRank} label="小组综合积分"/>
+            <GroupRankPanel groupRank={groupRank} label="小组综合平均分"/>
           </div>
         )}
         {sess.phase==="excel"&&(
@@ -1083,7 +1066,7 @@ function TDash({session:init,onBack}){
                 )
               })}
             </div>
-            <GroupRankPanel groupRank={groupRank} label="Excel 积分排名"/>
+            <GroupRankPanel groupRank={groupRank} label="小组 Excel 平均分" scoreKey="excelAvg"/>
           </div>
         )}
         {sess.phase==="files"&&(<FileReviewPanel sessionId={sess.id}/>)}
@@ -3015,22 +2998,23 @@ function FileReviewPanel({sessionId}){
 }
 
 
-function GroupRankPanel({groupRank,label}){
+function GroupRankPanel({groupRank,label,scoreKey="total"}){
+  const ranked=[...groupRank].sort((a,b)=>b[scoreKey]-a[scoreKey]||b.memberCount-a.memberCount)
   return(
     <div>
       <div style={{fontSize:12,color:C.muted,marginBottom:12,fontFamily:"'Noto Sans SC',sans-serif"}}>{label}</div>
-      {groupRank.map((g,i)=>(
+      {ranked.map((g,i)=>(
         <div key={g.id} style={{marginBottom:8,padding:"12px 14px",borderRadius:12,
           background:"#ffffff",border:`1px solid #dde3ec`,boxShadow:"0 1px 3px rgba(0,0,0,.06)",borderLeft:`3px solid ${g.color}`}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:13,color:i<3?"#f5c842":"rgba(255,255,255,.32)",width:20,fontFamily:"'DM Mono',monospace"}}>{i+1}</span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:700,color:g.color,fontFamily:"'Noto Sans SC',sans-serif"}}>{g.name}</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,.32)",fontFamily:"'Noto Sans SC',sans-serif"}}>
-                {g.memberCount}人 · 抢{g.quizSum} · 排{g.labAvg}
+              <div style={{fontSize:11,color:C.muted,fontFamily:"'Noto Sans SC',sans-serif"}}>
+                {g.memberCount} 人
               </div>
             </div>
-            <span style={{fontSize:20,fontWeight:900,color:g.color,fontFamily:"'DM Mono',monospace"}}>{g.total}</span>
+            <span style={{fontSize:20,fontWeight:900,color:g.color,fontFamily:"'DM Mono',monospace"}}>{showGroupScore(g[scoreKey])}</span>
           </div>
         </div>
       ))}
