@@ -357,6 +357,27 @@ function QuizBank(){
   </div>
 }
 
+function NextQuizRound({onPush,busy}){
+  const [items,setItems]=useState([])
+  const [ids,setIds]=useState([])
+  useEffect(()=>setItems(readQuizBank()),[])
+  return <details style={{margin:"12px 0 18px"}}>
+    <summary style={{cursor:"pointer",color:C.blue,fontWeight:700}}>继续推送下一套抢答题</summary>
+    <Card style={{marginTop:10}}>
+      <p style={{fontSize:13,color:C.muted}}>按勾选顺序出题。推送后立即开始第一题，房间码和已得分数保留。</p>
+      {!items.length&&<p style={{fontSize:13,color:C.muted}}>题库暂无题目，请先在教师后台添加。</p>}
+      {items.map(q=><label key={q.id} style={{display:"flex",gap:8,padding:"6px 0",cursor:"pointer"}}>
+        <input type="checkbox" disabled={busy} checked={ids.includes(q.id)}
+          onChange={()=>setIds(p=>p.includes(q.id)?p.filter(id=>id!==q.id):[...p,q.id])}/>
+        {ids.includes(q.id)&&<span>Q{ids.indexOf(q.id)+1}</span>}{q.question}
+      </label>)}
+      <Btn small disabled={busy||!ids.length} onClick={async()=>{
+        if(await onPush(ids.map(id=>items.find(q=>q.id===id)))) setIds([])
+      }}>{busy?"处理中…":"推送这一套（"+ids.length+" 题）"}</Btn>
+    </Card>
+  </details>
+}
+
 function TSetup({onCreate}){
   const [title,setTitle]=useState("信息技术基础教学课堂")
   const [timeLab,setTimeLab]=useState(600)
@@ -757,7 +778,11 @@ function TDash({session:init,onBack}){
     }
     return()=>clearInterval(timerRef.current)
   },[sess.phase,sess.current_question,timedQuestion])
-  const setPhase=async p=>{await sb.from("word_lab_sessions").update({phase:p}).eq("id",sess.id)}
+  const setPhase=async p=>{
+    const {data,error}=await sb.from("word_lab_sessions").update({phase:p}).eq("id",sess.id).select().single()
+    if(error||!data){setQuizError("无法切换课堂阶段，请重试。");return}
+    setSess(data)
+  }
   const [quizBusy,setQuizBusy]=useState(false)
   const [quizError,setQuizError]=useState("")
   const quizLock=useRef(false)
@@ -788,6 +813,35 @@ function TDash({session:init,onBack}){
     } catch {setQuizError("未能加入本堂，请重试。")}
     finally {quizLock.current=false;setQuizBusy(false)}
   }
+  const pendingRound=useRef(null)
+  async function pushRound(items){
+    if(quizLock.current||!items.length||sess.status==="finished") return false
+    quizLock.current=true;setQuizBusy(true);setQuizError("")
+    try {
+      if(!pendingRound.current){
+        const list=await sb.from("word_lab_questions").select("seq").eq("session_id",sess.id)
+          .order("seq",{ascending:false}).limit(1)
+        if(list.error) throw list.error
+        const first=(list.data?.[0]?.seq||0)+1
+        const {data,error}=await sb.from("word_lab_questions").insert(
+          items.map((q,i)=>({...quizPayload(q,first+i),session_id:sess.id}))
+        ).select()
+        if(error||!data?.length) throw error||new Error("Round not saved")
+        pendingRound.current=first
+        setQuestions(p=>[...p,...data].sort((a,b)=>a.seq-b.seq))
+      }
+      const {data,error}=await sb.from("word_lab_sessions")
+        .update({phase:"quiz",current_question:pendingRound.current})
+        .eq("id",sess.id).select().single()
+      if(error||!data) throw error||new Error("Round not pushed")
+      pendingRound.current=null
+      setSess(data)
+      return true
+    } catch {
+      setQuizError(pendingRound.current?"题目已加入本堂。请按原按钮重试推送。":"未能加入下一套题，请重试。")
+      return false
+    } finally {quizLock.current=false;setQuizBusy(false)}
+  }
   const toggleDis=async d=>{
     const newActive=!d.is_active
     setDiscussions(p=>p.map(x=>({...x,is_active:x.id===d.id?newActive:false})))
@@ -810,7 +864,7 @@ function TDash({session:init,onBack}){
     return{name,group_id:ci?.group_id,quiz:quizScores[name]||0,lab:labScores[name]||0,bonus,total:(quizScores[name]||0)+(labScores[name]||0)+bonus}
   }).sort((a,b)=>b.total-a.total)
   const groupRank=groupAverages(groups,studentRank,submissions)
-  const phases=[["checkin","签到"],["quiz","抢答"],["quiz_result","结算"],["discussion","讨论"],["lab","Word排版"],["excel","Excel制表"],["files","文件审阅"],["finished","结果"]]
+  const phases=[["checkin","签到"],["quiz","抢答"],["discussion","讨论"],["quiz_result","互动结算"],["lab","Word排版"],["excel","Excel制表"],["files","文件审阅"],["finished","结果"]]
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -825,7 +879,7 @@ function TDash({session:init,onBack}){
         </div>
         <div style={{display:"flex",gap:3,background:"#f0f4f8",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {phases.map(([p,label])=>(
-            <button key={p} onClick={()=>setPhase(p)} style={{
+            <button key={p} disabled={quizBusy} onClick={()=>setPhase(p)} style={{
               padding:"7px 14px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:F,
               background:sess.phase===p?C.accent:"transparent",color:sess.phase===p?"#ffffff":C.muted
             }}>{label}</button>
@@ -835,6 +889,9 @@ function TDash({session:init,onBack}){
         {onBack&&<Btn small onClick={onBack} style={{background:"rgba(0,0,0,.06)",color:C.text}}>← 后台</Btn>}
       </div>
       <div style={{padding:24}}>
+        {quizError&&<p role="alert" style={{color:C.red,fontSize:13}}>{quizError}</p>}
+        {sess.status!=="finished"&&["quiz","discussion","quiz_result"].includes(sess.phase)&&
+          <NextQuizRound onPush={pushRound} busy={quizBusy}/>}
         {sess.phase==="checkin"&&(
           <div>
             <div style={{display:"flex",gap:14,marginBottom:20,alignItems:"center",flexWrap:"wrap"}}>
@@ -873,12 +930,11 @@ function TDash({session:init,onBack}){
                     cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:FM}}>Q{q.seq}</button>
                 ))}
                 <Btn small disabled={!nextQuiz||quizBusy} onClick={()=>pushQ(nextQuiz.seq)} color={C.blue}>推送下一题</Btn>
-                <Btn small onClick={()=>{setPhase("quiz_result");pushQ(0)}} color={C.gold}>📊 结算</Btn>
-                <Btn small onClick={()=>setPhase("discussion")} color={C.purple}>→ 讨论</Btn>
+                <Btn small disabled={quizBusy} onClick={()=>setPhase("discussion")} color={C.purple}>→ 讨论</Btn>
+                <Btn small disabled={quizBusy} onClick={()=>setPhase("quiz_result")} color={C.gold}>📊 互动结算</Btn>
                 <Btn small onClick={()=>{setPhase("lab");pushQ(0)}} color={C.accent}>→ 排版</Btn>
               </div>
               <QuizBankPicker onAdd={addRoomQuiz} disabled={quizBusy}/>
-              {quizError&&<p role="alert" style={{color:C.red,fontSize:13}}>{quizError}</p>}
               {curQ&&(
                 <Card>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
@@ -1101,7 +1157,7 @@ function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
     const names=members.map(m=>m.student_name)
     const total=names.reduce((s,n)=>s+(quizScores[n]||0),0)
     const top=[...names].sort((a,b)=>(quizScores[b]||0)-(quizScores[a]||0))[0]
-    return{...g,members:names.length,total,top,topScore:quizScores[top]||0}
+    return{...g,members:names.length,total:names.length?total/names.length:0,top,topScore:quizScores[top]||0}
   }).sort((a,b)=>b.total-a.total)
   const allStudents=[...new Set(checkins.map(c=>c.student_name))]
   const indvTop=allStudents.map(name=>({name,score:quizScores[name]||0,group_id:checkins.find(c=>c.student_name===name)?.group_id})).sort((a,b)=>b.score-a.score).slice(0,5)
@@ -1111,8 +1167,8 @@ function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{width:"100%",maxWidth:860,padding:"32px 24px"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:12,letterSpacing:4,color:"rgba(255,255,255,.5)",marginBottom:8,fontFamily:FM}}>ROUND 1 · 抢答热身</div>
-          <div style={{fontSize:36,fontWeight:900,letterSpacing:-1}}>📊 第一阶段结算</div>
+          <div style={{fontSize:12,letterSpacing:4,color:"rgba(255,255,255,.5)",marginBottom:8,fontFamily:FM}}>课堂互动 · 抢答积分</div>
+          <div style={{fontSize:36,fontWeight:900,letterSpacing:-1}}>📊 互动结算</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:isTeacher?"1fr 280px":"1fr",gap:20,marginBottom:28}}>
           <div>
@@ -1131,7 +1187,7 @@ function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
                     </div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:32,fontWeight:900,color:i===0?C.gold:"white",fontFamily:FM}}>{g.total}</div>
+                    <div style={{fontSize:32,fontWeight:900,color:i===0?C.gold:"white",fontFamily:FM}}>{showGroupScore(g.total)}</div>
                     <div style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>总分</div>
                   </div>
                 </div>
