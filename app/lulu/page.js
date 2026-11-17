@@ -201,7 +201,15 @@ const RULE_TYPES=[
   {type:"color_h2",label:"H2 标题颜色",params:[{key:"count",label:"最少数量",default:3}],defaultDesc:"为 {count} 个 H2 标题设置颜色"},
   {type:"align_center",label:"居中对齐",params:[{key:"count",label:"最少处数",default:1}],defaultDesc:"至少 {count} 处居中对齐"},
 ]
-const genCode=()=>Math.random().toString(36).slice(2,7).toUpperCase()
+const genCode=()=>String(10000+Math.floor(Math.random()*90000))
+async function createRoomWithCode(fields,insert){
+  let result
+  for(let attempt=0;attempt<8;attempt++){
+    result=await insert({...fields,code:genCode()})
+    if(result.error?.code!=="23505") return result
+  }
+  return result
+}
 const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`
 const F="'Noto Sans SC',sans-serif"
 const FM="'DM Mono','Courier New',monospace"
@@ -483,12 +491,11 @@ function TSetup({onCreate}){
   async function create(){
     if(!title.trim()){alert("请填写课堂名称");return}
     setLoading(true)
-    const code=genCode()
-    const {data:sess,error}=await sb.from("word_lab_sessions").insert({
-      code,title,task_id:"ecommerce_v1",status:"active",layout_task_id:layoutTaskId||null,
+    const {data:sess,error}=await createRoomWithCode({
+      title,task_id:"ecommerce_v1",status:"active",layout_task_id:layoutTaskId||null,
       excel_task_id:excelTaskId||null,time_limit:timeLab,phase:"checkin",started_at:new Date().toISOString()
-    }).select().single()
-    if(error){alert("创建失败:"+error.message);setLoading(false);return}
+    },row=>sb.from("word_lab_sessions").insert(row).select().single())
+    if(error){alert(error.code==="23505"?"暂时未能分配房间码，请重试。":"创建失败:"+error.message);setLoading(false);return}
     await sb.from("lulu_groups").insert(groups.map(g=>({...g,session_id:sess.id})))
     if(qs.length){
       const {error:quizError}=await sb.from("word_lab_questions").insert(
@@ -3164,7 +3171,7 @@ function SJoin({onJoin}){
     if(!code.trim()||!name.trim()){alert("请填写房间码和姓名");return}
     setLoading(true)
     const {data:s,error}=await sb.from("word_lab_sessions").select()
-      .eq("code",code.toUpperCase()).neq("status","finished").single()
+      .eq("code",code.trim().toUpperCase()).neq("status","finished").single()
     if(error||!s){alert("找不到房间，请核对房间码");setLoading(false);return}
     onJoin(s,name.trim())
     setLoading(false)
@@ -3176,10 +3183,10 @@ function SJoin({onJoin}){
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <Card style={{width:"100%",maxWidth:340}}>
         <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>加入录录课堂</div>
-        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>输入老师的 5 位房间码</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>输入老师给的 5 位数字房间码，旧房间码也可使用。</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:7}}>房间码</div>
         <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={5}
-          placeholder="XXXXX"
+          placeholder="12345"
           style={{...inp({fontSize:28,letterSpacing:8,textAlign:"center",color:C.accent,
             fontWeight:700,fontFamily:FM,marginBottom:16})}}/>
         <div style={{fontSize:12,color:C.muted,marginBottom:7}}>姓名</div>
