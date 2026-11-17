@@ -3234,9 +3234,15 @@ function SMain({session:init,studentName}){
   const [tRows,setTRows]=useState(3)
   const [tCols,setTCols]=useState(2)
   const [flash,setFlash]=useState(null)
-  const [activeTask,setActiveTask]=useState(null) // loaded from DB
-  const [taskLoaded,setTaskLoaded]=useState(false)  // true when task confirmed
-  const [labInitialized,setLabInitialized]=useState(false) // editor init once
+  const layoutKey=sess.layout_task_id||"builtin"
+  const [layoutLoad,setLayoutLoad]=useState(null)
+  const [layoutRetry,setLayoutRetry]=useState(0)
+  const activeTask=layoutLoad?.key===layoutKey?layoutLoad.task:null
+  const taskLoaded=layoutKey==="builtin"||(layoutLoad?.key===layoutKey&&!!activeTask)
+  const layoutError=layoutLoad?.key===layoutKey&&layoutLoad.error
+  const [initializedLayout,setInitializedLayout]=useState(null)
+  const labInitialized=initializedLayout===layoutKey
+  const layoutDrafts=useRef(new Map())
 
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
@@ -3256,15 +3262,23 @@ function SMain({session:init,studentName}){
     // Load bonus pts
     sb.from("word_lab_checkins").select("bonus_pts").eq("session_id",init.id).eq("student_name",studentName).maybeSingle()
       .then(({data})=>{ if(data) setBonusScore(data.bonus_pts||0) })
-    // Load layout task from library
-    if(init.layout_task_id){
-      sb.from("lulu_layout_tasks").select().eq("id",init.layout_task_id).single()
-        .then(({data})=>{
-          if(data) setActiveTask(data)
-          setTaskLoaded(true)
-        }).catch(()=>setTaskLoaded(true))
-    } else { setTaskLoaded(true) } // no task, use TASK fallback immediately
   },[])
+
+  useEffect(()=>{
+    if(!sess.layout_task_id) return
+    let active=true
+    const key=sess.layout_task_id
+    setLayoutLoad(null)
+    async function loadLayout(){
+      try {
+        const {data,error}=await sb.from("lulu_layout_tasks").select().eq("id",key).single()
+        if(error||!data) throw error||new Error("Layout task not found")
+        if(active) setLayoutLoad({key,task:data})
+      } catch {if(active) setLayoutLoad({key,error:true})}
+    }
+    loadLayout()
+    return()=>{active=false}
+  },[sess.layout_task_id,layoutRetry])
 
   // Poll score when finished - hooks must be before any conditional returns
   useEffect(()=>{
@@ -3378,13 +3392,19 @@ function SMain({session:init,studentName}){
     return()=>{active=false;clearInterval(timer)}
   },[init.id,sess.phase,sess.current_question])
 
-  // Init editor exactly once when BOTH: phase=lab AND task is confirmed loaded
   useEffect(()=>{
-    if(sess.phase==="lab" && taskLoaded && editorRef.current && !labInitialized){
-      editorRef.current.innerHTML = activeTask?.raw_html || TASK.rawHtml
-      setLabInitialized(true)
+    const editor=editorRef.current
+    if(sess.phase!=="lab"||!taskLoaded||!editor){
+      setInitializedLayout(null)
+      return
     }
-  },[sess.phase, taskLoaded])
+    const raw=activeTask?.raw_html||TASK.rawHtml
+    editor.innerHTML=layoutDrafts.current.get(layoutKey)??raw
+    savedSel.current=null
+    setSubmitError("")
+    checkReqs()
+    setInitializedLayout(layoutKey)
+  },[sess.phase,layoutKey,taskLoaded,activeTask])
 
   useEffect(()=>{
     if(sess.phase!=="lab"||submitted) return
@@ -3398,10 +3418,10 @@ function SMain({session:init,studentName}){
   },[sess.phase,labTime,submitted,labInitialized])
 
   useEffect(()=>{
-    if(sess.phase!=="lab"||!subId||submitted) return
+    if(sess.phase!=="lab"||!subId||submitted||!labInitialized||!editorRef.current) return
     const t=setInterval(()=>save(),3000)
     return()=>clearInterval(t)
-  },[sess.phase,subId,submitted,done])
+  },[sess.phase,layoutKey,subId,submitted,done,labInitialized])
 
   async function chooseGroup(gid){
     await sb.from("word_lab_checkins").update({group_id:gid})
@@ -3460,6 +3480,7 @@ function SMain({session:init,studentName}){
 
   function checkReqs(){
     if(!editorRef.current) return
+    layoutDrafts.current.set(layoutKey,editorRef.current.innerHTML)
     const reqs=(activeTask?.requirements)||TASK.reqs
     const res=scoreReqs(editorRef.current,reqs,activeTask?.raw_html||TASK.rawHtml)
     const nd=new Set(reqs.filter(r=>res.measure[r.id]?.ok).map(r=>r.id))
@@ -3471,7 +3492,7 @@ function SMain({session:init,studentName}){
   }
 
   async function save(){
-    if(!subId) return
+    if(!subId||!editorRef.current||!labInitialized) return
     const taskReqs=(activeTask?.requirements)||TASK.reqs
     const score=calcScore(taskReqs)
     await sb.from("word_lab_submissions").update({
@@ -3705,7 +3726,11 @@ function SMain({session:init,studentName}){
   }
 
   // Lab screen
-  if(sess.phase==="lab"&&!taskLoaded) return <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:F,color:C.muted}}>题目加载中…</div>
+  if(sess.phase==="lab"&&!taskLoaded) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"grid",placeItems:"center",fontFamily:F,color:C.muted}}>
+      {layoutError?<div role="alert"><p>未能加载排版题目。</p><Btn small onClick={()=>{setLayoutLoad(null);setLayoutRetry(n=>n+1)}}>重试</Btn></div>:"题目加载中…"}
+    </div>
+  )
 
   // Open-ended subjective task: upload-only UI, no browser editor
   const isOpenEnded=activeTask?.target_html==='__open_ended__'||(activeTask&&!(activeTask.requirements||[]).length&&!activeTask.target_html)
@@ -3959,7 +3984,7 @@ function SMain({session:init,studentName}){
               <div className="doc-paper" style={{background:"white",padding:"32px 40px",
                 borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
                 fontSize:14,lineHeight:1.9}}>
-                <div ref={editorRef} contentEditable={!submitted} onInput={checkReqs}
+                <div key={layoutKey} ref={editorRef} contentEditable={!submitted&&labInitialized} onInput={checkReqs}
                   onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
                   style={{minHeight:360,color:"#1a1a1a",outline:"none",fontFamily:"Georgia,serif"}}/>
               </div>
