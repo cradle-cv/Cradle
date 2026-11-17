@@ -246,8 +246,8 @@ function ToolLibrary() {
 }
 
 /* ============================== 学生身份登记 ============================== */
-function IdentityModal({ me, onDone, onTeacher, onClose }) {
-  const [role, setRole] = useState('student')
+function IdentityModal({ me, onDone, onTeacher, onClose, initialRole = 'student' }) {
+  const [role, setRole] = useState(initialRole)
   const [cls, setCls] = useState(me?.cls || '')
   const [name, setName] = useState(me?.name || '')
   const [sno, setSno] = useState(me?.sno || '')
@@ -540,6 +540,13 @@ export default function XiaoXinHome() {
   const [score, setScore] = useState({ right: 0, total: 0, streak: 0 })
   const [me, setMe] = useState(null)
   const [showId, setShowId] = useState(false)
+  const [identityRole, setIdentityRole] = useState('student')
+  const identityDockRef = useRef(null)
+  function openIdentity(role) {
+    if (identityDockRef.current) identityDockRef.current.open = false
+    setIdentityRole(role)
+    setShowId(true)
+  }
   const [teacher, setTeacher] = useState(null)
   const [pts, setPts] = useState(null)
   const [ptsBump, setPtsBump] = useState(0)
@@ -565,7 +572,7 @@ export default function XiaoXinHome() {
     else say(`${tTitle(t)}好！已经进入老师模式，接下来的提问、出题和陪练都不会计入学生数据。`, {}, 'happy')
   }
   const tTitle = t => t.admin ? '管理员' : (/老师$/.test(t.name) ? t.name : t.name + '老师')
-  function outTeacher() { teacherLogout(); setTeacher(null) }
+  function outTeacher() { teacherLogout(); setTeacher(null); setIdentityRole('student') }
   function onRegistered(m) {
     setMe(m); setShowId(false); logVisit('home')
     const fn = pendingRef.current; pendingRef.current = null
@@ -851,8 +858,24 @@ export default function XiaoXinHome() {
         <WishPool onWish={onWish} />
         <footer className="xx-foot">小信的回答由智谱 GLM 生成，仅供学习参考，重要信息以课件和老师讲解为准。点一下小信，它会跟你打招呼。</footer>
       </main>
+      <details className="xx-login-dock" ref={identityDockRef}>
+        <summary>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <circle cx="12" cy="8" r="3" /><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+          </svg>
+          <span>{teacher ? '老师模式 · ' + tTitle(teacher) : me ? '已登记 · ' + me.name : '登录 / 登记'}</span>
+        </summary>
+        <div className="xx-login-panel">
+          <a href="/aistudy/admin"><b>教师帐号登录</b><small>小信教学看板，与录录共用登录</small></a>
+          {teacher
+            ? <button type="button" onClick={() => { outTeacher(); if (identityDockRef.current) identityDockRef.current.open = false }}>退出老师模式</button>
+            : <button type="button" onClick={() => openIdentity('teacher')}><b>老师模式</b><small>使用工号和姓名</small></button>}
+          {!teacher && <button type="button" onClick={() => openIdentity('student')}>{me ? '切换学生身份' : '学生登记'}</button>}
+        </div>
+      </details>
       <PointsToast />
-      {showId && <IdentityModal me={me} onDone={onRegistered} onTeacher={onTeacherIn} onClose={() => { setShowId(false); pendingRef.current = null }} />}
+      {showId && <IdentityModal me={me} initialRole={identityRole} onDone={onRegistered} onTeacher={onTeacherIn}
+        onClose={() => { setShowId(false); setIdentityRole('student'); pendingRef.current = null }} />}
     </div>
   )
 }
@@ -1050,6 +1073,16 @@ body{background:#06080F!important}
 ${ROSTER_CSS}
 .xx button.xx-me{position:relative;margin-top:10px;border:0;background:none;font-size:.8rem;color:var(--muted);white-space:nowrap}
 .xx button.xx-ghost{font-size:.8rem}
+.xx-login-dock{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:65;max-width:calc(100vw - 28px)}
+.xx-login-dock summary{list-style:none;display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;padding:8px 14px;border:1px solid var(--line2);border-radius:999px;background:var(--raise);color:var(--ink);font-size:.83rem;font-weight:750;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.xx-login-dock summary::-webkit-details-marker{display:none}
+.xx-login-dock summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xx-login-dock summary svg{color:var(--a);flex:none}
+.xx-login-panel{position:absolute;bottom:calc(100% + 8px);left:0;width:min(250px,calc(100vw - 28px));display:grid;gap:4px;padding:7px;background:var(--raise);border:1px solid var(--line2);border-radius:14px;box-shadow:0 10px 36px rgba(0,0,0,.4)}
+.xx .xx-login-panel :is(button,a){display:grid;gap:2px;text-align:left;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;font-size:.85rem}
+.xx .xx-login-panel :is(button,a):hover{background:rgba(77,163,255,.12)}
+.xx-login-panel small{color:var(--muted);font-size:.74rem}
+.xx-foot{margin-bottom:calc(46px + env(safe-area-inset-bottom,0px))}
 .xx-me u{margin-left:8px;color:var(--a);text-decoration:none;border-bottom:1px dashed var(--a)}
 .xx-dash{white-space:nowrap}
 .xx-roles{display:flex;gap:4px;padding:4px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--line)}
