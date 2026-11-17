@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, Component } from "react"
+import React, { useState, useEffect, useRef, createContext, useContext, Component } from "react"
 import { createClient } from "@supabase/supabase-js"
 
 class ErrorBoundary extends Component {
@@ -275,20 +275,55 @@ function Home({onTeacher,onStudent}){
 }
 const QUIZ_BANK_KEY="lulu-quiz-bank-v1"
 const emptyQuiz=()=>({question:"",options:["","","",""],correct_index:0,points:10,time_limit:15})
-function readQuizBank(){
-  try {
-    const rows=JSON.parse(window.localStorage.getItem(QUIZ_BANK_KEY)||"null")
-    return Array.isArray(rows)?rows:DEFAULT_QS.map((q,i)=>({...q,id:"default-"+i}))
-  } catch { return DEFAULT_QS.map((q,i)=>({...q,id:"default-"+i})) }
+function readLocalBank(key){
+  const raw=window.localStorage.getItem(key)
+  if(raw===null) return []
+  const rows=JSON.parse(raw)
+  if(!Array.isArray(rows)) throw new Error("Invalid local question bank")
+  return rows
+}
+const TeacherBankContext=createContext(null)
+function normalizeBankItem(kind,q){
+  if(kind==="discussion"){
+    const topic=typeof q?.topic==="string"?q.topic.trim():""
+    return topic?{topic}:null
+  }
+  const question=typeof q?.question==="string"?q.question.trim():""
+  const options=Array.isArray(q?.options)?q.options.map(o=>typeof o==="string"?o.trim():""):[]
+  if(!question||options.length!==4||options.some(o=>!o)||!Number.isInteger(q.correct_index)
+    ||q.correct_index<0||q.correct_index>3||!Number.isInteger(q.points)||q.points<1
+    ||!Number.isInteger(q.time_limit)||q.time_limit<5) return null
+  return {question,options,correct_index:q.correct_index,points:q.points,time_limit:q.time_limit}
+}
+function CloudBankActions({kind,items}){
+  const bank=useContext(TeacherBankContext)
+  const [message,setMessage]=useState("")
+  async function upload(source){
+    try {
+      const rows=source==="examples"
+        ?(kind==="quiz"?DEFAULT_QS:DEFAULT_DISCUSSIONS)
+        :readLocalBank(kind==="quiz"?QUIZ_BANK_KEY:DISCUSSION_BANK_KEY)
+      if(!rows.length){setMessage("此浏览器没有可导入的旧题目。");return}
+      const {added,skipped}=await bank.importItems(kind,rows)
+      setMessage("已导入 "+added+" 道；略过 "+skipped+" 道重复或不完整的题目。")
+    } catch {setMessage("导入未完成，可以重试。浏览器中的原有题目仍保留。")}
+  }
+  return <div style={{marginBottom:14}}>
+    <p style={{fontSize:13,color:C.muted}}>题库跟随当前 Cradle 帐号，可在其他设备上使用。</p>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <Btn small disabled={bank.busy} onClick={()=>upload("browser")}>导入此浏览器的题目</Btn>
+      {!items.length&&<Btn small color={C.muted} disabled={bank.busy} onClick={()=>upload("examples")}>加入示例题</Btn>}
+    </div>
+    {message&&<p role="status" style={{fontSize:13}}>{message}</p>}
+  </div>
 }
 function quizPayload(q,seq){
   return {seq,question:q.question,options:[...q.options],correct_index:q.correct_index,
     points:q.points,time_limit:q.time_limit}
 }
 function QuizBankPicker({onAdd,disabled}){
-  const [items,setItems]=useState([])
+  const {quiz:items}=useContext(TeacherBankContext)
   const [selected,setSelected]=useState("")
-  useEffect(()=>setItems(readQuizBank()),[])
   const q=items.find(item=>item.id===selected)
   return <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
     <select aria-label="选择抢答题" value={selected} onChange={e=>setSelected(e.target.value)}
@@ -300,34 +335,28 @@ function QuizBankPicker({onAdd,disabled}){
   </div>
 }
 function QuizBank(){
-  const [items,setItems]=useState(null)
+  const bank=useContext(TeacherBankContext)
+  const items=bank.quiz
   const [draft,setDraft]=useState(null)
   const [error,setError]=useState("")
-  useEffect(()=>setItems(readQuizBank()),[])
-  function write(next){
+  async function change(removeId){
+    const item=removeId?null:normalizeBankItem("quiz",draft)
+    if(!removeId&&!item){setError("请确认题目填写完整。");return}
     try {
-      window.localStorage.setItem(QUIZ_BANK_KEY,JSON.stringify(next))
-      setItems(next);setDraft(null);setError("")
-    } catch {setError("无法保存到此浏览器，请检查浏览器设置。")}
-  }
-  function save(){
-    const question=draft.question.trim()
-    const options=draft.options.map(o=>o.trim())
-    if(!question||options.some(o=>!o)||!Number.isInteger(draft.points)||draft.points<1||
-      !Number.isInteger(draft.time_limit)||draft.time_limit<5){
-      setError("请填写题干、四个选项、有效分值及至少 5 秒的时限。");return
+      if(removeId) await bank.remove(removeId)
+      else {await bank.save("quiz",item,draft.id);setDraft(null)}
+      setError("")
+    } catch(e) {
+      setError(e?.code==="23505"?"题库已有相同题目。":"未能保存到云端，请重试。")
     }
-    const item={...quizPayload({...draft,question,options},0),id:draft.id||globalThis.crypto.randomUUID()}
-    write(draft.id?items.map(q=>q.id===draft.id?item:q):[...items,item])
   }
-  if(!items) return null
   return <div style={{maxWidth:800,margin:"24px auto",padding:"0 16px"}}>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:12}}>
         <strong>抢答题库 · {items.length} 道题</strong>
         <Btn small color={C.blue} onClick={()=>{setDraft(emptyQuiz());setError("")}}>＋ 新增题目</Btn>
       </div>
-      <p style={{fontSize:13,color:C.muted}}>题库保存在当前浏览器。加入课堂后的题目会随房间保存。</p>
+      <CloudBankActions kind="quiz" items={items}/>
       {error&&<p role="alert" style={{color:C.red,fontSize:13}}>{error}</p>}
       {draft&&<div style={{padding:16,border:"1px solid "+C.border,borderRadius:10,marginBottom:16,display:"grid",gap:10}}>
         <textarea aria-label="题干" placeholder="输入题干" style={inp()} value={draft.question}
@@ -344,23 +373,22 @@ function QuizBank(){
             onChange={e=>setDraft({...draft,points:Number(e.target.value)})}/></label>
           <label>秒数 <input type="number" min={5} style={inp({width:70})} value={draft.time_limit}
             onChange={e=>setDraft({...draft,time_limit:Number(e.target.value)})}/></label>
-          <Btn small onClick={save}>保存</Btn>
+          <Btn small disabled={bank.busy} onClick={()=>change()}>保存</Btn>
           <Btn small color={C.muted} onClick={()=>{setDraft(null);setError("")}}>取消</Btn>
         </div>
       </div>}
       {items.map(q=><div key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:"1px solid "+C.border}}>
         <span style={{flex:1}}>{q.question}</span>
         <Btn small onClick={()=>{setDraft(q);setError("")}}>编辑</Btn>
-        <Btn small color={C.red} onClick={()=>{if(window.confirm("删除这道题？")) write(items.filter(item=>item.id!==q.id))}}>删除</Btn>
+        <Btn small color={C.red} disabled={bank.busy} onClick={()=>{if(window.confirm("删除这道题？")) change(q.id)}}>删除</Btn>
       </div>)}
     </Card>
   </div>
 }
 
 function NextQuizRound({onPush,busy}){
-  const [items,setItems]=useState([])
+  const {quiz:items}=useContext(TeacherBankContext)
   const [ids,setIds]=useState([])
-  useEffect(()=>setItems(readQuizBank()),[])
   return <details style={{margin:"12px 0 18px"}}>
     <summary style={{cursor:"pointer",color:C.blue,fontWeight:700}}>继续推送下一套抢答题</summary>
     <Card style={{marginTop:10}}>
@@ -383,51 +411,42 @@ const DEFAULT_DISCUSSIONS=[
     {topic:"在农产品销售表中，想要对“实付金额“大于500的产品，定为”热销产品“，使用MAX函数能实现吗？"},
     {topic:"已知农产品销售情况表包含字段：产品名称（A列）、销售数量（B列）、单价（C列），请使用IF 函数完成逻辑判断，要求如下：1.判断规则：若销售数量≥50，判定为「热销产品」，否则判定为「普通产品」；2.写出对应单元格的 IF 函数公式"},
 ].map((q,i)=>({...q,id:"default-discussion-"+i}))
-function readDiscussionBank(){
-  try {
-    const rows=JSON.parse(window.localStorage.getItem(DISCUSSION_BANK_KEY)||"null")
-    return Array.isArray(rows)?rows:DEFAULT_DISCUSSIONS
-  } catch {return DEFAULT_DISCUSSIONS}
-}
-
 function DiscussionBank(){
-  const [items,setItems]=useState(null)
+  const bank=useContext(TeacherBankContext)
+  const items=bank.discussion
   const [draft,setDraft]=useState(null)
   const [error,setError]=useState("")
-  useEffect(()=>setItems(readDiscussionBank()),[])
-  function write(next){
+  async function change(removeId){
+    const item=removeId?null:normalizeBankItem("discussion",draft)
+    if(!removeId&&!item){setError("请确认题目填写完整。");return}
     try {
-      window.localStorage.setItem(DISCUSSION_BANK_KEY,JSON.stringify(next))
-      setItems(next);setDraft(null);setError("")
-    } catch {setError("无法保存到此浏览器，请检查浏览器设置。")}
+      if(removeId) await bank.remove(removeId)
+      else {await bank.save("discussion",item,draft.id);setDraft(null)}
+      setError("")
+    } catch(e) {
+      setError(e?.code==="23505"?"题库已有相同题目。":"未能保存到云端，请重试。")
+    }
   }
-  function save(){
-    const topic=draft.topic.trim()
-    if(!topic) return
-    const item={topic,id:draft.id||globalThis.crypto.randomUUID()}
-    write(draft.id?items.map(q=>q.id===draft.id?item:q):[...items,item])
-  }
-  if(!items) return null
   return <div style={{maxWidth:800,margin:"24px auto",padding:"0 16px"}}>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}>
         <strong>讨论题库 · {items.length} 道题</strong>
         <Btn small color={C.purple} onClick={()=>{setDraft({topic:""});setError("")}}>＋ 新增讨论题</Btn>
       </div>
-      <p style={{fontSize:13,color:C.muted}}>题库保存在当前浏览器。加入课堂的讨论题会随房间保存。</p>
+      <CloudBankActions kind="discussion" items={items}/>
       {error&&<p role="alert" style={{color:C.red,fontSize:13}}>{error}</p>}
       {draft&&<div style={{display:"grid",gap:10,marginBottom:14}}>
         <textarea aria-label="讨论题目" rows={4} placeholder="输入讨论题目" style={inp()}
           value={draft.topic} onChange={e=>setDraft({...draft,topic:e.target.value})}/>
         <div style={{display:"flex",gap:8}}>
-          <Btn small color={C.purple} disabled={!draft.topic.trim()} onClick={save}>保存</Btn>
+          <Btn small color={C.purple} disabled={bank.busy||!draft.topic.trim()} onClick={()=>change()}>保存</Btn>
           <Btn small color={C.muted} onClick={()=>{setDraft(null);setError("")}}>取消</Btn>
         </div>
       </div>}
       {items.map(q=><div key={q.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 0",borderTop:"1px solid "+C.border}}>
         <span style={{flex:1,whiteSpace:"pre-wrap"}}>{q.topic}</span>
         <Btn small color={C.purple} onClick={()=>{setDraft(q);setError("")}}>编辑</Btn>
-        <Btn small color={C.red} onClick={()=>{if(window.confirm("删除这道讨论题？")) write(items.filter(item=>item.id!==q.id))}}>删除</Btn>
+        <Btn small color={C.red} disabled={bank.busy} onClick={()=>{if(window.confirm("删除这道讨论题？")) change(q.id)}}>删除</Btn>
       </div>)}
     </Card>
   </div>
@@ -440,14 +459,11 @@ function TSetup({onCreate}){
     {seq:1,name:"第一组",color:GROUP_COLORS[0]},{seq:2,name:"第二组",color:GROUP_COLORS[1]},
     {seq:3,name:"第三组",color:GROUP_COLORS[2]},{seq:4,name:"第四组",color:GROUP_COLORS[3]},
   ])
-  const [quizBank,setQuizBank]=useState([])
+  const {quiz:quizBank,discussion:discussionBank}=useContext(TeacherBankContext)
   const [selectedQuizIds,setSelectedQuizIds]=useState([])
-  useEffect(()=>setQuizBank(readQuizBank()),[])
   const qs=selectedQuizIds.map(id=>quizBank.find(q=>q.id===id)).filter(Boolean)
   const toggleQuiz=id=>setSelectedQuizIds(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id])
-  const [discussionBank,setDiscussionBank]=useState([])
   const [selectedDiscussionIds,setSelectedDiscussionIds]=useState([])
-  useEffect(()=>setDiscussionBank(readDiscussionBank()),[])
 
   const [tab,setTab]=useState("groups")
   const [loading,setLoading]=useState(false)
@@ -4040,49 +4056,101 @@ function SMain({session:init,studentName}){
 }
 
 // ── TEACHER LOGIN ────────────────────────────────────────────
-const DEFAULT_PW = "lulu2025"
-
 function TLogin({onSuccess,onBack}){
-  const [pw,setPw]=useState("")
-  const [err,setErr]=useState("")
-  const [loading,setLoading]=useState(false)
-
-  async function login(){
-    if(!pw.trim()) return
-    setLoading(true); setErr("")
-    let correctPw = DEFAULT_PW
-    try {
-      const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
-      if(data?.teacher_password) correctPw = data.teacher_password
-    } catch(_){}
-    if(pw===correctPw){ onSuccess() }
-    else { setErr("密码错误，请重试"); setLoading(false) }
-  }
-
-  return(
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:F,padding:24}}>
-      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-      <Card style={{width:"100%",maxWidth:320}}>
-        <div style={{fontSize:20,fontWeight:900,marginBottom:4}}>教师端登录</div>
-        <div style={{fontSize:13,color:C.muted,marginBottom:24}}>请输入教师密码</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:7}}>密码</div>
-        <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&login()}
-          placeholder="输入密码" style={{...inp({marginBottom:err?8:20})}}/>
-        {err&&<div style={{fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
-        <div style={{display:"flex",gap:10}}>
-          <Btn full onClick={login} disabled={loading||!pw.trim()}>{loading?"验证中…":"进入教师后台"}</Btn>
-        </div>
-        <button onClick={onBack} style={{marginTop:14,background:"none",border:"none",
-          color:C.muted,fontSize:12,cursor:"pointer",fontFamily:F,display:"block",width:"100%",textAlign:"center"}}>
-          ← 返回首页
-        </button>
-      </Card>
-    </div>
-  )
+  const [loading,setLoading]=useState(true)
+  const [message,setMessage]=useState("")
+  const [canSignIn,setCanSignIn]=useState(false)
+  useEffect(()=>{
+    let active=true
+    async function check(){
+      try {
+        const {data:{session}}=await sb.auth.getSession()
+        if(!active) return
+        if(!session){setCanSignIn(true);return}
+        const {data,error}=await sb.from("lulu_teacher_accounts")
+          .select("user_id").eq("user_id",session.user.id).maybeSingle()
+        if(!active) return
+        if(error) setMessage("暂时无法验证教师权限，请重新加载后再试。")
+        else if(data) onSuccess(data.user_id)
+        else {setMessage("当前帐号没有 Lulu 教师权限。");setCanSignIn(true)}
+      } catch {if(active) setMessage("暂时无法验证教师权限，请重新加载后再试。")}
+      finally {if(active) setLoading(false)}
+    }
+    check()
+    return()=>{active=false}
+  },[])
+  return <div style={{minHeight:"100vh",background:C.bg,display:"grid",placeItems:"center",padding:24,fontFamily:F}}>
+    <Card style={{width:"100%",maxWidth:360}}>
+      <h2 style={{fontSize:20,marginBottom:12}}>教师端登录</h2>
+      <p style={{fontSize:13,color:C.muted}}>{loading?"正在确认教师权限…":message||"请使用有 Lulu 教师权限的 Cradle 帐号登录。"}</p>
+      {canSignIn&&<p style={{margin:"14px 0"}}><a style={{color:C.blue,fontWeight:700}} href="/login?redirect=%2Flulu%3Fteacher%3D1">使用 Cradle 帐号登录</a></p>}
+      <Btn small color={C.muted} onClick={onBack}>返回首页</Btn>
+    </Card>
+  </div>
 }
 
+function TeacherBanks({owner,children}){
+  const [rows,setRows]=useState(null)
+  const [error,setError]=useState("")
+  const [busy,setBusy]=useState(false)
+  const lock=useRef(false)
+  const table=()=>sb.from("lulu_teacher_bank_items")
+  async function load(){
+    setError("")
+    try {
+      const all=[]
+      for(let offset=0;;offset+=200){
+        const {data,error}=await table().select("id,kind,content").eq("owner_id",owner)
+          .order("created_at").order("id").range(offset,offset+199)
+        if(error) throw error
+        all.push(...data)
+        if(data.length<200) break
+      }
+      setRows(all)
+    } catch {setError("无法读取云端题库，请重试。")}
+  }
+  useEffect(()=>{load()},[owner])
+  async function run(action){
+    if(lock.current) throw new Error("A bank operation is already running")
+    lock.current=true;setBusy(true)
+    try {return await action()}
+    finally {lock.current=false;setBusy(false)}
+  }
+  async function save(kind,content,id){
+    return run(async()=>{
+      const request=id?table().update({content}).eq("owner_id",owner).eq("id",id):table().insert({kind,content})
+      const {data,error}=await request.select("id,kind,content").single()
+      if(error||!data) throw error||new Error("Bank item not saved")
+      setRows(previous=>id?previous.map(r=>r.id===id?data:r):[...previous,data])
+    })
+  }
+  async function remove(id){
+    return run(async()=>{
+      const {data,error}=await table().delete().eq("owner_id",owner).eq("id",id).select("id").single()
+      if(error||!data) throw error||new Error("Bank item not deleted")
+      setRows(previous=>previous.filter(r=>r.id!==id))
+    })
+  }
+  async function importItems(kind,items){
+    return run(async()=>{
+      const candidates=items.map(q=>normalizeBankItem(kind,q)).filter(Boolean)
+      let added=0
+      for(let i=0;i<candidates.length;i+=100){
+        const {data,error}=await table().upsert(candidates.slice(i,i+100).map(content=>({kind,content})),{
+          onConflict:"owner_id,kind,fingerprint",ignoreDuplicates:true
+        }).select("id,kind,content")
+        if(error) throw error
+        added+=data.length
+        setRows(previous=>{const ids=new Set(previous.map(r=>r.id));return [...previous,...data.filter(r=>!ids.has(r.id))]})
+      }
+      return {added,skipped:items.length-added}
+    })
+  }
+  if(!rows) return <div style={{padding:24}}>{error?<><p role="alert">{error}</p><Btn small onClick={load}>重试</Btn></>:"正在读取云端题库…"}</div>
+  const items=kind=>rows.filter(r=>r.kind===kind).map(r=>({...r.content,id:r.id}))
+  return <TeacherBankContext.Provider value={{quiz:items("quiz"),discussion:items("discussion"),save,remove,importItems,busy}}>{children}</TeacherBankContext.Provider>
+}
+ 
 // ── TEACHER BACKEND (tabbed: new / history / settings) ────────
 function TBackend(){
   const [tab,setTab]=useState("new")
@@ -4299,9 +4367,6 @@ function THistory({onResume}){
 
 // ── TEACHER SETTINGS ─────────────────────────────────────────
 function TSettings(){
-  const [oldPw,setOldPw]=useState("")
-  const [newPw,setNewPw]=useState("")
-  const [newPw2,setNewPw2]=useState("")
   const [schoolName,setSchoolName]=useState("")
   const [msg,setMsg]=useState({text:"",ok:true})
   const [loading,setLoading]=useState(false)
@@ -4311,23 +4376,6 @@ function TSettings(){
     sb.from("lulu_settings").select("school_name").eq("id",1).single()
       .then(({data})=>{ if(data){setSchoolName(data.school_name);setInfoLoaded(true)} })
   },[])
-
-  async function changePw(){
-    if(!oldPw||!newPw||!newPw2){setMsg({text:"请填写所有字段",ok:false});return}
-    if(newPw!==newPw2){setMsg({text:"两次新密码不一致",ok:false});return}
-    if(newPw.length<4){setMsg({text:"新密码至少 4 位",ok:false});return}
-    setLoading(true)
-    let curPw = DEFAULT_PW
-    try {
-      const {data}=await sb.from("lulu_settings").select("teacher_password").eq("id",1).single()
-      if(data?.teacher_password) curPw = data.teacher_password
-    } catch(_){}
-    if(oldPw!==curPw){setMsg({text:"旧密码错误",ok:false});setLoading(false);return}
-    await sb.from("lulu_settings").update({teacher_password:newPw}).eq("id",1)
-    setMsg({text:"密码已更新",ok:true})
-    setOldPw("");setNewPw("");setNewPw2("")
-    setLoading(false)
-  }
 
   async function saveSchoolName(){
     if(!schoolName.trim()) return
@@ -4347,24 +4395,7 @@ function TSettings(){
         </div>
       </Card>
 
-      <Card>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>修改教师密码</div>
-        {[["旧密码",oldPw,setOldPw],["新密码",newPw,setNewPw],["确认新密码",newPw2,setNewPw2]].map(([label,val,setter])=>(
-          <div key={label} style={{marginBottom:14}}>
-            <div style={{fontSize:12,color:C.muted,marginBottom:7}}>{label}</div>
-            <input type="password" value={val} onChange={e=>setter(e.target.value)} style={inp()}/>
-          </div>
-        ))}
-        {msg.text&&(
-          <div style={{fontSize:13,color:msg.ok?C.accent:C.red,marginBottom:12}}>{msg.text}</div>
-        )}
-        <Btn onClick={changePw} disabled={loading}>{loading?"保存中…":"更新密码"}</Btn>
-        <div style={{marginTop:16,padding:"12px 14px",borderRadius:9,background:"rgba(0,0,0,.02)",
-          border:`1px solid ${C.border}`,fontSize:12,color:C.muted}}>
-          默认密码：<span style={{color:C.text,fontFamily:FM}}>lulu2025</span>
-          <br/>建议首次登录后立即修改
-        </div>
-      </Card>
+      <Card>教师登录使用 Cradle 帐号。需要修改密码时，请使用 Cradle 的帐号设置或密码找回。</Card>
     </div>
   )
 }
@@ -4374,11 +4405,19 @@ function AppInner(){
   const [screen,setScreen]=useState("home")
   const [sess,setSess]=useState(null)
   const [name,setName]=useState("")
-  const [tAuthed,setTAuthed]=useState(false)
+  const [teacherId,setTeacherId]=useState(null)
+  useEffect(()=>{
+    if(new URLSearchParams(window.location.search).get("teacher")==="1") setScreen("t-login")
+    const {data:{subscription}}=sb.auth.onAuthStateChange((event,session)=>{
+      setTeacherId(id=>id&&session?.user.id===id?id:null)
+    })
+    return()=>subscription.unsubscribe()
+  },[])
 
   if(screen==="home")     return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>setScreen("s-join")}/>
-  if(screen==="t-login")  return <TLogin onSuccess={()=>{setTAuthed(true);setScreen("t-backend")}} onBack={()=>setScreen("home")}/>
-  if(screen==="t-backend"&&tAuthed) return <TBackend/>
+  if(screen==="t-login"||(screen==="t-backend"&&!teacherId))
+    return <TLogin onSuccess={id=>{setTeacherId(id);setScreen("t-backend")}} onBack={()=>setScreen("home")}/>
+  if(screen==="t-backend") return <TeacherBanks key={teacherId} owner={teacherId}><TBackend/></TeacherBanks>
   if(screen==="s-join")   return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
   if(screen==="s-main")   return <SMain session={sess} studentName={name}/>
   return null
