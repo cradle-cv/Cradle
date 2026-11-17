@@ -317,7 +317,7 @@ function CloudBankActions({kind,items}){
     } catch {setMessage("导入未完成，可以重试。浏览器中的原有题目仍保留。")}
   }
   return <div style={{marginBottom:14}}>
-    <p style={{fontSize:13,color:C.muted}}>题库跟随当前 Cradle 帐号，可在其他设备上使用。</p>
+    <p style={{fontSize:13,color:C.muted}}>题库跟随当前小信帐号，可在其他设备上使用。</p>
     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
       <Btn small disabled={bank.busy} onClick={()=>upload("browser")}>导入此浏览器的题目</Btn>
       {!items.length&&<Btn small color={C.muted} disabled={bank.busy} onClick={()=>upload("examples")}>加入示例题</Btn>}
@@ -4088,60 +4088,81 @@ function SMain({session:init,studentName}){
 }
 
 // ── TEACHER LOGIN ────────────────────────────────────────────
+const XIAOXIN_SESSION_KEY="xiaoxin:admin"
+function savedXiaoxinSession(){
+  try {return window.localStorage.getItem(XIAOXIN_SESSION_KEY)} catch {return null}
+}
+async function bankRequest(token,op,extra={}){
+  const {data,error}=await sb.rpc("lulu_xiaoxin_bank",{p_token:token,p_op:op,...extra})
+  if(error) throw error
+  return data
+}
 function TLogin({onSuccess,onBack}){
-  const [loading,setLoading]=useState(true)
+  const [busy,setBusy]=useState(true)
   const [message,setMessage]=useState("")
-  const [canSignIn,setCanSignIn]=useState(false)
+  const [username,setUsername]=useState("")
+  const [password,setPassword]=useState("")
   useEffect(()=>{
     let active=true
-    async function check(){
+    const token=savedXiaoxinSession()
+    async function restore(){
       try {
-        const {data:{session}}=await sb.auth.getSession()
-        if(!active) return
-        if(!session){setCanSignIn(true);return}
-        const {data,error}=await sb.from("lulu_teacher_accounts")
-          .select("user_id").eq("user_id",session.user.id).maybeSingle()
-        if(!active) return
-        if(error) setMessage("暂时无法验证教师权限，请重新加载后再试。")
-        else if(data) onSuccess(data.user_id)
-        else {setMessage("当前帐号没有 Lulu 教师权限。");setCanSignIn(true)}
-      } catch {if(active) setMessage("暂时无法验证教师权限，请重新加载后再试。")}
-      finally {if(active) setLoading(false)}
+        if(token&&await bankRequest(token,"verify")&&active) onSuccess(token)
+      } catch(e) {
+        if(active&&e?.code!=="42501") setMessage("暂时无法验证小信登录，请重试。")
+      } finally {if(active)setBusy(false)}
     }
-    check()
+    restore()
     return()=>{active=false}
   },[])
+  async function signIn(e){
+    e.preventDefault()
+    if(busy||!username.trim()||!password) return
+    setBusy(true);setMessage("")
+    try {
+      const {data:token,error}=await sb.rpc("aistudy_admin_login",{p_user:username.trim(),p_pass:password})
+      if(error) throw error
+      if(!token){setMessage("帐号或密码不正确。");return}
+      await bankRequest(token,"verify")
+      try {window.localStorage.setItem(XIAOXIN_SESSION_KEY,token)} catch {}
+      setPassword("")
+      onSuccess(token)
+    } catch(e){
+      setMessage(e?.code==="42501"?"此帐号没有 Lulu 教师权限。":"无法登录，请检查网络后重试。")
+    } finally {setBusy(false)}
+  }
   return <div style={{minHeight:"100vh",background:C.bg,display:"grid",placeItems:"center",padding:24,fontFamily:F}}>
     <Card style={{width:"100%",maxWidth:360}}>
       <h2 style={{fontSize:20,marginBottom:12}}>教师端登录</h2>
-      <p style={{fontSize:13,color:C.muted}}>{loading?"正在确认教师权限…":message||"请使用有 Lulu 教师权限的 Cradle 帐号登录。"}</p>
-      {canSignIn&&<p style={{margin:"14px 0"}}><a style={{color:C.blue,fontWeight:700}} href="/login?redirect=%2Flulu%3Fteacher%3D1">使用 Cradle 帐号登录</a></p>}
+      <p style={{fontSize:13,color:C.muted}}>使用小信教学看板的帐号和密码。</p>
+      <form onSubmit={signIn} style={{display:"grid",gap:10,margin:"14px 0"}}>
+        <input aria-label="帐号" placeholder="帐号" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} style={inp()}/>
+        <input aria-label="密码" placeholder="密码" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} style={inp()}/>
+        {message&&<p role="alert" style={{fontSize:13,color:C.red}}>{message}</p>}
+        <button type="submit" disabled={busy||!username.trim()||!password} style={{border:0,borderRadius:8,padding:10,background:C.accent,color:"white",fontFamily:F}}>
+          {busy?"验证中…":"使用小信帐号登录"}
+        </button>
+      </form>
       <Btn small color={C.muted} onClick={onBack}>返回首页</Btn>
     </Card>
   </div>
 }
 
-function TeacherBanks({owner,children}){
+function TeacherBanks({token,onExpired,children}){
   const [rows,setRows]=useState(null)
   const [error,setError]=useState("")
   const [busy,setBusy]=useState(false)
   const lock=useRef(false)
-  const table=()=>sb.from("lulu_teacher_bank_items")
+  async function request(op,args){
+    try {return await bankRequest(token,op,args)}
+    catch(e){if(e?.code==="42501")onExpired();throw e}
+  }
   async function load(){
     setError("")
-    try {
-      const all=[]
-      for(let offset=0;;offset+=200){
-        const {data,error}=await table().select("id,kind,content").eq("owner_id",owner)
-          .order("created_at").order("id").range(offset,offset+199)
-        if(error) throw error
-        all.push(...data)
-        if(data.length<200) break
-      }
-      setRows(all)
-    } catch {setError("无法读取云端题库，请重试。")}
+    try {setRows(await request("list"))}
+    catch {setError("无法读取云端题库，请重试。")}
   }
-  useEffect(()=>{load()},[owner])
+  useEffect(()=>{load()},[token])
   async function run(action){
     if(lock.current) throw new Error("A bank operation is already running")
     lock.current=true;setBusy(true)
@@ -4150,16 +4171,13 @@ function TeacherBanks({owner,children}){
   }
   async function save(kind,content,id){
     return run(async()=>{
-      const request=id?table().update({content}).eq("owner_id",owner).eq("id",id):table().insert({kind,content})
-      const {data,error}=await request.select("id,kind,content").single()
-      if(error||!data) throw error||new Error("Bank item not saved")
+      const data=await request("save",{p_kind:kind,p_content:content,p_id:id||null})
       setRows(previous=>id?previous.map(r=>r.id===id?data:r):[...previous,data])
     })
   }
   async function remove(id){
     return run(async()=>{
-      const {data,error}=await table().delete().eq("owner_id",owner).eq("id",id).select("id").single()
-      if(error||!data) throw error||new Error("Bank item not deleted")
+      await request("remove",{p_id:id})
       setRows(previous=>previous.filter(r=>r.id!==id))
     })
   }
@@ -4168,10 +4186,7 @@ function TeacherBanks({owner,children}){
       const candidates=items.map(q=>normalizeBankItem(kind,q)).filter(Boolean)
       let added=0
       for(let i=0;i<candidates.length;i+=100){
-        const {data,error}=await table().upsert(candidates.slice(i,i+100).map(content=>({kind,content})),{
-          onConflict:"owner_id,kind,fingerprint",ignoreDuplicates:true
-        }).select("id,kind,content")
-        if(error) throw error
+        const data=await request("import",{p_kind:kind,p_content:candidates.slice(i,i+100)})
         added+=data.length
         setRows(previous=>{const ids=new Set(previous.map(r=>r.id));return [...previous,...data.filter(r=>!ids.has(r.id))]})
       }
@@ -4427,7 +4442,7 @@ function TSettings(){
         </div>
       </Card>
 
-      <Card>教师登录使用 Cradle 帐号。需要修改密码时，请使用 Cradle 的帐号设置或密码找回。</Card>
+      <Card>教师登录使用小信教学看板帐号。需要修改密码时，请前往 <a href="/aistudy/admin" style={{color:C.blue}}>小信教学看板</a>。</Card>
     </div>
   )
 }
@@ -4437,19 +4452,22 @@ function AppInner(){
   const [screen,setScreen]=useState("home")
   const [sess,setSess]=useState(null)
   const [name,setName]=useState("")
-  const [teacherId,setTeacherId]=useState(null)
+  const [teacherToken,setTeacherToken]=useState(null)
   useEffect(()=>{
     if(new URLSearchParams(window.location.search).get("teacher")==="1") setScreen("t-login")
-    const {data:{subscription}}=sb.auth.onAuthStateChange((event,session)=>{
-      setTeacherId(id=>id&&session?.user.id===id?id:null)
-    })
-    return()=>subscription.unsubscribe()
+    function onStorage(e){
+      if(e.key===XIAOXIN_SESSION_KEY||e.key===null) setTeacherToken(t=>t===savedXiaoxinSession()?t:null)
+    }
+    window.addEventListener("storage",onStorage)
+    return()=>window.removeEventListener("storage",onStorage)
   },[])
 
   if(screen==="home")     return <Home onTeacher={()=>setScreen("t-login")} onStudent={()=>setScreen("s-join")}/>
-  if(screen==="t-login"||(screen==="t-backend"&&!teacherId))
-    return <TLogin onSuccess={id=>{setTeacherId(id);setScreen("t-backend")}} onBack={()=>setScreen("home")}/>
-  if(screen==="t-backend") return <TeacherBanks key={teacherId} owner={teacherId}><TBackend/></TeacherBanks>
+  if(screen==="t-login"||(screen==="t-backend"&&!teacherToken))
+    return <TLogin onSuccess={token=>{setTeacherToken(token);setScreen("t-backend")}} onBack={()=>setScreen("home")}/>
+  if(screen==="t-backend") return <TeacherBanks key={teacherToken} token={teacherToken}
+    onExpired={()=>{try {if(savedXiaoxinSession()===teacherToken)window.localStorage.removeItem(XIAOXIN_SESSION_KEY)} catch {}
+      setTeacherToken(null);setScreen("t-login")}}><TBackend/></TeacherBanks>
   if(screen==="s-join")   return <SJoin onJoin={(s,n)=>{setSess(s);setName(n);setScreen("s-main")}}/>
   if(screen==="s-main")   return <SMain session={sess} studentName={name}/>
   return null
