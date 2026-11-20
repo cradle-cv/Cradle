@@ -816,7 +816,7 @@ function TDash({session:init,onBack}){
   const [wordError,setWordError]=useState("")
   const wordLock=useRef(false)
   useEffect(()=>{
-    sb.from("lulu_layout_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
+    sb.from("lulu_layout_tasks").select("id,title,time_limit,requirements").order("created_at",{ascending:false})
       .then(({data,error})=>{if(error)setWordError("无法读取 Word 题库，请刷新重试。");else setWordTasks(data||[])})
   },[])
   async function pushWord(){
@@ -844,7 +844,7 @@ function TDash({session:init,onBack}){
     let active=true, scoreVersion=0
     async function refreshScores(){
       const version=++scoreVersion
-      const {data}=await sb.from("word_lab_submissions").select("id,student_name,phase,score,submitted").eq("session_id",init.id)
+      const {data}=await sb.from("word_lab_submissions").select("id,student_name,phase,score,submitted,completed_tasks").eq("session_id",init.id)
       if(active&&data&&version===scoreVersion) setSubmissions(data)
     }
     refreshScores()
@@ -1169,7 +1169,24 @@ function TDash({session:init,onBack}){
                 <Btn small disabled={!nextWord||wordBusy} onClick={pushWord}>{wordBusy?"推送中…":"推送这道 Word 题"}</Btn>
                 <span style={{fontSize:12,color:C.muted}}>第 {(sess.layout_round||0)+1} 轮 · {wordTasks.find(t=>t.id===sess.layout_task_id)?.title||"当前排版题"}</span>
               </div>
+              <label style={{display:"block",marginTop:10}}><input type="checkbox" checked={sess.word_feedback_open!==false} onChange={async e=>{
+                const {data,error}=await sb.from("word_lab_sessions").update({word_feedback_open:e.target.checked}).eq("id",sess.id).eq("layout_round",sess.layout_round||0).select().single()
+                if(error||!data)setWordError("反馈设置未保存，请刷新重试。");else setSess(data)
+              }}/> 交卷后开放失分提示和订正（测验时可关闭，收卷后再开启）</label>
               {wordError&&<p role="alert" style={{fontSize:13,color:C.red}}>{wordError}</p>}
+            </Card>
+            <Card style={{marginBottom:16}}>
+              <strong>本轮操作完成情况</strong><p style={{fontSize:12,color:C.muted}}>已完成该项的人数 / 本班签到人数。包含正在作答的学生，交卷后按首次答卷统计。</p>
+              {(()=>{
+                const reqs=sess.layout_task_id?wordTasks.find(t=>t.id===sess.layout_task_id)?.requirements:TASK.reqs
+                if(!reqs?.length)return <small>本题暂无可显示的分项统计。</small>
+                const names=new Set(checkins.map(x=>x.student_name))
+                const rows=submissions.filter(x=>x.phase===wordPhase(sess)&&names.has(x.student_name))
+                return reqs.map(r=>{
+                  const n=new Set(rows.filter(x=>Array.isArray(x.completed_tasks)&&x.completed_tasks.some(id=>String(id)===String(r.id))).map(x=>x.student_name)).size
+                  return <div key={r.id} style={{display:"flex",alignItems:"center",gap:12,padding:"5px 0"}}><span style={{flex:1}}>{r.desc}</span><progress aria-label={r.desc} value={n} max={names.size||1}/><strong>{n}/{names.size} 人</strong></div>
+                })
+              })()}
             </Card>
           <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:20}}>
             <div>
@@ -3243,6 +3260,25 @@ function SJoin({onJoin}){
 }
 
 // ── STUDENT MAIN ─────────────────────────────────────────────
+function safeWordCopy(html){
+  const t=document.createElement("template");t.innerHTML=html||""
+  const tags=new Set("P DIV SPAN H1 H2 H3 H4 B STRONG I EM U S BR OL UL LI TABLE TBODY THEAD TFOOT TR TD TH BLOCKQUOTE FONT".split(" "))
+  const props="text-align font-weight color font-size font-style line-height text-indent margin-left margin-top margin-bottom text-decoration".split(" ")
+  for(const e of [...t.content.querySelectorAll("*")]){
+    if(!tags.has(e.tagName)){e.remove();continue}
+    const css=props.map(k=>[k,e.style.getPropertyValue(k)]),a=e.getAttribute("align"),c=e.getAttribute("color")
+    for(const attr of [...e.attributes])e.removeAttribute(attr.name)
+    for(const [k,v] of css)if(v&&!/url|var\(/i.test(v))e.style.setProperty(k,v)
+    if(["center","left","right","justify"].includes(a))e.setAttribute("align",a)
+    if(e.tagName==="FONT"&&c&&CSS.supports("color",c))e.setAttribute("color",c)
+  }
+  return t.innerHTML
+}
+function wordTip(r,pg){
+  const target=r.text||r.texts?.join("、")
+  const tip={h1:"把光标放进主标题段，点 H1。只加粗或放大字号不会套用标题样式。",h2:"逐段选中小标题，点 H2。",bold:"逐处选中指定文字，再点 B 加粗。",align:"把光标放进要求的段落，点「居中」。用空格移动文字不会改变对齐方式。",table:"插入表格后，核对行数和列数。",list:"选中各个条目，使用题目要求的有序或无序列表按钮。",color_h2:"先套用 H2，再设置标题颜色。",indent_first:"选中正文段落，点「首行缩进」。",indent_block:"选中整段，点「增加缩进」。",line_height:"选中相应段落，设置题目要求的行距。",space_before:"选中相应段落，设置段前间距。",space_after:"选中相应段落，设置段后间距。"}[r.type]||"对照任务要求，检查所选文字和格式。"
+  return (pg?.need>1?"已达到 "+Math.min(pg.got,pg.need)+"/"+pg.need+" 项。":"")+(target?"检查「"+target+"」。":"")+tip
+}
 function SMain({session:init,studentName}){
   const [sess,setSess]=useState(init)
   const [groups,setGroups]=useState([])
@@ -3288,6 +3324,10 @@ function SMain({session:init,studentName}){
   const taskLoaded=layoutTaskKey==="builtin"||(layoutLoad?.key===layoutTaskKey&&!!activeTask)
   const layoutError=layoutLoad?.key===layoutTaskKey&&layoutLoad.error
   const [initializedLayout,setInitializedLayout]=useState(null)
+  const [review,setReview]=useState(null)
+  const [correcting,setCorrecting]=useState(false)
+  const [savingCopy,setSavingCopy]=useState(false)
+  const feedbackOpen=sess.word_feedback_open!==false
   const labInitialized=initializedLayout===layoutKey
   const layoutDrafts=useRef(new Map())
 
@@ -3436,7 +3476,7 @@ function SMain({session:init,studentName}){
 
   useEffect(()=>{
     let active=true
-    setSubId(null);setSubmitted(false);setSubmitError("")
+    setSubId(null);setSubmitted(false);setReview(null);setCorrecting(false);setSavingCopy(false);setSubmitError("")
     setLabTime(sess.time_limit||600)
     setDone(new Set());setProg({});setKeepInfo({keep:1,capped:false})
     if(sess.phase!=="lab"||!taskLoaded) return
@@ -3448,11 +3488,13 @@ function SMain({session:init,studentName}){
         completed_tasks:[]
       },{onConflict:"session_id,student_name,phase",ignoreDuplicates:true})
       if(error||!active) return
-      const result=await sb.from("word_lab_submissions").select("id,score,submitted,html_content")
+      const result=await sb.from("word_lab_submissions").select("id,score,submitted,html_content,correction_html,correction_score")
         .eq("session_id",init.id).eq("student_name",studentName).eq("phase",labPhase).single()
       if(!active||activeLayoutRef.current!==key||!result.data) return
       setSubId(result.data.id)
-      if(result.data.submitted){setSubmitted(true)}
+      if(result.data.submitted){setSubmitted(true);setReview(result.data)
+        if(editorRef.current&&result.data.html_content){editorRef.current.innerHTML=safeWordCopy(result.data.html_content);checkReqs()}
+      }
     }
     loadSubmission()
     return()=>{active=false}
@@ -3487,7 +3529,7 @@ function SMain({session:init,studentName}){
     if(sess.phase!=="lab"||!subId||submitted||!labInitialized||!editorRef.current) return
     const t=setInterval(()=>save(),3000)
     return()=>clearInterval(t)
-  },[sess.phase,layoutKey,subId,submitted,done,labInitialized])
+  },[sess.phase,layoutKey,subId,submitted,labInitialized])
 
   async function chooseGroup(gid){
     await sb.from("word_lab_checkins").update({group_id:gid})
@@ -3560,9 +3602,9 @@ function SMain({session:init,studentName}){
   async function save(){
     if(!subId||!editorRef.current||!labInitialized||activeLayoutRef.current!==layoutKey) return
     const taskReqs=(activeTask?.requirements)||TASK.reqs
-    const score=calcScore(taskReqs)
+    const {score,measure}=scoreReqs(editorRef.current,taskReqs,activeTask?.raw_html||TASK.rawHtml)
     await sb.from("word_lab_submissions").update({
-      score,completed_tasks:[...done],
+      score,completed_tasks:taskReqs.filter(r=>measure[r.id]?.ok).map(r=>r.id),
       html_content:editorRef.current?.innerHTML||"",
       last_active:new Date().toISOString()
     }).eq("id",subId).eq("submitted",false)
@@ -3570,20 +3612,21 @@ function SMain({session:init,studentName}){
 
   async function handleSubmit(){
     const editor=editorRef.current
-    if(submitted||submitting.current||!labInitialized||!editor||activeLayoutRef.current!==layoutKey) return
+    if(!subId||submitted||submitting.current||!labInitialized||!editor||activeLayoutRef.current!==layoutKey) return
     submitting.current=true
     setSubmitError("")
     try {
       const reqs=activeTask?.requirements||TASK.reqs
       const {score,measure}=scoreReqs(editor,reqs,activeTask?.raw_html||TASK.rawHtml)
-      const {data,error}=await sb.from("word_lab_submissions").upsert({
-        session_id:init.id,student_name:studentName,phase:labPhase,submitted:true,score,
+      const html=editor.innerHTML
+      const {data,error}=await sb.from("word_lab_submissions").update({
+        submitted:true,score,
         max_score:reqs.reduce((sum,r)=>sum+r.pts,0),
         completed_tasks:reqs.filter(r=>measure[r.id]?.ok).map(r=>r.id),
-        html_content:editor.innerHTML,last_active:new Date().toISOString()
-      },{onConflict:"session_id,student_name,phase"}).select("score").single()
+        html_content:html,last_active:new Date().toISOString()
+      }).eq("id",subId).eq("phase",labPhase).eq("submitted",false).select("score").single()
       if(error||!data) throw error||new Error("Submission was not saved")
-      if(activeLayoutRef.current===layoutKey){setFinalScore(data.score);setSubmitted(true)}
+      if(activeLayoutRef.current===layoutKey){editor.innerHTML=safeWordCopy(html);checkReqs();setReview({score:data.score,html_content:html});setFinalScore(data.score);setSubmitted(true)}
     } catch(error) {
       console.error("Layout submission failed",error)
       setSubmitError("答卷未提交，请重试")
@@ -3855,6 +3898,17 @@ function SMain({session:init,studentName}){
       .doc-paper tr:nth-child(even) td{background:#f8fafc;}
       .doc-paper strong,.doc-paper b{font-weight:700;}
     `
+    async function finishCopy(){
+      if(!correcting||!feedbackOpen||savingCopy||!subId)return
+      const html=editorRef.current.innerHTML,points=calcScore(taskReqs)
+      setSavingCopy(true);setSubmitError("")
+      try{
+        const {data,error}=await sb.from("word_lab_submissions").update({correction_html:html,correction_score:points}).eq("id",subId).eq("submitted",true).select("id").single()
+        if(error||!data)throw Error()
+        if(activeLayoutRef.current===layoutKey){setReview(v=>({...v,correction_html:html,correction_score:points}));setCorrecting(false)}
+      }catch{if(activeLayoutRef.current===layoutKey)setSubmitError("订正未保存，请重试。")}
+      finally{if(activeLayoutRef.current===layoutKey)setSavingCopy(false)}
+    }
     const toolBtn=(label,action,extra={})=>(
       <button onMouseDown={e=>{e.preventDefault();saveSel();action()}} style={{
         padding:"7px 14px",borderRadius:7,border:`1px solid ${C.border}`,
@@ -3876,7 +3930,7 @@ function SMain({session:init,studentName}){
             background:"rgba(255,255,255,.1)",padding:"2px 8px",borderRadius:5}}>▪ {myGroup.name}</span>}
           <div style={{width:1,height:20,background:"rgba(255,255,255,.2)",margin:"0 6px"}}/>
           {/* Dynamic toolbar - shows only buttons needed by this task */}
-          {(()=>{
+          {(!submitted||(correcting&&feedbackOpen&&!savingCopy))&&(()=>{
             const needs=new Set(taskReqs.map(r=>REQ_TYPES[r.type]?.toolbar))
             const s={background:"#334155",color:"white",border:"none"}
             return <>
@@ -4001,11 +4055,16 @@ function SMain({session:init,studentName}){
           </div>
           <div style={{flex:1}}/>
           <span style={{fontSize:15,color:"white",fontWeight:900,fontFamily:FM}}>
-            {score}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)}</span>
+            {feedbackOpen?score:"···"}<span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>/{((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)}</span>
           </span>
           {submitError&&<span role="alert" style={{fontSize:12,color:"#fecaca"}}>{submitError}</span>}
-          {!submitted&&<Btn small onClick={handleSubmit} color="#f59e0b">提交答卷</Btn>}
-          {submitted&&<span style={{fontSize:12,color:"#6ee7b7",fontWeight:700}}>✓ 已提交</span>}
+          {!submitted&&<Btn small disabled={!subId} onClick={handleSubmit} color="#f59e0b">提交答卷</Btn>}
+          {submitted&&<span style={{fontSize:12,color:"#6ee7b7",fontWeight:700}}>首次交卷 {review?.score} 分{feedbackOpen&&review?.correction_score!=null?" · 已存订正 "+review.correction_score+" 分":""}</span>}
+          {submitted&&feedbackOpen&&review?.html_content&&<Btn small disabled={savingCopy} onClick={()=>{
+            if(correcting){finishCopy();return}
+            editorRef.current.innerHTML=safeWordCopy(review.correction_html??review.html_content);checkReqs();setCorrecting(true)
+          }}>{correcting?(savingCopy?"保存中…":"保存订正"):"开始订正"}</Btn>}
+          {submitted&&!feedbackOpen&&<small>教师公布后可查看失分提示和订正。</small>}
         </div>
         {activeTask?.description&&(
           <details open={isUploadTask} style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"6px 16px",fontSize:12.5,color:"#78350f",lineHeight:1.8}}>
@@ -4051,7 +4110,7 @@ function SMain({session:init,studentName}){
               <div className="doc-paper" style={{background:"white",padding:"32px 40px",
                 borderRadius:4,boxShadow:"0 2px 12px rgba(0,0,0,.1)",maxWidth:540,margin:"0 auto",
                 fontSize:14,lineHeight:1.9}}>
-                <div key={layoutKey} ref={editorRef} contentEditable={!submitted&&labInitialized} onInput={checkReqs}
+                <div key={layoutKey} ref={editorRef} contentEditable={!!subId&&labInitialized&&(!submitted||(correcting&&feedbackOpen&&!savingCopy))} onInput={checkReqs}
                   onKeyUp={checkReqs} onMouseUp={saveSel} onKeyDown={saveSel}
                   style={{minHeight:360,color:"#1a1a1a",outline:"none",fontFamily:"Georgia,serif"}}/>
               </div>
@@ -4068,8 +4127,8 @@ function SMain({session:init,studentName}){
             </div>
             <div style={{padding:14,flex:1}}>
               {((activeTask?.requirements)||TASK.reqs).map((r,i)=>{
-                const ok=done.has(r.id)
-                const pg=prog[r.id]
+                const ok=feedbackOpen&&done.has(r.id)
+                const pg=feedbackOpen?prog[r.id]:null
                 const part=pg&&!ok&&pg.pts>0
                 const docxOnly=DOCX_ONLY.has(r.type)
                 return(
@@ -4089,7 +4148,7 @@ function SMain({session:init,studentName}){
                       {pg&&pg.need>1&&!ok&&<span style={{fontSize:10,color:part?"#d97706":"#9ca3af",marginLeft:"auto",fontFamily:FM}}>{Math.min(pg.got,pg.need)}/{pg.need}</span>}
                     </div>
                     <div style={{fontSize:12,color:ok?C.text:C.muted,lineHeight:1.5}}>
-                      {r.desc}{docxOnly&&!ok&&<span style={{display:"inline-block",marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:6,background:"#fef3c7",color:"#92400e",fontWeight:700}}>上传 docx 评分</span>}
+                      {r.desc}{submitted&&feedbackOpen&&!ok&&!docxOnly&&<div style={{color:"#92400e",marginTop:6}}>{wordTip(r,pg)}</div>}{docxOnly&&!ok&&<span style={{display:"inline-block",marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:6,background:"#fef3c7",color:"#92400e",fontWeight:700}}>上传 docx 评分</span>}
                     </div>
                   </div>
                 )
@@ -4098,14 +4157,14 @@ function SMain({session:init,studentName}){
             {/* Total */}
             <div style={{padding:"12px 14px",borderTop:`1px solid ${C.border}`,
               background:"#f8fafc",textAlign:"center"}}>
-              <div style={{fontSize:11,color:C.muted,marginBottom:4}}>当前得分</div>
+              <div style={{fontSize:11,color:C.muted,marginBottom:4}}>{correcting?"订正预估分":"当前得分"}</div>
               <div style={{fontSize:36,fontWeight:900,color:C.accent,fontFamily:FM,lineHeight:1}}>
-                {score}
+                {feedbackOpen?score:"···"}
               </div>
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)} 分</div>
             </div>
             {/* Upload file scoring */}
-            <div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
+            {!submitted&&<div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
               <UploadScorePanel
                 fileType="docx"
               submissionPhase={labPhase}
@@ -4115,7 +4174,7 @@ function SMain({session:init,studentName}){
                 taskId={activeTask?.id||null}
                 onScore={null}
               />
-            </div>
+            </div>}
           </div>
 
         </div>
@@ -4544,3 +4603,4 @@ function AppInner(){
 export default function App(){
   return <ErrorBoundary><AppInner/></ErrorBoundary>
 }
+
