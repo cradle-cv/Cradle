@@ -108,7 +108,71 @@ const _txt=e=>(e.textContent||"").replace(/\s+/g,"")
 const _has=(e,t)=>!t||_txt(e).includes(String(t).replace(/\s+/g,""))
 function _countTexts(els,texts){const arr=Array.isArray(texts)?texts:[];if(!arr.length)return els.length;return arr.filter(t=>els.some(e=>_has(e,t))).length}
 function _isBoldEl(e){const fw=e.style&&e.style.fontWeight;return e.nodeName==="B"||e.nodeName==="STRONG"||fw==="bold"||fw==="700"||fw==="800"||fw==="900"}
+function preciseWordRule(el,r){
+  const p=r.precise, norm=v=>String(v??"").normalize("NFKC").replace(/\s+/g,"").replace(/[–—－]/g,"-"), missing=[]
+  let n=0,m=0,ratio=null
+  function check(ok,msg){m++;if(ok)n++;else missing.push(msg)}
+  if(p.blocks){
+    const blocks=Array.from(el.querySelectorAll("p,div,h1,h2,h3,h4,h5,h6"))
+    for(const text of p.blocks)check(blocks.some(b=>{
+      if(norm(b.textContent)!==norm(text)||b.querySelector("p,div,h1,h2,h3,h4,h5,h6"))return false
+      if(p.style==="h1")return b.tagName==="H1"
+      if(p.style==="center")return getComputedStyle(b).textAlign==="center"||b.style.textAlign==="center"||b.getAttribute("align")==="center"
+      if(p.style==="indent")return parseFloat(b.style.textIndent)>0
+      if(p.style==="line")return b.style.lineHeight==="1.5"||b.style.lineHeight==="150%"
+      if(p.style==="after")return b.style.marginBottom==="12px"||b.style.marginBottom==="9pt"
+      return false
+    }),"请检查「"+text.slice(0,16)+"」所在段落："+r.desc+"。")
+  }else if(p.phrases){
+    const blocks=[...el.querySelectorAll("p,div,h1,h2,li")].filter(b=>!b.querySelector("p,div,h1,h2,li"))
+    const runs=[]
+    for(const b of blocks){
+      const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);let node,run=""
+      while(node=w.nextNode()){
+        if(!norm(node.textContent))continue
+        const e=node.parentElement, weight=getComputedStyle(e).fontWeight
+        if(Number(weight)>=600||weight==="bold"){run+=node.textContent}
+        else{if(run)runs.push(norm(run));run=""}
+      }
+      if(run)runs.push(norm(run))
+    }
+    for(const phrase of p.phrases)check(runs.includes(norm(phrase)),"只选中「"+phrase+"」并加粗。")
+  }else if(p.sections){
+    const names=[...p.sections.map(a=>a[0]),...(p.stop||[])].map(norm)
+    let owner=null;const lists=new Map()
+    for(const b of el.querySelectorAll("p,div,h1,h2,h3,h4,ol,ul")){
+      if(b.closest("li,table"))continue
+      if(b.matches("ol,ul")){
+        if(owner&&(!p.ordered||b.tagName==="OL")){
+          const arr=lists.get(owner)||[];arr.push([...b.children].filter(e=>e.tagName==="LI").map(e=>norm(e.textContent).replace(/[。.]$/,"")));lists.set(owner,arr)
+        }
+      }else if(!b.querySelector("div,p,ol,ul,h1,h2,h3,h4")){
+        const t=norm(b.textContent);if(names.includes(t))owner=t;else if(b.matches("h1,h2,h3,h4"))owner=null
+      }
+    }
+    for(const [section,items] of p.sections){
+      let best=items.map(()=>false)
+      for(const list of lists.get(norm(section))||[]){const used=new Set(),hits=items.map((v,i)=>{
+        const q=norm(v).replace(/[。.]$/,""),j=list.findIndex((x,k)=>!used.has(k)&&(!p.ordered||i===k)&&(p.exact?x===q:x.includes(q)));if(j<0)return false;used.add(j);return true
+      });if(hits.filter(Boolean).length>best.filter(Boolean).length)best=hits}
+      items.forEach((v,i)=>check(best[i],"请检查「"+section+"」下"+(p.ordered?"第 "+(i+1)+" 项":"的独立列表项")+"：「"+v+"」。"))
+    }
+  }else if(p.pairs){
+    let best=null
+    for(const table of [...el.querySelectorAll("table")].filter(t=>!t.parentElement.closest("table"))){
+      const rows=[...table.rows].map(row=>[...row.cells].map(c=>norm(c.textContent)))
+      const shape=rows.length>=p.rows&&rows.filter(row=>row.length>=p.cols).length>=p.rows
+      const hits=p.pairs.map(([k,v])=>rows.some(row=>row.some((a,i)=>(a===norm(k)||(k==="电话"&&a==="联系电话"))&&row.some((b,j)=>j!==i&&(b===norm(v)||(v==="第一次外拍"&&b==="第一次外拍活动")||(v==="招新摊位"&&b==="校门口招新摊位"))))))
+      const val=(shape?0.2:0)+.8*hits.filter(Boolean).length/p.pairs.length
+      if(!best||val>best.val)best={shape,hits,val}
+    }
+    check(best?.shape,"请核对表格的行数和列数。");p.pairs.forEach(([k,v],i)=>check(best?.hits[i],"请将「"+k+"」与「"+v+"」分格填在同一行。"));ratio=best?.val||0
+  }
+  const pts=n===m?r.pts:Math.floor((ratio??(n/(m||1)))*r.pts+1e-8)
+  return {got:n,need:m,pts,max:r.pts,ok:m>0&&n===m,missing}
+}
 function detailedWordRule(el,r){
+  if(r.precise)return preciseWordRule(el,r)
   const norm=x=>String(x??"").normalize("NFKC").trim()
   const missing=[]
   if(r.type==="table"&&Array.isArray(r.expected_grid)){
@@ -4204,7 +4268,7 @@ function SMain({session:init,studentName}){
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)} 分</div>
             </div>
             {/* Upload file scoring */}
-            {!submitted&&!taskReqs.some(r=>r.expected_grid||r.expected_items)&&<div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
+            {!submitted&&!taskReqs.some(r=>r.expected_grid||r.expected_items||r.precise)&&<div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
               <UploadScorePanel
                 fileType="docx"
               submissionPhase={labPhase}
