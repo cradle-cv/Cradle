@@ -108,10 +108,47 @@ const _txt=e=>(e.textContent||"").replace(/\s+/g,"")
 const _has=(e,t)=>!t||_txt(e).includes(String(t).replace(/\s+/g,""))
 function _countTexts(els,texts){const arr=Array.isArray(texts)?texts:[];if(!arr.length)return els.length;return arr.filter(t=>els.some(e=>_has(e,t))).length}
 function _isBoldEl(e){const fw=e.style&&e.style.fontWeight;return e.nodeName==="B"||e.nodeName==="STRONG"||fw==="bold"||fw==="700"||fw==="800"||fw==="900"}
+function detailedWordRule(el,r){
+  const norm=x=>String(x??"").normalize("NFKC").trim()
+  const missing=[]
+  if(r.type==="table"&&Array.isArray(r.expected_grid)){
+    const grid=r.expected_grid,table=Array.from(el.querySelectorAll("table")).find(t=>!t.parentElement?.closest("table"))
+    const rows=Array.from(table?.rows||[],row=>Array.from(row.cells))
+    const shape=rows.length===grid.length&&rows.every((row,i)=>row.length===grid[i].length&&row.every(c=>c.rowSpan===1&&c.colSpan===1))
+    let pts=shape?6:0
+    if(!shape)missing.push("表格须为 4 行，每行 3 个独立单元格（6 分）。")
+    grid.forEach((row,i)=>row.forEach((expected,j)=>{
+      const cell=rows[i]?.[j],value=norm(cell?.textContent)
+      if(cell&&!cell.querySelector("table")&&cell.rowSpan===1&&cell.colSpan===1&&value===norm(expected))pts+=2
+      else missing.push("第 "+(i+1)+" 行第 "+(j+1)+" 列应为「"+expected+"」，当前"+(value?"为「"+value.slice(0,50)+"」":"为空")+"（2 分）。")
+    }))
+    return {got:pts,need:r.pts,pts,max:r.pts,ok:pts===r.pts,missing}
+  }
+  if(r.type==="list"&&Array.isArray(r.expected_items)){
+    const headingText=norm(r.section)
+    const selector="p,div,h1,h2,h3,h4,h5,h6,ul,ol"
+    let inside=false, best=[]
+    for(const node of el.querySelectorAll(selector)){
+      if(node.closest("table,li"))continue
+      if(node.matches("ul,ol")){
+        if(!inside||node.tagName!=="UL")continue
+        const items=Array.from(node.children).filter(n=>n.tagName==="LI"&&!n.querySelector("ul,ol")).map(n=>norm(n.textContent).replace(/[。.]$/,""))
+        const hits=r.expected_items.filter(x=>items.includes(norm(x).replace(/[。.]$/,"")))
+        if(hits.length>best.length)best=hits
+      }else if(norm(node.textContent)===headingText){inside=true}
+      else if(node.matches("h1,h2,h3,h4,h5,h6")){inside=false}
+    }
+    for(const item of r.expected_items)if(!best.includes(item))missing.push("请在「"+r.section+"」下方同一份无序列表中单列「"+item+"」（5 分）。")
+    const pts=best.length*5
+    return {got:pts,need:r.pts,pts,max:r.pts,ok:pts===r.pts,missing}
+  }
+  return null
+}
 function measureReqs(el,reqs){
   const out={}
   const styled=()=>Array.from(el.querySelectorAll("[style]"))
   for(const r of reqs){
+    const detail=detailedWordRule(el,r);if(detail){out[r.id]=detail;continue}
     let got=0,need=1,partial=true
     switch(r.type){
       case "h1":{const hs=Array.from(el.querySelectorAll("h1"));got=r.text?(hs.some(h=>_has(h,r.text))?1:0):(hs.length?1:0);partial=false;break}
@@ -3267,7 +3304,9 @@ function safeWordCopy(html){
   for(const e of [...t.content.querySelectorAll("*")]){
     if(!tags.has(e.tagName)){e.remove();continue}
     const css=props.map(k=>[k,e.style.getPropertyValue(k)]),a=e.getAttribute("align"),c=e.getAttribute("color")
+    const spans=e.matches("td,th")?[e.rowSpan,e.colSpan]:null
     for(const attr of [...e.attributes])e.removeAttribute(attr.name)
+    if(spans){e.rowSpan=spans[0];e.colSpan=spans[1]}
     for(const [k,v] of css)if(v&&!/url|var\(/i.test(v))e.style.setProperty(k,v)
     if(["center","left","right","justify"].includes(a))e.setAttribute("align",a)
     if(e.tagName==="FONT"&&c&&CSS.supports("color",c))e.setAttribute("color",c)
@@ -3275,6 +3314,7 @@ function safeWordCopy(html){
   return t.innerHTML
 }
 function wordTip(r,pg){
+  if(pg?.missing)return pg.missing.join(' ');
   const target=r.text||r.texts?.join("、")
   const tip={h1:"把光标放进主标题段，点 H1。只加粗或放大字号不会套用标题样式。",h2:"逐段选中小标题，点 H2。",bold:"逐处选中指定文字，再点 B 加粗。",align:"把光标放进要求的段落，点「居中」。用空格移动文字不会改变对齐方式。",table:"插入表格后，核对行数和列数。",list:"选中各个条目，使用题目要求的有序或无序列表按钮。",color_h2:"先套用 H2，再设置标题颜色。",indent_first:"选中正文段落，点「首行缩进」。",indent_block:"选中整段，点「增加缩进」。",line_height:"选中相应段落，设置题目要求的行距。",space_before:"选中相应段落，设置段前间距。",space_after:"选中相应段落，设置段后间距。"}[r.type]||"对照任务要求，检查所选文字和格式。"
   return (pg?.need>1?"已达到 "+Math.min(pg.got,pg.need)+"/"+pg.need+" 项。":"")+(target?"检查「"+target+"」。":"")+tip
@@ -4142,10 +4182,10 @@ function SMain({session:init,studentName}){
                       </span>
                       <span style={{fontSize:20,fontWeight:900,fontFamily:FM,
                         color:ok?C.accent:part?"#d97706":"#d1d5db"}}>
-                        {ok?r.pts:part?`${pg.pts}/${r.pts}`:r.pts}
+                        {pg?.missing?`${pg.pts}/${r.pts}`:ok?r.pts:part?`${pg.pts}/${r.pts}`:r.pts}
                       </span>
                       <span style={{fontSize:10,color:ok?C.accent:"#9ca3af",fontWeight:700}}>分</span>
-                      {pg&&pg.need>1&&!ok&&<span style={{fontSize:10,color:part?"#d97706":"#9ca3af",marginLeft:"auto",fontFamily:FM}}>{Math.min(pg.got,pg.need)}/{pg.need}</span>}
+                      {pg&&!pg.missing&&pg.need>1&&!ok&&<span style={{fontSize:10,color:part?"#d97706":"#9ca3af",marginLeft:"auto",fontFamily:FM}}>{Math.min(pg.got,pg.need)}/{pg.need}</span>}
                     </div>
                     <div style={{fontSize:12,color:ok?C.text:C.muted,lineHeight:1.5}}>
                       {r.desc}{submitted&&feedbackOpen&&!ok&&!docxOnly&&<div style={{color:"#92400e",marginTop:6}}>{wordTip(r,pg)}</div>}{docxOnly&&!ok&&<span style={{display:"inline-block",marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:6,background:"#fef3c7",color:"#92400e",fontWeight:700}}>上传 docx 评分</span>}
@@ -4164,7 +4204,7 @@ function SMain({session:init,studentName}){
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>/ {((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0)} 分</div>
             </div>
             {/* Upload file scoring */}
-            {!submitted&&<div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
+            {!submitted&&!taskReqs.some(r=>r.expected_grid||r.expected_items)&&<div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
               <UploadScorePanel
                 fileType="docx"
               submissionPhase={labPhase}
