@@ -795,6 +795,9 @@ function FinalRankScreen({studentRank,groupRank,groups,sess}){
   )
 }
 
+const wordPhase=session=>session.layout_round?"lab:"+session.layout_round:"lab"
+const isWordPhase=phase=>phase==="lab"||String(phase).startsWith("lab:")
+
 function TDash({session:init,onBack}){
   const [sess,setSess]=useState(init)
   const [groups,setGroups]=useState([])
@@ -807,6 +810,30 @@ function TDash({session:init,onBack}){
   const [qTimer,setQTimer]=useState(0)
   const timerRef=useRef(null)
   const [bonusStep,setBonusStep]=useState(5)
+  const [wordTasks,setWordTasks]=useState([])
+  const [nextWord,setNextWord]=useState("")
+  const [wordBusy,setWordBusy]=useState(false)
+  const [wordError,setWordError]=useState("")
+  const wordLock=useRef(false)
+  useEffect(()=>{
+    sb.from("lulu_layout_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
+      .then(({data,error})=>{if(error)setWordError("无法读取 Word 题库，请刷新重试。");else setWordTasks(data||[])})
+  },[])
+  async function pushWord(){
+    if(wordLock.current||!nextWord) return
+    const task=wordTasks.find(t=>t.id===nextWord)
+    if(!task||!window.confirm("推送后所有学生会切换到新题。请先确认本题已收齐答卷，继续吗？")) return
+    wordLock.current=true;setWordBusy(true);setWordError("")
+    try {
+      const {data,error}=await sb.from("word_lab_sessions").update({
+        layout_task_id:task.id,layout_round:(sess.layout_round||0)+1,
+        time_limit:task.time_limit||600,phase:"lab"
+      }).eq("id",sess.id).eq("layout_round",sess.layout_round||0).select().single()
+      if(error||!data) throw error||new Error("Word task not pushed")
+      setSess(data);setNextWord("")
+    } catch {setWordError("未能推送，可能其他教师已换题。请刷新确认后重试。")}
+    finally {wordLock.current=false;setWordBusy(false)}
+  }
   useEffect(()=>{
     sb.from("lulu_groups").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setGroups(data))
     sb.from("word_lab_questions").select().eq("session_id",init.id).order("seq").then(({data})=>data&&setQuestions(data))
@@ -1129,12 +1156,27 @@ function TDash({session:init,onBack}){
           </div>
         )}
         {sess.phase==="lab"&&(
+          <div>
+            <Card style={{marginBottom:16}}>
+              <strong>继续推送下一道 Word 排版题</strong>
+              <p style={{fontSize:13,color:C.muted}}>学生留在原房间。新题重新计时、单独记录分数，之前已保存的答卷和分数保留。</p>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                <select aria-label="下一道 Word 排版题" value={nextWord} disabled={wordBusy}
+                  onChange={e=>setNextWord(e.target.value)} style={inp({width:360,maxWidth:"100%"})}>
+                  <option value="">从 Word 排版题库选择</option>
+                  {wordTasks.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+                <Btn small disabled={!nextWord||wordBusy} onClick={pushWord}>{wordBusy?"推送中…":"推送这道 Word 题"}</Btn>
+                <span style={{fontSize:12,color:C.muted}}>第 {(sess.layout_round||0)+1} 轮 · {wordTasks.find(t=>t.id===sess.layout_task_id)?.title||"当前排版题"}</span>
+              </div>
+              {wordError&&<p role="alert" style={{fontSize:13,color:C.red}}>{wordError}</p>}
+            </Card>
           <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:20}}>
             <div>
               {groups.map(g=>{
                 const members=checkins.filter(c=>c.group_id===g.id)
                 const avgScore=members.length?Math.round(members.reduce((s,m)=>{
-                  const sub=submissions.find(x=>x.student_name===m.student_name&&x.phase==="lab")
+                  const sub=submissions.find(x=>x.student_name===m.student_name&&x.phase===wordPhase(sess))
                   return s+(sub?.score||0)},0)/members.length):0
                 return(
                   <Card key={g.id} style={{marginBottom:14,borderLeft:`3px solid ${g.color}`}}>
@@ -1144,7 +1186,7 @@ function TDash({session:init,onBack}){
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
                       {members.map(m=>{
-                        const sub=submissions.find(x=>x.student_name===m.student_name&&x.phase==="lab")
+                        const sub=submissions.find(x=>x.student_name===m.student_name&&x.phase===wordPhase(sess))
                         const pct=sub?Math.round(sub.score/100*100):0
                         return(
                           <div key={m.student_name} style={{padding:"8px 12px",borderRadius:8,background:"rgba(0,0,0,.02)"}}>
@@ -1165,6 +1207,7 @@ function TDash({session:init,onBack}){
               })}
             </div>
             <GroupRankPanel groupRank={groupRank} label="小组综合平均分"/>
+          </div>
           </div>
         )}
         {sess.phase==="excel"&&(
@@ -2778,7 +2821,7 @@ function ExcelTaskLibrary({onSelect,selectedId}){
 // ══════════════════════════════════════════════════════════════
 // UPLOAD SCORE PANEL (file-based scoring via Edge Function)
 // ══════════════════════════════════════════════════════════════
-function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentName, taskId}){
+function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentName, taskId, submissionPhase}){
   const [loading,setLoading]=useState(false)
   const [result,setResult]=useState(null)
   const [error,setError]=useState(null)
@@ -2812,20 +2855,20 @@ function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentNa
         await sb.from("lulu_file_submissions").insert({
           session_id:sessionId, student_name:studentName||"匿名",
           task_id:taskId, file_name:file.name,
-          file_base64:b64, file_type:fileType,
+          file_base64:b64, file_type:fileType, submission_phase:submissionPhase||null,
           storage_url:storageUrl2||null,
           auto_score:data.total, auto_max:data.max,
           auto_detail:data.details||[]
         })
         // Create placeholder so teacher confirm fires UPDATE (not INSERT)
         // docx→lab phase, xlsx→excel phase
-        const uploadPhase=(fileType==='docx')?'lab':'excel'
+        const uploadPhase=submissionPhase||((fileType==='docx')?'lab':'excel')
         await sb.from("word_lab_submissions").upsert({
           session_id:sessionId, student_name:studentName||"匿名",
           score:data.total, max_score:data.max||0,
           submitted:true, phase:uploadPhase,
           completed_tasks:(data.details||[]).filter(d=>d.ok).map(d=>d.id)
-        },{onConflict:'session_id,student_name,phase',ignoreDuplicates:true})
+        },{onConflict:'session_id,student_name,phase',ignoreDuplicates:false})
       }
     }catch(err){
       setError(err.message)
@@ -3004,7 +3047,7 @@ function FileReviewPanel({sessionId}){
   useEffect(()=>{
     if(!sessionId){setLoading(false);return}
     sb.from("lulu_file_submissions")
-      .select("id,session_id,student_name,file_name,file_type,file_base64,storage_url,screenshot_base64,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at")
+      .select("id,session_id,student_name,file_name,file_type,file_base64,storage_url,screenshot_base64,auto_score,auto_max,auto_detail,teacher_score,teacher_note,created_at,submission_phase")
       .eq("session_id",sessionId)
       .order("created_at",{ascending:false})
       .then(({data})=>{if(data)setSubs(data);setLoading(false)})
@@ -3023,7 +3066,7 @@ function FileReviewPanel({sessionId}){
     const sid=sub?.session_id
     const sname=sub?.student_name
     // docx=文字排版(lab), xlsx=表格制作(excel)
-    const subPhase=(sub?.file_type==='docx'||sub?.file_name?.toLowerCase().endsWith('.docx'))?'lab':'excel'
+    const subPhase=sub?.submission_phase||((sub?.file_type==='docx'||sub?.file_name?.toLowerCase().endsWith('.docx'))?'lab':'excel')
     if(sid&&sname){
       await sb.from("word_lab_submissions").upsert({
         session_id:sid, student_name:sname,
@@ -3234,12 +3277,16 @@ function SMain({session:init,studentName}){
   const [tRows,setTRows]=useState(3)
   const [tCols,setTCols]=useState(2)
   const [flash,setFlash]=useState(null)
-  const layoutKey=sess.layout_task_id||"builtin"
+  const layoutTaskKey=sess.layout_task_id||"builtin"
+  const layoutKey=layoutTaskKey+":"+(sess.layout_round||0)
+  const labPhase=wordPhase(sess)
+  const activeLayoutRef=useRef(layoutKey)
+  activeLayoutRef.current=layoutKey
   const [layoutLoad,setLayoutLoad]=useState(null)
   const [layoutRetry,setLayoutRetry]=useState(0)
-  const activeTask=layoutLoad?.key===layoutKey?layoutLoad.task:null
-  const taskLoaded=layoutKey==="builtin"||(layoutLoad?.key===layoutKey&&!!activeTask)
-  const layoutError=layoutLoad?.key===layoutKey&&layoutLoad.error
+  const activeTask=layoutLoad?.key===layoutTaskKey?layoutLoad.task:null
+  const taskLoaded=layoutTaskKey==="builtin"||(layoutLoad?.key===layoutTaskKey&&!!activeTask)
+  const layoutError=layoutLoad?.key===layoutTaskKey&&layoutLoad.error
   const [initializedLayout,setInitializedLayout]=useState(null)
   const labInitialized=initializedLayout===layoutKey
   const layoutDrafts=useRef(new Map())
@@ -3254,7 +3301,7 @@ function SMain({session:init,studentName}){
     sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
       .then(({data})=>{
         if(data&&data.length>0){
-          const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+          const lab=data.filter(r=>isWordPhase(r.phase)).reduce((s,r)=>s+(r.score||0),0)
           const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
           setLabScore(lab); setExcelScore(excel); setFinalScore(lab+excel)
         }
@@ -3285,7 +3332,7 @@ function SMain({session:init,studentName}){
     if(sess.phase!=="finished") return
     function applyScores(data){
       if(!data||!data.length) return
-      const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+      const lab=data.filter(r=>isWordPhase(r.phase)).reduce((s,r)=>s+(r.score||0),0)
       const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
       setLabScore(lab); setExcelScore(excel); setFinalScore(lab+excel)
     }
@@ -3316,16 +3363,6 @@ function SMain({session:init,studentName}){
               sb.from("word_lab_sessions").select("excel_task_id").eq("id",init.id).single()
                 .then(({data})=>{ if(data?.excel_task_id) init.excel_task_id=data.excel_task_id })
             }
-            if(s.phase==="lab"){
-              await sb.from("word_lab_submissions").upsert(
-                {session_id:s.id,student_name:studentName,score:0,max_score:((activeTask?.requirements)||TASK.reqs).reduce((s,r)=>s+r.pts,0),completed_tasks:[],phase:'lab'},
-                {onConflict:"session_id,student_name,phase",ignoreDuplicates:true}
-              )
-              const {data:sub}=await sb.from("word_lab_submissions").select("id,submitted,score")
-                .eq("session_id",s.id).eq("student_name",studentName).eq("phase","lab").maybeSingle()
-              if(sub?.submitted){setFinalScore(sub.score);setSubmitted(true)}
-              if(sub) setSubId(sub.id)
-            }
           } catch(e){ console.error("session listener error",e) }
         })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"lulu_discussions",filter:`session_id=eq.${init.id}`},
@@ -3342,7 +3379,7 @@ function SMain({session:init,studentName}){
             sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
               .then(({data})=>{
                 if(data){
-                  const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+                  const lab=data.filter(r=>isWordPhase(r.phase)).reduce((s,r)=>s+(r.score||0),0)
                   const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
                   setLabScore(lab);setExcelScore(excel);setFinalScore(lab+excel)
                 }
@@ -3355,7 +3392,7 @@ function SMain({session:init,studentName}){
             sb.from("word_lab_submissions").select("score,phase").eq("session_id",init.id).eq("student_name",studentName)
               .then(({data})=>{
                 if(data){
-                  const lab=data.filter(r=>r.phase==="lab").reduce((s,r)=>s+(r.score||0),0)
+                  const lab=data.filter(r=>isWordPhase(r.phase)).reduce((s,r)=>s+(r.score||0),0)
                   const excel=data.filter(r=>r.phase==="excel").reduce((s,r)=>s+(r.score||0),0)
                   setLabScore(lab);setExcelScore(excel);setFinalScore(lab+excel)
                 }
@@ -3364,11 +3401,16 @@ function SMain({session:init,studentName}){
         })
       .subscribe()
     // Fallback poll every 6s in case realtime misses events
-    const pollRef=setInterval(()=>{
-      sb.from("word_lab_checkins").select().eq("session_id",init.id)
-        .then(({data})=>data&&setCheckins(data))
-    },6000)
-    return()=>{sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
+    let polling=false,alive=true
+    const pollRef=setInterval(async()=>{
+      if(polling) return
+      polling=true
+      try {
+        const {data}=await sb.from("word_lab_sessions").select().eq("id",init.id).single()
+        if(alive&&data) setSess(old=>JSON.stringify(old)===JSON.stringify(data)?old:data)
+      } finally {polling=false}
+    },3000)
+    return()=>{alive=false;sb.removeChannel(ch);clearInterval(timerRef.current);clearInterval(pollRef)}
   },[init.id])
 
   useEffect(()=>{
@@ -3393,6 +3435,30 @@ function SMain({session:init,studentName}){
   },[init.id,sess.phase,sess.current_question])
 
   useEffect(()=>{
+    let active=true
+    setSubId(null);setSubmitted(false);setSubmitError("")
+    setLabTime(sess.time_limit||600)
+    setDone(new Set());setProg({});setKeepInfo({keep:1,capped:false})
+    if(sess.phase!=="lab"||!taskLoaded) return
+    const key=layoutKey
+    async function loadSubmission(){
+      const {data,error}=await sb.from("word_lab_submissions").upsert({
+        session_id:init.id,student_name:studentName,phase:labPhase,score:0,
+        max_score:(activeTask?.requirements||TASK.reqs).reduce((sum,r)=>sum+r.pts,0),
+        completed_tasks:[]
+      },{onConflict:"session_id,student_name,phase",ignoreDuplicates:true})
+      if(error||!active) return
+      const result=await sb.from("word_lab_submissions").select("id,score,submitted,html_content")
+        .eq("session_id",init.id).eq("student_name",studentName).eq("phase",labPhase).single()
+      if(!active||activeLayoutRef.current!==key||!result.data) return
+      setSubId(result.data.id)
+      if(result.data.submitted){setSubmitted(true)}
+    }
+    loadSubmission()
+    return()=>{active=false}
+  },[sess.phase,layoutKey,taskLoaded])
+
+  useEffect(()=>{
     const editor=editorRef.current
     if(sess.phase!=="lab"||!taskLoaded||!editor){
       setInitializedLayout(null)
@@ -3407,15 +3473,15 @@ function SMain({session:init,studentName}){
   },[sess.phase,layoutKey,taskLoaded,activeTask])
 
   useEffect(()=>{
-    if(sess.phase!=="lab"||submitted) return
+    if(sess.phase!=="lab"||submitted||!taskLoaded||!labInitialized) return
     const t=setInterval(()=>setLabTime(v=>Math.max(0,v-1)),1000)
     return()=>clearInterval(t)
-  },[sess.phase,submitted])
+  },[sess.phase,layoutKey,submitted,taskLoaded,labInitialized])
 
   useEffect(()=>{submitRef.current=handleSubmit})
   useEffect(()=>{
     if(sess.phase==="lab"&&labTime===0&&!submitted&&labInitialized) submitRef.current?.()
-  },[sess.phase,labTime,submitted,labInitialized])
+  },[sess.phase,layoutKey,labTime,submitted,labInitialized])
 
   useEffect(()=>{
     if(sess.phase!=="lab"||!subId||submitted||!labInitialized||!editorRef.current) return
@@ -3492,7 +3558,7 @@ function SMain({session:init,studentName}){
   }
 
   async function save(){
-    if(!subId||!editorRef.current||!labInitialized) return
+    if(!subId||!editorRef.current||!labInitialized||activeLayoutRef.current!==layoutKey) return
     const taskReqs=(activeTask?.requirements)||TASK.reqs
     const score=calcScore(taskReqs)
     await sb.from("word_lab_submissions").update({
@@ -3504,20 +3570,20 @@ function SMain({session:init,studentName}){
 
   async function handleSubmit(){
     const editor=editorRef.current
-    if(submitted||submitting.current||!labInitialized||!editor) return
+    if(submitted||submitting.current||!labInitialized||!editor||activeLayoutRef.current!==layoutKey) return
     submitting.current=true
     setSubmitError("")
     try {
       const reqs=activeTask?.requirements||TASK.reqs
       const {score,measure}=scoreReqs(editor,reqs,activeTask?.raw_html||TASK.rawHtml)
       const {data,error}=await sb.from("word_lab_submissions").upsert({
-        session_id:init.id,student_name:studentName,phase:"lab",submitted:true,score,
+        session_id:init.id,student_name:studentName,phase:labPhase,submitted:true,score,
         max_score:reqs.reduce((sum,r)=>sum+r.pts,0),
         completed_tasks:reqs.filter(r=>measure[r.id]?.ok).map(r=>r.id),
         html_content:editor.innerHTML,last_active:new Date().toISOString()
       },{onConflict:"session_id,student_name,phase"}).select("score").single()
       if(error||!data) throw error||new Error("Submission was not saved")
-      setFinalScore(data.score);setSubmitted(true)
+      if(activeLayoutRef.current===layoutKey){setFinalScore(data.score);setSubmitted(true)}
     } catch(error) {
       console.error("Layout submission failed",error)
       setSubmitError("答卷未提交，请重试")
@@ -3761,6 +3827,7 @@ function SMain({session:init,studentName}){
             <div style={{fontSize:12,color:C.muted,marginBottom:16}}>在本机 Word 完成排版后，另存为 .docx 格式上传，由老师查阅评分</div>
             <UploadScorePanel
               fileType="docx"
+              submissionPhase={labPhase}
               scoringRules={[]}
               sessionId={init.id}
               studentName={studentName}
@@ -4041,6 +4108,7 @@ function SMain({session:init,studentName}){
             <div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`}}>
               <UploadScorePanel
                 fileType="docx"
+              submissionPhase={labPhase}
                 scoringRules={(activeTask?.requirements)||TASK.reqs}
                 sessionId={init.id}
                 studentName={studentName}
