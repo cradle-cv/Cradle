@@ -1,5 +1,6 @@
 'use client'
 
+import {DOCX_ONLY,smart} from '@/lib/lulu-word-mode'
 import React, { useState, useEffect, useRef, createContext, useContext, Component } from "react"
 import { createClient } from "@supabase/supabase-js"
 
@@ -27,31 +28,7 @@ class ErrorBoundary extends Component {
 const SB_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdobnJ4bm9xcXRldXh4dHFsemZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTY2NjIsImV4cCI6MjA4NTQzMjY2Mn0.dGQJ33N4LISXbHfMwBSmlEXRlmCflpFP3zfziMOPGk4"
 const sb = createClient(SB_URL, SB_KEY)
-const SCORE_OFFICE_URL = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/functions/v1/score-office"
-const STORAGE_BASE = "https://ghnrxnoqqteuxxtqlzfv.supabase.co/storage/v1/object/public/lulu-submissions"
-
-function uploadFileToStorage(b64, fileName){
-  return new Promise(async(resolve)=>{
-    try{
-      const raw = b64.replace(/^data:[^;]+;base64,/, '')
-      const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
-      const ext = (fileName.split('.').pop()||'xlsx').toLowerCase()
-      const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        : 'application/octet-stream'
-      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60)
-      const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`
-      const blob = new Blob([bytes], {type: mime})
-      const {data, error} = await sb.storage.from('lulu-submissions').upload(path, blob, {contentType: mime, upsert: false})
-      if(error){console.error('Storage upload error:', error.message, JSON.stringify(error)); resolve(null); return}
-      console.log('Storage upload success:', path)
-      resolve(`${STORAGE_BASE}/${path}`)
-    } catch(e) {
-      console.error('Storage upload exception:', e.message)
-      resolve(null)
-    }
-  })
-}
+const SCORE_OFFICE_URL = "/api/lulu-score"
 
 function exParseAddr(raw){
   if(!raw||typeof raw!=='string')return null
@@ -236,7 +213,7 @@ function measureReqs(el,reqs){
   return out
 }
 // 仅能通过上传 docx 检验的规则类型（浏览器编辑器不支持）
-const DOCX_ONLY=new Set(["font","shading","border","indent","emphasis","para_merge","columns","drop_cap","header","footer_page","footnote","margin","doc_grid","table_center","table_border","table_width","row_height","cell_align","cell_values","row_style"])
+
 function linkify(text){
   const parts=String(text||"").split(/(https?:\/\/[^\s，。；）)]+)/g)
   return parts.map((t,i)=>/^https?:\/\//.test(t)?<a key={i} href={t} target="_blank" rel="noreferrer" style={{color:"#1d4ed8",fontWeight:700,textDecoration:"underline"}}>{/\.docx$/i.test(t)?"⬇ 下载素材文档（.docx）":t}</a>:t)
@@ -581,8 +558,8 @@ function TSetup({onCreate}){
   const [excelTasks,setExcelTasks]=useState([])
   const [excelTaskId,setExcelTaskId]=useState(null)
   useEffect(()=>{
-    sb.from("lulu_layout_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
-      .then(({data})=>{if(data){setLayoutTasks(data);if(data[0]){setLayoutTaskId(data[0].id);setTimeLab(data[0].time_limit)}}})
+    sb.from("lulu_layout_tasks").select("id,title,time_limit,requirements").order("created_at",{ascending:false})
+      .then(({data})=>{if(data){const regular=data.filter(t=>!smart(t));setLayoutTasks(regular);if(regular[0]){setLayoutTaskId(regular[0].id);setTimeLab(regular[0].time_limit)}}})
     sb.from("lulu_excel_tasks").select("id,title,time_limit").order("created_at",{ascending:false})
       .then(({data})=>{if(data){setExcelTasks(data);if(data[0])setExcelTaskId(data[0].id)}})
   },[])
@@ -636,7 +613,7 @@ function TSetup({onCreate}){
             </div>
           </div>
           <div style={{marginTop:14}}>
-            <div style={{fontSize:12,color:C.muted,marginBottom:8}}>选择排版题目</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:8}}>选择常规 Word 排版题 · 课堂推送</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {layoutTasks.map(t=>(
                 <button key={t.id} onClick={()=>{setLayoutTaskId(t.id);setTimeLab(t.time_limit)}} style={{
@@ -918,7 +895,7 @@ function TDash({session:init,onBack}){
   const wordLock=useRef(false)
   useEffect(()=>{
     sb.from("lulu_layout_tasks").select("id,title,time_limit,requirements").order("created_at",{ascending:false})
-      .then(({data,error})=>{if(error)setWordError("无法读取 Word 题库，请刷新重试。");else setWordTasks(data||[])})
+      .then(({data,error})=>{if(error)setWordError("无法读取 Word 题库，请刷新重试。");else setWordTasks((data||[]).filter(t=>!smart(t)))})
   },[])
   async function pushWord(){
     if(wordLock.current||!nextWord) return
@@ -1474,14 +1451,14 @@ function QuizResultScreen({sessionId,groups,isTeacher,onNext,onLab}){
 }
 function LayoutTaskLibrary({onEdit,onSelect,selectedId}){
   const [tasks,setTasks]=useState([]);const [loading,setLoading]=useState(true)
-  const load=async()=>{setLoading(true);const {data}=await sb.from("lulu_layout_tasks").select().order("created_at",{ascending:false});if(data)setTasks(data);setLoading(false)}
+  const load=async()=>{setLoading(true);const {data}=await sb.from("lulu_layout_tasks").select().order("created_at",{ascending:false});if(data)setTasks(data.filter(t=>!smart(t)));setLoading(false)}
   useEffect(()=>{load()},[])
   async function del(id,e){e.stopPropagation();if(!confirm("确定删除这道题？"))return;await sb.from("lulu_layout_tasks").delete().eq("id",id);setTasks(p=>p.filter(t=>t.id!==id))}
   if(loading)return <div style={{padding:40,textAlign:"center",color:C.muted}}>加载中…</div>
   return(
     <div style={{padding:24}}>
       <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
-        <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700}}>排版题库</div><div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道题目</div></div>
+        <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700}}>Word 排版题库 · 课堂推送</div><div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道题目</div></div>
         <Btn small onClick={()=>onEdit(null)} color={C.accent}>＋ 新建排版题</Btn>
       </div>
       {!tasks.length&&<Card style={{textAlign:"center",padding:48,color:C.muted}}>暂无题目，点「新建排版题」创建第一道</Card>}
@@ -2346,7 +2323,7 @@ function ExcelSheet({task:taskProp,excelTaskId,studentName,sessionId,onSubmit,on
                 alert(`文件评分：${data.total}/${data.max} 分\n${scoreLines}\n\n文件评分已自动提交，无需再点「提交」按钮`)
                 // Save to DB so teacher can review
                 if(sessionId){
-                  const storageUrl = await uploadFileToStorage(b64, file.name)
+                  const storageUrl = null
                   await sb.from("lulu_file_submissions").insert({
                     session_id:sessionId, student_name:studentName,
                     task_id:excelTaskId||null, file_name:file.name,
@@ -2969,7 +2946,7 @@ function UploadScorePanel({fileType, scoringRules, onScore, sessionId, studentNa
       if(onScore) onScore(data)
       // Save to DB if sessionId and taskId provided
       if(sessionId&&taskId){
-        const storageUrl2 = await uploadFileToStorage(b64, file.name)
+        const storageUrl2 = null
         await sb.from("lulu_file_submissions").insert({
           session_id:sessionId, student_name:studentName||"匿名",
           task_id:taskId, file_name:file.name,
@@ -3059,9 +3036,7 @@ function InlineFileViewer({sub}){
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState(null)
 
-  const officeViewerUrl = sub.storage_url
-    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(sub.storage_url)}&wdAllowInteractivity=False&wdDownloadButton=False`
-    : null
+  const officeViewerUrl = null
 
   function renderFile(){
     if(html)return
@@ -4461,8 +4436,8 @@ function TBackend(){
         <div style={{flex:1}}/>
         <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
-          {tabBtn("tasks","排版题库",C.gold)}
-          <a href="/aistudy/studio?work=1" style={{padding:8}}>真实文档作业</a>
+          {tabBtn("tasks","Word 排版题库",C.gold)}
+          <a href="/aistudy/studio?work=1" style={{padding:8}}>智能评分题库</a>
           {tabBtn("quizBank","抢答题库",C.blue)}
           {tabBtn("discussionBank","讨论题库",C.purple)}
           {tabBtn("excel","表格题库","#d97706")}

@@ -1,0 +1,1 @@
+import {scoreLocal} from '@/lib/lulu-local-score';export async function POST(req){try{const {fileBase64,fileType,scoringRules}=await req.json();return Response.json(await scoreLocal(fileBase64,fileType,scoringRules))}catch(e){return Response.json({error:e.message},{status:400})}}
