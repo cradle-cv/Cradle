@@ -4462,6 +4462,7 @@ function TBackend(){
         <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
           {tabBtn("tasks","排版题库",C.gold)}
+          <a href="/aistudy/studio?work=1" style={{padding:8}}>真实文档作业</a>
           {tabBtn("quizBank","抢答题库",C.blue)}
           {tabBtn("discussionBank","讨论题库",C.purple)}
           {tabBtn("excel","表格题库","#d97706")}

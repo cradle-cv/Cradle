@@ -747,7 +747,7 @@ export default function XiaoXinHome() {
         <div className="xx-bar-in">
           <a className="xx-logo" href="/aistudy"><b>AISTUDY</b> · 小信</a>
           <nav className="xx-nav">
-            <a href={COURSE}>课件</a>
+            <a href={COURSE}>课件</a><a href="/aistudy/studio">教学工作台</a>
             <a href="#points">小信有礼</a>
             <a href="#map">知识图谱</a>
             <a href="#tools">课堂工具</a>
