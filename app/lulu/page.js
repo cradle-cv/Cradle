@@ -1,5 +1,6 @@
 'use client'
 
+import OfficeBank from './OfficeBank'
 import {DOCX_ONLY,smart} from '@/lib/lulu-word-mode'
 import React, { useState, useEffect, useRef, createContext, useContext, Component } from "react"
 import { createClient } from "@supabase/supabase-js"
@@ -4413,7 +4414,7 @@ function TeacherBanks({token,onExpired,children}){
  
 // ── TEACHER BACKEND (tabbed: new / history / settings) ────────
 function TBackend(){
-  const [tab,setTab]=useState("new")
+  const [tab,setTab]=useState(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("bank")==="office"?"office":"new")
   const [sess,setSess]=useState(null)
   const [inDash,setInDash]=useState(false)
   const [editingTask,setEditingTask]=useState(null)
@@ -4427,7 +4428,7 @@ function TBackend(){
   }
 
   const tabBtn=(t,label,col=C.accent)=>(
-    <button onClick={()=>t==="office"?window.location.assign("/aistudy/studio?work=1"):setTab(t)} style={{whiteSpace:"nowrap",padding:"9px 14px",borderRadius:8,border:"none",
+    <button onClick={()=>setTab(t)} style={{whiteSpace:"nowrap",padding:"9px 14px",borderRadius:8,border:"none",
       cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
       background:tab===t?col:"transparent",color:tab===t?"#ffffff":C.muted}}>
       {label}
@@ -4454,6 +4455,7 @@ function TBackend(){
         </div>
       </div>
       {tab==="new"&&<TSetup onCreate={s=>{setSess(s);setInDash(true)}}/>}
+      {tab==="office"&&<OfficeBank/>}
       {tab==="tasks"&&<LayoutTaskLibrary onEdit={t=>setEditingTask(t||"new")} selectedId={null}/>}
       {tab==="quizBank"&&<QuizBank/>}
       {tab==="discussionBank"&&<DiscussionBank/>}
