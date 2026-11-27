@@ -2873,7 +2873,7 @@ function ExcelTaskLibrary({onSelect,selectedId}){
     <div style={{padding:24}}>
       <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
         <div style={{flex:1}}>
-          <div style={{fontSize:16,fontWeight:700}}>表格题库</div>
+          <div style={{fontSize:16,fontWeight:700}}>Excel 表格题库</div>
           <div style={{fontSize:13,color:C.muted,marginTop:2}}>{tasks.length} 道 Excel 题目</div>
         </div>
         <Btn small onClick={()=>setEditing("new")} color={C.gold}>＋ 新建题目</Btn>
@@ -3318,7 +3318,7 @@ function SJoin({onJoin}){
       justifyContent:"center",fontFamily:F,padding:24}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <Card style={{width:"100%",maxWidth:340}}>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>加入录录课堂</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>加入彔彔课堂</div>
         <div style={{fontSize:13,color:C.muted,marginBottom:24}}>输入老师给的 5 位数字房间码，旧房间码也可使用。</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:7}}>房间码</div>
         <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} maxLength={5}
@@ -4354,6 +4354,13 @@ function TLogin({onSuccess,onBack}){
   </div>
 }
 
+function PptBank({token}){
+ const [rows,list]=useState([]),[draft,edit]=useState(null),[err,report]=useState(""),[busy,wait]=useState(false)
+ async function call(op,d={}){const {data,error}=await sb.rpc("lulu_ppt_bank",{p_token:token,p_op:op,...d});if(error)throw Error(error.message);return data}
+ useEffect(()=>{let live=true;call("list").then(v=>live&&list(v)).catch(e=>live&&report(e.message));return ()=>{live=false}},[token])
+ async function save(){wait(true);report("");try{await call("save",{p_id:draft.id||null,p_title:draft.title,p_brief:draft.brief});list(await call("list"));edit(null)}catch(e){report(e.message)}finally{wait(false)}}
+ return <div style={{padding:24,fontFamily:F}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><strong>PPT 演示文稿题库</strong><Btn small onClick={()=>edit({title:"",brief:""})}>＋ 新建题目</Btn></div>{err&&<p role="alert">{err}</p>}{draft&&<Card><label>题目名称<input style={inp()} maxLength={120} value={draft.title} onChange={e=>edit({...draft,title:e.target.value})}/></label><label>操作要求<textarea style={inp()} rows={5} maxLength={8000} value={draft.brief} onChange={e=>edit({...draft,brief:e.target.value})}/></label><Btn small disabled={busy||!draft.title.trim()||!draft.brief.trim()} onClick={save}>保存</Btn><Btn small disabled={busy} onClick={()=>edit(null)}>取消</Btn></Card>}{!rows.length&&!draft&&<p>暂无题目，点击「新建题目」添加第一道演示文稿练习。</p>}{rows.map(r=><Card key={r.id}><strong>{r.title}</strong><p style={{whiteSpace:"pre-wrap"}}>{r.brief}</p><Btn small onClick={()=>edit(r)}>编辑</Btn></Card>)}</div>
+}
 function TeacherBanks({token,onExpired,children}){
   const [rows,setRows]=useState(null)
   const [error,setError]=useState("")
@@ -4420,7 +4427,7 @@ function TBackend(){
   }
 
   const tabBtn=(t,label,col=C.accent)=>(
-    <button onClick={()=>setTab(t)} style={{padding:"9px 22px",borderRadius:8,border:"none",
+    <button onClick={()=>t==="office"?window.location.assign("/aistudy/studio?work=1"):setTab(t)} style={{whiteSpace:"nowrap",padding:"9px 14px",borderRadius:8,border:"none",
       cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:700,
       background:tab===t?col:"transparent",color:tab===t?"#ffffff":C.muted}}>
       {label}
@@ -4430,17 +4437,18 @@ function TBackend(){
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:F,color:C.text}}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-      <div style={{display:"flex",alignItems:"center",gap:16,padding:"14px 28px",
+      <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:12,padding:"14px 28px",
         background:C.panel,borderBottom:`1px solid ${C.border}`}}>
-        <div style={{fontSize:20,fontWeight:900}}>录录 <span style={{color:C.accent}}>教师后台</span></div>
+        <div style={{fontSize:20,fontWeight:900}}>彔彔 <span style={{color:C.accent}}>教师后台</span></div>
         <div style={{flex:1}}/>
-        <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4,background:"rgba(0,0,0,.04)",padding:4,borderRadius:10,border:"1px solid #dde3ec"}}>
           {tabBtn("new","新建课堂",C.accent)}
-          {tabBtn("tasks","Word 排版题库",C.gold)}
-          <a href="/aistudy/studio?work=1" style={{padding:8}}>智能评分题库</a>
+          {tabBtn("office","Office 智能评分题库",C.accent)}
           {tabBtn("quizBank","抢答题库",C.blue)}
           {tabBtn("discussionBank","讨论题库",C.purple)}
-          {tabBtn("excel","表格题库","#d97706")}
+          {tabBtn("tasks","Word 排版题库",C.gold)}
+          {tabBtn("excel","Excel 表格题库","#d97706")}
+          {tabBtn("ppt","PPT 演示文稿题库",C.purple)}
           {tabBtn("history","历史课堂",C.blue)}
           {tabBtn("settings","设置",C.muted)}
         </div>
@@ -4450,6 +4458,7 @@ function TBackend(){
       {tab==="quizBank"&&<QuizBank/>}
       {tab==="discussionBank"&&<DiscussionBank/>}
       {tab==="excel"&&<ExcelTaskLibrary/>}
+      {tab==="ppt"&&<PptBank token={token}/>}
       {tab==="history"&&<THistory onResume={s=>{setSess(s);setInDash(true)}}/>}
       {tab==="settings"&&<TSettings/>}
     </div>

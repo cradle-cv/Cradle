@@ -3,7 +3,7 @@
 // 目标路径：app/aistudy/page.js
 // 小信 · 信息技术基础课程智能体主页（cradle.art/aistudy）
 // 形象：原创动画角色，有待机、倾听、思考、说话、开心、担心六种状态，眼睛跟着鼠标转
-// 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 录录 / 理理 / 病毒攻防 / 网络闯关 / 进制闯关）、按知识点推荐实验、语音朗读
+// 功能：聊天答疑（智谱 GLM）、错题陪练、课堂互动入口（纸条 / 迷宫 / 配配 / 彔彔 / 理理 / 病毒攻防 / 网络闯关 / 进制闯关）、按知识点推荐实验、语音朗读
 // 依赖：app/aistudy/kb.js（知识库）、app/aistudy/track.js（学生身份和使用记录）、app/aistudy/chat/route.js（对话接口）、app/zhitiao/qr.js（二维码）
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -747,7 +747,7 @@ export default function XiaoXinHome() {
         <div className="xx-bar-in">
           <a className="xx-logo" href="/aistudy"><b>AISTUDY</b> · 小信</a>
           <nav className="xx-nav">
-            <a href={COURSE}>课件</a><a href="/lulu">录入实操</a><a href="/aistudy/studio">教学工作台</a>
+            <a href={COURSE}>课件</a><a href="/lulu">彔彔实操</a><a href="/aistudy/studio">教学工作台</a>
             <a href="#points">小信有礼</a>
             <a href="#map">知识图谱</a>
             <a href="#tools">课堂工具</a>
@@ -866,7 +866,7 @@ export default function XiaoXinHome() {
           <span>{teacher ? '老师模式 · ' + tTitle(teacher) : me ? '已登记 · ' + me.name : '登录 / 登记'}</span>
         </summary>
         <div className="xx-login-panel">
-          <a href="/aistudy/admin"><b>教师帐号登录</b><small>小信教学看板，与录录共用登录</small></a>
+          <a href="/aistudy/admin"><b>教师帐号登录</b><small>小信教学看板，与彔彔共用登录</small></a>
           {teacher
             ? <button type="button" onClick={() => { outTeacher(); if (identityDockRef.current) identityDockRef.current.open = false }}>退出老师模式</button>
             : <button type="button" onClick={() => openIdentity('teacher')}><b>老师模式</b><small>使用工号和姓名</small></button>}

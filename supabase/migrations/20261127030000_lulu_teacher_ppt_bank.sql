@@ -1,0 +1,9 @@
+create table public.lulu_ppt_tasks(id uuid primary key default gen_random_uuid(),owner_name text not null,title text not null,brief text not null,created_at timestamptz default now());alter table public.lulu_ppt_tasks enable row level security;revoke all on public.lulu_ppt_tasks from public,anon,authenticated;
+create function public.lulu_ppt_bank(p_token text,p_op text,p_id uuid default null,p_title text default '',p_brief text default '') returns jsonb language plpgsql security definer set search_path='' as $$
+declare u text; v jsonb;
+begin select s.username into u from public.aistudy_admin_sessions s join public.aistudy_admins a using(username) where s.token=p_token and s.expires_at>now() and not a.demo;
+if u is null then raise exception '请重新登录小信教师账号';end if;
+if p_op='list' then select coalesce(jsonb_agg(jsonb_build_object('id',id,'title',title,'brief',brief) order by created_at desc),'[]') into v from public.lulu_ppt_tasks where owner_name=u;return v;
+elsif p_op='save' and length(trim(p_title)) between 1 and 120 and length(trim(p_brief)) between 1 and 8000 then
+if p_id is null then insert into public.lulu_ppt_tasks(owner_name,title,brief) values(u,trim(p_title),trim(p_brief));else update public.lulu_ppt_tasks set title=trim(p_title),brief=trim(p_brief) where owner_name=u and id=p_id;if not found then raise exception '题目不存在';end if;end if;return 'true'::jsonb;
+else raise exception '请填写题名和操作要求';end if;end $$;revoke all on function public.lulu_ppt_bank(text,text,uuid,text,text) from public;grant execute on function public.lulu_ppt_bank(text,text,uuid,text,text) to anon,authenticated;
